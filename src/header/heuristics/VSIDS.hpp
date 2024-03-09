@@ -2,16 +2,16 @@
 // Created by tim on 15.11.22.
 //
 
-#ifndef SCHEDCL_VSIDS_HPP
-#define SCHEDCL_VSIDS_HPP
-#include <vector>
-#include <optional>
+#ifndef TEMPO_VSIDS_HPP
+#define TEMPO_VSIDS_HPP
+//#include <vector>
+//#include <optional>
 #include "BaseHeuristic.hpp"
-#include "util/traits.hpp"
-#include "heuristics/impl/DecayingActivityMap.hpp"
+//#include "util/traits.hpp"
+#include "heuristics/impl/DecayingEventActivityMap.hpp"
 #include "util/SubscribableEvent.hpp"
 
-namespace schedcl::heuristics {
+namespace tempo::heuristics {
     /**
      * @brief VSIDS (Variable State Independent Decaying Sum) heuristic
      * @details @copybrief
@@ -21,8 +21,8 @@ namespace schedcl::heuristics {
      * the the number of calls to the function VSIDS::updateActivity
      * The final score of a literal is inversely proportional to its activity (@see getCost)
      */
-    template<typename Distance>
-    class VSIDS : public BaseHeuristic<VSIDS<Distance>> {
+    template<typename T>
+    class VSIDS : public BaseHeuristic<VSIDS<T>> {
     public:
 
         /**
@@ -31,9 +31,9 @@ namespace schedcl::heuristics {
          * @param scheduler
          * @param options command line options
          */
-        template<typename T, typename DistanceFun>
-        VSIDS(const Scheduler<T> &scheduler, const Options &options, DistanceFun &&distanceFun) :
-                activity(scheduler, options.vsids_decay), distance(std::forward<DistanceFun>(distanceFun)),
+        explicit VSIDS(Scheduler<T> &scheduler) :
+                sched(scheduler),
+                activity(scheduler, sched.getOptions().vsids_decay),
                 handlerToken(scheduler.ClauseAdded.subscribe_handled(
                         [this](const auto &arg) { this->activity.update(arg); })) {}
 
@@ -44,6 +44,8 @@ namespace schedcl::heuristics {
         VSIDS &operator=(VSIDS &&) = delete;
         ~VSIDS() = default;
 
+        constexpr void preEvaluation(const Scheduler<T> &) const noexcept {}
+
         /**
          * Cost for a choice point
          * @tparam T type of DistanceConstraint
@@ -51,20 +53,19 @@ namespace schedcl::heuristics {
          * @return maximum of the distance between from and to in both directions in the temporal network divided by
          * the choice points activity
          */
-        template<typename T>
-        double getCost(const DistanceConstraint<T> & choicePoint, std::size_t) const {
-            return std::max(distance(choicePoint.from, choicePoint.to), distance(choicePoint.to, choicePoint.from)) /
-                   activity.get(choicePoint);
+        double getCost(const var x) const {
+            auto prec_a{sched.getEdge(POS(x))};
+            auto prec_b{sched.getEdge(NEG(x))};
+            auto gap_a = sched.upper(prec_a.from) - sched.lower(prec_a.to);
+            auto gap_b = sched.upper(prec_b.from) - sched.lower(prec_b.to);
+            return static_cast<double>(std::max(gap_a, gap_b)) / activity.get(x);
         }
 
-        template<typename T>
-        constexpr void preEvaluation(const Scheduler<T> &) const noexcept {}
-
     private:
-        impl::DecayingActivityMap activity;
-        Distance distance;
-        SubscriberHandle handlerToken;
+        Scheduler<T>& sched;
+      impl::DecayingEventActivityMap<T> activity;
+      SubscriberHandle handlerToken;
     };
 }
 
-#endif //SCHEDCL_VSIDS_HPP
+#endif //TEMPO_VSIDS_HPP

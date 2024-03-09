@@ -7,7 +7,7 @@
 #include <variant>
 #include <optional>
 #include <exception>
-//#include "VSIDS.hpp"
+#include "VSIDS.hpp"
 #include "Tightest.hpp"
 #include "WeightedDegree.hpp"
 //#include "WeightedCriticalPath.hpp"
@@ -35,7 +35,7 @@ namespace tempo::heuristics {
        //       using Distance = const RestrictedDistanceMatrix<T> &;
        using Distance = const Scheduler<T> &;
         using Implementations = std::variant<Tightest<Distance>
-//        , VSIDST
+        , VSIDS<T>
         , WeightedDegree<T>
 //        , EpsilonGreedyVSIDS
         >;
@@ -53,10 +53,10 @@ namespace tempo::heuristics {
                   impl.emplace(std::in_place_type<Tightest<Distance>>,
                                scheduler);
                   break;
-//                case Options::ChoicePointHeuristics::VSIDS:
-//                  impl.emplace(std::in_place_type<WeightedDegree<Distance>>,
-//                               scheduler, options, scheduler);
-//                  break;
+                case Options::ChoicePointHeuristics::VSIDS:
+                  impl.emplace(std::in_place_type<VSIDS<T>>,
+                               scheduler);
+                  break;
                 case Options::ChoicePointHeuristics::WeightedDegree:
                   impl.emplace(std::in_place_type<WeightedDegree<T>>,
                                scheduler, false);

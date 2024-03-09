@@ -8,7 +8,7 @@
 #include "Options.hpp"
 #include "heuristics/impl/DecayingEventActivityMap.hpp"
 #include "util/SubscribableEvent.hpp"
-#include <array>
+//#include <array>
 
 namespace tempo::heuristics {
 /**

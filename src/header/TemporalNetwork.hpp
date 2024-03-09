@@ -129,20 +129,73 @@ template<typename T>
 void TemporalNetwork<T>::xplain(const lit l, const hint h, std::vector<lit> &Cl) {
     if(l == NoLit) {
 //                std::cout << "negative cycle: " << prettyEvent(h) ;
-        event x{h};
+        event x{EVENT(h)};
+        auto s{SIGN(h)};
+        
+//        do {
+//            
+//            if(elit[x] >= 0) {
+//                Cl.push_back(EDGE(sched.getEdgeLiteral(elit[x])));
+//            }
+//        
+//            x = path[x];
+//        
+//        } while (EVENT(h) != x);
+        
         do {
-            if(elit[x] >= 0) {
-                Cl.push_back(EDGE(sched.getEdgeLiteral(elit[x])));
-//                                std::cout << " <= " ;
-            }
-//                        else {
-//                            std::cout << " <- " ;
-//                        }
-            x = path[x];
-//            std::cout << prettyEvent(x) ;
             
-        } while (h != x);
-//                std::cout << std::endl;
+            auto p{bounds.reason[bounds.getIndex(LIT(x,s))].the_hint};
+            
+            if(LTYPE(p) == EDGE_LIT) {
+                auto el{sched.getEdgeLiteral(FROM_GEN(p))};
+                Cl.push_back(EDGE(el));
+                x = (s==LOWER ? x = sched.getEdge(el).to : x = sched.getEdge(el).from);
+            } else {
+                x = EVENT(bounds.getConstraint(FROM_GEN(p)).l);
+            }
+            
+        } while (EVENT(h) != x);
+            
+//            if(elit[x] >= 0) {
+//                
+//                assert(LTYPE(bounds.reason[bounds.getIndex(LIT(x,s))].the_hint) == EDGE_LIT);
+//                
+////                Cl.push_back(EDGE(sched.getEdgeLiteral(elit[x])));
+////                                std::cout << " <= " ;
+////                std::cout << elit[x] << " / " << FROM_GEN(bounds.reason[bounds.getIndex(LIT(x,s))].the_hint) << std::endl;
+//                assert(elit[x] == FROM_GEN(bounds.reason[bounds.getIndex(LIT(x,s))].the_hint));
+//                
+//                auto el{sched.getEdgeLiteral(FROM_GEN(bounds.reason[bounds.getIndex(LIT(x,s))].the_hint))};
+//                
+//                Cl.push_back(EDGE(el));
+//                
+//                if(s==LOWER) {
+//                    assert(sched.getEdge(el).to == path[x]);
+//                    x = sched.getEdge(el).to;
+//                } else {
+//                    assert(sched.getEdge(el).from == path[x]);
+//                    x = sched.getEdge(el).from;
+//                }
+//                
+//                
+//            } else {
+//                
+//                assert(LTYPE(bounds.reason[bounds.getIndex(LIT(x,s))].the_hint) == BOUND_LIT);
+//                
+////                bounds.getIndex(LIT(u,bt))
+//                assert(path[x] == EVENT(bounds.getConstraint(FROM_GEN(bounds.reason[bounds.getIndex(LIT(x,s))].the_hint)).l));
+//                
+//                x = EVENT(bounds.getConstraint(FROM_GEN(bounds.reason[bounds.getIndex(LIT(x,s))].the_hint)).l);
+//            }
+////                        else {
+////                            std::cout << " <- " ;
+////                        }
+////            x = path[x];
+////            x = EVENT(bounds.getConstraint(FROM_GEN(bounds.reason[bounds.getIndex(LIT(x,s))].the_hint)).l);
+////            std::cout << prettyEvent(x) ;
+//            
+//        } while (EVENT(h) != x);
+////                std::cout << std::endl;
     } else {
         
         
@@ -553,8 +606,8 @@ void TemporalNetwork<T>::update(const bool bt,
                     std::cout << " * shorter path " << (bt==LOWER ? "from " : "to ") << prettyEvent(v) << std::endl ;
 #endif
                     
-                    path[v] = u;
-                elit[v] = edge.stamp();
+//                    path[v] = u;
+//                elit[v] = edge.stamp();
                     
                     if (v == s) {
                         
@@ -578,7 +631,7 @@ void TemporalNetwork<T>::update(const bool bt,
 #endif
                         
                         
-                        throw Failure({this,s});//Constant::NoReason);
+                        throw Failure({this,LIT(s,bt)});//Constant::NoReason);
                     }
 #ifdef RECOVER
                     bounds.set(bt, v, shortest_path[u] + w, e);

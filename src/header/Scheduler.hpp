@@ -35,8 +35,7 @@ public:
 
   DistanceConstraint<T> operator~() const;
 
-  static const DistanceConstraint<T> none; //{-1,-1,-1};
-  // bool isNull() const { return from<0; }
+  static const DistanceConstraint<T> none;
 
   bool entails(const DistanceConstraint<T>& e) const;
   bool contradicts(const DistanceConstraint<T> &e) const;
@@ -45,7 +44,6 @@ public:
 };
 
 
-//template <typename T> class EdgeConstraint;
 
 template<typename T>
 class Scheduler : public Explainer, public ReversibleObject
@@ -53,26 +51,48 @@ class Scheduler : public Explainer, public ReversibleObject
     
 public:
     
+    /**
+     * @name constructors
+     */
+    ///@{
     Scheduler(Options opt);
-    
     ~Scheduler();
+    ///@}
     
+    
+    /**
+     * @name accessors
+     */
+    ///@{
+    /// Number of tasks created
+    size_t numTask() const;
+    /// Number of event
+    size_t numEvent() const;
+    /// Number of Boolean variables
+    size_t numVariable() const;
+    /// Number of learnt clauses
+    size_t numClause() const;
+    /// Number of constraints
+    size_t numConstraint() const;
+    /// Number of bound changes
+    size_t numBoundLiteral() const;
+    /// Number of Boolean changes
+    size_t numEdgeLiteral() const;
+    ///@}
+    
+    
+    /**
+     * @name modelling methods
+     */
+    ///@{
     void newTask(const T min_dur, const T max_dur);
     void newVariable(const DistanceConstraint<T>& if_true, const DistanceConstraint<T>& if_false);
     
     void newPrecedence(event x, event y, T delay);
     void newMaximumLag(event x, event y, T maxlag);
     
-    size_t numTask() const;
-    size_t numEvent() const;
-    size_t numVariable() const;
-    size_t numClause() const;
-    size_t numConstraint() const;
-    size_t numBoundLiteral() const;
-    size_t numEdgeLiteral() const;
+
     
-    lit endEdgeLit() const ;
-    lit endBoundLit() const ;
     
 
     bool value(const var x) const;
@@ -143,7 +163,7 @@ public:
     
     
     int decisionLevel(const genlit l) const;
-    void incrementActivity(const var x);
+//    void incrementActivity(const var x);
     
     void getCriticalPath(std::vector<genlit>& clause);
 
@@ -174,12 +194,11 @@ public:
      * @name subscribable events
      */
     ///@{
-//    mutable SubscribableEvent<const Clause&> ClauseAdded; ///< triggered when a new clause is learned
+    mutable SubscribableEvent<const std::vector<genlit>&> ClauseAdded; ///< triggered when a new clause is learned
     mutable SubscribableEvent<Explanation&> ConflictEncountered; ///< triggered when a conflict is encountered
 //    mutable SubscribableEvent<T, T, std::function<T(event, event)>, std::size_t> SolutionFound; ///< triggered when a solution is found
 //    mutable SubscribableEvent<std::function<T(event, event)>, std::size_t> SignificantSubstepFound; ///< triggered when an interesting partial solution has been found
     ///@}
-    ///
     
     
    
@@ -212,63 +231,28 @@ private:
     
     ClauseBase<T> clauses;
     
-    // DistanceConstraint<T> literals
     std::vector<DistanceConstraint<T>> edges;
     
-//public:
     std::map<std::pair<event,event>,lit> edge_map;
-    
-//private:
+
     std::vector<Constraint*> constraints;
-//     bipartite graph events/constraints
+
     DirectedGraph<int> evt_constraint_network;
-//     bipartite graph vars/constraints
     DirectedGraph<int> var_constraint_network;
     
-//    DirectedGraph<int> constraint_network;
     ConstraintQueue<3> propagation_queue;
-    // TODO: map to be able to dynamically add variables
-//    std::vector<size_t> evtNetworkId;
-//    std::vector<size_t> varNetworkId;
-//    std::vector<size_t> conNetworkId;
-//    std::vector<size_t> reverseId;
-//    std::vector<vertex_t> vertex_type;
-    
-//    SparseSet<event,Reversible<size_t>> branch;
-    
-//    /// CURRENT IMPLEM ///
-//    SparseSet<var> branch;
-//    std::vector<lit> propagation_stack;
-//    
-//    ReversibleVector<lit> decisions;
-//    
-//    Reversible<size_t> front_propag_pointer;
-//    Reversible<size_t> back_propag_pointer;
-    /// NEW IMPLEM
+
     SparseSet<var> search_vars;
     Reversible<size_t> edge_propag_pointer;
     std::vector<bool> polarity;
     
     std::vector<bool> best_solution;
     
-    
-    
     Reversible<size_t> bound_propag_pointer;
     std::vector<Explanation> reason;
-    
-//    // clauses, watch struct
-//    std::vector<std::vector<Clause*>> watch;
-//    std::vector<Clause *> base;
-//    std::vector<Clause *> learnt;
+ 
     std::vector<int> var_level;
-    std::vector<double> activity;
-//
-//    
-//    //    void unit_propagate(const var l);
-//    void set_watcher(const int r, const index_t i, Clause *cl);
-//    template <typename iter>
-//    void add_to(const iter first, const iter last,
-//                std::vector<Clause *> &clbase, const int id);
+//    std::vector<double> activity;
 
     
     void resize(const size_t n);
@@ -323,6 +307,9 @@ public:
     long unsigned int learnt_size{0};
 
     
+    lit endEdgeLit() const ;
+    lit endBoundLit() const ;
+    
     bool is_younger(const genlit a, const genlit b) const {
         if(LTYPE(a) == EDGE_LIT) {
             if(LTYPE(b) == EDGE_LIT) {
@@ -334,8 +321,6 @@ public:
             if(LTYPE(b) == EDGE_LIT) {
                 return stamp(FROM_GEN(a)) >= static_cast<lit>(getIndex(VAR(FROM_GEN(b))));
             } else {
-//                assert((stamp(FROM_GEN(a)) <= stamp(FROM_GEN(b))) or a > b);
-                
                 return a > b;
             }
         }
@@ -633,7 +618,7 @@ void Scheduler<T>::newVariable(const DistanceConstraint<T>& if_true, const Dista
 //    visited_edge.resize(branch.size(), false);
     
     var_level.resize(numVariable(),-1);
-    activity.resize(numVariable(), 0);
+//    activity.resize(numVariable(), 0);
     
     reason.resize(numVariable(), Constant::NoReason);
     visited_edge.resize(numVariable(), false);
@@ -1069,10 +1054,10 @@ int Scheduler<T>::decisionLevel(const genlit l) const {
 //    return (LTYPE(l) == EDGE_LIT ? var_level[VAR(FROM_GEN(l))] : var_level[search_vars[domain.bounds.getStamp(FROM_GEN(l))]]);
 }
 
-template<typename T>
-void Scheduler<T>::incrementActivity(const var x) {
-    activity[x] += weight_unit;
-}
+//template<typename T>
+//void Scheduler<T>::incrementActivity(const var x) {
+//    activity[x] += weight_unit;
+//}
 
 template<typename T>
 void Scheduler<T>::getCriticalPath(std::vector<genlit>& clause) {
@@ -1298,6 +1283,8 @@ void Scheduler<T>::learnConflict(Explanation e) {
     //    assert(max_level >= init_level);
     
     std::sort(conflict.begin(), conflict.end(), [&](const lit a, const lit b){ return decisionLevel(a) > decisionLevel(b); });
+    
+    ClauseAdded.trigger(conflict);
     
     assert(decisionLevel(conflict[0]) == env.level());
     
@@ -1993,7 +1980,7 @@ std::ostream &Scheduler<T>::displayStats(std::ostream &os, const char* msg) cons
       os << "n/a  ";
     else
       os << std::setw(5) << std::left << std::setprecision(3)
-         << static_cast<double>(learnt_size) / static_cast<double>(num_fails);
+         << static_cast<double>(clauses.volume()) / static_cast<double>(clauses.size());
     os << " cpu=" << (cpu_time() - start_time) << "\n";
   #else
     os << std::endl;

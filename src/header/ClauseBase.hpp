@@ -30,6 +30,7 @@ public:
     
     void resize(const size_t n, const size_t m);
     size_t size() const;
+    size_t volume() const;
     
     //    void unit_propagate(const var l);
     void set_watcher(const int r, const index_t i, Clause *cl);
@@ -131,6 +132,12 @@ ClauseBase<T>::ClauseBase(Scheduler<T>& c) : caller(c) {}
 template<typename T>
 size_t ClauseBase<T>::size() const {
     return base.size(); // + learnt.size();
+    //    return var_level.size();
+}
+
+template<typename T>
+size_t ClauseBase<T>::volume() const {
+    return total_size; // + learnt.size();
     //    return var_level.size();
 }
 
@@ -759,37 +766,19 @@ std::ostream& ClauseBase<T>::displayClause(std::ostream &os, const Clause* cl) c
 
 template<typename T>
 void ClauseBase<T>::xplain(const lit l, const hint h, std::vector<lit> &Cl) {
-//    assert((*this)[h] == l);
-//    for(auto p : *this)
-//        if(p != l)
-//            Cl.push_back(p);
-    
-//    std::cout << "explain " << caller.prettyLiteral(l) << " by cl[" << h << "]: " ;
-//    displayClause(std::cout, base[h]);
-//    std::cout << "\n";
-    
+
     Clause& reason(*(base[h]));
     
     if(l == NoLit) {
         for(auto p : reason)
             Cl.push_back(getReasonLit(p));
     } else {
-        
-        bool in_clause{false};
+
         for(auto p : reason)
-            //            if(p != l)
-            if(sameLit(p,l)) {
-                in_clause = true;
-            } else {
+            if(not sameLit(p,l)) {
                 Cl.push_back(getReasonLit(p));
             }
-        
-        assert(in_clause);
     }
-//    auto  n{size()};
-//    for(size_t i=1; i<n; ++i) {
-//        Cl.push_back(this->operator[]((h+i)%n));
-//    }
 }
 
 template<typename T>

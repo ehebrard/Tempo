@@ -121,7 +121,7 @@ private:
 public:
     std::vector<bool> visited;
     
-private:
+//private:
     std::vector<Explanation> reason;
     
     
