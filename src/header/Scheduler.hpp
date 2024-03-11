@@ -196,14 +196,15 @@ public:
     ///@{
     mutable SubscribableEvent<const std::vector<genlit>&> ClauseAdded; ///< triggered when a new clause is learned
     mutable SubscribableEvent<Explanation&> ConflictEncountered; ///< triggered when a conflict is encountered
-//    mutable SubscribableEvent<T, T, std::function<T(event, event)>, std::size_t> SolutionFound; ///< triggered when a solution is found
-//    mutable SubscribableEvent<std::function<T(event, event)>, std::size_t> SignificantSubstepFound; ///< triggered when an interesting partial solution has been found
+    mutable SubscribableEvent<> SearchRestarted; ///< triggered on restart
+    //    mutable SubscribableEvent<T, T, std::function<T(event, event)>,
+    //    std::size_t> SolutionFound; ///< triggered when a solution is found
+    //    mutable SubscribableEvent<std::function<T(event, event)>, std::size_t>
+    //    SignificantSubstepFound; ///< triggered when an interesting partial
+    //    solution has been found
     ///@}
-    
-    
-   
 
-private:
+  private:
     
     Options options;
     
@@ -1334,13 +1335,16 @@ void Scheduler<T>::learnConflict(Explanation e) {
     
     restoreState(max_level);
 
-    clauses.learn(conflict.begin(), conflict.end());
-    
+#ifdef DBG_TRACE
+    auto cl =
+#endif
+        clauses.learn(conflict.begin(), conflict.end());
+
 #ifdef DBG_TRACE
     if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
         std::cout << "learn conflict";
         if(clauses.size() > 0)
-            clauses.displayClause(std::cout, clauses.base.back());
+          clauses.displayClause(std::cout, cl);
         std::cout << std::endl;
     }
 #endif
@@ -1415,6 +1419,8 @@ void Scheduler<T>::restart(const bool on_solution) {
         if (options.verbosity >= Options::YACKING)
             displayStats(std::cout, "restart");
     }
+
+    SearchRestarted.trigger();
 }
 
 #ifdef DBG_TRACE

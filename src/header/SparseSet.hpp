@@ -124,6 +124,13 @@ public:
 
   void pop_front();
 
+  void push_back();
+
+  void push_front();
+
+  template <typename Iter>
+  void re_index(const Iter beg, const Iter end); // re_index a sublist
+
   E front() const;
 
   E back() const;
@@ -161,7 +168,7 @@ public:
 template<typename E, typename T>
 SparseSet<E,T>::SparseSet(const size_t n) {
   end_ = 0;
-	start_ = 0;
+  start_ = 0;
   reserve(n);
 }
 
@@ -464,11 +471,25 @@ void SparseSet<E,T>::pull_front(const E elt) {
 	++start_;
 }
 
+template <typename E, typename T>
+template <typename Iter>
+void SparseSet<E, T>::re_index(const Iter beg, const Iter end) {
+  for (auto i{beg}; i != end; ++i) {
+    index_[*i] = static_cast<T>(i - fbegin());
+  }
+}
+
 template<typename E, typename T>
 void SparseSet<E,T>::pop_back() { --end_; }
 
 template<typename E, typename T>
 void SparseSet<E,T>::pop_front() { ++start_; }
+
+template <typename E, typename T> void SparseSet<E, T>::push_back() { ++end_; }
+
+template <typename E, typename T> void SparseSet<E, T>::push_front() {
+  --start_;
+}
 
 template<typename E, typename T>
 E SparseSet<E,T>::front() const { return list_[start_]; }

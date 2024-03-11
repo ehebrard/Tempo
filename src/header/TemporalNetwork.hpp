@@ -618,14 +618,17 @@ void TemporalNetwork<T>::update(const bool bt,
                             std::cout << "FAIL on negative cycle!";
                             event evt{v};
                             std::cout << " " << prettyEvent(evt) ;
-                            do {
-                                if(bt==LOWER)
-                                    std::cout << " -> ";
-                                else
-                                    std::cout << " <- ";
-                                evt = path[evt];
-                                std::cout << prettyEvent(evt) ;
-                            } while (evt != v);
+                            //                            do {
+                            //                                if(bt==LOWER)
+                            //                                    std::cout << "
+                            //                                    -> ";
+                            //                                else
+                            //                                    std::cout << "
+                            //                                    <- ";
+                            //                                evt = path[evt];
+                            //                                std::cout <<
+                            //                                prettyEvent(evt) ;
+                            //                            } while (evt != v);
                             std::cout << std::endl;
                         }
 #endif
