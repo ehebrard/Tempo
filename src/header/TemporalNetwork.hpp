@@ -64,16 +64,17 @@ public:
     std::ostream &print_reason(std::ostream &os, const hint) const override;// { return os; }
     int getType() const override;// { return CYCLEEXPL; }
     void findExplanationPath(const event x, const event y, std::vector<lit>& path_cl,  const lit time_stamp) ;
-    
-private:
-    
+
+    size_t arcCount() const { return core.arcCount(); }
+
+  private:
     Scheduler<T>& sched;
     
     DirectedGraph<StampedLabeledEdge<T,lit>> core;
    
     SparseSet<> changed;
-    
-//public:
+
+    ////public:
     std::vector<event> path;
     std::vector<lit> elit;
     std::vector<size_t> length;
@@ -421,17 +422,7 @@ void TemporalNetwork<T>::findExplanationPath(const event x, const event y, std::
                     std::cout << " * shorter path to " << prettyEvent(v) << " (" << length[u]+1 << "/" << size() << ") "<< std::endl ;
                 }
 #endif
-                
-//                if(changed.index(v) < changed.end()) {
-//                    // v has already been visited
-//                    if(distance[u] + w - distance[v] < 0) {
-//                        // the path from
-//                    }
-//                }
-                
-                
-                
-                
+
                 path[v] = u;
                 elit[v] = s;
                 length[v] = length[u]+1;
@@ -494,8 +485,8 @@ void TemporalNetwork<T>::findExplanationPath(const event x, const event y, std::
     for(auto i{changed.fbegin()}; i!=changed.fend(); ++i) {
         distance[*i] = INFTY;
         length[*i] = 0;
-//        path[*i] = NOEVENT;
-//        elit[*i] = NoLit;
+        path[*i] = NOEVENT;
+        elit[*i] = NoLit;
     }
     
     auto z{critical_path_root};

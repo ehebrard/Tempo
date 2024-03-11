@@ -102,11 +102,7 @@ bool EdgeConstraint<T>::notify_bound(const lit, const int) {
         << " <= " << edge.distance << "\n";
     }
 #endif
-    
-    //    if(m_schedule.isTrue(VAR(p))) {
-    //        m_schedule.relax(this);
-    //    }
-    
+
     if( m_schedule.isUndefined(VAR(p))) {
         
         if(m_schedule.upper(edge.to) - m_schedule.lower(edge.from) <= edge.distance) {
@@ -123,14 +119,14 @@ bool EdgeConstraint<T>::notify_bound(const lit, const int) {
 #endif
             
             m_schedule.set(p, {this,NoHint});
-            
+
 //            m_schedule.relax(this);
         }
-    }
+    } 
 //    else {
-//        m_schedule.relax(this);
+//      m_schedule.relax(this);
 //    }
-    
+
     // never propagate
     return false;
 }
