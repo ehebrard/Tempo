@@ -23,8 +23,7 @@ namespace tempo {
 //#define DBG_BELLMAN_EXPL (sched.num_choicepoints >= 4172)
 //#define DEBUG_HEURISTICS
 //#define DBG_UP
-//#define DBG_CL 34220
-
+#define DBG_CL 34220000
 
 using priority_t = unsigned;
 #define LOW 0
@@ -59,6 +58,7 @@ using lit_type = int;
 #define BOUND_LIT 0
 #define EDGE_LIT 1
 
+#define EDGEFINDINGEXPL 6
 #define EDGEEXPL 5
 #define BOUNDEXPL 4
 #define CYCLEEXPL 3

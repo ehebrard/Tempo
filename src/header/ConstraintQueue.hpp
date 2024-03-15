@@ -3,7 +3,7 @@
 
 
 #include "Constraint.hpp"
-#include "SparseSet.hpp"
+#include "util/SparseSet.hpp"
 
 namespace tempo {
 

@@ -41,6 +41,9 @@ int main(int argc, char *argv[]) {
 
   ProblemInstance data;
 
+  size_t num_fails{0};
+  size_t num_trivial{0};
+  size_t num_search{0};
 
   if (opt.input_format == "osp") {
     data = osp::read_instance(opt.instance_file);
@@ -73,87 +76,109 @@ int main(int argc, char *argv[]) {
 //    S.display(std::cout, true, true);
 
 //    std::cout << "\nsave:\n" << S << std::endl;
-    
-    std::ifstream cl_file("cl.txt", std::ifstream::in);
-    
-    int t, n, x, y, d;
-    
-    std::vector<int> X;
-    std::vector<int> Y;
-    std::vector<int> D;
-    
-    int line{0};
-    do {
-        
-        X.clear();
-        Y.clear();
-        D.clear();
-        
-        S.saveState();
-        
-        cl_file >> t;
-        cl_file >> n;
-        if(not cl_file.good())
-            break;
-        
-        bool trivially_unsat{false};
-        
-        
-        
-        
-        for(auto i{0}; i<n; ++i) {
-            cl_file >> x;
-            cl_file >> y;
-            cl_file >> d;
-            
-            X.push_back(x);
-            Y.push_back(y);
-            D.push_back(d);
-            
-//            std::cout << "add " << prettyEvent(y) << " - " << prettyEvent(x) << " <= " << d << std::endl;
-            
-            try{
-                S.newMaximumLag(x, y, d);
-            } catch(Failure& f) {
-                trivially_unsat = true;
-            }
+
+  std::ifstream cl_file("mcl.txt", std::ifstream::in);
+
+  int t, n, x, y, d;
+
+  std::vector<int> X;
+  std::vector<int> Y;
+  std::vector<int> D;
+
+  int line{0};
+  do {
+
+    X.clear();
+    Y.clear();
+    D.clear();
+
+    S.saveState();
+
+    cl_file >> t;
+    cl_file >> n;
+    if (not cl_file.good())
+      break;
+
+    bool trivially_unsat{false};
+
+    for (auto i{0}; i < n; ++i) {
+      cl_file >> x;
+      cl_file >> y;
+      cl_file >> d;
+
+      X.push_back(x);
+      Y.push_back(y);
+      D.push_back(d);
+
+      //            std::cout << "add " << prettyEvent(y) << " - " <<
+      //            prettyEvent(x) << " <= " << d << std::endl;
+
+      try {
+        S.newMaximumLag(x, y, d);
+      } catch (Failure &f) {
+        trivially_unsat = true;
+      }
+    }
+
+    //        std::cout << "\nsolve:\n" << S << std::endl;
+
+    if (not trivially_unsat) {
+      //            std::cout << "ok (trivial)\n";
+      //        } else {
+
+      //            std::cout << S << std::endl;
+      //            exit(1);
+
+      bool need_search{true};
+      try {
+        S.propagate();
+      } catch (Failure &f) {
+        need_search = false;
+      }
+
+      if (need_search) {
+        auto nf{S.num_fails};
+        S.search();
+
+        if (S.satisfiable()) {
+          std::cout << "cl " << line << " (" << (t ? "expl" : "cut") << "): ";
+          std::cout << "bug!\n";
+
+          for (size_t i{0}; i < X.size(); ++i) {
+            std::cout << "> " << prettyEvent(Y[i]) << " - " << prettyEvent(X[i])
+                      << " <= " << D[i] << std::endl;
+          }
+
+          exit(1);
         }
-        
-//        std::cout << "\nsolve:\n" << S << std::endl;
-        
-        
-        if(not trivially_unsat)
-        {
-//            std::cout << "ok (trivial)\n";
-//        } else {
-            
-//            std::cout << S << std::endl;
-//            exit(1);
-            
-            S.search();
-            
-            if(S.satisfiable()) {
-                std::cout << "cl " << line << " (" << (t ? "expl" : "cut") << "): ";
-                std::cout << "bug!\n";
-                
-                for(size_t i{0}; i<X.size(); ++i) {
-                    std::cout << "> " << prettyEvent(Y[i]) << " - " << prettyEvent(X[i]) << " <= " << D[i] << std::endl;
-                }
-                
-                exit(1);
-            } 
-//            else {
-//                std::cout << "ok\n";
-//            }
-        }
-        ++line;
-        
-//        std::cout << S.env.level() << " --> 0"
-        
-        S.restoreState(0);
-        
-//        std::cout << "\nrestore:\n" << S << std::endl;
-        
+        //                else {
+        //                    std::cout << "UNSAT\n";
+        //                }
+
+        ++num_search;
+        num_fails += (S.num_fails - nf);
+      }
+      //            else {
+      //                std::cout << "ok\n";
+      //            }
+    } else {
+      ++num_trivial;
+    }
+    ++line;
+
+    //        std::cout << S.env.level() << " --> 0"
+
+    S.restoreState(0);
+
+    //        std::cout << "\nrestore:\n" << S << std::endl;
+
+    if ((line % 100) == 0)
+      std::cout << line << ": " << num_trivial << " trivial, "
+                << (line - num_trivial - num_search) << " easy, " << num_search
+                << " hard (" << num_fails / num_search << ")" << std::endl;
+
+    //        if(line > 100)
+    //            exit(1);
     } while(true);
     
     

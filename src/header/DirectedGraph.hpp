@@ -3,8 +3,8 @@
 #define _TEMPO_DIRECTEDGRAPH_HPP
 
 #include "Global.hpp"
-#include "SparseSet.hpp"
 #include "ReversibleObject.hpp"
+#include "util/SparseSet.hpp"
 #include <boost/dynamic_bitset.hpp>
 #include <vector>
 

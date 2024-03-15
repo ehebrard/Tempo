@@ -102,6 +102,8 @@ public:
   T upper(const event) const;
   T lower(const event) const;
   T bound(const bool s, const event) const;
+  T minDuration(const task) const;
+  T maxDuration(const task) const;
   T getMakespan() const;
 
   // get edge literal from an edge propagation index
@@ -141,7 +143,7 @@ public:
   void saveState();
   void restoreState(const int);
   void undo() override;
-  bool search();
+  void search();
   void restart(const bool on_solution = false);
   void notifySolution();
   void backtrack(Explanation e);
@@ -223,6 +225,9 @@ private:
   std::vector<DistanceConstraint<T>> edges;
 
   std::map<std::pair<event, event>, lit> edge_map;
+
+  std::vector<T> min_duration;
+  std::vector<T> max_duration;
 
   std::vector<Constraint *> constraints;
 
@@ -321,7 +326,7 @@ private:
 
 #ifdef DBG_CL
 
-  TemporalNetwork<T> cut;
+  //  TemporalNetwork<T> cut;
 
   std::ofstream *cl_file{NULL};
   int num_clauses{0};
@@ -405,7 +410,7 @@ Scheduler<T>::~Scheduler() {
 
 template<typename T>
 size_t Scheduler<T>::numTask() const {
-  return numEvent() / 2 - 1;
+  return return min_duration.size();
 }
 
 template<typename T>
@@ -521,6 +526,9 @@ void Scheduler<T>::newTask(const T min_dur, const T max_dur) {
 
   newMaximumLag(START(ti), END(ti), max_dur);
   newMaximumLag(END(ti), START(ti), -min_dur);
+
+  min_duration.push_back(min_dur);
+  max_duration.push_back(max_dur);
 }
 
 template<typename T>
@@ -686,6 +694,14 @@ T Scheduler<T>::lower(const event e) const {
 template<typename T>
 T Scheduler<T>::bound(const bool s, const event e) const {
   return domain.bounds.get(s, e);
+}
+
+template <typename T> T Scheduler<T>::minDuration(const task t) const {
+  return min_duration[t];
+}
+
+template <typename T> T Scheduler<T>::maxDuration(const task t) const {
+  return max_duration[t];
 }
 
 template <typename T> T Scheduler<T>::getMakespan() const { return ub; }
@@ -1314,15 +1330,16 @@ bool Scheduler<T>::satisfiable() const {
   return not best_solution.empty();
 }
 
-template<typename T>
-bool Scheduler<T>::search() {
+template <typename T> void Scheduler<T>::search() {
+
+  assert(not satisfiable());
 
   heuristic.emplace(*this, options);
 
   restart_policy->initialize(restart_limit);
   start_time = cpu_time();
   //      ground_facts = numLiterals();
-  bool SAT{false};
+  //  bool SAT{false};
 
   // initialisation
   lb = lower(HORIZON);
@@ -1380,7 +1397,7 @@ bool Scheduler<T>::search() {
       // all resource constraints are accounted for => a solution has been found
       if (search_vars.empty()) {
 
-        SAT = true;
+        //        SAT = true;
         notifySolution();
 
       } else {
@@ -1413,7 +1430,7 @@ bool Scheduler<T>::search() {
 
 #ifdef DBG_TRACE
         if (DBG_BOUND and (DBG_TRACE & SEARCH)) {
-          if (SAT)
+          if (satisfiable())
             std::cout << " => optimal! (" << ub << ")\n";
           else
             std::cout << " => unfeasible!\n";
@@ -1422,7 +1439,8 @@ bool Scheduler<T>::search() {
 
         lb = ub;
         if (options.verbosity > Options::SILENT)
-          displayStats(std::cout, "optimal");
+          displayStats(std::cout,
+                       (satisfiable() ? "optimal" : "unsatisfiable"));
       }
 
       if (num_fails > restart_limit) {
@@ -1435,7 +1453,7 @@ bool Scheduler<T>::search() {
   std::cout << "--- end search ---\n";
 #endif
 
-  return SAT;
+  //  return satisfiable();
 }
 
 template <typename T> bool Scheduler<T>::stoppingCondition() const {
@@ -1580,7 +1598,7 @@ void Scheduler<T>::resolve(const lit l, Explanation e) {
   auto last{conflict_set.end()};
   auto first{beg_expl};
 
-#ifdef DBG_CL
+#ifdef DBG_CLPLUS
 
   if (num_clauses++ > DBG_CL)
     exit(1);
@@ -1616,7 +1634,7 @@ void Scheduler<T>::resolve(const lit l, Explanation e) {
     }
 #endif
 
-#ifdef DBG_CL
+#ifdef DBG_CLPLUS
     if (cl_file != NULL) {
       if (not groundFact(*i)) {
         writeLiteral(*i);
@@ -1659,7 +1677,7 @@ void Scheduler<T>::resolve(const lit l, Explanation e) {
     }
   }
 
-#ifdef DBG_CL
+#ifdef DBG_CLPLUS
   if (cl_file != NULL) {
     *cl_file << std::endl;
   }

@@ -9,7 +9,7 @@
 #include "Clause.hpp"
 #include "Failure.hpp"
 #include "Global.hpp"
-#include "SparseSet.hpp"
+#include "util/SparseSet.hpp"
 #include "util/SubscribableEvent.hpp"
 
 //#define DBG_WATCHERS
@@ -967,7 +967,7 @@ template <typename T> void ClauseBase<T>::forget() {
   //        std::cout << std::endl;
   //    }
 
-  auto target_size = static_cast<size_t>(static_cast<double>(size()) * .1);
+  auto target_size = static_cast<size_t>(static_cast<double>(size()) * .9);
 
   // (1.0 - caller.getOptions().forgetfulness));
 
