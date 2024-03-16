@@ -5,18 +5,18 @@
 #include <sstream>
 #include <fstream>
 
+#include "ClauseBase.hpp"
+#include "ConstraintQueue.hpp"
+#include "DisjunctiveEdgeFinding.hpp"
+#include "EdgeConstraint.hpp"
 #include "Global.hpp"
 #include "Heap.hpp"
 #include "Options.hpp"
 #include "Restart.hpp"
-#include "ClauseBase.hpp"
-#include "EdgeConstraint.hpp"
-#include "ConstraintQueue.hpp"
 #include "TemporalNetwork.hpp"
 #include "heuristics/HeuristicManager.hpp"
-#include "util/SubscribableEvent.hpp"
 #include "util/KillHandler.hpp"
-
+#include "util/SubscribableEvent.hpp"
 
 namespace tempo {
 
@@ -82,12 +82,16 @@ public:
    * @name modelling methods
    */
   ///@{
-  void newTask(const T min_dur, const T max_dur);
-  void newVariable(const DistanceConstraint<T> &if_true,
-                   const DistanceConstraint<T> &if_false);
+  task newTask(const T min_dur, const T max_dur);
+  var newVariable(const DistanceConstraint<T> &if_true,
+                  const DistanceConstraint<T> &if_false);
 
   void newPrecedence(event x, event y, T delay);
   void newMaximumLag(event x, event y, T maxlag);
+
+  template <typename ItTask, typename ItVar>
+  void postEdgeFinding(const ItTask beg_task, const ItTask end_task,
+                       const ItVar beg_var, const ItVar end_var);
 
   bool value(const var x) const;
   bool isTrue(const var x) const;
@@ -110,6 +114,8 @@ public:
   lit getEdgeLiteral(const lit s) const;
   // get bound literal from a bound propagation index
   lit getBoundLiteral(const lit s) const;
+  // get explaantion lit from bound lit
+  //    lit getLiteral(const lit l) const;
   // get literal index for explanation
   lit getBoundIndex(const lit b) const;
   // get the oldest literal that implies constraint c
@@ -410,7 +416,7 @@ Scheduler<T>::~Scheduler() {
 
 template<typename T>
 size_t Scheduler<T>::numTask() const {
-  return return min_duration.size();
+  return min_duration.size();
 }
 
 template<typename T>
@@ -516,8 +522,8 @@ void Scheduler<T>::newPrecedence(event x, event y, T d) {
   newMaximumLag(y, x, -d);
 }
 
-template<typename T>
-void Scheduler<T>::newTask(const T min_dur, const T max_dur) {
+template <typename T>
+task Scheduler<T>::newTask(const T min_dur, const T max_dur) {
   assert(env.level() == 0);
   assert(numEvent() >= 2);
 
@@ -529,10 +535,13 @@ void Scheduler<T>::newTask(const T min_dur, const T max_dur) {
 
   min_duration.push_back(min_dur);
   max_duration.push_back(max_dur);
+
+  return ti;
 }
 
-template<typename T>
-void Scheduler<T>::newVariable(const DistanceConstraint<T>& if_true, const DistanceConstraint<T>& if_false) {
+template <typename T>
+var Scheduler<T>::newVariable(const DistanceConstraint<T> &if_true,
+                              const DistanceConstraint<T> &if_false) {
   assert(env.level() == 0);
 
   var x{static_cast<var>(numVariable())};
@@ -567,8 +576,9 @@ void Scheduler<T>::newVariable(const DistanceConstraint<T>& if_true, const Dista
 
   post(new EdgeConstraint<T>(*this, POS(x)));
   post(new EdgeConstraint<T>(*this, NEG(x)));
-}
 
+  return x;
+}
 
 //template<typename T>
 //void Scheduler<T>::newVariable(const event x, const event y, const T d) {
@@ -722,6 +732,11 @@ lit Scheduler<T>::getBoundLiteral(const lit s) const {
   return domain.bounds.getLiteral(s);
 }
 
+// template<typename T>
+// lit Scheduler<T>::getExplanation(const lit l) const {
+//   return BOUND(domain.bounds.getIndex(l));
+// }
+
 template<typename T>
 lit Scheduler<T>::getBoundIndex(const lit l) const {
   return domain.bounds.getIndex(l);
@@ -767,17 +782,22 @@ void Scheduler<T>::wake_me_on_edge(const lit l, const int c) {
   var_constraint_network.add(l, c);
 }
 
-template<typename T>
-void Scheduler<T>::post(Constraint *con) {
-//    int idx(static_cast<int>(numConstraint()))
+template <typename T>
+template <typename ItTask, typename ItVar>
+void Scheduler<T>::postEdgeFinding(const ItTask beg_task, const ItTask end_task,
+                                   const ItVar beg_var, const ItVar end_var) {
+  post(new DisjunctiveEdgeFinding(*this, beg_task, end_task, beg_var, end_var));
+}
 
-constraints.push_back(con);
-propagation_queue.resize(constraints.size());
+template <typename T> void Scheduler<T>::post(Constraint *con) {
 
-var_constraint_network.resize(std::max(2 * numVariable(), numConstraint()));
-evt_constraint_network.resize(std::max(2 * numEvent(), numConstraint()));
+  constraints.push_back(con);
+  propagation_queue.resize(constraints.size());
 
-con->post(numConstraint() - 1);
+  var_constraint_network.resize(std::max(2 * numVariable(), numConstraint()));
+  evt_constraint_network.resize(std::max(2 * numEvent(), numConstraint()));
+
+  con->post(numConstraint() - 1);
 }
 
 template<typename T>

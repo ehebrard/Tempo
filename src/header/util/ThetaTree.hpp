@@ -1,10 +1,10 @@
 
-#ifndef _schedcl_THETATREE_HPP
-#define _schedcl_THETATREE_HPP
+#ifndef _TEMPO_THETATREE_HPP
+#define _TEMPO_THETATREE_HPP
 
 #include <vector>
 
-namespace schedcl {
+namespace tempo {
 
 int parent(const int x);
 
@@ -53,6 +53,6 @@ public:
 std::ostream &operator<<(std::ostream &os, const ThetaTree &x);
 std::ostream &operator<<(std::ostream &os, const ThetaTree *x);
 
-} // namespace schedcl
+} // namespace tempo
 
-#endif // __STRUCTURE_HPP
+#endif // _TEMPO_THETATREE_HPP

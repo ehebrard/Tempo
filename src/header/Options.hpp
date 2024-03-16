@@ -30,7 +30,8 @@ public:
   std::string dbg_file;
 
   bool learning;
-	
+  bool edge_finding;
+
   enum class ChoicePointHeuristics {
       Tightest = 0,
       WeightedDegree,

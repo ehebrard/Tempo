@@ -91,13 +91,28 @@ int main(int argc, char *argv[]) {
     S.newPrecedence(x, y, k);
 
   }
-    
+
+  std::vector<var> scope;
   for (auto &job : data.resources) {
       for (auto ti{job.begin()}; ti!=job.end(); ++ti) {
           for (auto tj{ti+1}; tj!=job.end(); ++tj) {
-              S.newVariable({START(*ti), END(*tj), 0}, {START(*tj), END(*ti), 0});
+            scope.push_back(S.newVariable({START(*ti), END(*tj), 0},
+                                          {START(*tj), END(*ti), 0}));
           }
       }
+      if (opt.edge_finding) {
+          for(auto j : job) {
+              std::cout << " t" << j ;
+          }
+          std::cout << std::endl;
+          for(auto v : scope) {
+              std::cout << " x" << v ;
+          }
+          std::cout << std::endl;
+          
+        S.postEdgeFinding(job.begin(), job.end(), scope.begin(), scope.end());
+      }
+      scope.clear();
   }
     
 //    std::cout << S << std::endl;

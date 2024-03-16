@@ -9,7 +9,7 @@
 namespace tempo {
 
 //#define DBG_BOUND true //(num_clauses > 34215)
-//#define DBG_TRACE 81 //183 //1+2+4+32+128
+//#define DBG_TRACE 23   // 183 //1+2+4+32+128
 #define SEARCH 1
 #define DOMAINS 2
 #define BRANCH 4
@@ -19,11 +19,12 @@ namespace tempo {
 #define QUEUE 64
 #define UNITPROPAGATION 128
 
+//#define DEBUG_CONSTRAINT
 //#define DBG_BELLMAN
 //#define DBG_BELLMAN_EXPL (sched.num_choicepoints >= 4172)
 //#define DEBUG_HEURISTICS
 //#define DBG_UP
-#define DBG_CL 34220000
+//#define DBG_CL 34220000
 
 using priority_t = unsigned;
 #define LOW 0
