@@ -14,8 +14,7 @@
 
 namespace tempo {
 
-template <typename T>
-class DisjunctiveEdgeFinding : public Constraint, public Explainer {
+template <typename T> class DisjunctiveEdgeFinding : public Constraint {
 private:
   Scheduler<T> &m_schedule;
   std::vector<task> m_tasks;
@@ -49,7 +48,7 @@ public:
   T minduration(const unsigned i) const;
   T maxduration(const unsigned i) const;
 
-  bool notify_bound(const int var, const int rank) override;
+  bool notify_bound(const int lit, const int rank) override;
   void post(const int idx) override;
   void propagate() override;
 
@@ -77,6 +76,16 @@ void DisjunctiveEdgeFinding<T>::boundExplanation(Iter b, Iter e) {
   for (auto x{b}; x != e; ++x) {
 
     auto i{m_tasks[*x]};
+
+    //      std::cout << "expl t" << i << ": "
+    //      <<
+    //      m_schedule.prettyLiteral(BOUND(m_schedule.getBoundIndex(LOWERBOUND(START(i)))))
+    //      << " and "
+    //      <<
+    //      m_schedule.prettyLiteral(BOUND(m_schedule.getBoundIndex(UPPERBOUND(START(i)))))
+    //      << " (" <<
+    //      m_schedule.stamp(m_schedule.getBoundIndex(LOWERBOUND(START(i)))) <<
+    //      ")" << std::endl;
 
     cur_explanation.push_back(
         BOUND(m_schedule.getBoundIndex(LOWERBOUND(START(i)))));
@@ -131,10 +140,6 @@ DisjunctiveEdgeFinding<T>::DisjunctiveEdgeFinding(Scheduler<T> &scheduler,
   for (auto j{beg_task}; j != end_task; ++j) {
 
     task t{*j};
-
-          std::cout << "add task " << t << " -> " << i <<
-          std::endl;
-
     task_map[t] = i++;
     //
     //      std::cout << "11\n";
@@ -179,7 +184,7 @@ DisjunctiveEdgeFinding<T>::DisjunctiveEdgeFinding(Scheduler<T> &scheduler,
         
         
 #ifdef DEBUG_CONSTRAINT
-  debug_flag = 1;
+  debug_flag = 2;
 #endif
 }
 
@@ -187,13 +192,14 @@ template <typename T> DisjunctiveEdgeFinding<T>::~DisjunctiveEdgeFinding() {}
 
 template <typename T> void DisjunctiveEdgeFinding<T>::post(const int idx) {
 
+  cons_id = idx;
+  idempotent = true;
+
 #ifdef DEBUG_CONSTRAINT
-  if (debug_flag) {
+  if (debug_flag > 0) {
     std::cout << "post " << *this << std::endl;
   }
 #endif
-
-  cons_id = idx;
 
     for (unsigned i{0}; i < m_tasks.size(); ++i) {
         m_schedule.wake_me_on_event(LOWERBOUND(START(m_tasks[i])), cons_id);
@@ -209,7 +215,7 @@ bool DisjunctiveEdgeFinding<T>::notify_bound(const lit, const int) {
 template <typename T> void DisjunctiveEdgeFinding<T>::propagate() {
 
 #ifdef DEBUG_CONSTRAINT
-  if (debug_flag) {
+  if (debug_flag > 0) {
     std::cout << std::endl << "propagate edge-finding(";
     for (size_t i{0}; i < m_tasks.size(); ++i) {
       std::cout << " t" << m_tasks[i] << " [" << est(i) << ".." << lct(i)
@@ -233,7 +239,7 @@ template <typename T> void DisjunctiveEdgeFinding<T>::propagate() {
   auto horizon(m_schedule.upper(HORIZON));
 
 #ifdef DEBUG_CONSTRAINT
-  if (debug_flag) {
+  if (debug_flag > 0) {
 
     for (auto i : est_order)
       std::cout << i << " ";
@@ -273,7 +279,7 @@ template <typename T> void DisjunctiveEdgeFinding<T>::propagate() {
     TT.insert(theta_rank[a], est(a), minduration(a));
 
 #ifdef DEBUG_CONSTRAINT
-    if (debug_flag) {
+    if (debug_flag > 0) {
       std::cout << "add t" << m_tasks[a] << ": [" << est(a) << ".."
                 << minduration(a) << ".." << lct(a) << "] : " << TT.getBound()
                 << std::endl;
@@ -294,7 +300,7 @@ template <typename T> void DisjunctiveEdgeFinding<T>::propagate() {
   }
 
 #ifdef DEBUG_CONSTRAINT
-  if (debug_flag) {
+  if (debug_flag > 0) {
     std::cout << std::endl << "ST\n";
     for (auto i : est_order) {
       std::cout << prettyEvent(START(m_tasks[i])) << ": [" << est(i)
@@ -315,7 +321,7 @@ template <typename T> void DisjunctiveEdgeFinding<T>::propagate() {
     TT.paint_gray(theta_rank[a], a);
 
 #ifdef DEBUG_CONSTRAINT
-    if (debug_flag) {
+    if (debug_flag > 0) {
       std::cout << "rm t" << m_tasks[a] << ": [" << est(a)
                 << ".." << minduration(a) << ".." << lct(a)
                 << "] : " << TT.getBound() << " (" << ect(a) << ")"
@@ -338,7 +344,7 @@ template <typename T> void DisjunctiveEdgeFinding<T>::propagate() {
     while (ect_ > deadline_omega) {
 
 #ifdef DEBUG_CONSTRAINT
-      if (debug_flag) {
+      if (debug_flag > 0) {
         std::cout << " tasks";
         for (auto j{lct_order.begin()}; *j != a; ++j)
           std::cout << " t" << m_tasks[*j];
@@ -350,7 +356,7 @@ template <typename T> void DisjunctiveEdgeFinding<T>::propagate() {
       auto r{TT.getResponsible()};
 
 #ifdef DEBUG_CONSTRAINT
-      if (debug_flag) {
+      if (debug_flag > 0) {
         std::cout << " can't end before " << ect_ << ", but only t"
                   << m_tasks[r]
                   << " can go past that time\n ==> t"
@@ -360,12 +366,20 @@ template <typename T> void DisjunctiveEdgeFinding<T>::propagate() {
 #endif
 
       boundExplanation(ai + 1, lct_order.rend());
+
+      explanations.emplace_back(cur_explanation);
+      cur_explanation.clear();
+
       auto l{m_tasks[r]};
       for (auto j{lct_order.begin()}; *j != a; ++j) {
 
-//        std::cout << "edge prec "
-//                  << m_schedule.prettyLiteral(EDGE(disjunct[r][*j]))
-//                  << std::endl;
+#ifdef DEBUG_CONSTRAINT
+        if (debug_flag > 0) {
+          std::cout << "edge prec "
+                    << m_schedule.prettyLiteral(EDGE(disjunct[r][*j]))
+                    << std::endl;
+        }
+#endif
 
         //        auto t{m_tasks[*j]};
         m_schedule.set(disjunct[r][*j],
@@ -375,8 +389,27 @@ template <typename T> void DisjunctiveEdgeFinding<T>::propagate() {
 //      exit(1);
 
       if (ect(r) < ect_) {
-          m_schedule.set({LOWERBOUND(END(l)), -ect_}, {this, static_cast<hint>(explanations.size() - 1)});
+
+        BoundConstraint<T> bc{LOWERBOUND(END(l)), -ect_};
+#ifdef DEBUG_CONSTRAINT
+        if (debug_flag > 0) {
+          std::cout << "lower bound " << bc << std::endl;
+        }
+#endif
+
+        m_schedule.set(bc, {this, static_cast<hint>(explanations.size() - 1)});
       }
+
+#ifdef DEBUG_CONSTRAINT
+      if (debug_flag > 0) {
+        std::cout << " because";
+        for (auto l : explanations.back()) {
+          std::cout << " ";
+          m_schedule.prettyLiteral(l);
+        }
+        std::cout << std::endl;
+      }
+#endif
 
       TT.remove(theta_rank[r]);
 
@@ -405,7 +438,7 @@ template <typename T> void DisjunctiveEdgeFinding<T>::propagate() {
             });
 
 #ifdef DEBUG_CONSTRAINT
-  if (debug_flag) {
+  if (debug_flag > 0) {
     std::cout << std::endl << "ST\n";
     for (auto i : est_order) {
       std::cout << prettyEvent(START(m_tasks[i])) << ": [" << est(i)
@@ -433,7 +466,7 @@ template <typename T> void DisjunctiveEdgeFinding<T>::propagate() {
     TT.insert(theta_rank[a], horizon - lct(a), minduration(a));
 
 #ifdef DEBUG_CONSTRAINT
-    if (debug_flag) {
+    if (debug_flag > 0) {
       std::cout << "add t" << m_tasks[a] << ": ["
                 << (horizon - lct(a)) << ".." << minduration(a) << ".."
                 << (horizon - est(a)) << "] : " << TT.getBound() << " ("
@@ -445,7 +478,7 @@ template <typename T> void DisjunctiveEdgeFinding<T>::propagate() {
   }
 
 #ifdef DEBUG_CONSTRAINT
-  if (debug_flag) {
+  if (debug_flag > 0) {
     std::cout << std::endl << m_schedule << "\nfST\n";
     for (auto i : est_order) {
       std::cout << prettyEvent(START(m_tasks[i])) << ": [" << est(i)
@@ -470,7 +503,7 @@ template <typename T> void DisjunctiveEdgeFinding<T>::propagate() {
     TT.paint_gray(theta_rank[a], a);
 
 #ifdef DEBUG_CONSTRAINT
-    if (debug_flag) {
+    if (debug_flag > 0) {
       std::cout << "rm t" << m_tasks[a] << ": ["
                 << (horizon - lct(a)) << ".." << minduration(a) << ".."
                 << (horizon - est(a)) << "] : " << TT.getBound() << " ("
@@ -494,7 +527,7 @@ template <typename T> void DisjunctiveEdgeFinding<T>::propagate() {
     while (ect_ > deadline_omega) {
 
 #ifdef DEBUG_CONSTRAINT
-      if (debug_flag) {
+      if (debug_flag > 0) {
         std::cout << "tasks";
         for (auto j{est_order.rbegin()}; *j != a; ++j)
           std::cout << " t" << m_tasks[*j];
@@ -506,7 +539,7 @@ template <typename T> void DisjunctiveEdgeFinding<T>::propagate() {
       auto r{TT.getResponsible()};
 
 #ifdef DEBUG_CONSTRAINT
-      if (debug_flag) {
+      if (debug_flag > 0) {
         std::cout << " can't start after " << (horizon - ect_) << ", but only t"
                   << m_tasks[r]
                   << " can start at that time\n ==> t"
@@ -517,12 +550,19 @@ template <typename T> void DisjunctiveEdgeFinding<T>::propagate() {
 
       auto f{m_tasks[r]};
       boundExplanation(ai + 1, est_order.end());
-      for (auto j{est_order.rbegin()}; *j != a; ++j) {
-        //        auto t{m_tasks[*j]};
 
-//        std::cout << "edge prec "
-//                  << m_schedule.prettyLiteral(EDGE(disjunct[r][*j]))
-//                  << std::endl;
+      explanations.emplace_back(cur_explanation);
+      cur_explanation.clear();
+
+      for (auto j{est_order.rbegin()}; *j != a; ++j) {
+
+#ifdef DEBUG_CONSTRAINT
+        if (debug_flag > 0) {
+          std::cout << "edge prec "
+                    << m_schedule.prettyLiteral(EDGE(disjunct[r][*j]))
+                    << std::endl;
+        }
+#endif
 
         ++m_schedule.num_cons_prunings;
         m_schedule.set(disjunct[*j][r],
@@ -533,12 +573,27 @@ template <typename T> void DisjunctiveEdgeFinding<T>::propagate() {
 
       if (lst(r) > (horizon - ect_)) {
 
-        explanations.push_back(cur_explanation);
-//        ++m_schedule.num_cons_prunings;
-        cur_explanation.clear();
+        BoundConstraint<T> bc{UPPERBOUND(START(f)), (horizon - ect_)};
+#ifdef DEBUG_CONSTRAINT
+        if (debug_flag > 0) {
+          std::cout << "upper bound " << bc << std::endl;
+        }
+#endif
 
-          m_schedule.set({UPPERBOUND(START(f)), (horizon - ect_)}, {this, static_cast<hint>(explanations.size() - 1)});
+        m_schedule.set({UPPERBOUND(START(f)), (horizon - ect_)},
+                       {this, static_cast<hint>(explanations.size() - 1)});
       }
+
+#ifdef DEBUG_CONSTRAINT
+      if (debug_flag > 0) {
+        std::cout << " because";
+        for (auto l : explanations.back()) {
+          std::cout << " ";
+          m_schedule.prettyLiteral(l);
+        }
+        std::cout << std::endl;
+      }
+#endif
 
       TT.remove(theta_rank[r]);
 
@@ -556,7 +611,7 @@ template <typename T> void DisjunctiveEdgeFinding<T>::propagate() {
   }
 
 #ifdef DEBUG_CONSTRAINT
-  if (debug_flag) {
+  if (debug_flag > 0) {
     std::cout << std::endl << "ST\n";
     for (auto i : est_order) {
       std::cout << prettyEvent(START(m_tasks[i])) << ": [" << est(i)

@@ -14,6 +14,7 @@
 #include "Options.hpp"
 #include "Restart.hpp"
 #include "TemporalNetwork.hpp"
+#include "Transitivity.hpp"
 #include "heuristics/HeuristicManager.hpp"
 #include "util/KillHandler.hpp"
 #include "util/SubscribableEvent.hpp"
@@ -93,6 +94,10 @@ public:
   void postEdgeFinding(const ItTask beg_task, const ItTask end_task,
                        const ItVar beg_var, const ItVar end_var);
 
+  template <typename ItTask, typename ItVar>
+  void postTransitivityReasoning(const ItTask beg_task, const ItTask end_task,
+                                 const ItVar beg_var, const ItVar end_var);
+
   bool value(const var x) const;
   bool isTrue(const var x) const;
   bool isFalse(const var x) const;
@@ -110,6 +115,8 @@ public:
   T maxDuration(const task) const;
   T getMakespan() const;
 
+    std::vector<bool> getSolution() const;
+    
   // get edge literal from an edge propagation index
   lit getEdgeLiteral(const lit s) const;
   // get bound literal from a bound propagation index
@@ -199,6 +206,10 @@ public:
   //    SignificantSubstepFound; ///< triggered when an interesting partial
   //    solution has been found
   ///@}
+  ///
+
+  //    const std::vector<std::vector<Arc>> & getForwardGraph() const;
+  //    const std::vector<std::vector<Arc>> & getBackwardGraph() const;
 
 private:
   Options options;
@@ -224,8 +235,10 @@ private:
 
   */
 
+public:
   TemporalNetwork<T> domain;
 
+private:
   ClauseBase<T> clauses;
 
   std::vector<DistanceConstraint<T>> edges;
@@ -327,6 +340,9 @@ private:
   bool inExplanation(const genlit l) const;
   void markVisited(const genlit l);
   Explanation getExplanation(const genlit l) const;
+  bool isResponsibleForEdge(const lit l, const Constraint *c) const;
+  bool isResponsibleForBound(const lit l, const Constraint *c) const;
+
   void analyze(Explanation e);
   void resolve(const lit l, Explanation e);
 
@@ -467,6 +483,17 @@ const SparseSet<>& Scheduler<T>::getBranch() const {
 //   return branch;
 return search_vars;
 }
+
+// template<typename T>
+// const std::vector<std::vector<Arc>> & Scheduler<T>::getForwardGraph() const {
+//     return domain.getForwardGraph();
+// }
+//
+// template<typename T>
+// const std::vector<std::vector<Arc>> & Scheduler<T>::getBackwardGraph() const
+// {
+//     return domain.getBackwardGraph();
+// }
 
 template<typename T>
 void Scheduler<T>::resize(const size_t n) {
@@ -716,6 +743,8 @@ template <typename T> T Scheduler<T>::maxDuration(const task t) const {
 
 template <typename T> T Scheduler<T>::getMakespan() const { return ub; }
 
+template <typename T> std::vector<bool> Scheduler<T>::getSolution() const { return best_solution; }
+
 template<typename T>
 lit Scheduler<T>::getEdgeLiteral(const lit s) const {
 
@@ -789,6 +818,15 @@ void Scheduler<T>::postEdgeFinding(const ItTask beg_task, const ItTask end_task,
   post(new DisjunctiveEdgeFinding(*this, beg_task, end_task, beg_var, end_var));
 }
 
+template <typename T>
+template <typename ItTask, typename ItVar>
+void Scheduler<T>::postTransitivityReasoning(const ItTask beg_task,
+                                             const ItTask end_task,
+                                             const ItVar beg_var,
+                                             const ItVar end_var) {
+  post(new Transitivity(*this, beg_task, end_task, beg_var, end_var));
+}
+
 template <typename T> void Scheduler<T>::post(Constraint *con) {
 
   constraints.push_back(con);
@@ -845,7 +883,7 @@ void Scheduler<T>::set(const lit l, Explanation e) {
   if (DBG_BOUND and (DBG_TRACE & PROPAGATION)) {
     std::cout << "new edge literal: " << edges[l];
     if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
-      std::cout << " b/c " << e;
+      std::cout << " b/c " << e << " (" << e.expl->id() << ")";
     }
     std::cout << std::endl;
   }
@@ -907,9 +945,12 @@ void Scheduler<T>::set(const lit l, Explanation e) {
 template<typename T>
 void tempo::Scheduler<T>::trigger(const lit l) {
 
+  auto r{reason[VAR(l)].expl};
+
 #ifdef DBG_TRACE
   if (DBG_TRACE & QUEUE) {
-    std::cout << "triggers for (" << l << ") " << edges[l] << std::endl;
+    std::cout << "triggers for (" << l << ") " << edges[l] << " b/c " << r->id()
+              << "/" << reason[VAR(l)] << std::endl;
   }
 #endif
 
@@ -918,16 +959,19 @@ void tempo::Scheduler<T>::trigger(const lit l) {
   const std::vector<int> &cons = var_constraint_network[l];
   const std::vector<unsigned> &rank = var_constraint_network.rank(l);
 
+  //    std::cout <<reason[VAR(l)] << std::endl;
+
   for (auto i{cons.size()}; i-- > 0;) {
     //    for (unsigned i{0}; i < cons.size(); ++i) {
 
 #ifdef DBG_TRACE
     if (DBG_TRACE & QUEUE) {
-      std::cout << " -" << *(constraints[cons[i]]) << std::endl;
+      std::cout << " -" << *(constraints[cons[i]]) << " ("
+                << constraints[cons[i]]->id() << ")" << std::endl;
     }
 #endif
 
-    propagation_queue.edge_triggers(l, rank[i], cons[i]);
+    propagation_queue.edge_triggers(l, rank[i], cons[i], r);
   }
 }
 
@@ -961,22 +1005,28 @@ void tempo::Scheduler<T>::propagate() {
       const std::vector<int> &cons = evt_constraint_network[l];
       const std::vector<unsigned> &rank = evt_constraint_network.rank(l);
 
+      auto r{domain.bounds.getExplanation(bound_propag_pointer).expl};
+
 #ifdef DBG_TRACE
       if (DBG_TRACE & QUEUE) {
-        std::cout << "triggers for " << prettyEventLit(l) << std::endl;
+        std::cout << "triggers for " << prettyEventLit(l) << " b/c " << r->id()
+                  << std::endl;
       }
 #endif
+
+      //        std::cout << domain.bounds.getExplanation(l) << std::endl;
 
       // important to visit in reverse order to be robust to relax
       for (auto i{cons.size()}; i-- > 0;) {
 
 #ifdef DBG_TRACE
         if (DBG_TRACE & QUEUE) {
-          std::cout << " -" << *(constraints[cons[i]]) << std::endl;
+          std::cout << " -" << *(constraints[cons[i]]) << " ("
+                    << constraints[cons[i]]->id() << ")" << std::endl;
         }
 #endif
 
-        propagation_queue.bound_triggers(l, rank[i], cons[i]);
+        propagation_queue.bound_triggers(l, rank[i], cons[i], r);
       }
 
       ++bound_propag_pointer;
@@ -987,10 +1037,11 @@ void tempo::Scheduler<T>::propagate() {
 
 #ifdef DBG_TRACE
       if (DBG_TRACE & QUEUE) {
-        std::cout << "propagate " << cons << std::endl;
+        std::cout << "propagate " << *cons << std::endl;
       }
 #endif
 
+      ++num_cons_propagations;
       cons->propagate();
     }
   }
@@ -1515,6 +1566,18 @@ template <typename T> Explanation Scheduler<T>::getExplanation(const genlit l) c
                                : reason[VAR(FROM_GEN(l))];
 }
 
+template <typename T>
+bool Scheduler<T>::isResponsibleForEdge(const lit l,
+                                        const Constraint *c) const {
+  return reason[VAR(l)].expl == c;
+}
+
+template <typename T>
+bool Scheduler<T>::isResponsibleForBound(const lit l,
+                                         const Constraint *c) const {
+  return domain.bounds.getExplanation(l).expl == c;
+}
+
 template <typename T> void Scheduler<T>::analyze(Explanation e) {
 
   if (env.level() == init_level)
@@ -1792,14 +1855,18 @@ std::ostream &Scheduler<T>::displayStats(std::ostream &os, const char* msg) cons
     os << ".infty";
 #ifndef DEBUGCMP
   os << "] fails=" << std::setw(7) << std::left << num_fails
-     << " literals=" << std::setw(12) << std::left << num_literals
-     << " |cflct|=";
-  if (num_fails == 0)
-    os << "n/a  ";
-  else
-    os << std::setw(5) << std::left << std::setprecision(3)
-       << static_cast<double>(clauses.volume()) /
-              static_cast<double>(clauses.size());
+     << " literals=" << std::setw(12) << std::left << num_literals;
+  if (options.learning) {
+    os << " |cflct|=";
+    if (num_fails == 0)
+      os << "n/a  ";
+    else
+      os << std::setw(5) << std::left << std::setprecision(3)
+         << static_cast<double>(clauses.volume()) /
+                static_cast<double>(clauses.size());
+  } else {
+    os << " #prop=" << std::setw(7) << std::left << num_cons_propagations;
+  }
   os << " cpu=" << (cpu_time() - start_time) << "\n";
 #else
   os << std::endl;

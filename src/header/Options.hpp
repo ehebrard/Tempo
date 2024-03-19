@@ -31,6 +31,7 @@ public:
 
   bool learning;
   bool edge_finding;
+  bool transitivity;
 
   enum class ChoicePointHeuristics {
       Tightest = 0,

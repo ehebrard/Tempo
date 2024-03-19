@@ -278,7 +278,7 @@ bool BoundSystem<T>::set(const bool bt, const event x, const T b, Explanation e)
             else
                 std::cout << prettyEvent(x) << " >= " << -b ;
             if (DBG_TRACE & LEARNING) {
-                std::cout << " b/c " << e;
+              std::cout << " b/c " << e << " (" << e.expl->id() << ")";
             }
             std::cout << std::endl;
         }

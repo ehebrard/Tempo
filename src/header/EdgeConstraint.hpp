@@ -18,8 +18,7 @@ template <typename T> class DistanceConstraint;
 
 
 // constraint that watches events e_i and e_j and sets the corresponding edge to false
-template <typename T>
-class EdgeConstraint : public Constraint, public Explainer {
+template <typename T> class EdgeConstraint : public Constraint {
 private:
   Scheduler<T> &m_schedule;
 
@@ -50,7 +49,6 @@ public:
   std::ostream &display(std::ostream &os) const override;
 
   std::ostream &print_reason(std::ostream &os, const hint h) const override;
-    
 };
 
 template <typename T>

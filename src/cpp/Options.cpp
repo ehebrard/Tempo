@@ -112,6 +112,9 @@ tempo::Options tempo::parse(int argc, char *argv[]) {
   cmd.add<SwitchArg>(opt.edge_finding, "", "edge-finding", "use edge-finding",
                      false);
 
+  cmd.add<SwitchArg>(opt.transitivity, "", "transitivity",
+                     "use transitivity reasoning", false);
+
   cmd.add<ValueArg<int>>(opt.choice_point_heuristics, "", "cp-heuristic",
                          "type of heuristic used for choice point selection (0: Tightest (default), 1: WDEG, 2: WCRITPATH, 3: VSIDS)",
                          false, 1, "int");

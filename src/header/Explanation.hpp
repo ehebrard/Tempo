@@ -22,6 +22,9 @@ The static object "NoReason" is the empty reason
 
 */
 class Explainer {
+protected:
+  int cons_id{-1};
+
 public:
   virtual void xplain(const lit, const hint, std::vector<lit>&) ;
 
@@ -36,6 +39,8 @@ public:
   Explainer( Explainer &&) = default;
   Explainer &operator=(Explainer &) = default;
   Explainer &operator=( Explainer &&) = default;
+
+  int id() const { return cons_id; }
 };
 
 class Explanation {

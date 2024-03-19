@@ -3,6 +3,7 @@
 
 
 #include "Constraint.hpp"
+#include "Explanation.hpp"
 #include "util/SparseSet.hpp"
 
 namespace tempo {
@@ -22,23 +23,25 @@ public:
 //  void initialize(std::vector<Constraint *> *c);
 
   // notifies constraint 'cons' of the new lit 'change' (of type "event"), @ position 'rank' in its scope
-  void bound_triggers(const lit var_id, const int rank, const int cons);
-    
+    void bound_triggers(const lit var_id, const int rank, const int cons,
+                        const Explainer *responsible);
+
     // notifies constraint 'cons' of the new lit 'change' (of type "edge"), @ position 'rank' in its scope
-    void edge_triggers(const lit var_id, const int rank, const int cons);
+    void edge_triggers(const lit var_id, const int rank, const int cons,
+                       const Explainer *responsible);
 
-  // returns the active constraint of highest priority that has been
-  // activated first, return NULL if there are no active constraint
-  Constraint *pop_front();
-  // bool empty() const;
+    // returns the active constraint of highest priority that has been
+    // activated first, return NULL if there are no active constraint
+    Constraint *pop_front();
+    // bool empty() const;
 
-  void clear();
-  bool empty() const;
-  bool has(const int cons_id) const;
+    void clear();
+    bool empty() const;
+    bool has(const int cons_id) const;
 
-  std::ostream &display(std::ostream &os) const;
-    
-private:
+    std::ostream &display(std::ostream &os) const;
+
+  private:
     size_t count{0};
 };
 
@@ -65,17 +68,31 @@ void ConstraintQueue<N>::resize(const size_t n) {
 // triggers
 template <int N>
 void ConstraintQueue<N>::bound_triggers(const lit var_id, const int rank,
-                                     const int cons_id) {
+                                        const int cons_id,
+                                        const Explainer *responsible) {
 
-//  assert(cons_id >= 0);
-//  assert(cons_id < static_cast<int>(constraints->size()));
-//    assert(active[cons->priority].size() == constraints->size());
+  //  assert(cons_id >= 0);
+  //  assert(cons_id < static_cast<int>(constraints->size()));
+  //    assert(active[cons->priority].size() == constraints->size());
 
   auto cons = constraints[cons_id];
 
-  if (cons->notify_bound(var_id, rank) and not active[cons->priority].has(cons_id)) {
-    active[cons->priority].add(cons_id);
+  //    if(cons->idempotent)
+  //        std::cout << *responsible << std::endl;
+
+  if (responsible == static_cast<Explainer *>(cons))
+    std::cout << "it happens!\n";
+
+  if (responsible->id() == cons->id()) {
+    std::cout << "here!\n";
+  }
+
+  if (not cons->idempotent or responsible != static_cast<Explainer *>(cons)) {
+    if (cons->notify_bound(var_id, rank) and
+        not active[cons->priority].has(cons_id)) {
+      active[cons->priority].add(cons_id);
       ++count;
+    }
   }
 }
 
@@ -83,16 +100,28 @@ void ConstraintQueue<N>::bound_triggers(const lit var_id, const int rank,
 // triggers
 template <int N>
 void ConstraintQueue<N>::edge_triggers(const lit var_id, const int rank,
-                                     const int cons_id) {
+                                       const int cons_id,
+                                       const Explainer *responsible) {
 
   assert(cons_id >= 0);
   assert(cons_id < static_cast<int>(constraints.size()));
 
   auto cons = constraints[cons_id];
 
-  if (cons->notify_edge(var_id, rank) and not active[cons->priority].has(cons_id)) {
-    active[cons->priority].add(cons_id);
+  //  if (responsible == static_cast<Explainer *>(cons))
+  //    std::cout << "it happens!\n";
+  //
+  //  if (responsible->id() == cons->id()) {
+  //    std::cout << "here!\n";
+  //  }
+
+  if (not cons->idempotent or responsible != static_cast<Explainer *>(cons)) {
+
+    if (cons->notify_edge(var_id, rank) and
+        not active[cons->priority].has(cons_id)) {
+      active[cons->priority].add(cons_id);
       ++count;
+    }
   }
 }
 

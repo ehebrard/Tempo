@@ -73,9 +73,7 @@ int main(int argc, char *argv[]) {
 
   Scheduler<int> S(opt);
   for (auto d : data.durations) {
-    S.newTask(
-              //"t" + std::to_string(S.numTask()),
-              d, d);
+    S.newTask(d, d);
   }
 
 
@@ -101,16 +99,11 @@ int main(int argc, char *argv[]) {
           }
       }
       if (opt.edge_finding) {
-          for(auto j : job) {
-              std::cout << " t" << j ;
-          }
-          std::cout << std::endl;
-          for(auto v : scope) {
-              std::cout << " x" << v ;
-          }
-          std::cout << std::endl;
-          
         S.postEdgeFinding(job.begin(), job.end(), scope.begin(), scope.end());
+      }
+      if (opt.transitivity) {
+        S.postTransitivityReasoning(job.begin(), job.end(), scope.begin(),
+                                    scope.end());
       }
       scope.clear();
   }
@@ -132,4 +125,12 @@ int main(int argc, char *argv[]) {
               << data.optimalSolution << std::endl;
     std::exit(1);
   }
+    
+    if(opt.print_sol) {
+        auto solution{S.getSolution()};
+        std::cout << solution.size() ;
+        for(size_t i{0}; i<solution.size(); ++i)
+            std::cout << " " << solution[i];
+        std::cout << std::endl;
+    }
 }

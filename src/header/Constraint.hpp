@@ -3,26 +3,27 @@
 
 #include <ostream>
 
+#include "Explanation.hpp"
 #include "Global.hpp"
 
 namespace tempo {
 
-class Constraint {
+class Constraint : public Explainer {
 
 public:
+  //    int id() { return cons_id; }
 
-    int id() { return cons_id; }
-
-    virtual ~Constraint() = default;
+  virtual ~Constraint() = default;
   Constraint() = default;
   Constraint(const Constraint &) = delete;
   Constraint(Constraint &&) = delete;
   Constraint &operator=(const Constraint &) = delete;
   Constraint &operator=(Constraint &&) = delete;
 
-  const priority_t priority{HIGH};
+  priority_t priority{HIGH};
+  bool idempotent{false};
 
-//
+  //
   virtual void post(const int idx) = 0;
     // propagate the constraint
   virtual void propagate() = 0;
@@ -32,11 +33,9 @@ public:
 
   virtual std::ostream &display(std::ostream &os) const = 0;
 
-protected:
-    int cons_id;
-    
+  // protected:
+  //   int cons_id;
 };
-
 
 std::ostream &operator<<(std::ostream &os, const Constraint &x);
 

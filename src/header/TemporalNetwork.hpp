@@ -67,6 +67,9 @@ public:
 
     size_t arcCount() const { return core.arcCount(); }
 
+    const auto &getForwardGraph() const;
+    const auto &getBackwardGraph() const;
+
   private:
     Scheduler<T>& sched;
     
@@ -125,6 +128,13 @@ void TemporalNetwork<T>::resize(const size_t n) {
     }
 }
 
+template <typename T> const auto &TemporalNetwork<T>::getForwardGraph() const {
+  return core.forward();
+}
+
+template <typename T> const auto &TemporalNetwork<T>::getBackwardGraph() const {
+  return core.backward();
+}
 
 template<typename T>
 void TemporalNetwork<T>::xplain(const lit l, const hint h, std::vector<lit> &Cl) {

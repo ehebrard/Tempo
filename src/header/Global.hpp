@@ -9,7 +9,7 @@
 namespace tempo {
 
 //#define DBG_BOUND true //(num_clauses > 34215)
-//#define DBG_TRACE 23   // 183 //1+2+4+32+128
+//#define DBG_TRACE 3   // 183 //1+2+4+32+128
 #define SEARCH 1
 #define DOMAINS 2
 #define BRANCH 4
@@ -59,6 +59,7 @@ using lit_type = int;
 #define BOUND_LIT 0
 #define EDGE_LIT 1
 
+#define TRANSITIVITYEXPL 7
 #define EDGEFINDINGEXPL 6
 #define EDGEEXPL 5
 #define BOUNDEXPL 4

@@ -5,6 +5,8 @@
 #include <iostream>
 #include <vector>
 
+#include "ReversibleObject.hpp"
+
 namespace tempo {
 
 
@@ -37,6 +39,8 @@ public:
   /*!@name Constructors*/
   //@{
   explicit SparseSet(const size_t n = 0);
+  explicit SparseSet(const size_t n, BacktrackEnvironment *e);
+  //    explicit SparseSet(const T s, const T e, const size_t n=0);
   explicit SparseSet(std::vector<size_t> &common);
 
   void reserve(const size_t n);
@@ -147,9 +151,11 @@ public:
 
   void pull_back(const E elt);
   void remove_back(const E elt);
+  void front_to_back(const E elt);
   // void safe_remove(const E elt);
   void pull_front(const E elt);
   void remove_front(const E elt);
+  void back_to_front(const E elt);
 
   size_t index(const E elt) const;
 
@@ -169,6 +175,23 @@ template<typename E, typename T>
 SparseSet<E,T>::SparseSet(const size_t n) {
   end_ = 0;
   start_ = 0;
+  reserve(n);
+}
+
+//
+// template<typename E, typename T>
+// SparseSet<E,T>::SparseSet(T& s, T& e) : start_(s), end_(e) {
+//}
+
+// template<typename E, typename T>
+// SparseSet<E,T>::SparseSet(const T s, const T e, const size_t n) : end_(e) ,
+// start_(s){
+//     reserve(n);
+// }
+
+template <typename E, typename T>
+SparseSet<E, T>::SparseSet(const size_t n, BacktrackEnvironment *e)
+    : end_(0, e), start_(0, e) {
   reserve(n);
 }
 
@@ -445,6 +468,12 @@ void SparseSet<E,T>::pull_back(const E elt) {
   index_[elt] = end_;
 }
 
+template <typename E, typename T>
+void SparseSet<E, T>::front_to_back(const E elt) {
+  pull_back(elt);
+  ++start_;
+}
+
 // void SparseSet<E,T>::safe_remove_front(const E elt) {
 //   if (elt >= 0) {
 //     if (static_cast<size_t>(elt) >= list_.size()) {
@@ -469,6 +498,14 @@ void SparseSet<E,T>::pull_front(const E elt) {
   list_[start_] = elt;
   index_[elt] = start_;
 	++start_;
+}
+
+// ...|y..|x..
+
+template <typename E, typename T>
+void SparseSet<E, T>::back_to_front(const E elt) {
+  pull_front(elt);
+  --end_;
 }
 
 template <typename E, typename T>
