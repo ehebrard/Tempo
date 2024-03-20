@@ -7,16 +7,16 @@
 
 #include "ClauseBase.hpp"
 #include "ConstraintQueue.hpp"
-#include "DisjunctiveEdgeFinding.hpp"
-#include "EdgeConstraint.hpp"
 #include "Global.hpp"
-#include "Heap.hpp"
-#include "Options.hpp"
 #include "Restart.hpp"
 #include "TemporalNetwork.hpp"
-#include "Transitivity.hpp"
+#include "constraints/DisjunctiveEdgeFinding.hpp"
+#include "constraints/EdgeConstraint.hpp"
+#include "constraints/Transitivity.hpp"
 #include "heuristics/HeuristicManager.hpp"
+#include "util/Heap.hpp"
 #include "util/KillHandler.hpp"
+#include "util/Options.hpp"
 #include "util/SubscribableEvent.hpp"
 
 namespace tempo {

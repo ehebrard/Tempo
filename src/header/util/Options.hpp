@@ -5,15 +5,13 @@
 
 #include <tclap/CmdLine.h>
 
-
 namespace tempo {
 
 class Options {
 
 public:
-
   // the actual options
-    std::string cmdline; // for reference
+  std::string cmdline; // for reference
   std::string instance_file;
 
   enum verbosity { SILENT = 0, QUIET, NORMAL, YACKING, SOLVERINFO };
@@ -34,18 +32,14 @@ public:
   bool transitivity;
 
   enum class ChoicePointHeuristics {
-      Tightest = 0,
-      WeightedDegree,
-      WeightedCriticalPath,
-      VSIDS
+    Tightest = 0,
+    WeightedDegree,
+    WeightedCriticalPath,
+    VSIDS
   };
   ChoicePointHeuristics choice_point_heuristics;
 
-  enum class PolarityHeuristic {
-      Identity,
-      LocalExploration,
-      Tightest
-  };
+  enum class PolarityHeuristic { Identity, LocalExploration, Tightest };
 
   PolarityHeuristic polarity_heuristic;
 
@@ -61,6 +55,6 @@ public:
 Options parse(int argc, char *argv[]);
 
 static Options no_option;
-}
+} // namespace tempo
 
 #endif // __CMDLINE_HPP

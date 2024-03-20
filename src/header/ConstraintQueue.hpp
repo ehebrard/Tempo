@@ -1,9 +1,8 @@
 #ifndef _TEMPO_CONSTRAINTQUEUE_HPP
 #define _TEMPO_CONSTRAINTQUEUE_HPP
 
-
-#include "Constraint.hpp"
 #include "Explanation.hpp"
+#include "constraints/Constraint.hpp"
 #include "util/SparseSet.hpp"
 
 namespace tempo {

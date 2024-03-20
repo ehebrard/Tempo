@@ -25,11 +25,11 @@ public:
 
   //
   virtual void post(const int idx) = 0;
-    // propagate the constraint
+  // propagate the constraint
   virtual void propagate() = 0;
-    // notify a change (with the literal and it's variable rank in the scope)
-    virtual bool notify_bound(const lit, const int){ return false; }
-    virtual bool notify_edge(const lit, const int){ return false; }
+  // notify a change (with the literal and it's variable rank in the scope)
+  virtual bool notify_bound(const lit, const int) { return false; }
+  virtual bool notify_edge(const lit, const int) { return false; }
 
   virtual std::ostream &display(std::ostream &os) const = 0;
 
@@ -39,6 +39,6 @@ public:
 
 std::ostream &operator<<(std::ostream &os, const Constraint &x);
 
-} // namespace TEMPO
+} // namespace tempo
 
 #endif // _TEMPO_CONSTRAINT_HPP

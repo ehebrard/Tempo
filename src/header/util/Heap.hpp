@@ -6,9 +6,8 @@
 
 namespace heap {
 
-template<class RandomIt, class Compare>
-int percolate_down(RandomIt begin, RandomIt end, int idx, Compare comp)
-{
+template <class RandomIt, class Compare>
+int percolate_down(RandomIt begin, RandomIt end, int idx, Compare comp) {
 
   int size = std::distance(begin, end);
   int current = idx;
@@ -61,18 +60,16 @@ int percolate_up(RandomIt begin, int idx, Compare comp) {
   return current;
 }
 
-template<class RandomIt, class Compare>
-void heapify(RandomIt begin, RandomIt end, Compare comp)
-{
+template <class RandomIt, class Compare>
+void heapify(RandomIt begin, RandomIt end, Compare comp) {
   int size = std::distance(begin, end);
   for (int i = size / 2 - 1; i > -1; --i) {
     percolate_down(begin, end, i, comp);
   }
 }
 
-template<class RandomIt, class Compare>
-void sort(RandomIt begin, RandomIt end, Compare comp)
-{
+template <class RandomIt, class Compare>
+void sort(RandomIt begin, RandomIt end, Compare comp) {
   heapify(begin, end, comp);
   while (begin != --end) {
     std::swap(*begin, *end);
@@ -80,14 +77,12 @@ void sort(RandomIt begin, RandomIt end, Compare comp)
   }
 }
 
-template<class RandomIt>
-void sort(RandomIt begin, RandomIt end)
-{
+template <class RandomIt> void sort(RandomIt begin, RandomIt end) {
   std::less<decltype(*begin)> less;
   sort(begin, end, less);
 }
 
-template<class RandomIt, class Compare>
+template <class RandomIt, class Compare>
 void remove_min(RandomIt begin, RandomIt end, Compare comp) {
   std::swap(*begin, *(end - 1));
   percolate_down(begin, end - 1, 0, comp);

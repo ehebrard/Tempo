@@ -1,5 +1,5 @@
 
-#include "Constraint.hpp"
+#include "constraints/Constraint.hpp"
 
 std::ostream &tempo::operator<<(std::ostream &os, const tempo::Constraint &x) {
   return x.display(os);
