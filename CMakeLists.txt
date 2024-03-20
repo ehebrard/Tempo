@@ -47,7 +47,7 @@ else ()
     message(SEND_ERROR "Unknown build type ${CMAKE_BUILD_TYPE}")
 endif ()
 
-file(GLOB SOURCES ${CMAKE_SOURCE_DIR}/src/cpp/*.cpp ${CMAKE_SOURCE_DIR}/src/cpp/util/*.cpp)
+file(GLOB SOURCES ${CMAKE_SOURCE_DIR}/src/cpp/*.cpp ${CMAKE_SOURCE_DIR}/src/cpp/util/*.cpp ${CMAKE_SOURCE_DIR}/src/cpp/constraints/*.cpp)
 
 message("Source files: " ${SOURCES})
 include_directories(${CMAKE_SOURCE_DIR}/src/header/)

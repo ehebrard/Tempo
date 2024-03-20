@@ -4,10 +4,10 @@
 
 #ifndef TEMPO_WEIGHTEDDEGREE_HPP
 #define TEMPO_WEIGHTEDDEGREE_HPP
-#include "BaseHeuristic.hpp"
-#include "Options.hpp"
-#include "heuristics/impl/DecayingEventActivityMap.hpp"
+#include "util/Options.hpp"
 #include "util/SubscribableEvent.hpp"
+#include "heuristics/BaseHeuristic.hpp"
+#include "heuristics/impl/DecayingEventActivityMap.hpp"
 //#include <array>
 
 namespace tempo::heuristics {
