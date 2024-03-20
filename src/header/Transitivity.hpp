@@ -12,7 +12,7 @@
 #include "Scheduler.hpp"
 #include "util/SparseSet.hpp"
 
-//#define DBG_TRANSITIVITY
+
 
 namespace tempo {
 
@@ -29,12 +29,15 @@ private:
 
   //    std::vector<var>
   std::vector<std::vector<lit>> disjunct;
+    
+    std::vector<int> sorted_tasks;
+    std::vector<T> offset;
 
   //  std::vector<int> from;
   //  std::vector<int> to;
 
-  SparseSet<> changed_pred;
-  SparseSet<> changed_succ;
+//  SparseSet<> changed_pred;
+//  SparseSet<> changed_succ;
     
     std::vector<int> new_succ_of_x;
     std::vector<int> new_pred_of_y;
@@ -108,8 +111,10 @@ Transitivity<T>::Transitivity(Scheduler<T> &scheduler, const ItTask beg_task,
   //  changed.reserve(m_tasks.size());
 
   disjunct.resize(m_tasks.size());
-  changed_pred.reserve(m_tasks.size());
-  changed_succ.reserve(m_tasks.size());
+    sorted_tasks.resize(m_tasks.size());
+    offset.resize(m_tasks.size());
+//  changed_pred.reserve(m_tasks.size());
+//  changed_succ.reserve(m_tasks.size());
 
   for (size_t i{0}; i < m_tasks.size(); ++i) {
 
@@ -175,11 +180,13 @@ template <typename T>
 void Transitivity<T>::add_edge(const int x, const int y, const lit r) {
 
 #ifdef DBG_TRANSITIVITY
-  std::cout << " ==> add edge t" << m_tasks[x] << " -> t" << m_tasks[y]
-            << std::endl;
+    if (DBG_TRANSITIVITY)
+    std::cout << " ==> add edge t" << m_tasks[x] << " -> t" << m_tasks[y]
+              << std::endl;
 #endif
     
-change_flag=true;
+    if(DAG[x].frontsize() > 0 or DAG[y].backsize() > 0)
+        change_flag=true;
     
   //            << m_schedule.prettyLiteral(EDGE(disjunct[x][y])) << std::endl;
 
@@ -195,11 +202,11 @@ change_flag=true;
   DAG[x].remove_front(y);
   DAG[y].remove_back(x);
 
-  if (not changed_pred.has(y))
-    changed_pred.add(y);
-
-  if (not changed_succ.has(x))
-    changed_succ.add(x);
+//  if (not changed_pred.has(y))
+//    changed_pred.add(y);
+//
+//  if (not changed_succ.has(x))
+//    changed_succ.add(x);
 }
 
 template <typename T>
@@ -208,25 +215,35 @@ bool Transitivity<T>::notify_edge(const lit l, const int) {
   auto e{m_schedule.getEdge(l)};
 
 #ifdef DBG_TRANSITIVITY
-  std::cout << std::endl;
-  for (size_t i{0}; i < m_tasks.size(); ++i) {
-    std::cout << "t" << m_tasks[i] << ":";
-    for (auto j{DAG[i].fbegin()}; j != DAG[i].fend(); ++j) {
-      std::cout << " -> t" << m_tasks[*j];
-    }
+  if (DBG_TRANSITIVITY) {
     std::cout << std::endl;
-  }
-
-  for (size_t i{0}; i < m_tasks.size(); ++i) {
-    std::cout << "t" << m_tasks[i] << ":";
-    for (auto j{DAG[i].bbegin()}; j != DAG[i].bend(); ++j) {
-      std::cout << " <- t" << m_tasks[*j];
+//      std::cout << "before notify\nnew succs:";
+//      for(auto x : changed_succ)
+//          std::cout << " t" << m_tasks[x];
+//      std::cout << std::endl;
+//      std::cout << "new preds:";
+//      for(auto x : changed_pred)
+//          std::cout << " t" << m_tasks[x];
+//      std::cout << std::endl;
+    for (size_t i{0}; i < m_tasks.size(); ++i) {
+      std::cout << "t" << m_tasks[i] << ":";
+      for (auto j{DAG[i].fbegin()}; j != DAG[i].fend(); ++j) {
+        std::cout << " -> t" << m_tasks[*j];
+      }
+      std::cout << std::endl;
     }
-    std::cout << std::endl;
-  }
 
-  std::cout << "notify edge t" << TASK(e.from) << " -> t" << TASK(e.to)
-            << std::endl;
+    for (size_t i{0}; i < m_tasks.size(); ++i) {
+      std::cout << "t" << m_tasks[i] << ":";
+      for (auto j{DAG[i].bbegin()}; j != DAG[i].bend(); ++j) {
+        std::cout << " <- t" << m_tasks[*j];
+      }
+      std::cout << std::endl;
+    }
+
+    std::cout << "notify edge t" << TASK(e.from) << " -> t" << TASK(e.to)
+              << std::endl;
+  }
 #endif
 
   auto x{task_map[TASK(e.from)]};
@@ -259,22 +276,77 @@ bool Transitivity<T>::notify_edge(const lit l, const int) {
 //        }
 //    }
     
+    new_succ_of_x.clear();
+    new_pred_of_y.clear();
     for (auto zp{DAG[y].frbegin()}; zp != DAG[y].frend(); ++zp) {
         auto z{*zp};
         if(not DAG[x].isfront(z)) {
-            add_edge(x, z, l);
-        }
-        for (auto tp{DAG[x].brbegin()}; tp != DAG[x].brend(); ++tp) {
-            auto t{*tp};
-            // there's a path t->x->y->z
-            if(not DAG[t].isfront(y)) {
-                add_edge(t, y, l);
-            }
-            if(not DAG[t].isfront(z)) {
-                add_edge(t, z, l);
-            }
+            new_succ_of_x.push_back(z);
         }
     }
+    for (auto tp{DAG[x].brbegin()}; tp != DAG[x].brend(); ++tp) {
+        auto t{*tp};
+        if(not DAG[t].isback(y)) {
+            new_pred_of_y.push_back(t);
+        }
+    }
+    for(auto z : new_succ_of_x) {
+        for (auto tp{DAG[x].brbegin()}; tp != DAG[x].brend(); ++tp) {
+            auto t{*tp};
+            if(not DAG[z].isback(t)) {
+                add_edge(t,z,l);
+            }
+        }
+        if(not DAG[x].isfront(z))
+            add_edge(x,z,l);
+    }
+    
+    for(auto t : new_pred_of_y) {
+        for (auto zp{DAG[y].frbegin()}; zp != DAG[y].frend(); ++zp) {
+            auto z{*zp};
+            if(not DAG[t].isfront(z)) {
+                add_edge(t,z,l);
+            }
+        }
+        if(not DAG[y].isback(t))
+            add_edge(t,y,l);
+    }
+    
+    
+    
+//    for (auto zp{DAG[y].frbegin()}; zp != DAG[y].frend(); ++zp) {
+//        
+//        auto z{*zp};
+//        
+//        std::cout << "*t" << m_tasks[z] << " -> t" << m_tasks[y] << std::endl;
+//        
+//        
+//        if(not DAG[x].isfront(z)) {
+//            
+//            std::cout << " add " << m_tasks[x] << " -> " << m_tasks[z] << std::endl;
+//            
+//            add_edge(x, z, l);
+//        }
+//        for (auto tp{DAG[x].brbegin()}; tp != DAG[x].brend(); ++tp) {
+//            auto t{*tp};
+//            
+//            std::cout << "*t" << m_tasks[t] << " -> t" << m_tasks[x] << std::endl;
+//            
+//            // there's a path t->x->y->z
+//            if(not DAG[t].isfront(y)) {
+//                
+//                std::cout << " add " << m_tasks[t] << " -> " << m_tasks[y] << std::endl;
+//                
+//                add_edge(t, y, l);
+//            }
+//            if(not DAG[t].isfront(z)) {
+//                
+//                std::cout << " add " << m_tasks[t] << " -> " << m_tasks[z] << std::endl;
+//                
+//                add_edge(t, z, l);
+//            }
+//        }
+//    }
  
   //  std::cout << forward[x] << std::endl;
   //
@@ -318,34 +390,50 @@ bool Transitivity<T>::notify_edge(const lit l, const int) {
   DAG[y].remove_back(x);
 
 #ifdef DBG_TRANSITIVITY
-  if (change_flag)
-    std::cout << "***\n";
+  if (DBG_TRANSITIVITY) {
+    if (change_flag)
+      std::cout << "***\n";
 
-  for (size_t i{0}; i < m_tasks.size(); ++i) {
-    std::cout << "t" << m_tasks[i] << ":";
-    for (auto j{DAG[i].fbegin()}; j != DAG[i].fend(); ++j) {
-      std::cout << " -> t" << m_tasks[*j];
+    for (size_t i{0}; i < m_tasks.size(); ++i) {
+      std::cout << "t" << m_tasks[i] << ":";
+      for (auto j{DAG[i].fbegin()}; j != DAG[i].fend(); ++j) {
+        std::cout << " -> t" << m_tasks[*j];
+      }
+      std::cout << std::endl;
     }
-    std::cout << std::endl;
-  }
 
-  for (size_t i{0}; i < m_tasks.size(); ++i) {
-    std::cout << "t" << m_tasks[i] << ":";
-    for (auto j{DAG[i].bbegin()}; j != DAG[i].bend(); ++j) {
-      std::cout << " <- t" << m_tasks[*j];
+    for (size_t i{0}; i < m_tasks.size(); ++i) {
+      std::cout << "t" << m_tasks[i] << ":";
+      for (auto j{DAG[i].bbegin()}; j != DAG[i].bend(); ++j) {
+        std::cout << " <- t" << m_tasks[*j];
+      }
+      std::cout << std::endl;
     }
-    std::cout << std::endl;
-  }
 
-  for (size_t i{0}; i < m_tasks.size(); ++i) {
-    for (auto j{DAG[i].fbegin()}; j != DAG[i].fend(); ++j) {
-      assert(DAG[*j].isback(i));
+    for (size_t i{0}; i < m_tasks.size(); ++i) {
+      for (auto j{DAG[i].fbegin()}; j != DAG[i].fend(); ++j) {
+        assert(DAG[*j].isback(i));
+      }
     }
   }
 #endif
 if(change_flag)
 {
     change_flag = false;
+    
+//#ifdef DBG_TRANSITIVITY
+//    if (DBG_TRANSITIVITY) {
+//        std::cout << "after notify\nnew succs:";
+//        for(auto x : changed_succ)
+//            std::cout << " t" << m_tasks[x];
+//        std::cout << std::endl;
+//        std::cout << "new preds:";
+//        for(auto x : changed_pred)
+//            std::cout << " t" << m_tasks[x];
+//        std::cout << std::endl;
+//    }
+//#endif
+    
     return true;
 }
     
@@ -353,79 +441,222 @@ if(change_flag)
 }
 
 template <typename T> void Transitivity<T>::propagate() {
-  auto cmax{m_schedule.upper(HORIZON)};
-
+//  auto cmax{m_schedule.upper(HORIZON)};
+    
+//    // get the sinks
+//    stack.fill();
+//    for(size_t x{0}; x<m_tasks.size(); ++x) {
+//        if(DAG[x].frontsize() == 0) {
+//            stack.add(x);
+//        }
+//        while(not stack.empty()) {
+//            auto u{stack.front()};
+//            stack.pop_front();
+//            for(auto)
+//        }
+//    }
+    
+    
+//#ifdef DBG_TRANSITIVITY
+//    bool pruning{false};
+//#endif
+    
+    for(size_t x{0}; x<m_tasks.size(); ++x) {
+        sorted_tasks[x] = x;
+        offset[x] = 0;
+    }
+    std::sort(sorted_tasks.begin(), sorted_tasks.end(), [&](const int x, const int y) -> bool {return m_schedule.upper(END(m_tasks[x])) < m_schedule.upper(END(m_tasks[y]));});
+    
+//    for(auto x : sorted_tasks) {
+//        std::cout << "[" << m_schedule.lower(START(m_tasks[x])) << ".." << m_schedule.upper(END(m_tasks[x])) << "]\n";
+//    }
+    
+    for(auto x : sorted_tasks) {
+        
 #ifdef DBG_TRANSITIVITY
-    std::cout << "propagate transitivity:\n" << m_schedule << std::endl;
+        if (DBG_TRANSITIVITY) {
+            std::cout << "t" << m_tasks[x] << " [" << m_schedule.lower(START(m_tasks[x])) << ".." << m_schedule.upper(END(m_tasks[x])) << "] (" << m_schedule.minDuration(m_tasks[x]) << ")";
+            //        if(DAG[x].frontsize() > 0) {
+            for (auto yp{DAG[x].fbegin()}; yp != DAG[x].fend(); ++yp) {
+                std::cout << " -> t" << m_tasks[*yp];
+            }
+            //        }
+            std::cout << std::endl;
+        }
+#endif
+//        if(DAG[x].frontsize() > 0) {
+            for (auto yp{DAG[x].fbegin()}; yp != DAG[x].fend(); ++yp) {
+                offset[*yp] += m_schedule.minDuration(m_tasks[x]);
+                
+                auto ex{m_schedule.upper(END(m_tasks[x]))};
+                auto ez{m_schedule.upper(END(m_tasks[*yp]))};
+                
+#ifdef DBG_TRANSITIVITY
+                if (DBG_TRANSITIVITY)
+                std::cout << " new bound " << prettyEvent(END(m_tasks[*yp]))
+                << " <= " << ex - offset[*yp]
+                << "/" << ez << std::endl;
+#endif
+                
+                if((ex - offset[*yp]) < ez) {
+//                    pruning = true;
+                    m_schedule.set({UPPERBOUND(END(m_tasks[*yp])), ex - offset[*yp]}, {this, NoLit});
+                }
+            }
+//        }
+#ifdef DBG_TRANSITIVITY
+    if (DBG_TRANSITIVITY)
+        std::cout << std::endl;
+#endif
+    }
+    
+#ifdef DBG_TRANSITIVITY
+    if (DBG_TRANSITIVITY)
+    std::cout << std::endl;
 #endif
     
-    try{
-        for (auto x : changed_succ) {
-            
-#ifdef DBG_TRANSITIVITY
-    std::cout << "t" << m_tasks[x] << " has new successors:\n";
-#endif
-            
-            T est{cmax};
-            T total_duration{0};
-            for (auto yp{DAG[x].fbegin()}; yp != DAG[x].fend(); ++yp) {
-                total_duration += m_schedule.minDuration(m_tasks[*yp]);
-                est = std::min(est, m_schedule.lower(START(m_tasks[*yp])));
-                
-#ifdef DBG_TRANSITIVITY
-    std::cout << " - t" << m_tasks[*yp] << " " 
-                << m_schedule.minDuration(m_tasks[*yp])
-                << "/" << m_schedule.lower(START(m_tasks[*yp]))
-                << " -> " << total_duration << "/" << est << "\n";
-#endif
-            }
-            
-#ifdef DBG_TRANSITIVITY
-    std::cout << "deduce " << prettyEvent(START(m_tasks[x])) << " >= "
-            << (est + total_duration) << " (was "
-            << m_schedule.lower(START(m_tasks[x])) << ")"<< std::endl;
-#endif
-            
-            m_schedule.set({LOWERBOUND(START(m_tasks[x])), -est - total_duration}, {this, NoHint});
-        }
-        
-        for (auto y : changed_pred) {
-            
-#ifdef DBG_TRANSITIVITY
-    std::cout << "t" << m_tasks[y] << " has new predecessors:\n";
-#endif
-            
-            T lct{0};
-            T total_duration{0};
-            for (auto xp{DAG[y].bbegin()}; xp != DAG[y].bend(); ++xp) {
-                total_duration += m_schedule.minDuration(m_tasks[*xp]);
-                lct = std::max(lct, m_schedule.upper(END(m_tasks[*xp])));
-                
-#ifdef DBG_TRANSITIVITY
-    std::cout << " - t" << m_tasks[*xp] << " "
-                << m_schedule.minDuration(m_tasks[*xp])
-                << "/" << m_schedule.upper(END(m_tasks[*xp]))
-                << " -> " << total_duration << "/" << lct << "\n";
-#endif
-                
-            }
-            
-#ifdef DBG_TRANSITIVITY
-    std::cout << "deduce " << prettyEvent(END(m_tasks[y])) << " <= "
-            << (lct - total_duration) << " (was "
-            << m_schedule.upper(END(m_tasks[y])) << ")" << std::endl;
-#endif
-            
-            m_schedule.set({UPPERBOUND(END(m_tasks[y])), lct - total_duration},
-                           {this, NoHint});
-        }
-    } catch(Failure &f) {
-        changed_succ.clear();
-        changed_pred.clear();
-        throw f;
+    for(size_t x{0}; x<m_tasks.size(); ++x) {
+//        sorted_tasks[x] = x;
+        offset[x] = 0;
     }
-    changed_succ.clear();
-    changed_pred.clear();
+    std::sort(sorted_tasks.begin(), sorted_tasks.end(), [&](const int x, const int y) -> bool {return m_schedule.lower(START(m_tasks[x])) > m_schedule.lower(START(m_tasks[y]));});
+    
+//    for(auto x : sorted_tasks) {
+//        std::cout << "[" << m_schedule.lower(START(m_tasks[x])) << ".." << m_schedule.upper(END(m_tasks[x])) << "]\n";
+//    }
+    
+    for(auto y : sorted_tasks) {
+#ifdef DBG_TRANSITIVITY
+        if (DBG_TRANSITIVITY) {
+        std::cout << "t" << m_tasks[y] << " [" << m_schedule.lower(START(m_tasks[y])) << ".." << m_schedule.upper(END(m_tasks[y])) << "] (" << m_schedule.minDuration(m_tasks[y]) << ")";
+//        if(DAG[x].frontsize() > 0) {
+            for (auto xp{DAG[y].bbegin()}; xp != DAG[y].bend(); ++xp) {
+              std::cout << " <- t" << m_tasks[*xp];
+            }
+        }
+        std::cout << std::endl;
+#endif
+//        if(DAG[x].frontsize() > 0) {
+            for (auto xp{DAG[y].bbegin()}; xp != DAG[y].bend(); ++xp) {
+                offset[*xp] += m_schedule.minDuration(m_tasks[y]);
+                
+                auto sy{m_schedule.lower(START(m_tasks[y]))};
+                auto sz{m_schedule.lower(START(m_tasks[*xp]))};
+                        
+                
+#ifdef DBG_TRANSITIVITY
+        if (DBG_TRANSITIVITY)
+                std::cout << " new bound " << prettyEvent(START(m_tasks[*xp]))
+                << " >= " << sy + offset[*xp]
+                << "/" << sz << std::endl;
+#endif
+                
+                if((sy + offset[*xp]) > sz) {
+//                    pruning = true;
+                    m_schedule.set({LOWERBOUND(START(m_tasks[*xp])), -sy - offset[*xp]}, {this, NoLit});
+                }
+            }
+//        }
+#ifdef DBG_TRANSITIVITY
+        if (DBG_TRANSITIVITY)
+        std::cout << std::endl;
+#endif
+    }
+    
+    
+//    if(pruning)
+//        exit(1);
+    
+
+//#ifdef DBG_TRANSITIVITY
+//    if (DBG_TRANSITIVITY) {
+//        std::cout << "propagate transitivity:\n" << m_schedule << std::endl;
+//        std::cout << "new succs:";
+//        for(auto x : changed_succ)
+//            std::cout << " t" << m_tasks[x];
+//        std::cout << std::endl;
+//        std::cout << "new preds:";
+//        for(auto x : changed_pred)
+//            std::cout << " t" << m_tasks[x];
+//        std::cout << std::endl;
+//    }
+//#endif
+//    
+//    try{
+//        for (auto x : changed_succ) {
+//            
+//#ifdef DBG_TRANSITIVITY
+//          if (DBG_TRANSITIVITY)
+//            std::cout << "t" << m_tasks[x] << " has new successors:\n";
+//#endif
+//            
+//            T est{cmax};
+//            T total_duration{0};
+//            for (auto yp{DAG[x].fbegin()}; yp != DAG[x].fend(); ++yp) {
+//                total_duration += m_schedule.minDuration(m_tasks[*yp]);
+//                est = std::min(est, m_schedule.lower(START(m_tasks[*yp])));
+//                
+//#ifdef DBG_TRANSITIVITY
+//                if (DBG_TRANSITIVITY)
+//                  std::cout << " - t" << m_tasks[*yp] << " "
+//                            << m_schedule.minDuration(m_tasks[*yp]) << "/"
+//                            << m_schedule.lower(START(m_tasks[*yp])) << " -> "
+//                            << total_duration << "/" << est << "\n";
+//#endif
+//            }
+//            
+//#ifdef DBG_TRANSITIVITY
+//            if (DBG_TRANSITIVITY)
+//              std::cout << "deduce " << prettyEvent(START(m_tasks[x]))
+//                        << " >= " << (est + total_duration) << " (was "
+//                        << m_schedule.lower(START(m_tasks[x])) << ")"
+//                        << std::endl;
+//#endif
+//            
+//            m_schedule.set({LOWERBOUND(START(m_tasks[x])), -est - total_duration}, {this, NoHint});
+//        }
+//        
+//        for (auto y : changed_pred) {
+//            
+//#ifdef DBG_TRANSITIVITY
+//          if (DBG_TRANSITIVITY)
+//            std::cout << "t" << m_tasks[y] << " has new predecessors:\n";
+//#endif
+//            
+//            T lct{0};
+//            T total_duration{0};
+//            for (auto xp{DAG[y].bbegin()}; xp != DAG[y].bend(); ++xp) {
+//                total_duration += m_schedule.minDuration(m_tasks[*xp]);
+//                lct = std::max(lct, m_schedule.upper(END(m_tasks[*xp])));
+//                
+//#ifdef DBG_TRANSITIVITY
+//                if (DBG_TRANSITIVITY)
+//                  std::cout << " - t" << m_tasks[*xp] << " "
+//                            << m_schedule.minDuration(m_tasks[*xp]) << "/"
+//                            << m_schedule.upper(END(m_tasks[*xp])) << " -> "
+//                            << total_duration << "/" << lct << "\n";
+//#endif
+//                
+//            }
+//            
+//#ifdef DBG_TRANSITIVITY
+//            if (DBG_TRANSITIVITY)
+//              std::cout << "deduce " << prettyEvent(END(m_tasks[y]))
+//                        << " <= " << (lct - total_duration) << " (was "
+//                        << m_schedule.upper(END(m_tasks[y])) << ")"
+//                        << std::endl;
+//#endif
+//            
+//            m_schedule.set({UPPERBOUND(END(m_tasks[y])), lct - total_duration},
+//                           {this, NoHint});
+//        }
+//    } catch(Failure &f) {
+//        changed_succ.clear();
+//        changed_pred.clear();
+//        throw f;
+//    }
+//    changed_succ.clear();
+//    changed_pred.clear();
 }
 
 template <typename T> int Transitivity<T>::getType() const {

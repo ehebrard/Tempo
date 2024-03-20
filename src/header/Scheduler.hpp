@@ -356,6 +356,26 @@ private:
   void writeLiteral(const lit l) const;
   void writeConstraint(const BoundConstraint<T> &c) const;
 #endif
+
+#ifdef DBG_SOL
+  std::vector<bool> ref_solution;
+  var is_on_track() {
+      
+//      assert(ref_solution.empty());
+      
+      if(ref_solution.empty())
+          return NoVar;
+    auto n{static_cast<var>(numVariable())};
+    for (var x{0}; x < n; ++x) {
+      if(not isUndefined(x) and (value(x) != ref_solution[x]))
+          return x;
+    }
+    return NoVar;
+  }
+
+public:
+  void load(std::vector<bool> &sol) { ref_solution = sol; }
+#endif
 };
 
 /// DISTANCE
@@ -376,7 +396,7 @@ DistanceConstraint<T> DistanceConstraint<T>::operator~() const {
 }
 
 template <typename T>
-bool DistanceConstraint<T>::entails(const DistanceConstraint<T>& e) const {
+bool DistanceConstraint<T>::entails(const DistanceConstraint<T> &e) const {
   return e.from == from and e.to == to and distance <= e.distance;
 }
 
@@ -391,8 +411,6 @@ std::ostream &DistanceConstraint<T>::display(std::ostream &os) const {
      << " <= " << distance;
   return os;
 }
-
-
 
 /// SCHEDULER
 ///
@@ -977,6 +995,10 @@ void tempo::Scheduler<T>::trigger(const lit l) {
 
 template<typename T>
 void tempo::Scheduler<T>::propagate() {
+//#ifdef DBG_SOL
+//    var x;
+//
+//#endif
 
   while (not propagation_queue.empty() or
          (search_vars.frontsize() > edge_propag_pointer) or
@@ -994,13 +1016,41 @@ void tempo::Scheduler<T>::propagate() {
       //            polarity[search_vars[edge_propag_pointer]])] << "] <" <<
       //            polarity[search_vars[edge_propag_pointer]] << ">\n";
 
+//#ifdef DBG_SOL
+//      x = is_on_track();
+//      if (x != NoVar) {
+//        std::cout << "bug before trigger " << edges[l] << std::endl;
+//        exit(1);
+//      }
+//
+//#endif
+        
       trigger(l);
+        
+//#ifdef DBG_SOL
+//      x = is_on_track();
+//      if (x != NoVar) {
+//        std::cout << "bug after trigger " << edges[l] << std::endl;
+//        exit(1);
+//      }
+//
+//#endif
+        
       ++edge_propag_pointer;
     }
 
     while (numBoundLiteral() > bound_propag_pointer) {
       ++num_literals;
       lit l{getBoundLiteral(bound_propag_pointer)};
+        
+//#ifdef DBG_SOL
+//      x = is_on_track();
+//      if (x != NoVar) {
+//        std::cout << "bug before trigger " << prettyLiteral(BOUND(bound_propag_pointer)) << std::endl;
+//        exit(1);
+//      }
+//
+//#endif
 
       const std::vector<int> &cons = evt_constraint_network[l];
       const std::vector<unsigned> &rank = evt_constraint_network.rank(l);
@@ -1029,6 +1079,16 @@ void tempo::Scheduler<T>::propagate() {
         propagation_queue.bound_triggers(l, rank[i], cons[i], r);
       }
 
+        
+//#ifdef DBG_SOL
+//      x = is_on_track();
+//      if (x != NoVar) {
+//        std::cout << "bug after trigger " << prettyLiteral(BOUND(bound_propag_pointer)) << std::endl;
+//        exit(1);
+//      }
+//
+//#endif
+        
       ++bound_propag_pointer;
     }
 
@@ -1041,8 +1101,42 @@ void tempo::Scheduler<T>::propagate() {
       }
 #endif
 
-      ++num_cons_propagations;
+        
+        ++num_cons_propagations;
+        
+//#ifdef DBG_SOL
+//        x = is_on_track();
+//      if (x != NoVar) {
+//        std::cout << "bug before propagation " << num_cons_propagations
+//          << " on var " << edges[POS(x)] << " <> " << edges[NEG(x)]
+//                  << std::endl;
+//        exit(1);
+//      }
+//#endif
+        
       cons->propagate();
+        
+        
+//#ifdef DBG_SOL
+//        x = is_on_track();
+//      if (x != NoVar) {
+//        std::cout << "bug after propagation " << num_cons_propagations
+//          << " on var " << edges[POS(x)] << " <> " << edges[NEG(x)]
+//                  << std::endl;
+//        exit(1);
+//      }
+//
+//#endif
+
+//#ifdef DBG_SOL
+//      //        auto z{is_on_track()};
+//      //        std::cout << was_on_track << " -> " << z << std::endl;
+//      if (was_on_track and not is_on_track()) {
+//        std::cout << "bug at propagation " << num_cons_propagations
+//                  << std::endl;
+//        exit(1);
+//      }
+//#endif
     }
   }
 }
@@ -1225,6 +1319,11 @@ void Scheduler<T>::notifySolution() {
   setUpperBound(ub - Gap<T>::epsilon());
 
   best_solution = polarity;
+    
+//#ifdef DBG_SOL
+//    if(not ref_solution.empty())
+//    exit(1);
+//#endif
 }
 
 
@@ -1440,7 +1539,29 @@ template <typename T> void Scheduler<T>::search() {
 
     try {
 
-      propagate();
+#ifdef DBG_SOL
+        var x{is_on_track()};
+        try {
+#endif
+            
+            propagate();
+            
+#ifdef DBG_SOL
+        } catch(Failure &f) {
+            if(x == NoVar) {
+                std::cout << "failure while on track at (" << num_choicepoints << ")\n";
+                exit(1);
+            }
+            throw f;
+        }
+        if(x == NoVar and (is_on_track() != NoVar)) {
+            std::cout << "get out of track after propag at (" << num_choicepoints << ")\n";
+            std::cout << "literal " << edges[LIT(x,value(x))] << " whereas it is "
+            << edges[LIT(x,ref_solution[x])] << " in sol.txt\n";
+            exit(1);
+        }
+#endif
+            
 
 #ifdef DBG_TRACE
       if (DBG_BOUND and (DBG_TRACE & PROPAGATION)) {
@@ -1476,6 +1597,20 @@ template <typename T> void Scheduler<T>::search() {
 
         var cp = heuristic->nextChoicePoint(*this);
         lit d;
+//#ifdef DBG_SOL
+//          if(not ref_solution.empty())
+//              d = LIT(cp, ref_solution[cp]);
+//          else if ((random() % 10) == 0) {
+//              d = (random() % 2 ? POS(cp) : NEG(cp));
+//            } else {
+//              auto prec_a{getEdge(POS(cp))};
+//              auto prec_b{getEdge(NEG(cp))};
+//              auto gap_a = upper(prec_a.from) - lower(prec_a.to);
+//              auto gap_b = upper(prec_b.from) - lower(prec_b.to);
+//              d = (gap_a < gap_b ? NEG(cp) : POS(cp));
+//            }
+//              
+//#else
         if ((random() % 10) == 0) {
           d = (random() % 2 ? POS(cp) : NEG(cp));
         } else {
@@ -1485,6 +1620,7 @@ template <typename T> void Scheduler<T>::search() {
           auto gap_b = upper(prec_b.from) - lower(prec_b.to);
           d = (gap_a < gap_b ? NEG(cp) : POS(cp));
         }
+//#endif
 
 #ifdef DBG_TRACE
         if (DBG_BOUND and (DBG_TRACE & SEARCH)) {

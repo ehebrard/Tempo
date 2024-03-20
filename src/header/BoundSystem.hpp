@@ -271,7 +271,7 @@ bool BoundSystem<T>::set(const bool bt, const event x, const T b, Explanation e)
         ++num_prunings;
         
 #ifdef DBG_TRACE
-        if (DBG_TRACE & PROPAGATION) {
+        if (DBG_BBOUND and (DBG_TRACE & PROPAGATION)) {
             std::cout << "pruning: ";
             if(bt)
                 std::cout << prettyEvent(x) << " <= " << b ;
@@ -312,7 +312,7 @@ bool BoundSystem<T>::set(const bool bt, const event x, const T b, Explanation e)
         if(b + bound[NOT(bt)][x] < 0) {
             
 #ifdef DBG_TRACE
-            if (DBG_TRACE & PROPAGATION) {
+            if (DBG_BBOUND and (DBG_TRACE & PROPAGATION)) {
                 std::cout << "FAIL on bound!\n";
             }
 #endif

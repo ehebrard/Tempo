@@ -8,8 +8,9 @@
 
 namespace tempo {
 
-//#define DBG_BOUND true //(num_clauses > 34215)
-//#define DBG_TRACE 3   // 183 //1+2+4+32+128
+//#define DBG_BOUND (num_choicepoints >= 4064)
+//#define DBG_BBOUND (sched.num_choicepoints >= 4064)
+//#define DBG_TRACE 45 // 183 //1+2+4+32+128
 #define SEARCH 1
 #define DOMAINS 2
 #define BRANCH 4
@@ -25,6 +26,8 @@ namespace tempo {
 //#define DEBUG_HEURISTICS
 //#define DBG_UP
 //#define DBG_CL 34220000
+//#define DBG_TRANSITIVITY true //(m_schedule.num_choicepoints >= 4064)
+//#define DBG_SOL
 
 using priority_t = unsigned;
 #define LOW 0

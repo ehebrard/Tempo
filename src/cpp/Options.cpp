@@ -86,21 +86,21 @@ tempo::Options tempo::parse(int argc, char *argv[]) {
   cmd.add<ValueArg<int>>(opt.seed, "", "seed", "random seed", false, 12345,
                          "int");
 
-  cmd.add<SwitchArg>(opt.print_sol, "", "print_sol",
+  cmd.add<SwitchArg>(opt.print_sol, "", "print-sol",
                      "print the best found schedule", false);
 
-  cmd.add<SwitchArg>(opt.print_par, "", "print_par", "print the paramters",
+  cmd.add<SwitchArg>(opt.print_par, "", "print-par", "print the paramters",
                      false);
 
-  cmd.add<SwitchArg>(opt.print_mod, "", "print_mod", "print the model", false);
+  cmd.add<SwitchArg>(opt.print_mod, "", "print-mod", "print the model", false);
 
-  cmd.add<SwitchArg>(opt.print_ins, "", "print_ins", "print the instance",
+  cmd.add<SwitchArg>(opt.print_ins, "", "print-ins", "print the instance",
                      false);
 
-  cmd.add<SwitchArg>(opt.print_sol, "", "print_sta", "print the statistics",
+  cmd.add<SwitchArg>(opt.print_sta, "", "print-sta", "print the statistics",
                      false);
 
-  cmd.add<SwitchArg>(opt.print_sol, "", "print_cmd", "print the command-line",
+  cmd.add<SwitchArg>(opt.print_cmd, "", "print-cmd", "print the command-line",
                      false);
 
   cmd.add<ValueArg<std::string>>(opt.dbg_file, "", "dbg",

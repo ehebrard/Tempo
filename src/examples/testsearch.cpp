@@ -33,6 +33,26 @@ along with minicsp.  If not, see <http://www.gnu.org/licenses/>.
 
 using namespace tempo;
 
+void load(std::string &solfile_name, std::vector<bool> &solution) {
+  //    std::cout << "load\n";
+
+  std::ifstream solfile(solfile_name.c_str(), std::ifstream::in);
+  size_t n;
+  bool val;
+  solfile >> n;
+
+  //    std::cout << n << std::endl;
+
+  solution.resize(n);
+
+  for (size_t i{0}; i < n; ++i) {
+    solfile >> val;
+
+    //        std::cout << val << std::endl;
+
+    solution[i] = val;
+  }
+}
 
 int main(int argc, char *argv[]) {
   auto start = std::chrono::system_clock::now();
@@ -107,15 +127,30 @@ int main(int argc, char *argv[]) {
       }
       scope.clear();
   }
-    
-//    std::cout << S << std::endl;
-    
+
+#ifdef DBG_SOL
+  if (opt.dbg_file != "") {
+    std::vector<bool> dbg_sol;
+    load(opt.dbg_file, dbg_sol);
+    S.load(dbg_sol);
+    //    std::cout << "load";
+    //    for (size_t i{0}; i < dbg_sol.size(); ++i)
+    //      std::cout << " " << dbg_sol[i];
+    //    std::cout << std::endl;
+  }
+#endif
+
+  //    std::cout << S << std::endl;
+
   S.search();
-    
-  auto end = std::chrono::system_clock::now();
-  auto elapsed =
-      std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-  std::cout << "Temps d'execution = " << elapsed.count() << " ms" << std::endl;
+
+  if (opt.verbosity > tempo::Options::SILENT) {
+    auto end = std::chrono::system_clock::now();
+    auto elapsed =
+        std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+    std::cout << "Temps d'execution = " << elapsed.count() << " ms"
+              << std::endl;
+  }
 
   auto sol = S.getMakespan();
   if (KillHandler::instance().signalReceived()) {
@@ -125,7 +160,7 @@ int main(int argc, char *argv[]) {
               << data.optimalSolution << std::endl;
     std::exit(1);
   }
-    
+
     if(opt.print_sol) {
         auto solution{S.getSolution()};
         std::cout << solution.size() ;
