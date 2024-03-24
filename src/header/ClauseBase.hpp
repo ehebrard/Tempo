@@ -72,11 +72,11 @@ public:
   void forget();
 
   Clause *back() {
-
-    std::cout << base.size() << " / "
-              << static_cast<size_t>(free_cl_indices.bbegin() -
-                                     free_cl_indices.fbegin())
-              << std::endl;
+//
+//    std::cout << base.size() << " / "
+//              << static_cast<size_t>(free_cl_indices.bbegin() -
+//                                     free_cl_indices.fbegin())
+//              << std::endl;
 
     return base[*(free_cl_indices.bbegin())];
   }
@@ -968,6 +968,8 @@ template <typename T> void ClauseBase<T>::forget() {
   //    }
 
   auto target_size = static_cast<size_t>(static_cast<double>(size()) * .9);
+//    auto target_size = static_cast<size_t>(static_cast<double>(size()) * caller.getOptions().forgetfullness);
+
 
   // (1.0 - caller.getOptions().forgetfulness));
 

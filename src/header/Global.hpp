@@ -27,7 +27,7 @@ namespace tempo {
 //#define DBG_BELLMAN_EXPL (sched.num_choicepoints >= 4172)
 //#define DEBUG_HEURISTICS
 //#define DBG_UP
-//#define DBG_CL 1000000
+//#define DBG_CL 10000000
 //#define DBG_CLPLUS
 //#define DBG_TRANSITIVITY true //(m_schedule.num_choicepoints >= 4064)
 //#define DBG_SOL

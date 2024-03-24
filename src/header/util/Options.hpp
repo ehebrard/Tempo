@@ -45,6 +45,8 @@ public:
 
   double vsids_decay;
   double vsids_epsilon;
+    
+    double forgetfullness;
 
   double restart_factor;
   int restart_base;
