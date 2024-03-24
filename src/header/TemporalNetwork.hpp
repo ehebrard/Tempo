@@ -279,9 +279,10 @@ std::ostream &TemporalNetwork<T>::print_reason(std::ostream &os, const hint h) c
             // h is the responsible edge
             auto el{sched.getEdgeLiteral(FROM_GEN(h))};
             auto ec{sched.getEdge(el)};
-            os << "transitivity via " << ec ;
+            os << "shortest path via " << ec;
         } else {
-            os << "transitivity via " << sched.prettyLiteral(h) << " (and ground edge)" ;
+          os << "shortest path via " << sched.prettyLiteral(h)
+             << " (and ground edge)";
         }
     }
 //    os << "precedences";

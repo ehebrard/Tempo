@@ -1388,8 +1388,8 @@ void Scheduler<T>::learnConflict(Explanation e) {
   assert(upper(HORIZON) == ub - Gap<T>::epsilon());
 
 #ifdef DBG_CL
-  if (num_clauses++ > DBG_CL)
-    exit(1);
+//  if (++num_clauses > DBG_CL)
+//    exit(1);
   if (cl_file != NULL) {
     *cl_file << "0 " << (conflict.size() + 1) << " 0 1 " << upper(HORIZON);
   }
@@ -1421,10 +1421,17 @@ void Scheduler<T>::learnConflict(Explanation e) {
 #ifdef DBG_TRACE
   if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
     std::cout << "learn conflict";
-    if (clauses.size() > 0)
+    if (clauses.size() > 0 and cl != NULL)
       clauses.displayClause(std::cout, cl);
+    //      else
+    //          std::cout << "(" << << ")";
     std::cout << std::endl;
   }
+#endif
+    
+#ifdef DBG_CL
+  if (++num_clauses > DBG_CL)
+    exit(1);
 #endif
 }
 
@@ -1624,7 +1631,7 @@ template <typename T> void Scheduler<T>::search() {
 
 #ifdef DBG_TRACE
         if (DBG_BOUND and (DBG_TRACE & SEARCH)) {
-          std::cout << "-- new decision: " << edges[d] << std::endl;
+          std::cout << *this << "\n-- new decision: " << edges[d] << std::endl;
         }
 #endif
 
@@ -1767,6 +1774,9 @@ template <typename T> void Scheduler<T>::analyze(Explanation e) {
     if (stoppingCondition()) {
       break;
     } else {
+
+      assert(not conflict_set.empty());
+
       l = conflict_set[0];
       heap::remove_min(conflict_set.begin(), conflict_set.end(), younger);
       conflict_set.pop_back();

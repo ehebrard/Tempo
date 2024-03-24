@@ -1010,7 +1010,12 @@ Clause *ClauseBase<T>::learn(const iter first, const iter last) {
   assert(first != last);
 
   if (first + 1 == last) {
+
+    //      std::cout << "LEARNT UNIT CLAUSE!\n";
+    //      exit(1);
+
     assign(*first, Constant::NoReason);
+
   } else {
 
     if (not free_cl_indices.empty()) {

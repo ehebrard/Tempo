@@ -12,6 +12,8 @@
 #include "constraints/Constraint.hpp"
 #include "util/SparseSet.hpp"
 
+//#define DBG_LTRANS
+
 namespace tempo {
 
 template <typename T> class Transitivity : public Constraint {
@@ -27,6 +29,8 @@ private:
 
   //    std::vector<var>
   std::vector<std::vector<lit>> disjunct;
+  std::vector<int> scopex;
+  std::vector<int> scopey;
 
   std::vector<int> sorted_tasks;
   std::vector<T> offset;
@@ -53,14 +57,13 @@ public:
                const ItTask end_task, const ItVar beg_var, const ItVar end_var);
   virtual ~Transitivity();
 
-  void add_edge(const int x, const int y, const lit r);
+  void add_edge(const int x, const int y, const int r);
 
+  bool notify_bound(const int lit, const int rank) override;
   bool notify_edge(const int lit, const int rank) override;
   void post(const int idx) override;
   void propagate() override;
 
-  // void xplain(const lit l, const hint h, std::vector<lit> &Cl) const
-  // override;
   void xplain(const lit l, const hint h, std::vector<lit> &Cl) override;
   int getType() const override;
 
@@ -160,11 +163,16 @@ template <typename T> void Transitivity<T>::post(const int idx) {
   //  }
 
   for (size_t i{0}; i < m_tasks.size(); ++i) {
+    m_schedule.wake_me_on_event(LOWERBOUND(START(m_tasks[i])), cons_id);
+    m_schedule.wake_me_on_event(UPPERBOUND(END(m_tasks[i])), cons_id);
+
     for (size_t j{0}; j < m_tasks.size(); ++j)
       if (i != j) {
         //        lit l{m_schedule.getEdgeLit({START(m_tasks[i]),
         //        END(m_tasks[j])})};
         m_schedule.wake_me_on_edge(disjunct[i][j], cons_id);
+        scopex.push_back(i);
+        scopey.push_back(j);
         //        m_schedule.wake_me_on_edge(disjunct[j][i], cons_id);
       }
   }
@@ -175,7 +183,7 @@ template <typename T> void Transitivity<T>::post(const int idx) {
 }
 
 template <typename T>
-void Transitivity<T>::add_edge(const int x, const int y, const lit r) {
+void Transitivity<T>::add_edge(const int x, const int y, const int r) {
 
 #ifdef DBG_TRANSITIVITY
   if (DBG_TRANSITIVITY)
@@ -188,8 +196,13 @@ void Transitivity<T>::add_edge(const int x, const int y, const lit r) {
 
   //            << m_schedule.prettyLiteral(EDGE(disjunct[x][y])) << std::endl;
 
-  //    if(m_schedule.isUndefined(VAR(disjunct[x][y]))) {
-  m_schedule.set(disjunct[x][y], {this, EDGE(r)});
+#ifdef DBG_LTRANS
+  if (m_schedule.isUndefined(VAR(disjunct[x][y]))) {
+    std::cout << "edge pruning\n";
+  }
+#endif
+
+  m_schedule.set(disjunct[x][y], {this, r});
   //    }
 
   //    else std::cout << "already here\n";
@@ -207,9 +220,13 @@ void Transitivity<T>::add_edge(const int x, const int y, const lit r) {
   //    changed_succ.add(x);
 }
 
+template <typename T> bool Transitivity<T>::notify_bound(const lit, const int) {
+  return true;
+}
+
 template <typename T>
-bool Transitivity<T>::notify_edge(const lit l, const int) {
-  change_flag = false;
+bool Transitivity<T>::notify_edge(const lit l, const int r) {
+  //  change_flag = false;
   auto e{m_schedule.getEdge(l)};
 
 #ifdef DBG_TRANSITIVITY
@@ -292,22 +309,22 @@ bool Transitivity<T>::notify_edge(const lit l, const int) {
     for (auto tp{DAG[x].brbegin()}; tp != DAG[x].brend(); ++tp) {
       auto t{*tp};
       if (not DAG[z].isback(t)) {
-        add_edge(t, z, l);
+        add_edge(t, z, r);
       }
     }
     if (not DAG[x].isfront(z))
-      add_edge(x, z, l);
+      add_edge(x, z, r);
   }
 
   for (auto t : new_pred_of_y) {
     for (auto zp{DAG[y].frbegin()}; zp != DAG[y].frend(); ++zp) {
       auto z{*zp};
       if (not DAG[t].isfront(z)) {
-        add_edge(t, z, l);
+        add_edge(t, z, r);
       }
     }
     if (not DAG[y].isback(t))
-      add_edge(t, y, l);
+      add_edge(t, y, r);
   }
 
   //    for (auto zp{DAG[y].frbegin()}; zp != DAG[y].frend(); ++zp) {
@@ -392,8 +409,8 @@ bool Transitivity<T>::notify_edge(const lit l, const int) {
 
 #ifdef DBG_TRANSITIVITY
   if (DBG_TRANSITIVITY) {
-    if (change_flag)
-      std::cout << "***\n";
+    //    if (change_flag)
+    //      std::cout << "***\n";
 
     for (size_t i{0}; i < m_tasks.size(); ++i) {
       std::cout << "t" << m_tasks[i] << ":";
@@ -418,26 +435,26 @@ bool Transitivity<T>::notify_edge(const lit l, const int) {
     }
   }
 #endif
-  if (change_flag) {
-    change_flag = false;
+  //  if (change_flag) {
+  //    change_flag = false;
+  //
+  //    //#ifdef DBG_TRANSITIVITY
+  //    //    if (DBG_TRANSITIVITY) {
+  //    //        std::cout << "after notify\nnew succs:";
+  //    //        for(auto x : changed_succ)
+  //    //            std::cout << " t" << m_tasks[x];
+  //    //        std::cout << std::endl;
+  //    //        std::cout << "new preds:";
+  //    //        for(auto x : changed_pred)
+  //    //            std::cout << " t" << m_tasks[x];
+  //    //        std::cout << std::endl;
+  //    //    }
+  //    //#endif
+  //
+  //    return true;
+  //  }
 
-    //#ifdef DBG_TRANSITIVITY
-    //    if (DBG_TRANSITIVITY) {
-    //        std::cout << "after notify\nnew succs:";
-    //        for(auto x : changed_succ)
-    //            std::cout << " t" << m_tasks[x];
-    //        std::cout << std::endl;
-    //        std::cout << "new preds:";
-    //        for(auto x : changed_pred)
-    //            std::cout << " t" << m_tasks[x];
-    //        std::cout << std::endl;
-    //    }
-    //#endif
-
-    return true;
-  }
-
-  return false;
+  return true;
 }
 
 template <typename T> void Transitivity<T>::propagate() {
@@ -456,9 +473,9 @@ template <typename T> void Transitivity<T>::propagate() {
   //        }
   //    }
 
-  //#ifdef DBG_TRANSITIVITY
-  //    bool pruning{false};
-  //#endif
+#ifdef DBG_LTRANS
+  bool pruning{false};
+#endif
 
   for (size_t x{0}; x < m_tasks.size(); ++x) {
     sorted_tasks[x] = x;
@@ -505,9 +522,11 @@ template <typename T> void Transitivity<T>::propagate() {
 #endif
 
       if ((ex - offset[*yp]) < ez) {
-        //                    pruning = true;
+#ifdef DBG_LTRANS
+        pruning = true;
+#endif
         m_schedule.set({UPPERBOUND(END(m_tasks[*yp])), ex - offset[*yp]},
-                       {this, NoLit});
+                       {this, offset[*yp]});
       }
     }
 //        }
@@ -565,9 +584,11 @@ template <typename T> void Transitivity<T>::propagate() {
 #endif
 
       if ((sy + offset[*xp]) > sz) {
-        //                    pruning = true;
+#ifdef DBG_LTRANS
+        pruning = true;
+#endif
         m_schedule.set({LOWERBOUND(START(m_tasks[*xp])), -sy - offset[*xp]},
-                       {this, NoLit});
+                       {this, offset[*xp]});
       }
     }
 //        }
@@ -577,7 +598,10 @@ template <typename T> void Transitivity<T>::propagate() {
 #endif
   }
 
-  //    if(pruning)
+#ifdef DBG_LTRANS
+  if (pruning)
+    std::cout << "bound pruning\n";
+#endif
   //        exit(1);
 
   //#ifdef DBG_TRANSITIVITY
@@ -679,9 +703,160 @@ template <typename T> int Transitivity<T>::getType() const {
 }
 
 template <typename T>
-void Transitivity<T>::xplain(const lit, const hint h, std::vector<lit> &Cl) {
-  if (h != NoHint)
-    Cl.push_back(h);
+void Transitivity<T>::xplain(const lit l, const hint h, std::vector<lit> &Cl) {
+
+#ifdef DBG_EXPL_TRANS
+  std::cout << "explain " << m_schedule.prettyLiteral(l)
+            << " with transitivity constraint (h=" << h << ")\n";
+#endif
+
+  if (LTYPE(l) == EDGE_LIT) {
+
+    //        int n{static_cast<int>(m_tasks.size())};
+    //        int i{h/n};
+    //        int j{h%n};
+    int i{scopex[h]};
+    int j{scopey[h]};
+    auto r{disjunct[i][j]};
+
+#ifdef DBG_EXPL_TRANS
+    std::cout << " reason was d[" << i << "][" << j << "] = ";
+    std::cout << m_schedule.prettyLiteral(EDGE(r));
+#endif
+
+    Cl.push_back(EDGE(r));
+    auto el{m_schedule.getEdge(FROM_GEN(l))};
+    auto er{m_schedule.getEdge(r)};
+    if (el.from != er.from) {
+
+      //            std::cout << " {" << prettyEvent(el.from) << "->" <<
+      //            prettyEvent(er.from) << "}"; std::cout.flush();
+
+      lit p{m_schedule.getEdgeLit({el.from, NOT(er.from)})};
+
+#ifdef DBG_EXPL_TRANS
+      std::cout << " and " << m_schedule.prettyLiteral(EDGE(p));
+      std::cout.flush();
+#endif
+
+      Cl.push_back(EDGE(p));
+    }
+    if (el.to != er.to) {
+
+      //            std::cout << " {" << prettyEvent(er.to) << "->" <<
+      //            prettyEvent(el.to) << "}"; std::cout.flush();
+
+      lit p{m_schedule.getEdgeLit({NOT(er.to), el.to})};
+
+#ifdef DBG_EXPL_TRANS
+      std::cout << " and " << m_schedule.prettyLiteral(EDGE(p));
+      std::cout.flush();
+#endif
+
+      Cl.push_back(EDGE(p));
+    }
+
+#ifdef DBG_EXPL_TRANS
+    std::cout << std::endl;
+#endif
+
+  } else {
+
+    auto bc{m_schedule.getBound(FROM_GEN(l))};
+
+#ifdef DBG_EXPL_TRANS
+    std::cout << " reason was all predecessors within " << h << " of "
+              << prettyEvent(EVENT(bc.l)) << std::endl;
+#endif
+
+    if (SIGN(bc.l) == LOWER) {
+      auto t{TASK(EVENT(bc.l))};
+      task x{-1};
+      for (unsigned i{0}; i < m_tasks.size(); ++i) {
+        if (m_tasks[i] == t) {
+          x = i;
+          break;
+        }
+      }
+
+      for (auto yp{DAG[x].fbegin()}; yp != DAG[x].fend(); ++yp) {
+        BoundConstraint<T> yc{LIT(START(m_tasks[*yp]), LOWER), bc.distance + h};
+
+#ifdef DBG_EXPL_TRANS
+        std::cout << " implicant of " << yc << ": ";
+#endif
+
+        auto p{m_schedule.getImplicant(yc)};
+
+        if (p != NoLit) {
+          if (p < FROM_GEN(l) and
+              m_schedule.getBound(p).distance <= yc.distance) {
+
+#ifdef DBG_EXPL_TRANS
+            std::cout << m_schedule.prettyLiteral(BOUND(p)) << " ("
+                      << m_schedule.minDuration(
+                             TASK(EVENT(m_schedule.getBound(p).l)))
+                      << ") & "
+                      << m_schedule.prettyLiteral(EDGE(disjunct[x][*yp]))
+                      << std::endl;
+#endif
+
+            assert(m_schedule.getBound(p).distance <= yc.distance);
+            Cl.push_back(BOUND(p));
+            Cl.push_back(EDGE(disjunct[x][*yp]));
+          }
+#ifdef DBG_EXPL_TRANS
+          else {
+            std::cout << "none\n";
+          }
+#endif
+        }
+      }
+    } else {
+      auto t{TASK(EVENT(bc.l))};
+      task y{-1};
+      for (unsigned i{0}; i < m_tasks.size(); ++i) {
+        if (m_tasks[i] == t) {
+          y = i;
+          break;
+        }
+      }
+      for (auto xp{DAG[y].bbegin()}; xp != DAG[y].bend(); ++xp) {
+        BoundConstraint<T> xc{LIT(END(m_tasks[*xp]), UPPER), bc.distance + h};
+
+#ifdef DBG_EXPL_TRANS
+        std::cout << " implicant of " << xc << ": ";
+#endif
+
+        auto p{m_schedule.getImplicant(xc)};
+
+        if (p != NoLit) {
+          if (p < FROM_GEN(l) and
+              m_schedule.getBound(p).distance <= xc.distance) {
+
+#ifdef DBG_EXPL_TRANS
+            std::cout << m_schedule.prettyLiteral(BOUND(p)) << " ("
+                      << m_schedule.minDuration(
+                             TASK(EVENT(m_schedule.getBound(p).l)))
+                      << ") & "
+                      << m_schedule.prettyLiteral(EDGE(disjunct[*xp][y]))
+                      << std::endl;
+#endif
+
+            assert(m_schedule.getBound(p).distance <= xc.distance);
+            Cl.push_back(BOUND(p));
+            Cl.push_back(EDGE(disjunct[*xp][y]));
+          }
+
+#ifdef DBG_EXPL_TRANS
+          else {
+            std::cout << "none\n";
+          }
+#endif
+        }
+      }
+    }
+  }
 }
 
 template <typename T>

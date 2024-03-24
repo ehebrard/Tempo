@@ -172,10 +172,10 @@ int main(int argc, char *argv[]) {
 
     //        std::cout << "\nrestore:\n" << S << std::endl;
 
-    if ((line % 100) == 0)
-      std::cout << line << ": " << num_trivial << " trivial, "
-                << (line - num_trivial - num_search) << " easy, " << num_search
-                << " hard (" << num_fails / num_search << ")" << std::endl;
+    //    if ((line % 100) == 0)
+    std::cout << line << ": " << num_trivial << " trivial, "
+              << (line - num_trivial - num_search) << " easy, " << num_search
+              << " hard (" << num_fails / num_search << ")" << std::endl;
 
     //        if(line > 100)
     //            exit(1);

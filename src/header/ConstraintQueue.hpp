@@ -79,12 +79,12 @@ void ConstraintQueue<N>::bound_triggers(const lit var_id, const int rank,
   //    if(cons->idempotent)
   //        std::cout << *responsible << std::endl;
 
-  if (responsible == static_cast<Explainer *>(cons))
-    std::cout << "it happens!\n";
-
-  if (responsible->id() == cons->id()) {
-    std::cout << "here!\n";
-  }
+  //  if (responsible == static_cast<Explainer *>(cons))
+  //    std::cout << "it happens!\n";
+  //
+  //  if (responsible->id() == cons->id()) {
+  //    std::cout << "here!\n";
+  //  }
 
   if (not cons->idempotent or responsible != static_cast<Explainer *>(cons)) {
     if (cons->notify_bound(var_id, rank) and

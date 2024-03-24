@@ -15,6 +15,7 @@ public:
   int earliest_start;
   int duration;
   int bound;
+  int gray_est;
   int gray_duration;
   int gray_bound;
   int responsibleDuration;
@@ -44,9 +45,12 @@ public:
   int getBound();
   int grayBound() const;
   int getResponsible() const;
+  int getEst() const;
+  int grayEst() const;
 
   void printNodeDuration(std::ostream &os, const int i) const;
   void printNodeBound(std::ostream &os, const int i) const;
+  void printNodeStart(std::ostream &os, const int i) const;
   std::ostream &display(std::ostream &os) const;
 };
 
