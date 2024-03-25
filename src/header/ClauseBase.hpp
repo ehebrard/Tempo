@@ -967,9 +967,9 @@ template <typename T> void ClauseBase<T>::forget() {
   //        std::cout << std::endl;
   //    }
 
-  auto target_size = static_cast<size_t>(static_cast<double>(size()) * .9);
-//    auto target_size = static_cast<size_t>(static_cast<double>(size()) * caller.getOptions().forgetfullness);
-
+  //  auto target_size = static_cast<size_t>(static_cast<double>(size()) * .9);
+  auto target_size = static_cast<size_t>(
+      static_cast<double>(size()) * (1.0 - caller.getOptions().forgetfulness));
 
   // (1.0 - caller.getOptions().forgetfulness));
 

@@ -133,11 +133,10 @@ tempo::Options tempo::parse(int argc, char *argv[]) {
       "decay value for the vsids heuristic, only effective if VSIDS is used "
       "as choice point heuristic",
       false, 0.999, "double");
-    
-    cmd.add<ValueArg<double>>(
-        opt.vsids_decay, "", "forgetfullness",
-        "clause base reduction factor",
-        false, 0.9, "double");
+
+  cmd.add<ValueArg<double>>(opt.forgetfulness, "", "forgetfulness",
+                            "clause base reduction factor", false, 0.1,
+                            "double");
 
   cmd.add<ValueArg<std::string>>(opt.restart_policy, "", "restart",
                                  "choice of restart policy (no, luby, geom)",

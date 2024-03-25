@@ -34,16 +34,11 @@ public:
     TemporalNetwork(Scheduler<T>& s); //, BacktrackEnvironment *e=ReversibleObject::env);
     
     ~TemporalNetwork() = default;
-    
-    void resize(const size_t n);
-    
-    void newEdge(const event x, const event y, const T d
-#ifdef RECOVER
-                 , Explanation e=Constant::NoReason
-#endif
-    );
 
-    
+    void resize(const size_t n);
+
+    void newEdge(const event x, const event y, const T d);
+
     void newBound(const BoundConstraint<T>& c, Explanation e=Constant::NoReason);
 //    task newTask(const T min_dur, const T max_dur);
     
@@ -84,22 +79,12 @@ public:
     
 //    private:
     std::vector<T> distance;
-   
-#ifdef RECOVER
-    void boundClosure(const event x, const event y, const T d, Explanation e);
-#else
+
     void boundClosure(const event x, const event y, const T d, const lit e_id);
-#endif
-    
+
     template <typename G>
-    void update(const bool bt, const int s,
-                                    const G &neighbors,
-                                     const std::vector<T>& shortest_path
-#ifdef RECOVER
-                , Explanation e
-#endif
-                );
-    
+    void update(const bool bt, const int s, const G &neighbors,
+                const std::vector<T> &shortest_path);
 };
 
 
@@ -208,30 +193,7 @@ void TemporalNetwork<T>::xplain(const lit l, const hint h, std::vector<lit> &Cl)
 //        } while (EVENT(h) != x);
 ////                std::cout << std::endl;
     } else {
-        
-        
-#ifdef RECOVER
-        
-        assert(LTYPE(l) == BOUND_LIT);
-        
-        Cl.push_back(BOUND(h));
-        
-        auto cx{bounds.getConstraint(FROM_GEN(l))};
-        
-        auto cy{bounds.getConstraint(h)};
-        
-        if(SIGN(FROM_GEN(l)) == LOWER) {
-            
-            std::cout << "find path from " << prettyEvent(EVENT(cx.l)) << " to " << prettyEvent(EVENT(cy.l)) << std::endl;
-            
-            findExplanationPath(EVENT(cx.l), EVENT(cy.l), Cl, static_cast<lit>(bounds.getStamp(FROM_GEN(l))));
-        } else {
-            
-            std::cout << "find path from " << prettyEvent(EVENT(cy.l)) << " to " << prettyEvent(EVENT(cx.l)) << std::endl;
-            
-            findExplanationPath(EVENT(cy.l), EVENT(cx.l), Cl, static_cast<lit>(bounds.getStamp(FROM_GEN(l))));
-        }
-#else
+
         if(LTYPE(h) == EDGE_LIT) {
             
             assert(FROM_GEN(h) <= bounds.getStamp(FROM_GEN(l)));
@@ -265,8 +227,6 @@ void TemporalNetwork<T>::xplain(const lit l, const hint h, std::vector<lit> &Cl)
         } else {
             Cl.push_back(h);
         }
-#endif
-        
     }
 }
 
@@ -293,44 +253,15 @@ template<typename T>
 int TemporalNetwork<T>::getType() const { return CYCLEEXPL; }
 
 template <typename T>
-void TemporalNetwork<T>::newEdge(const event x, const event y, const T d
-#ifdef RECOVER
-                                 , Explanation e
-#endif
-                                 )
-{
-    
-//    assert(e.the_hint == (static_cast<int>(sched.numEdgeLiteral())-1));
-    auto e_id{static_cast<lit>(sched.numEdgeLiteral())-1};
-    
-    core.emplace_edge(x,y,d,e_id); //sched.numEdgeLiteral());
-    
-#ifdef RECOVER
-    boundClosure(x,y,d,e);
-#else
-    boundClosure(x,y,d,EDGE(e_id));
-#endif
+void TemporalNetwork<T>::newEdge(const event x, const event y, const T d) {
+
+  //    assert(e.the_hint == (static_cast<int>(sched.numEdgeLiteral())-1));
+  auto e_id{static_cast<lit>(sched.numEdgeLiteral()) - 1};
+
+  core.emplace_edge(x, y, d, e_id); // sched.numEdgeLiteral());
+  boundClosure(x, y, d, EDGE(e_id));
 }
 
-#ifdef RECOVER
-template <typename T>
-void TemporalNetwork<T>::boundClosure(const event x, const event y, const T d, Explanation e) {
-    // closure w.r.t. 0 (0 -> x -(d)-> y -> 0)
-    
-    
-    // reduce the lower bound of x and precessor
-    if(bounds.set(LOWER, x, bounds.lower()[y] + d, e)) {
-        update(LOWER, x, core.backward(), bounds.lower(), e);
-    }
-
-    std::cout << 66 << std::endl;
-    // increase the upper bound of y and successors
-    if(bounds.set(UPPER, y, bounds.upper()[x] + d, e)) {
-        update(UPPER, y, core, bounds.upper(), e);
-    }
-    
-}
-#else
 template <typename T>
 void TemporalNetwork<T>::boundClosure(const event x, const event y, const T d, const lit e_id) {
     // closure w.r.t. 0 (0 -> x -(d)-> y -> 0)
@@ -348,30 +279,20 @@ void TemporalNetwork<T>::boundClosure(const event x, const event y, const T d, c
     if(bounds.set(UPPER, y, bounds.upper()[x] + d, e)) {
         update(UPPER, y, core, bounds.upper());
     }
-    
 }
-#endif
 
 template <typename T>
 void TemporalNetwork<T>::newBound(const BoundConstraint<T>& c, Explanation e)
 {
     event x{EVENT(c.l)};
     if(SIGN(c.l) == LOWER) {
-        if(bounds.set(LOWER, x, c.distance, e)) {
-#ifdef RECOVER
-            update(LOWER, x, core.backward(), bounds.lower()), {this,static_cast<hint>(bounds.numLiteral())-1});
-#else
-            update(LOWER, x, core.backward(), bounds.lower());
-#endif
-        }
+      if (bounds.set(LOWER, x, c.distance, e)) {
+        update(LOWER, x, core.backward(), bounds.lower());
+      }
     } else {
-        if(bounds.set(UPPER, x, c.distance, e)) {
-#ifdef RECOVER
-            update(UPPER, x, core, bounds.upper(), {this,static_cast<hint>(bounds.numLiteral())-1});
-#else
-            update(UPPER, x, core, bounds.upper());
-#endif
-        }
+      if (bounds.set(UPPER, x, c.distance, e)) {
+        update(UPPER, x, core, bounds.upper());
+      }
     }
 }
 
@@ -563,20 +484,15 @@ void TemporalNetwork<T>::findExplanationPath(const event x, const event y, std::
 
 template <typename T>
 template <typename G>
-void TemporalNetwork<T>::update(const bool bt,
-                                const event s,
+void TemporalNetwork<T>::update(const bool bt, const event s,
                                 const G &neighbors,
-                                const std::vector<T>& shortest_path
-#ifdef RECOVER
-                                , Explanation e
-#endif
-                                ) {
-    
-//                                    int max_iter{1000};
-                                    
-    changed.clear();
-    changed.add(s);
-    
+                                const std::vector<T> &shortest_path) {
+
+  //                                    int max_iter{1000};
+
+  changed.clear();
+  changed.add(s);
+
 #ifdef DBG_BELLMAN
     core.display(std::cout, [](const event e) {return prettyEvent(e);}, [](const StampedLabeledEdge<T,lit>& e) {return prettyEvent(static_cast<int>(e));});
     std::cout << "\nstart explore from " << prettyEvent(s) << (bt==LOWER ? " (backward)" : " (forward)") << std::endl ;
@@ -638,12 +554,12 @@ void TemporalNetwork<T>::update(const bool bt,
                         
                         throw Failure({this,LIT(s,bt)});//Constant::NoReason);
                     }
-#ifdef RECOVER
-                    bounds.set(bt, v, shortest_path[u] + w, e);
-#else
-                    bounds.set(bt, v, shortest_path[u] + w, {this, (edge.stamp() >= 0 ? EDGE(edge.stamp()) : BOUND(bounds.getIndex(LIT(u,bt))))});
-#endif
-                    
+                    bounds.set(
+                        bt, v, shortest_path[u] + w,
+                        {this, (edge.stamp() >= 0
+                                    ? EDGE(edge.stamp())
+                                    : BOUND(bounds.getIndex(LIT(u, bt))))});
+
                     if (not changed.has(v))
                         changed.add(v);
                 }
@@ -654,8 +570,6 @@ void TemporalNetwork<T>::update(const bool bt,
         }
     }
 }
-
-
 
 template <typename T>
 std::ostream &TemporalNetwork<T>::display(std::ostream& os, const bool print_graph) const {
