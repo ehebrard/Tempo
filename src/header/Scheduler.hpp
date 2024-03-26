@@ -373,9 +373,11 @@ private:
 
   void analyze(Explanation e);
   void quickxplain();
+  void greedy_minimization();
   SparseSet<int> cons;
   std::vector<int> necessary;
   void resolve(const lit l, Explanation e);
+  void clearVisited();
 
 #ifdef DBG_CL
 
@@ -1400,6 +1402,48 @@ void Scheduler<T>::writeConstraint(const BoundConstraint<T>& c) const {
 }
 #endif
 
+template <typename T> void Scheduler<T>::greedy_minimization() {
+  necessary = conflict;
+
+  conflict_set.clear();
+  for (auto li{necessary.rbegin()}; li != necessary.rend(); ++li) {
+    auto cssize{conflict_set.size()};
+    auto csize{conflict.size()};
+
+    //        std::cout << *li ;
+    //        std::cout.flush();
+    //        std::cout << " " << prettyLiteral(*li) << std::endl;
+
+    resolve(*li, getExplanation(*li));
+    if (conflict_set.size() == cssize and conflict.size() == csize) {
+
+      std::cout << " rm " << prettyLiteral(*li) << std::endl;
+
+      //            std::cout << "minimization!\n";
+      std::swap(*li, necessary.back());
+      necessary.pop_back();
+    } else {
+      conflict.resize(csize);
+    }
+  }
+
+  //    conflict_set.clear();
+  //    clearVisited();
+
+  if (conflict.size() > necessary.size()) {
+    std::cout << "was:";
+    for (auto l : conflict)
+      std::cout << " " << prettyLiteral(l);
+    std::cout << std::endl;
+    std::cout << "==>:";
+    for (auto l : necessary)
+      std::cout << " " << prettyLiteral(l);
+    std::cout << std::endl;
+    //    assert(necessary == conflict);
+    conflict = necessary;
+  }
+}
+
 template <typename T> void Scheduler<T>::quickxplain() {
 
   baseline->setUpperBound(ub - Gap<T>::epsilon());
@@ -1571,6 +1615,10 @@ void Scheduler<T>::learnConflict(Explanation e) {
 
   if (options.minimization == Options::Minimization::QuickXplain)
     quickxplain();
+  else if (options.minimization == Options::Minimization::Greedy)
+    greedy_minimization();
+
+  clearVisited();
 
   std::sort(conflict.begin(), conflict.end(), [&](const lit a, const lit b) {
     return decisionLevel(a) > decisionLevel(b);
@@ -2015,11 +2063,12 @@ template <typename T> void Scheduler<T>::analyze(Explanation e) {
 
   conflict.push_back(conflict_set[0]);
 
-  for (auto x : conflict_edges)
-    visited_edge[x] = false;
-
-  for (auto l : conflict_bounds)
-    domain.bounds.visited[l] = false;
+  //  for (auto x : conflict_edges)
+  //    visited_edge[x] = false;
+  //
+  //  for (auto l : conflict_bounds)
+  //    domain.bounds.visited[l] = false;
+  //    clearVisited();
 
 #ifdef DBG_TRACE
 
@@ -2032,6 +2081,14 @@ template <typename T> void Scheduler<T>::analyze(Explanation e) {
 
 #endif
 
+}
+
+template <typename T> void Scheduler<T>::clearVisited() {
+  for (auto x : conflict_edges)
+    visited_edge[x] = false;
+
+  for (auto l : conflict_bounds)
+    domain.bounds.visited[l] = false;
 }
 
 template <typename T>

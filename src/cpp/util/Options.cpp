@@ -146,7 +146,7 @@ tempo::Options tempo::parse(int argc, char *argv[]) {
 
   cmd.add<ValueArg<int>>(opt.minimization, "", "clause-minimization",
                          "strategy for clause minimization "
-                         "(0: none (default), 1: greedy (todo),"
+                         "(0: none (default), 1: greedy,"
                          "2: quickxplain",
                          false, 0, "int");
 
