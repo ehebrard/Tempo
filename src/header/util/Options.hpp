@@ -48,6 +48,10 @@ public:
 
   double forgetfulness;
 
+  enum class Minimization { None = 0, Greedy, QuickExplain };
+
+  Minimization minimization;
+
   double restart_factor;
   int restart_base;
   std::string restart_policy;

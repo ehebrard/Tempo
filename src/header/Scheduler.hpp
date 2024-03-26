@@ -19,6 +19,8 @@
 #include "util/Options.hpp"
 #include "util/SubscribableEvent.hpp"
 
+//#define DBG_MINIMIZATION
+
 namespace tempo {
 
 
@@ -269,6 +271,8 @@ private:
 
   void resize(const size_t n);
 
+  void initialize_baseline();
+
   //
 
   //    T lowerBound(const event x) const;
@@ -296,6 +300,8 @@ private:
   T ub{INFTY};
 
   double start_time;
+
+  Scheduler<T> *baseline;
 
 public:
   long unsigned int num_fails{0};
@@ -344,6 +350,9 @@ private:
   bool isResponsibleForBound(const lit l, const Constraint *c) const;
 
   void analyze(Explanation e);
+  void minimize_conflict();
+  SparseSet<int> cons;
+  std::vector<int> necessary;
   void resolve(const lit l, Explanation e);
 
 #ifdef DBG_CL
@@ -1369,10 +1378,158 @@ void Scheduler<T>::writeConstraint(const BoundConstraint<T>& c) const {
 }
 #endif
 
+template <typename T> void Scheduler<T>::minimize_conflict() {
+
+  baseline->setUpperBound(ub - Gap<T>::epsilon());
+
+  cons.reserve(conflict.size());
+  cons.clear();
+  for (size_t i{0}; i < conflict.size(); ++i) {
+    cons.add(i);
+  }
+  necessary.clear();
+
+  while (cons.size() > necessary.size()) {
+
+#ifdef DBG_MINIMIZATION
+    std::cout << std::endl
+              << *baseline << std::endl
+              << "new round " << cons.size() << "/" << necessary.size() << "\n";
+    std::cout << cons << std::endl;
+#endif
+
+    baseline->saveState();
+
+    for (auto i : necessary) {
+      auto l{conflict[i]};
+      //            auto pl{baseline->num_literals};
+
+#ifdef DBG_MINIMIZATION
+      std::cout << "-add necessary cons (" << i << ") ";
+      if (LTYPE(l) == EDGE_LIT)
+        std::cout << getEdge(FROM_GEN(l)) << std::endl;
+      else
+        std::cout << getBound(FROM_GEN(l)) << std::endl;
+#endif
+
+      try {
+        if (LTYPE(l) == EDGE_LIT)
+          baseline->set(FROM_GEN(l));
+        else
+          baseline->set(getBound(FROM_GEN(l)));
+        baseline->propagate();
+      } catch (Failure &f) {
+        cons.setStart(cons.end_idx());
+        break;
+      }
+      cons.remove_back(i);
+      //            assert(pl != baseline->num_literals);
+    }
+
+#ifdef DBG_MINIMIZATION
+    std::cout << cons << std::endl << *baseline << std::endl;
+#endif
+
+    while (not cons.empty()) {
+      auto i{cons.back()};
+      auto l{conflict[i]};
+
+      //            auto [x,y,k] = C[i];
+      auto pl{baseline->num_literals};
+
+#ifdef DBG_MINIMIZATION
+      std::cout << " -try (" << i << ") ";
+      if (LTYPE(l) == EDGE_LIT)
+        std::cout << getEdge(FROM_GEN(l)) << std::endl;
+      else
+        std::cout << getBound(FROM_GEN(l)) << std::endl;
+#endif
+
+      bool fail{false};
+      try {
+        if (LTYPE(l) == EDGE_LIT)
+          baseline->set(FROM_GEN(l));
+        else
+          baseline->set(getBound(FROM_GEN(l)));
+        baseline->propagate();
+      } catch (Failure &f) {
+        fail = true;
+      }
+      if (fail) {
+#ifdef DBG_MINIMIZATION
+        std::cout << " --> all the rest is subsumed (fail)!\n";
+#endif
+        necessary.push_back(i);
+        cons.remove_back(i);
+        while (not cons.empty()) {
+          cons.remove_front(cons.back());
+        }
+        //                    cons.setEnd(cons.start_idx());
+      } else if (pl == baseline->num_literals) {
+#ifdef DBG_MINIMIZATION
+        std::cout << " --> subsumed!\n";
+#endif
+        cons.remove_front(i);
+      } else {
+        if (cons.size() == 1) {
+#ifdef DBG_MINIMIZATION
+          std::cout << " --> necessary!\n";
+#endif
+          necessary.push_back(i);
+        }
+        cons.pop_back();
+      }
+#ifdef DBG_MINIMIZATION
+      std::cout << cons << std::endl;
+#endif
+    }
+
+    cons.setEnd(conflict.size());
+    baseline->restoreState(1);
+  }
+
+#ifdef DBG_MINIMIZATION
+  std::cout << "original cl:";
+  for (auto i : conflict) {
+    std::cout << " " << prettyLiteral(i);
+  }
+  std::cout << std::endl;
+  std::cout << "minimal cl:";
+  for (auto i : necessary) {
+    std::cout << " " << prettyLiteral(conflict[i]);
+  }
+  std::cout << std::endl;
+#endif
+
+  //    if(num_fails==6)
+  //        exit(1);
+
+  //    std::cout << conflict.size() << "/" << necessary.size() << std::endl;
+
+  conflict_set.clear();
+  for (auto i : necessary) {
+    //        std::cout << i << "/" << conflict.size() << std::endl;
+    conflict_set.push_back(conflict[i]);
+  }
+  conflict = conflict_set;
+
+  //    std::cout << *this << std::endl;
+  //  std::cout << *baseline << std::endl;
+
+  //  exit(1);
+
+  //    for(auto l : conflict) {
+  //
+  //    }
+}
+
 template<typename T>
 void Scheduler<T>::learnConflict(Explanation e) {
 
   analyze(e);
+
+  if (options.minimization)
+    minimize_conflict();
 
   std::sort(conflict.begin(), conflict.end(), [&](const lit a, const lit b) {
     return decisionLevel(a) > decisionLevel(b);
@@ -1507,9 +1664,35 @@ bool Scheduler<T>::satisfiable() const {
   return not best_solution.empty();
 }
 
+template <typename T> void Scheduler<T>::initialize_baseline() {
+  baseline = new Scheduler<T>(options);
+  baseline->resize(numEvent());
+  for (size_t i{0}; i < numTask(); ++i)
+    baseline->newTask(minDuration(i), maxDuration(i));
+  for (var x{0}; x < static_cast<var>(numVariable()); ++x) {
+    baseline->newVariable(getEdge(NEG(x)), getEdge(POS(x)));
+  }
+  for (lit l{0}; l < static_cast<lit>(numEdgeLiteral()); ++l) {
+    assert(getEdge(l) == baseline->getEdge(l));
+  }
+  auto n{static_cast<event>(numEvent())};
+  auto &arcs{domain.getForwardGraph()};
+  for (event i{0}; i < n; ++i) {
+    for (auto j : arcs[i]) {
+      baseline->newMaximumLag(i, j, j.label());
+    }
+  }
+  baseline->setUpperBound(upper(HORIZON));
+
+  //    std::cout << *this << std::endl;
+  //  std::cout << *baseline << std::endl;
+}
+
 template <typename T> void Scheduler<T>::search() {
 
   assert(not satisfiable());
+
+  initialize_baseline();
 
   heuristic.emplace(*this, options);
 
@@ -1932,7 +2115,7 @@ std::string Scheduler<T>::prettyLiteral(const genlit el) const {
     return "failure";
   } else if (LTYPE(el) == EDGE_LIT) {
     std::stringstream ss;
-    ss << edges[FROM_GEN(el)];
+    ss << "[" << edges[FROM_GEN(el)] << "]";
 #ifdef DBG_TRACE
     if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
       ss << " (" << getIndex(VAR(FROM_GEN(el))) << ")";
@@ -1942,7 +2125,7 @@ std::string Scheduler<T>::prettyLiteral(const genlit el) const {
   } else {
     assert(FROM_GEN(el) < static_cast<lit>(numBoundLiteral()));
     std::stringstream ss;
-    ss << domain.bounds.getConstraint(FROM_GEN(el));
+    ss << "[" << domain.bounds.getConstraint(FROM_GEN(el)) << "]";
 #ifdef DBG_TRACE
     if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
       ss << " (" << stamp(FROM_GEN(el)) << ")";

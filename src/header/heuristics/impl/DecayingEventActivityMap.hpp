@@ -118,3 +118,7 @@ template<typename T>
 }
 
 #endif //SCHEDCL_DECAYINGEVENTACTIVITYMAP_HPP
+
+// x - y <= a
+// x <= b
+//
