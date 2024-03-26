@@ -86,11 +86,16 @@ template<typename T>
 #ifdef DEBUG_HEURISTICS
                 std::cout << "\nnormalize (" << increment << ")\n" ;
 #endif
-                
-                this->for_each([i = increment](auto &val) {
-//                    std::cout << val << " -> ";
-                    val /= i;
-//                    std::cout << val << "\n";
+
+                auto u{
+                    *(std::max_element(EventActivityMap<T>::activity.begin(),
+                                       EventActivityMap<T>::activity.end()))};
+                auto l{
+                    *(std::min_element(EventActivityMap<T>::activity.begin(),
+                                       EventActivityMap<T>::activity.end()))};
+
+                this->for_each([lb = l, gap = u - l](auto &val) {
+                  val = (val - lb) / gap * baseGap + baseIncrement;
                 });
                 increment = baseIncrement;
             }
@@ -104,8 +109,9 @@ template<typename T>
 
     private:
 //        std::vector<lit> clause;
-        static constexpr double maxActivity = 1e10;
+        static constexpr double maxActivity = 1e12;
         static constexpr double baseIncrement = 1;
+        static constexpr double baseGap = 999;
         double decay;
         double increment = baseIncrement;
     };

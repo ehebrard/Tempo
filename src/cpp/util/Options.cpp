@@ -108,18 +108,24 @@ tempo::Options tempo::parse(int argc, char *argv[]) {
                                  "string");
 
   cmd.add<SwitchArg>(opt.learning, "", "learning", "learn clauses", false);
+  cmd.add<SwitchArg>(opt.learning, "", "no-learning",
+                     "do not use clause learning", true);
 
   cmd.add<SwitchArg>(opt.edge_finding, "", "edge-finding", "use edge-finding",
                      false);
+  cmd.add<SwitchArg>(opt.edge_finding, "", "no-edge-finding",
+                     "do not use edge-finding", true);
 
   cmd.add<SwitchArg>(opt.transitivity, "", "transitivity",
                      "use transitivity reasoning", false);
+  cmd.add<SwitchArg>(opt.transitivity, "", "no-transitivity",
+                     "do not use transitivity reasoning", true);
 
   cmd.add<ValueArg<int>>(
       opt.choice_point_heuristics, "", "cp-heuristic",
       "type of heuristic used for choice point selection (0: Tightest "
       "(default), 1: WDEG, 2: WCRITPATH, 3: VSIDS)",
-      false, 1, "int");
+      false, 3, "int");
   cmd.add<ValueArg<int>>(
       opt.polarity_heuristic, "", "polarity-heuristic",
       "type "
