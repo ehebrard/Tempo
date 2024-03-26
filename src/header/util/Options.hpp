@@ -48,7 +48,7 @@ public:
 
   double forgetfulness;
 
-  enum class Minimization { None = 0, Greedy, QuickExplain };
+  enum class Minimization { None = 0, Greedy, QuickXplain };
 
   Minimization minimization;
 

@@ -70,6 +70,7 @@ public:
   void forget(Clause *cl);
   void forget_worst();
   void forget();
+    double litScore(const lit l);
 
   Clause *back() {
 //
@@ -92,17 +93,13 @@ private:
     /// Clause memory store ///
     /// The set of clauses
     std::vector<Clause *> base;
+    std::vector<double> score;
     /// free indices in the vector base (so that we can remove clauses)
     SparseSet<int> free_cl_indices;
-    /// clauses that should not be forgotten because they explain some unit
-    /// propagation
-    //    std::vector<bool> locked;
     // clauses, watch struct watch[BOUND_LIT] for bound literals,
     // watch[EDGE_LIT] for edges
     std::vector<std::vector<Clause*>> watch[2];
     ////////////////////////////////////////
-
-    //    std::vector<std::vector<lit>> binary;
 
     /// Literal memory store ///
     // store the set of bound constraints appearing in a literal
@@ -118,7 +115,6 @@ private:
     // statistics
     size_t total_size{0};
     int num_units{0};
-    //    int num_restarts{0};
 
 #ifdef DBG_WATCHERS
     void verifyWatchers(const char *msg) const;
@@ -945,6 +941,22 @@ template <typename T> void ClauseBase<T>::forget_worst() {
   //    cl->clear();
 }
 
+
+
+template <typename T> double ClauseBase<T>::litScore(const lit l) {
+    if(LTYPE(l) == EDGE_LIT) {
+        auto c{caller.getEdge(FROM_GEN(l))};
+        return caller.looseness(c)
+        / caller.getActivityMap()->get(c)
+        ;
+    } else {
+        auto c{constraint[FROM_GEN(l)]};
+        return caller.looseness(c)
+         / caller.getActivityMap()->get(c)
+        ;
+    }
+}
+
 template <typename T> void ClauseBase<T>::forget() {
   if (size() < 1000)
     return;
@@ -952,13 +964,45 @@ template <typename T> void ClauseBase<T>::forget() {
 #ifdef DBG_WATCHERS
   verifyWatchers("before forget");
 #endif
+    
+    
+    for(auto idx{free_cl_indices.bbegin()}; idx!=free_cl_indices.bend(); ++idx) {
+        score[*idx] = 0;
+        for(auto l : *base[*idx]) {
+            score[*idx] += litScore(l);
+        }
+//        displayClause(std::cout, base[*idx]);
+//        std::cout << ": " << score[*idx] << std::endl;
+//        for(auto l : *base[*idx]) {
+//            if(LTYPE(l) == EDGE_LIT) {
+//                auto c{caller.getEdge(FROM_GEN(l))};
+//                std::cout << c << ": " << caller.looseness(c)
+//                << " / " << caller.getActivityMap()->get(c) << std::endl;
+//            } else {
+//                auto c{constraint[FROM_GEN(l)]};
+//                std::cout << c << ": " << caller.looseness(c) 
+//                << " / " << caller.getActivityMap()->get(c) << std::endl;
+//            }
+//        }
+    }
+//    
+//    
+//    if(caller.getActivityMap() != NULL) {
+//        std::cout << "cool\n";
+//        exit(1);
+//    }
 
   //    std::cout << *this << std::endl;
 
-  std::sort(free_cl_indices.bbegin(), free_cl_indices.bend(),
-            [&](const int i, const int j) {
-              return (base[i]->size() > base[j]->size());
-            });
+//  std::sort(free_cl_indices.bbegin(), free_cl_indices.bend(),
+//            [&](const int i, const int j) {
+//              return (base[i]->size() > base[j]->size());
+//            });
+    
+    std::sort(free_cl_indices.bbegin(), free_cl_indices.bend(),
+              [&](const int i, const int j) {
+                return (score[base[i]->id] > score[base[j]->id]);
+              });
 
   free_cl_indices.re_index(free_cl_indices.bbegin(), free_cl_indices.bend());
 
@@ -1034,6 +1078,7 @@ Clause *ClauseBase<T>::learn(const iter first, const iter last) {
       int id{static_cast<int>(base.size())};
       c = new Clause(id);
       base.push_back(c);
+        score.push_back(0);
       //            locked.resize(base.size(),false);
       free_cl_indices.reserve(base.size());
     }
@@ -1074,29 +1119,44 @@ std::ostream& ClauseBase<T>::displayClause(std::ostream &os, const Clause* cl) c
     
     //    assert(not cl->empty());
     
-    if (cl->empty()) {
-        os << "(" << cl->id <<":)";
-    } else {
-        
-        os << "(";
-        os << cl->id <<":";
-//        os << "[" << prettyLiteral((*cl)[0]) << "]";
-//        if (0 == cl->watch_index(0) or 0 == cl->watch_index(1))
-//            os << "*";
+//    if (cl->empty()) {
+//        os << "(" << cl->id <<":)";
+//    } else {
+//        
+//        os << "(";
+//        os << cl->id <<":";
+////        os << "[" << prettyLiteral((*cl)[0]) << "]";
+////        if (0 == cl->watch_index(0) or 0 == cl->watch_index(1))
+////            os << "*";
+////        for (size_t i{1}; i < cl->size(); ++i) {
+////            os << " or [" << prettyLiteral((*cl)[i]) << "]";
+////            if (i == cl->watch_index(0) or i == cl->watch_index(1))
+////                os << "*";
+////        }
+//        if(LTYPE((*cl)[0]) == BOUND_LIT)
+//            os << FROM_GEN((*cl)[0]);
+//        else
+//            os << ".";
 //        for (size_t i{1}; i < cl->size(); ++i) {
-//            os << " or [" << prettyLiteral((*cl)[i]) << "]";
-//            if (i == cl->watch_index(0) or i == cl->watch_index(1))
-//                os << "*";
+//            if(LTYPE((*cl)[i]) == BOUND_LIT)
+//                os << " " << FROM_GEN((*cl)[i]);
+//            else
+//                os << " .";
 //        }
-        if(LTYPE((*cl)[0]) == BOUND_LIT)
-            os << FROM_GEN((*cl)[0]);
-        else
-            os << ".";
+//        os << ")";
+//    }
+    
+    if (cl->empty()) {
+        os << "()";
+    } else {
+        os << "(";
+        os << "[" << prettyLiteral((*cl)[0]) << "]";
+        if (0 == cl->watch_index(0) or 0 == cl->watch_index(1))
+            os << "*";
         for (size_t i{1}; i < cl->size(); ++i) {
-            if(LTYPE((*cl)[i]) == BOUND_LIT)
-                os << " " << FROM_GEN((*cl)[i]);
-            else
-                os << " .";
+            os << " or [" << prettyLiteral((*cl)[i]) << "]";
+            if (i == cl->watch_index(0) or i == cl->watch_index(1))
+                os << "*";
         }
         os << ")";
     }

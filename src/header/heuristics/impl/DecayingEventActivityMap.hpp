@@ -19,7 +19,7 @@ template<typename T>
          * @param decay decay value. Each entry is multiplied by this value, each time the activity is updated
          */
 //        template<typename T>
-        explicit DecayingEventActivityMap(const Scheduler<T> &scheduler, double decay) :
+        explicit DecayingEventActivityMap(Scheduler<T> &scheduler, double decay) :
         EventActivityMap<T>(scheduler), decay(decay) {
             if (decay <= 0 or decay > 1) {
                 throw std::runtime_error("invalid decay value");

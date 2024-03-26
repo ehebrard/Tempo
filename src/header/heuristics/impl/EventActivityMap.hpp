@@ -27,43 +27,57 @@ template<typename T>
          * @param scheduler scheduler for which to construct the ActivityMap
          */
         
-        explicit EventActivityMap(const Scheduler<T> &scheduler) : sched(scheduler) {
+        explicit EventActivityMap(Scheduler<T> &scheduler) : sched(scheduler) {
 //            numNodes = scheduler.numEvent();
             activity.resize(sched.numEvent(), 1);
+            sched.setActivityMap(this);
         }
 
+        
         /**
          * Gets the activity for a given choice point
          * @tparam T
-         * @param choicePoint
+         * @param bound constraint
          * @return
          */
-//        template<typename T>
+        constexpr double get(const BoundConstraint<T>& c) const noexcept {
+            return activity[EVENT(c.l)];
+        }
+        
+        /**
+         * Gets the activity for a given choice point
+         * @tparam T
+         * @param edge constraint
+         * @return
+         */
+        constexpr double get(const DistanceConstraint<T>& c) const noexcept {
+            return activity[c.from] + activity[c.to];
+        }
+        
+        /**
+         * Gets the activity for a given choice point
+         * @tparam T
+         * @param variable
+         * @return
+         */
         constexpr double get(const var x) const noexcept {
-            DistanceConstraint<T> left{sched.getEdge(POS(x))};
-            DistanceConstraint<T> right{sched.getEdge(NEG(x))};
-            
-//            std::cout << "act[" << prettyEvent(left.from) << "]=" << activity[left.from] << ", act[" << prettyEvent(left.to) << "]=" << activity[left.to] << ", act[" << prettyEvent(right.from) << "]=" << activity[right.from] << ", act[" << prettyEvent(right.to) << "]=" << activity[right.to] << std::endl;
-            
-            return activity[left.from] + activity[left.to] + activity[right.from] + activity[right.to];
+            return get(sched.getEdge(POS(x))) + get(sched.getEdge(NEG(x)));
+//            DistanceConstraint<T> left{sched.getEdge(POS(x))};
+//            DistanceConstraint<T> right{sched.getEdge(NEG(x))};
+//            return activity[left.from] + activity[left.to] + activity[right.from] + activity[right.to];
         }
 
-        /**
-         * Gets the activity for a given choice point
-         * @tparam T
-         * @param choicePoint
-         * @return
-         */
-//        template<typename T>
-        constexpr double &get(const var x) noexcept {
-            DistanceConstraint<T> left{sched.getEdge(POS(x))};
-            DistanceConstraint<T> right{sched.getEdge(NEG(x))};
-            
-//            std::cout << "act[" << prettyEvent(left.from) << "]=" << activity[left.from] << ", act[" << prettyEvent(left.to) << "]=" << activity[left.to] << ", act[" << prettyEvent(right.from) << "]=" << activity[right.from] << ", act[" << prettyEvent(right.to) << "]=" << activity[right.to] << std::endl;
-            
-            return activity[left.from] + activity[left.to] + activity[right.from] + activity[right.to];
-//            return activity[choicePoint.from] + activity[choicePoint.to];
-        }
+//        /**
+//         * Gets the activity for a given choice point
+//         * @tparam T
+//         * @param choicePoint
+//         * @return
+//         */
+//        constexpr double &get(const var x) noexcept {
+//            DistanceConstraint<T> left{sched.getEdge(POS(x))};
+//            DistanceConstraint<T> right{sched.getEdge(NEG(x))};
+//            return activity[left.from] + activity[left.to] + activity[right.from] + activity[right.to];
+//        }
 
         /**
          * Applies the given functor to all entries in the activity map
@@ -80,10 +94,6 @@ template<typename T>
          */
 //        template<typename T>
         std::ostream& display(std::ostream& os) {
-//            for(auto i{0}; i<numNodes; ++i) {
-//                os << std::setw(5) << i;
-//            }
-//            os << std::endl;
             for(auto i{0}; i<sched.numEvent(); ++i) {
                 if(activity[i] > 1)
                     os << " " << prettyEvent(i) << ":" << activity[i];
@@ -93,9 +103,8 @@ template<typename T>
 
     protected:
 
-        const Scheduler<T>& sched;
+        Scheduler<T>& sched;
         std::vector<double> activity{};
-//        std::size_t numNodes{};
     };
 }
 

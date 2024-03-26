@@ -213,6 +213,27 @@ public:
   //    const std::vector<std::vector<Arc>> & getForwardGraph() const;
   //    const std::vector<std::vector<Arc>> & getBackwardGraph() const;
 
+    void setActivityMap(heuristics::impl::EventActivityMap<T> *map) {
+        activityMap = map;
+    }
+    heuristics::impl::EventActivityMap<T>* getActivityMap() {
+        return activityMap;
+    }
+    double looseness(const DistanceConstraint<T>& c) const {
+        // to - from <= distance
+        return static_cast<double>(upper(c.from) - lower(c.to) + c.distance)/static_cast<double>(ub);
+    }
+    double looseness(const BoundConstraint<T>& c) const {
+        auto x{EVENT(c.l)};
+        if(SIGN(c.l) == LOWER) {
+            // x >= distance
+            return static_cast<double>(upper(x) + c.distance)/static_cast<double>(ub);
+        } else {
+            // x <= distance
+            return static_cast<double>(c.distance - lower(x))/static_cast<double>(ub);
+        }
+    }
+    
 private:
   Options options;
 
@@ -302,6 +323,7 @@ private:
   double start_time;
 
   Scheduler<T> *baseline;
+    heuristics::impl::EventActivityMap<T> *activityMap{NULL};
 
 public:
   long unsigned int num_fails{0};
@@ -350,7 +372,7 @@ private:
   bool isResponsibleForBound(const lit l, const Constraint *c) const;
 
   void analyze(Explanation e);
-  void minimize_conflict();
+  void quickxplain();
   SparseSet<int> cons;
   std::vector<int> necessary;
   void resolve(const lit l, Explanation e);
@@ -1378,7 +1400,7 @@ void Scheduler<T>::writeConstraint(const BoundConstraint<T>& c) const {
 }
 #endif
 
-template <typename T> void Scheduler<T>::minimize_conflict() {
+template <typename T> void Scheduler<T>::quickxplain() {
 
   baseline->setUpperBound(ub - Gap<T>::epsilon());
 
@@ -1500,6 +1522,25 @@ template <typename T> void Scheduler<T>::minimize_conflict() {
   }
   std::cout << std::endl;
 #endif
+    
+    
+    
+//    if(conflict.size() > necessary.size()) {
+//        cons.clear();
+//        for(auto i : necessary)
+//        {
+//            cons.add(i);
+//        }
+//        std::cout << std::endl;
+//        for (auto i : conflict) {
+//          std::cout << " " << prettyLiteral(i);
+//            if(not cons.has(i))
+//                std::cout << " (deleted)";
+//            std::cout << std::endl;
+//        }
+//        std::cout << std::endl;
+//    }
+    
 
   //    if(num_fails==6)
   //        exit(1);
@@ -1528,8 +1569,8 @@ void Scheduler<T>::learnConflict(Explanation e) {
 
   analyze(e);
 
-  if (options.minimization)
-    minimize_conflict();
+  if (options.minimization == Options::Minimization::QuickXplain)
+    quickxplain();
 
   std::sort(conflict.begin(), conflict.end(), [&](const lit a, const lit b) {
     return decisionLevel(a) > decisionLevel(b);
@@ -1638,10 +1679,13 @@ void Scheduler<T>::restart(const bool on_solution) {
 
   if (on_solution) {
     restart_policy->initialize(restart_limit);
+      restart_limit += num_fails;
+//      std::cout << num_fails << " / " << restart_limit << std::endl;
   } else {
     restart_policy->reset(restart_limit);
     if (options.verbosity >= Options::YACKING)
       displayStats(std::cout, "restart");
+//      std::cout << num_fails << " / " << restart_limit << std::endl;
   }
 
   SearchRestarted.trigger();
