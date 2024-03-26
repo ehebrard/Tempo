@@ -70,7 +70,9 @@ public:
   void forget(Clause *cl);
   void forget_worst();
   void forget();
-    double litScore(const lit l);
+  double looseness(const lit l);
+  double inverseActivity(const lit l);
+  double loosenessOverActivity(const lit l);
 
   Clause *back() {
 //
@@ -941,20 +943,34 @@ template <typename T> void ClauseBase<T>::forget_worst() {
   //    cl->clear();
 }
 
+template <typename T> double ClauseBase<T>::loosenessOverActivity(const lit l) {
+  if (LTYPE(l) == EDGE_LIT) {
+    auto c{caller.getEdge(FROM_GEN(l))};
+    return caller.looseness(c) / caller.getActivityMap()->get(c);
+  } else {
+    auto c{constraint[FROM_GEN(l)]};
+    return caller.looseness(c) / caller.getActivityMap()->get(c);
+  }
+}
 
+template <typename T> double ClauseBase<T>::inverseActivity(const lit l) {
+  if (LTYPE(l) == EDGE_LIT) {
+    auto c{caller.getEdge(FROM_GEN(l))};
+    return 1.0 / caller.getActivityMap()->get(c);
+  } else {
+    auto c{constraint[FROM_GEN(l)]};
+    return 1.0 / caller.getActivityMap()->get(c);
+  }
+}
 
-template <typename T> double ClauseBase<T>::litScore(const lit l) {
-    if(LTYPE(l) == EDGE_LIT) {
-        auto c{caller.getEdge(FROM_GEN(l))};
-        return caller.looseness(c)
-        / caller.getActivityMap()->get(c)
-        ;
-    } else {
-        auto c{constraint[FROM_GEN(l)]};
-        return caller.looseness(c)
-         / caller.getActivityMap()->get(c)
-        ;
-    }
+template <typename T> double ClauseBase<T>::looseness(const lit l) {
+  if (LTYPE(l) == EDGE_LIT) {
+    auto c{caller.getEdge(FROM_GEN(l))};
+    return caller.looseness(c);
+  } else {
+    auto c{constraint[FROM_GEN(l)]};
+    return caller.looseness(c);
+  }
 }
 
 template <typename T> void ClauseBase<T>::forget() {
@@ -964,45 +980,71 @@ template <typename T> void ClauseBase<T>::forget() {
 #ifdef DBG_WATCHERS
   verifyWatchers("before forget");
 #endif
-    
-    
-    for(auto idx{free_cl_indices.bbegin()}; idx!=free_cl_indices.bend(); ++idx) {
+
+  if (caller.getActivityMap() != NULL) {
+
+    if (caller.getOptions().forget_strategy ==
+        Options::LiteralScore::LoosenessOverActtivity) {
+      for (auto idx{free_cl_indices.bbegin()}; idx != free_cl_indices.bend();
+           ++idx) {
         score[*idx] = 0;
-        for(auto l : *base[*idx]) {
-            score[*idx] += litScore(l);
+        for (auto l : *base[*idx]) {
+          score[*idx] += loosenessOverActivity(l);
         }
-//        displayClause(std::cout, base[*idx]);
-//        std::cout << ": " << score[*idx] << std::endl;
-//        for(auto l : *base[*idx]) {
-//            if(LTYPE(l) == EDGE_LIT) {
-//                auto c{caller.getEdge(FROM_GEN(l))};
-//                std::cout << c << ": " << caller.looseness(c)
-//                << " / " << caller.getActivityMap()->get(c) << std::endl;
-//            } else {
-//                auto c{constraint[FROM_GEN(l)]};
-//                std::cout << c << ": " << caller.looseness(c) 
-//                << " / " << caller.getActivityMap()->get(c) << std::endl;
-//            }
-//        }
+      }
+    } else {
+      for (auto idx{free_cl_indices.bbegin()}; idx != free_cl_indices.bend();
+           ++idx) {
+        score[*idx] = 0;
+        for (auto l : *base[*idx]) {
+          score[*idx] += inverseActivity(l);
+        }
+      }
     }
-//    
-//    
-//    if(caller.getActivityMap() != NULL) {
-//        std::cout << "cool\n";
-//        exit(1);
-//    }
+  } else if (caller.getOptions().forget_strategy >
+             Options::LiteralScore::Size) {
+    for (auto idx{free_cl_indices.bbegin()}; idx != free_cl_indices.bend();
+         ++idx) {
+      score[*idx] = 0;
+      for (auto l : *base[*idx]) {
+        score[*idx] += looseness(l);
+      }
+    }
+  }
+  //        displayClause(std::cout, base[*idx]);
+  //        std::cout << ": " << score[*idx] << std::endl;
+  //        for(auto l : *base[*idx]) {
+  //            if(LTYPE(l) == EDGE_LIT) {
+  //                auto c{caller.getEdge(FROM_GEN(l))};
+  //                std::cout << c << ": " << caller.looseness(c)
+  //                << " / " << caller.getActivityMap()->get(c) << std::endl;
+  //            } else {
+  //                auto c{constraint[FROM_GEN(l)]};
+  //                std::cout << c << ": " << caller.looseness(c)
+  //                << " / " << caller.getActivityMap()->get(c) << std::endl;
+  //            }
+  //        }
+  //    }
+  //
+  //
+  //    if(caller.getActivityMap() != NULL) {
+  //        std::cout << "cool\n";
+  //        exit(1);
+  //    }
 
   //    std::cout << *this << std::endl;
 
-//  std::sort(free_cl_indices.bbegin(), free_cl_indices.bend(),
-//            [&](const int i, const int j) {
-//              return (base[i]->size() > base[j]->size());
-//            });
-    
+  if (caller.getOptions().forget_strategy == Options::LiteralScore::looseness) {
+    std::sort(free_cl_indices.bbegin(), free_cl_indices.bend(),
+              [&](const int i, const int j) {
+                return (base[i]->size() > base[j]->size());
+              });
+  } else {
     std::sort(free_cl_indices.bbegin(), free_cl_indices.bend(),
               [&](const int i, const int j) {
                 return (score[base[i]->id] > score[base[j]->id]);
               });
+  }
 
   free_cl_indices.re_index(free_cl_indices.bbegin(), free_cl_indices.bend());
 

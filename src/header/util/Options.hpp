@@ -52,6 +52,15 @@ public:
 
   Minimization minimization;
 
+  enum class LiteralScore {
+    Size = 0,
+    Looseness,
+    Activity,
+    LoosenessOverActivity
+  };
+
+  LiteralScore forget_strategy;
+
   double restart_factor;
   int restart_base;
   std::string restart_policy;
