@@ -9,6 +9,7 @@
 #include "Clause.hpp"
 #include "Failure.hpp"
 #include "Global.hpp"
+#include "util/Options.hpp"
 #include "util/SparseSet.hpp"
 #include "util/SubscribableEvent.hpp"
 
@@ -981,28 +982,9 @@ template <typename T> void ClauseBase<T>::forget() {
   verifyWatchers("before forget");
 #endif
 
-  if (caller.getActivityMap() != NULL) {
-
-    if (caller.getOptions().forget_strategy ==
-        Options::LiteralScore::LoosenessOverActtivity) {
-      for (auto idx{free_cl_indices.bbegin()}; idx != free_cl_indices.bend();
-           ++idx) {
-        score[*idx] = 0;
-        for (auto l : *base[*idx]) {
-          score[*idx] += loosenessOverActivity(l);
-        }
-      }
-    } else {
-      for (auto idx{free_cl_indices.bbegin()}; idx != free_cl_indices.bend();
-           ++idx) {
-        score[*idx] = 0;
-        for (auto l : *base[*idx]) {
-          score[*idx] += inverseActivity(l);
-        }
-      }
-    }
-  } else if (caller.getOptions().forget_strategy >
-             Options::LiteralScore::Size) {
+  if (caller.getOptions().forget_strategy == Options::LiteralScore::Looseness or
+      (caller.getActivityMap() == NULL and
+       caller.getOptions().forget_strategy != Options::LiteralScore::Size)) {
     for (auto idx{free_cl_indices.bbegin()}; idx != free_cl_indices.bend();
          ++idx) {
       score[*idx] = 0;
@@ -1010,7 +992,32 @@ template <typename T> void ClauseBase<T>::forget() {
         score[*idx] += looseness(l);
       }
     }
-  }
+//    std::cout << "looseness\n";
+  } else if (caller.getOptions().forget_strategy ==
+             Options::LiteralScore::LoosenessOverActivity) {
+    for (auto idx{free_cl_indices.bbegin()}; idx != free_cl_indices.bend();
+         ++idx) {
+      score[*idx] = 0;
+      for (auto l : *base[*idx]) {
+        score[*idx] += loosenessOverActivity(l);
+      }
+    }
+//    std::cout << "looseness/activity\n";
+  } else if (caller.getOptions().forget_strategy ==
+             Options::LiteralScore::Activity) {
+    for (auto idx{free_cl_indices.bbegin()}; idx != free_cl_indices.bend();
+         ++idx) {
+      score[*idx] = 0;
+      for (auto l : *base[*idx]) {
+        score[*idx] += inverseActivity(l);
+      }
+    }
+//    std::cout << "activity\n";
+  } 
+//  else {
+//    std::cout << "size\n";
+//  }
+
   //        displayClause(std::cout, base[*idx]);
   //        std::cout << ": " << score[*idx] << std::endl;
   //        for(auto l : *base[*idx]) {
@@ -1034,7 +1041,7 @@ template <typename T> void ClauseBase<T>::forget() {
 
   //    std::cout << *this << std::endl;
 
-  if (caller.getOptions().forget_strategy == Options::LiteralScore::looseness) {
+  if (caller.getOptions().forget_strategy == Options::LiteralScore::Size) {
     std::sort(free_cl_indices.bbegin(), free_cl_indices.bend(),
               [&](const int i, const int j) {
                 return (base[i]->size() > base[j]->size());

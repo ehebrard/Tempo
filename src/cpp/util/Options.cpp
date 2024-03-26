@@ -150,6 +150,12 @@ tempo::Options tempo::parse(int argc, char *argv[]) {
                          "2: quickxplain",
                          false, 0, "int");
 
+  cmd.add<ValueArg<int>>(opt.forget_strategy, "", "forget-strategy",
+                         "strategy for clause forgetting "
+                         "(0: size (default), 1: literal looseness,"
+                         "2: literal activity 3: looseness / activity",
+                         false, 3, "int");
+
   cmd.add<ValueArg<std::string>>(opt.restart_policy, "", "restart",
                                  "choice of restart policy (no, luby, geom)",
                                  false, "geom", "string");
