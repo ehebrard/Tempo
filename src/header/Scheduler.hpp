@@ -373,10 +373,13 @@ private:
 
   void analyze(Explanation e);
   void quickxplain();
-  void greedy_minimization();
+  //  void greedy_minimization();
+  void minimization(const size_t w);
   SparseSet<int> cons;
   std::vector<int> necessary;
   void resolve(const lit l, Explanation e);
+  //    bool relevant(const lit l);
+  bool relevant(const lit l, const size_t w);
   void clearVisited();
 
 #ifdef DBG_CL
@@ -1402,44 +1405,145 @@ void Scheduler<T>::writeConstraint(const BoundConstraint<T>& c) const {
 }
 #endif
 
-template <typename T> void Scheduler<T>::greedy_minimization() {
-  necessary = conflict;
-
+template <typename T>
+bool Scheduler<T>::relevant(const lit l, const size_t max_width) {
+  //    assert(conflict_set.empty());
   conflict_set.clear();
-  for (auto li{necessary.rbegin()}; li != necessary.rend(); ++li) {
-    auto cssize{conflict_set.size()};
-    auto csize{conflict.size()};
 
-    //        std::cout << *li ;
-    //        std::cout.flush();
-    //        std::cout << " " << prettyLiteral(*li) << std::endl;
+#ifdef DBG_MINIMIZATION
+  std::cout << "is " << prettyLiteral(l) << " relevant?\n";
+#endif
 
-    resolve(*li, getExplanation(*li));
-    if (conflict_set.size() == cssize and conflict.size() == csize) {
+  bool redundant{true};
+  conflict_set.push_back(l);
+  size_t next{0}, i, s, ve{conflict_edges.size()}, vb{conflict_bounds.size()};
+  do {
+    lit p{conflict_set[next++]};
+    Explanation e{getExplanation(p)};
 
-      std::cout << " rm " << prettyLiteral(*li) << std::endl;
+#ifdef DBG_MINIMIZATION
+    std::cout << " resolve " << prettyLiteral(p) << " (" << e << ")\n";
+#endif
 
-      //            std::cout << "minimization!\n";
-      std::swap(*li, necessary.back());
-      necessary.pop_back();
+    if (e != Constant::NoReason) {
+      i = s = conflict_set.size();
+      e.explain(p, conflict_set);
+      for (; i != conflict_set.size(); ++i) {
+
+#ifdef DBG_MINIMIZATION
+        std::cout << "  - " << prettyLiteral(conflict_set[i]);
+#endif
+
+        //                if(getExplanation(p) == Constant
+
+        if (not(groundFact(conflict_set[i]) or
+                inExplanation(conflict_set[i]))) {
+
+#ifdef DBG_MINIMIZATION
+          std::cout << " new\n";
+#endif
+
+          if (conflict_set.size() >= (max_width + next)) {
+            redundant = false;
+            break;
+          }
+          markVisited(conflict_set[i]);
+          conflict_set[s] = conflict_set[i];
+          ++s;
+        }
+#ifdef DBG_MINIMIZATION
+        else {
+          if (inExplanation(conflict_set[i]))
+            std::cout << " already in cut\n";
+          else
+            std::cout << " ground fact\n";
+        }
+#endif
+      }
+      conflict_set.resize(s);
+
+#ifdef DBG_MINIMIZATION
+      std::cout << " remain to explain:";
+      for (i = next; i < conflict_set.size(); ++i) {
+        std::cout << " " << prettyLiteral(conflict_set[i]);
+      }
+      std::cout << std::endl;
+#endif
+
     } else {
-      conflict.resize(csize);
+      redundant = false;
+#ifdef DBG_MINIMIZATION
+      std::cout << " (decision)\n";
+#endif
     }
+  } while (conflict_set.size() > next and redundant);
+
+  if (not redundant) {
+
+#ifdef DBG_MINIMIZATION
+    std::cout << "RELEVANT!\n";
+#endif
+
+    while (conflict_edges.size() > ve) {
+      visited_edge[conflict_edges.back()] = false;
+      conflict_edges.pop_back();
+    }
+    while (conflict_bounds.size() > vb) {
+      domain.bounds.visited[conflict_bounds.back()] = false;
+      conflict_bounds.pop_back();
+    }
+
+    return true;
   }
 
-  //    conflict_set.clear();
-  //    clearVisited();
+#ifdef DBG_MINIMIZATION
+  std::cout << "NOT RELEVANT!\n";
+#endif
 
+  return false;
+}
+
+// template <typename T>
+// bool Scheduler<T>::relevant(const lit l) {
+//     Explanation e{getExplanation(l)};
+//     if(e == Constant::NoReason) {
+//         return true;
+//     }
+//
+//     conflict_set.clear();
+//     e.explain(l, conflict_set);
+//
+//     for(auto p : conflict_set) {
+//         if(not (groundFact(p) or inExplanation(p))) {
+//             return true;
+//         }
+//     }
+//
+//     return false;
+// }
+
+// template <typename T> void Scheduler<T>::greedy_minimization() {
+//     necessary.clear();
+//     for(auto l : conflict) {
+//         if(relevant(l)) {
+//             necessary.push_back(l);
+//             assert(relevant(l,0));
+//         } else {
+//             assert(not relevant(l,0));
+//         }
+//     }
+//     if (conflict.size() > necessary.size()) {
+//       conflict = necessary;
+//     }
+// }
+
+template <typename T> void Scheduler<T>::minimization(const size_t max_width) {
+  necessary.clear();
+  for (auto l : conflict) {
+    if (relevant(l, max_width))
+      necessary.push_back(l);
+  }
   if (conflict.size() > necessary.size()) {
-    std::cout << "was:";
-    for (auto l : conflict)
-      std::cout << " " << prettyLiteral(l);
-    std::cout << std::endl;
-    std::cout << "==>:";
-    for (auto l : necessary)
-      std::cout << " " << prettyLiteral(l);
-    std::cout << std::endl;
-    //    assert(necessary == conflict);
     conflict = necessary;
   }
 }
@@ -1613,10 +1717,11 @@ void Scheduler<T>::learnConflict(Explanation e) {
 
   analyze(e);
 
-  if (options.minimization == Options::Minimization::QuickXplain)
+  if (options.minimization >= 1000) {
     quickxplain();
-  else if (options.minimization == Options::Minimization::Greedy)
-    greedy_minimization();
+  } else if (options.minimization >= 0) {
+    minimization(static_cast<size_t>(options.minimization));
+  }
 
   clearVisited();
 
@@ -2216,7 +2321,7 @@ std::string Scheduler<T>::prettyLiteral(const genlit el) const {
     return "failure";
   } else if (LTYPE(el) == EDGE_LIT) {
     std::stringstream ss;
-    ss << "[" << edges[FROM_GEN(el)] << "]";
+    ss << "[" << edges[FROM_GEN(el)] << "] {" << VAR(FROM_GEN(el)) << "}";
 #ifdef DBG_TRACE
     if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
       ss << " (" << getIndex(VAR(FROM_GEN(el))) << ")";

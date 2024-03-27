@@ -124,20 +124,10 @@ template <typename T> const auto &TemporalNetwork<T>::getBackwardGraph() const {
 template<typename T>
 void TemporalNetwork<T>::xplain(const lit l, const hint h, std::vector<lit> &Cl) {
     if(l == NoLit) {
-//                std::cout << "negative cycle: " << prettyEvent(h) ;
+
         event x{EVENT(h)};
         auto s{SIGN(h)};
-        
-//        do {
-//            
-//            if(elit[x] >= 0) {
-//                Cl.push_back(EDGE(sched.getEdgeLiteral(elit[x])));
-//            }
-//        
-//            x = path[x];
-//        
-//        } while (EVENT(h) != x);
-        
+
         do {
             
             auto p{bounds.reason[bounds.getIndex(LIT(x,s))].the_hint};
@@ -151,47 +141,7 @@ void TemporalNetwork<T>::xplain(const lit l, const hint h, std::vector<lit> &Cl)
             }
             
         } while (EVENT(h) != x);
-            
-//            if(elit[x] >= 0) {
-//                
-//                assert(LTYPE(bounds.reason[bounds.getIndex(LIT(x,s))].the_hint) == EDGE_LIT);
-//                
-////                Cl.push_back(EDGE(sched.getEdgeLiteral(elit[x])));
-////                                std::cout << " <= " ;
-////                std::cout << elit[x] << " / " << FROM_GEN(bounds.reason[bounds.getIndex(LIT(x,s))].the_hint) << std::endl;
-//                assert(elit[x] == FROM_GEN(bounds.reason[bounds.getIndex(LIT(x,s))].the_hint));
-//                
-//                auto el{sched.getEdgeLiteral(FROM_GEN(bounds.reason[bounds.getIndex(LIT(x,s))].the_hint))};
-//                
-//                Cl.push_back(EDGE(el));
-//                
-//                if(s==LOWER) {
-//                    assert(sched.getEdge(el).to == path[x]);
-//                    x = sched.getEdge(el).to;
-//                } else {
-//                    assert(sched.getEdge(el).from == path[x]);
-//                    x = sched.getEdge(el).from;
-//                }
-//                
-//                
-//            } else {
-//                
-//                assert(LTYPE(bounds.reason[bounds.getIndex(LIT(x,s))].the_hint) == BOUND_LIT);
-//                
-////                bounds.getIndex(LIT(u,bt))
-//                assert(path[x] == EVENT(bounds.getConstraint(FROM_GEN(bounds.reason[bounds.getIndex(LIT(x,s))].the_hint)).l));
-//                
-//                x = EVENT(bounds.getConstraint(FROM_GEN(bounds.reason[bounds.getIndex(LIT(x,s))].the_hint)).l);
-//            }
-////                        else {
-////                            std::cout << " <- " ;
-////                        }
-////            x = path[x];
-////            x = EVENT(bounds.getConstraint(FROM_GEN(bounds.reason[bounds.getIndex(LIT(x,s))].the_hint)).l);
-////            std::cout << prettyEvent(x) ;
-//            
-//        } while (EVENT(h) != x);
-////                std::cout << std::endl;
+
     } else {
 
         if(LTYPE(h) == EDGE_LIT) {
@@ -215,6 +165,7 @@ void TemporalNetwork<T>::xplain(const lit l, const hint h, std::vector<lit> &Cl)
                 Cl.push_back(r);
             } else {
                 // evt(cx.l) = ec.to <- ec.from
+
                 assert(EVENT(cx.l) == ec.to);
                 
                 auto r{BOUND(bounds.getImplicant({LIT(ec.from, UPPER), cx.distance+ec.distance}))};

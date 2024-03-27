@@ -137,6 +137,9 @@ int main(int argc, char *argv[]) {
       }
 
       if (need_search) {
+
+        //          std::cout << S << std::endl;
+
         auto nf{S.num_fails};
         S.search();
 

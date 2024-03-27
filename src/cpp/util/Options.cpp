@@ -144,17 +144,18 @@ tempo::Options tempo::parse(int argc, char *argv[]) {
                             "clause base reduction factor", false, 0.1,
                             "double");
 
-  cmd.add<ValueArg<int>>(opt.minimization, "", "clause-minimization",
-                         "strategy for clause minimization "
-                         "(0: none (default), 1: greedy,"
-                         "2: quickxplain",
-                         false, 0, "int");
+  cmd.add<ValueArg<int>>(
+      opt.minimization, "", "clause-minimization",
+      "strategy for clause minimization "
+      "(-1: none, w=0..999: greedy with max width w (default 5),"
+      ">999: quickxplain",
+      false, 5, "int");
 
   cmd.add<ValueArg<int>>(opt.forget_strategy, "", "forget-strategy",
                          "strategy for clause forgetting "
                          "(0: size (default), 1: literal looseness,"
                          "2: literal activity 3: looseness / activity",
-                         false, 3, "int");
+                         false, 25, "int");
 
   cmd.add<ValueArg<std::string>>(opt.restart_policy, "", "restart",
                                  "choice of restart policy (no, luby, geom)",

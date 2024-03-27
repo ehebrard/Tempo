@@ -10,7 +10,7 @@ namespace tempo {
 
 //#define DBG_BOUND true  //(num_fails >= 236)
 //#define DBG_BBOUND true //(sched.num_fails >= 236)
-//#define DBG_TRACE 80    // 183 //1+2+4+32+128
+//#define DBG_TRACE 32    // 183 //1+2+4+32+128
 #define SEARCH 1
 #define DOMAINS 2
 #define BRANCH 4
@@ -20,6 +20,7 @@ namespace tempo {
 #define QUEUE 64
 #define UNITPROPAGATION 128
 
+//#define DBG_MINIMIZATION
 //#define DBG_EDGEFINDING (m_schedule.num_cons_propagations >= 55553)
 //#define DBG_EXPLEF true      //(m_schedule.num_fails > 236)
 //#define DBG_THETA (m_schedule.num_fails >= 481)
@@ -27,7 +28,7 @@ namespace tempo {
 //#define DBG_BELLMAN_EXPL (sched.num_choicepoints >= 4172)
 //#define DEBUG_HEURISTICS
 //#define DBG_UP
-#define DBG_CL 10000000
+//#define DBG_CL 10000000
 //#define DBG_CLPLUS
 //#define DBG_TRANSITIVITY true //(m_schedule.num_choicepoints >= 4064)
 //#define DBG_SOL
