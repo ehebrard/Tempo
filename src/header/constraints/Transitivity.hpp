@@ -88,6 +88,8 @@ Transitivity<T>::Transitivity(Scheduler<T> &scheduler, const ItTask beg_task,
 // m_schedule.getEnv())),
 {
 
+  priority = LOW;
+
   task_map.resize(m_schedule.numTask());
 
   // get all tasks with non-zero duration

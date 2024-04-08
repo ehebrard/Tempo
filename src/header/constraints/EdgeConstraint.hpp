@@ -53,6 +53,7 @@ template <typename T>
 EdgeConstraint<T>::EdgeConstraint(Scheduler<T> &scheduler, const lit p_)
     : m_schedule(scheduler), p(p_), edge(~(m_schedule.getEdge(NOT(p)))) {
   // the negation of the
+  priority = HIGH;
 }
 
 // template <typename T>

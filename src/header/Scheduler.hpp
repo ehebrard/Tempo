@@ -1132,69 +1132,187 @@ void tempo::Scheduler<T>::trigger(const lit l) {
   }
 }
 
-template<typename T>
-void tempo::Scheduler<T>::propagate() {
-//#ifdef DBG_SOL
-//    var x;
+// template<typename T>
+// void tempo::Scheduler<T>::propagate() {
+////#ifdef DBG_SOL
+////    var x;
+////
+////#endif
 //
+//    size_t edge_pointer{static_cast<size_t>(edge_propag_pointer)};
+//    size_t bound_pointer{static_cast<size_t>(bound_propag_pointer)};
+//  while (not propagation_queue.empty() or
+//         (search_vars.frontsize() > edge_propag_pointer) or
+//         (numBoundLiteral() > static_cast<size_t>(bound_propag_pointer))) {
+////         (search_vars.frontsize() > edge_pointer) or
+////         (numBoundLiteral() > static_cast<size_t>(bound_pointer))) {
+//
+//    while (search_vars.frontsize() > edge_propag_pointer) {
+////      while (search_vars.frontsize() > edge_pointer) {
+//      ++num_literals;
+//      lit l{LIT(search_vars[edge_propag_pointer],
+//                polarity[search_vars[edge_propag_pointer]])};
+//      //
+//      //            std::cout << " prop: (" <<
+//      //            LIT(search_vars[edge_propag_pointer],
+//      //            polarity[edge_propag_pointer]) << ") [" <<
+//      //            edges[LIT(search_vars[edge_propag_pointer],
+//      //            polarity[search_vars[edge_propag_pointer]])] << "] <" <<
+//      //            polarity[search_vars[edge_propag_pointer]] << ">\n";
+//
+////#ifdef DBG_SOL
+////      x = is_on_track();
+////      if (x != NoVar) {
+////        std::cout << "bug before trigger " << edges[l] << std::endl;
+////        exit(1);
+////      }
+////
+////#endif
+//
+//      trigger(l);
+//
+////#ifdef DBG_SOL
+////      x = is_on_track();
+////      if (x != NoVar) {
+////        std::cout << "bug after trigger " << edges[l] << std::endl;
+////        exit(1);
+////      }
+////
+////#endif
+//
+//      ++edge_propag_pointer;
+//    }
+//
+//    while (numBoundLiteral() > bound_propag_pointer) {
+//      ++num_literals;
+//      lit l{getBoundLiteral(bound_propag_pointer)};
+//
+////#ifdef DBG_SOL
+////      x = is_on_track();
+////      if (x != NoVar) {
+////        std::cout << "bug before trigger " <<
+///prettyLiteral(BOUND(bound_propag_pointer)) << std::endl; /        exit(1); /
+///}
+////
+////#endif
+//
+//      const std::vector<int> &cons = evt_constraint_network[l];
+//      const std::vector<unsigned> &rank = evt_constraint_network.rank(l);
+//
+//      auto r{domain.bounds.getExplanation(bound_propag_pointer).expl};
+//
+//#ifdef DBG_TRACE
+//      if (DBG_TRACE & QUEUE) {
+//        std::cout << "triggers for " << prettyEventLit(l) << " b/c " <<
+//        r->id()
+//                  << std::endl;
+//      }
 //#endif
+//
+//      //        std::cout << domain.bounds.getExplanation(l) << std::endl;
+//
+//      // important to visit in reverse order to be robust to relax
+//      for (auto i{cons.size()}; i-- > 0;) {
+//
+//#ifdef DBG_TRACE
+//        if (DBG_TRACE & QUEUE) {
+//          std::cout << " -" << *(constraints[cons[i]]) << " ("
+//                    << constraints[cons[i]]->id() << ")" << std::endl;
+//        }
+//#endif
+//
+//        propagation_queue.bound_triggers(l, rank[i], cons[i], r);
+//      }
+//
+//
+////#ifdef DBG_SOL
+////      x = is_on_track();
+////      if (x != NoVar) {
+////        std::cout << "bug after trigger " <<
+///prettyLiteral(BOUND(bound_propag_pointer)) << std::endl; /        exit(1); /
+///}
+////
+////#endif
+//
+//      ++bound_propag_pointer;
+//    }
+//
+//    if (not propagation_queue.empty()) {
+//      auto cons{propagation_queue.pop_front()};
+//
+//#ifdef DBG_TRACE
+//      if (DBG_TRACE & QUEUE) {
+//        std::cout << "propagate " << *cons << std::endl;
+//      }
+//#endif
+//
+//
+//        ++num_cons_propagations;
+//
+////#ifdef DBG_SOL
+////        x = is_on_track();
+////      if (x != NoVar) {
+////        std::cout << "bug before propagation " << num_cons_propagations
+////          << " on var " << edges[POS(x)] << " <> " << edges[NEG(x)]
+////                  << std::endl;
+////        exit(1);
+////      }
+////#endif
+//
+//      cons->propagate();
+//
+//
+////#ifdef DBG_SOL
+////        x = is_on_track();
+////      if (x != NoVar) {
+////        std::cout << "bug after propagation " << num_cons_propagations
+////          << " on var " << edges[POS(x)] << " <> " << edges[NEG(x)]
+////                  << std::endl;
+////        exit(1);
+////      }
+////
+////#endif
+//
+////#ifdef DBG_SOL
+////      //        auto z{is_on_track()};
+////      //        std::cout << was_on_track << " -> " << z << std::endl;
+////      if (was_on_track and not is_on_track()) {
+////        std::cout << "bug at propagation " << num_cons_propagations
+////                  << std::endl;
+////        exit(1);
+////      }
+////#endif
+//    }
+//  }
+//}
 
+template <typename T> void tempo::Scheduler<T>::propagate() {
+
+  size_t edge_pointer{static_cast<size_t>(edge_propag_pointer)};
+  size_t bound_pointer{static_cast<size_t>(bound_propag_pointer)};
+  //    edge_pointer = static_cast<size_t>(edge_propag_pointer);
+  //    bound_pointer = static_cast<size_t>(bound_propag_pointer);
   while (not propagation_queue.empty() or
-         (search_vars.frontsize() > edge_propag_pointer) or
-         (numBoundLiteral() > static_cast<size_t>(bound_propag_pointer))) {
+         (search_vars.frontsize() > edge_pointer) or
+         (numBoundLiteral() > static_cast<size_t>(bound_pointer))) {
 
-    while (search_vars.frontsize() > edge_propag_pointer) {
+    while (search_vars.frontsize() > edge_pointer) {
       ++num_literals;
-      lit l{LIT(search_vars[edge_propag_pointer],
-                polarity[search_vars[edge_propag_pointer]])};
-      //
-      //            std::cout << " prop: (" <<
-      //            LIT(search_vars[edge_propag_pointer],
-      //            polarity[edge_propag_pointer]) << ") [" <<
-      //            edges[LIT(search_vars[edge_propag_pointer],
-      //            polarity[search_vars[edge_propag_pointer]])] << "] <" <<
-      //            polarity[search_vars[edge_propag_pointer]] << ">\n";
-
-//#ifdef DBG_SOL
-//      x = is_on_track();
-//      if (x != NoVar) {
-//        std::cout << "bug before trigger " << edges[l] << std::endl;
-//        exit(1);
-//      }
-//
-//#endif
-        
+      lit l{
+          LIT(search_vars[edge_pointer], polarity[search_vars[edge_pointer]])};
       trigger(l);
-        
-//#ifdef DBG_SOL
-//      x = is_on_track();
-//      if (x != NoVar) {
-//        std::cout << "bug after trigger " << edges[l] << std::endl;
-//        exit(1);
-//      }
-//
-//#endif
-        
-      ++edge_propag_pointer;
+
+      ++edge_pointer;
     }
 
-    while (numBoundLiteral() > bound_propag_pointer) {
+    while (numBoundLiteral() > bound_pointer) {
       ++num_literals;
-      lit l{getBoundLiteral(bound_propag_pointer)};
-        
-//#ifdef DBG_SOL
-//      x = is_on_track();
-//      if (x != NoVar) {
-//        std::cout << "bug before trigger " << prettyLiteral(BOUND(bound_propag_pointer)) << std::endl;
-//        exit(1);
-//      }
-//
-//#endif
+      lit l{getBoundLiteral(bound_pointer)};
 
       const std::vector<int> &cons = evt_constraint_network[l];
       const std::vector<unsigned> &rank = evt_constraint_network.rank(l);
 
-      auto r{domain.bounds.getExplanation(bound_propag_pointer).expl};
+      auto r{domain.bounds.getExplanation(bound_pointer).expl};
 
 #ifdef DBG_TRACE
       if (DBG_TRACE & QUEUE) {
@@ -1218,17 +1336,7 @@ void tempo::Scheduler<T>::propagate() {
         propagation_queue.bound_triggers(l, rank[i], cons[i], r);
       }
 
-        
-//#ifdef DBG_SOL
-//      x = is_on_track();
-//      if (x != NoVar) {
-//        std::cout << "bug after trigger " << prettyLiteral(BOUND(bound_propag_pointer)) << std::endl;
-//        exit(1);
-//      }
-//
-//#endif
-        
-      ++bound_propag_pointer;
+      ++bound_pointer;
     }
 
     if (not propagation_queue.empty()) {
@@ -1240,44 +1348,13 @@ void tempo::Scheduler<T>::propagate() {
       }
 #endif
 
-        
-        ++num_cons_propagations;
-        
-//#ifdef DBG_SOL
-//        x = is_on_track();
-//      if (x != NoVar) {
-//        std::cout << "bug before propagation " << num_cons_propagations
-//          << " on var " << edges[POS(x)] << " <> " << edges[NEG(x)]
-//                  << std::endl;
-//        exit(1);
-//      }
-//#endif
-        
+      ++num_cons_propagations;
       cons->propagate();
-        
-        
-//#ifdef DBG_SOL
-//        x = is_on_track();
-//      if (x != NoVar) {
-//        std::cout << "bug after propagation " << num_cons_propagations
-//          << " on var " << edges[POS(x)] << " <> " << edges[NEG(x)]
-//                  << std::endl;
-//        exit(1);
-//      }
-//
-//#endif
-
-//#ifdef DBG_SOL
-//      //        auto z{is_on_track()};
-//      //        std::cout << was_on_track << " -> " << z << std::endl;
-//      if (was_on_track and not is_on_track()) {
-//        std::cout << "bug at propagation " << num_cons_propagations
-//                  << std::endl;
-//        exit(1);
-//      }
-//#endif
     }
   }
+
+  edge_propag_pointer = edge_pointer;
+  bound_propag_pointer = bound_pointer;
 }
 
 template<typename T>
