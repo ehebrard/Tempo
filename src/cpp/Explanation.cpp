@@ -8,13 +8,7 @@
 
 using namespace tempo;
 
-
-void Explainer::xplain(const lit, const hint, std::vector<lit> &) {
-//    Cl.push_back(l);
-};
-//void Explainer::xplain(const lit l, const hint h, CutBuilder *CB) const {
-//  CB->add_lit(l);
-//};
+void Explainer::xplain(const lit, const hint, std::vector<lit> &) {}
 
 std::ostream &Explainer::print_reason(std::ostream &os, const hint) const {
   os << "no reason";
@@ -22,21 +16,19 @@ std::ostream &Explainer::print_reason(std::ostream &os, const hint) const {
 }
 
  void Explanation::explain(const lit l, std::vector<lit> &Cl) {
- expl->xplain(l, the_hint, Cl); }
-//void Explanation::explain(const lit l, CutBuilder *CB) const {
-//  expl->xplain(l, the_hint, CB);
-//}
+   expl->xplain(l, the_hint, Cl);
+ }
 
-int Explainer::getType() const { return NOEXPL; };
+ int Explainer::getType() const { return NOEXPL; }
 
-std::ostream &Explanation::display(std::ostream &os) const {
+ std::ostream &Explanation::display(std::ostream &os) const {
 
-  assert(expl != NULL);
+   assert(expl != NULL);
 
-  // os << "b/c ";
-  expl->print_reason(os, the_hint);
-  return os;
-}
+   // os << "b/c ";
+   expl->print_reason(os, the_hint);
+   return os;
+ }
 
 bool Explanation::operator==(const Explanation &e) const {
   return expl == e.expl and the_hint == e.the_hint;

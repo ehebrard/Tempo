@@ -135,7 +135,8 @@ void TemporalNetwork<T>::xplain(const lit l, const hint h, std::vector<lit> &Cl)
             if(LTYPE(p) == EDGE_LIT) {
                 auto el{sched.getEdgeLiteral(FROM_GEN(p))};
                 Cl.push_back(EDGE(el));
-                x = (s==LOWER ? x = sched.getEdge(el).to : x = sched.getEdge(el).from);
+                x = (s == LOWER ? sched.getEdge(el).to
+                                : sched.getEdge(el).from);
             } else {
                 x = EVENT(bounds.getConstraint(FROM_GEN(p)).l);
             }

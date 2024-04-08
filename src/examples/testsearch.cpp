@@ -63,7 +63,7 @@ int main(int argc, char *argv[]) {
 
   ProblemInstance data;
 
-  int ub;
+  int ub{INFTY};
 
   if (opt.input_format == "osp") {
     data = osp::read_instance(opt.instance_file);
@@ -74,7 +74,6 @@ int main(int argc, char *argv[]) {
     ub = jsp::getUb<int>(data);
   } else if (opt.input_format == "tsptw") {
     data = tsptw::read_instance(opt.instance_file);
-    ub = INFTY;
   }
 
   if (opt.print_ins) {

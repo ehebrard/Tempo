@@ -141,8 +141,9 @@ Constraint *ConstraintQueue<N>::pop_front() {
 
 template <int N>
 void ConstraintQueue<N>::clear() {
-  for (auto i{N}; i-- > 0;)
+  for (auto i{N}; i-- > 0;) {
     active[i].clear();
+  }
     count = 0;
 }
 
