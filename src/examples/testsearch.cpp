@@ -25,11 +25,12 @@ along with minicsp.  If not, see <http://www.gnu.org/licenses/>.
 #include <filesystem>
 #include <optional>
 
+//#include "Objective.hpp"
 #include "Scheduler.hpp"
 #include "util/parsing/format.hpp"
 #include "util/parsing/jsp.hpp"
 #include "util/parsing/osp.hpp"
-
+#include "util/parsing/tsptw.hpp"
 
 using namespace tempo;
 
@@ -66,11 +67,14 @@ int main(int argc, char *argv[]) {
 
   if (opt.input_format == "osp") {
     data = osp::read_instance(opt.instance_file);
-    ub = osp::getUb(data.durations, data.resources);
+    ub = osp::getUb<int>(data);
   }
   else if (opt.input_format == "jsp") {
     data = jsp::read_instance(opt.instance_file);
-    ub = jsp::getUb(data.durations, data.resources);
+    ub = jsp::getUb<int>(data);
+  } else if (opt.input_format == "tsptw") {
+    data = tsptw::read_instance(opt.instance_file);
+    ub = INFTY;
   }
 
   if (opt.print_ins) {
@@ -104,23 +108,32 @@ int main(int argc, char *argv[]) {
     
   for (auto [x, y, k] : data.constraints) {
 
-      assert(k==0);
-
     S.newPrecedence(x, y, k);
-
   }
+
+  //  std::cout << data.resources.size() << std::endl;
+  //  std::cout << data.resources[0].size() << std::endl;
+  //  //    exit(1);
 
   std::vector<var> scope;
   for (auto &job : data.resources) {
-      for (auto ti{job.begin()}; ti!=job.end(); ++ti) {
-          for (auto tj{ti+1}; tj!=job.end(); ++tj) {
-            scope.push_back(S.newVariable({START(*ti), END(*tj), 0},
-                                          {START(*tj), END(*ti), 0}));
-          }
+    for (size_t i{0}; i < job.size(); ++i) {
+      for (size_t j{i + 1}; j < job.size(); ++j) {
+        scope.push_back(S.newVariable(
+            {START(job[i]), END(job[j]), job.getTransitionTime(j, i)},
+            {START(job[j]), END(job[i]), job.getTransitionTime(i, j)}));
       }
-      if (opt.edge_finding) {
-        S.postEdgeFinding(job.begin(), job.end(), scope.begin(), scope.end());
-      }
+    }
+
+    //           for (auto ti{job.begin()}; ti!=job.end(); ++ti) {
+    //          for (auto tj{ti+1}; tj!=job.end(); ++tj) {
+    //            scope.push_back(S.newVariable({START(*ti), END(*tj), 0},
+    //                                          {START(*tj), END(*ti), 0}));
+    //          }
+    //      }
+    if (opt.edge_finding) {
+      S.postEdgeFinding(job.begin(), job.end(), scope.begin(), scope.end());
+    }
       if (opt.transitivity) {
         S.postTransitivityReasoning(job.begin(), job.end(), scope.begin(),
                                     scope.end());
@@ -142,7 +155,20 @@ int main(int argc, char *argv[]) {
 
   //    std::cout << S << std::endl;
 
-  S.search();
+  //  S.search();
+
+  int sol;
+  if (opt.input_format == "tsptw") {
+    //        PathLength<int> tour(S, data.resources[0]);
+    //        S.minimize(tour);
+    //        sol = tour.upperBound();
+    sol = S.satisfiable();
+      std::cout << (sol ? "SAT" : "UNSAT") << std::endl;
+  } else {
+    Makespan<int> makespan(S);
+    S.minimize(makespan);
+    sol = makespan.upperBound();
+  }
 
   if (opt.verbosity > tempo::Options::SILENT) {
     auto end = std::chrono::system_clock::now();
@@ -152,7 +178,8 @@ int main(int argc, char *argv[]) {
               << std::endl;
   }
 
-  auto sol = S.getMakespan();
+  //  auto sol = S.getMakespan();
+  //  auto sol = makespan.upperBound();
   if (KillHandler::instance().signalReceived()) {
     std::cout << "execution aborted, best solution found " << sol << std::endl;
   } else if (data.optimalSolution != -1 and sol != data.optimalSolution) {

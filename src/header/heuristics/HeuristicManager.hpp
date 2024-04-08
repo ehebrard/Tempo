@@ -54,10 +54,10 @@ namespace tempo::heuristics {
                                scheduler);
                   break;
                 case Options::ChoicePointHeuristics::VSIDS:
-                    if(options.learning)
+                    if(options.learning) {
                         impl.emplace(std::in_place_type<VSIDS<T>>,
-                               scheduler);
-                    else // closest thing if not learning
+                                     scheduler);
+                    } else // closest thing if not learning
                         impl.emplace(std::in_place_type<WeightedDegree<T>>,
                                      scheduler, false);
                   break;

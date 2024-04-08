@@ -38,8 +38,10 @@ namespace tempo::heuristics {
             
             auto prec_a{distance.getEdge(POS(x))};
             auto prec_b{distance.getEdge(NEG(x))};
-            auto gap_a = distance.upper(prec_a.from) - distance.lower(prec_a.to);
-            auto gap_b = distance.upper(prec_b.from) - distance.lower(prec_b.to);
+            auto gap_a = distance.upper(prec_a.from) -
+                         distance.lower(prec_a.to) + prec_a.distance;
+            auto gap_b = distance.upper(prec_b.from) -
+                         distance.lower(prec_b.to) + prec_b.distance;
             return std::max(gap_a, gap_b);
         }
 

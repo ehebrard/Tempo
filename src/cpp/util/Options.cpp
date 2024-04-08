@@ -176,11 +176,11 @@ tempo::Options tempo::parse(int argc, char *argv[]) {
                             "VSIDS is used as choice point heuristic",
                             false, 0.05, "double");
 
-  cmd.add<ValueArg<std::string>>(
-      opt.input_format, "", "input-format",
-      "format of input file "
-      "(osp: Open Shop (default), jsp: Job Shop (Lawrence))",
-      false, "osp", "string");
+  cmd.add<ValueArg<std::string>>(opt.input_format, "", "input-format",
+                                 "format of input file "
+                                 "(osp: Open Shop (default), jsp: Job Shop "
+                                 "(Lawrence), tsptw: TSP with Time Windows)",
+                                 false, "osp", "string");
 
   cmd.parse(argc, argv);
   return opt;

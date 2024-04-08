@@ -8,6 +8,7 @@
 #include "ClauseBase.hpp"
 #include "ConstraintQueue.hpp"
 #include "Global.hpp"
+#include "Objective.hpp"
 #include "Restart.hpp"
 #include "TemporalNetwork.hpp"
 #include "constraints/DisjunctiveEdgeFinding.hpp"
@@ -22,7 +23,6 @@
 //#define DBG_MINIMIZATION
 
 namespace tempo {
-
 
 // literals x - y <= k (with x,y pointing to vars and k a constant)
 template <typename T> class DistanceConstraint {
@@ -115,10 +115,10 @@ public:
   T bound(const bool s, const event) const;
   T minDuration(const task) const;
   T maxDuration(const task) const;
-  T getMakespan() const;
+  //  T getMakespan() const;
 
-    std::vector<bool> getSolution() const;
-    
+  std::vector<bool> getSolution() const;
+
   // get edge literal from an edge propagation index
   lit getEdgeLiteral(const lit s) const;
   // get bound literal from a bound propagation index
@@ -158,13 +158,19 @@ public:
   void saveState();
   void restoreState(const int);
   void undo() override;
-  void search();
+  template <typename S> void updateLowerBound(S &objective);
+  template <typename S> bool search(S &objective);
   void restart(const bool on_solution = false);
-  void notifySolution();
+  //  void notifySolution();
   void backtrack(Explanation e);
   void branchRight();
   void learnConflict(Explanation e);
-  bool satisfiable() const;
+  bool hasSolution() const;
+
+  lit polarityChoice(const var cp);
+  void initializeSearch();
+  bool satisfiable();
+  template <typename S> void minimize(S &objective);
 
   int decisionLevel(const genlit l) const;
   //    void incrementActivity(const var x);
@@ -221,16 +227,19 @@ public:
     }
     double looseness(const DistanceConstraint<T>& c) const {
         // to - from <= distance
-        return static_cast<double>(upper(c.from) - lower(c.to) + c.distance)/static_cast<double>(ub);
+        return static_cast<double>(upper(c.from) - lower(c.to) + c.distance) /
+               static_cast<double>(upper(HORIZON));
     }
     double looseness(const BoundConstraint<T>& c) const {
         auto x{EVENT(c.l)};
         if(SIGN(c.l) == LOWER) {
             // x >= distance
-            return static_cast<double>(upper(x) + c.distance)/static_cast<double>(ub);
+            return static_cast<double>(upper(x) + c.distance) /
+                   static_cast<double>(upper(HORIZON));
         } else {
             // x <= distance
-            return static_cast<double>(c.distance - lower(x))/static_cast<double>(ub);
+            return static_cast<double>(c.distance - lower(x)) /
+                   static_cast<double>(upper(HORIZON));
         }
     }
     
@@ -316,9 +325,8 @@ private:
   std::vector<genlit> conflict;
   std::vector<bool> visited_edge;
 
-  // statistics
-  T lb{0};
-  T ub{INFTY};
+  //    T lb{0};
+  //    T ub{INFTY};
 
   double start_time;
 
@@ -372,7 +380,7 @@ private:
   bool isResponsibleForBound(const lit l, const Constraint *c) const;
 
   void analyze(Explanation e);
-  void quickxplain();
+  //  void quickxplain();
   //  void greedy_minimization();
   void minimization(const size_t w);
   SparseSet<int> cons;
@@ -413,6 +421,101 @@ public:
   void load(std::vector<bool> &sol) { ref_solution = sol; }
 #endif
 };
+
+// template <typename T> class Objective {
+// public:
+//   Objective() {}
+//   ~Objective() = default;
+//
+//   T gap() { return ub - lb; }
+//   void closeGap() { lb = ub; }
+//   T lowerBound() const { return lb; }
+//   T upperBound() const { return ub; }
+//
+//   std::ostream &display(std::ostream &os) const {
+//     os << "[" << std::left << std::setw(5) << std::setfill('.') <<
+//     lowerBound()
+//        << std::setfill(' ');
+//     auto ub{upperBound()};
+//     if (ub < INFTY)
+//       os << std::right << std::setw(6) << std::setfill('.') << ub
+//          << std::setfill(' ');
+//     else
+//       os << ".infty";
+//     os << "]";
+//     return os;
+//   }
+//
+// protected:
+//   T lb;
+//   T ub;
+// };
+//
+// template <typename T> class Makespan : public Objective<T> {
+// public:
+//   Makespan(Scheduler<T> &s) : Objective<T>(), schedule(s) {}
+//   ~Makespan() = default;
+//
+//   void updateLowerBound() { Objective<T>::lb = schedule.lower(HORIZON); }
+//
+//   void updateUpperBound() { Objective<T>::ub = schedule.lower(HORIZON); }
+//
+// private:
+//   Scheduler<T> &schedule;
+// };
+//
+//
+// template <typename T> class PathLength : public Objective<T> {
+// public:
+//     PathLength(Scheduler<T> &s, Resource<T>& r) : Objective<T>(), schedule(s)
+//     { Objective<T>::lb = 0; }
+//   ~PathLength() = default;
+//
+//     void updateLowerBound() {
+//         if(Objective<T>::lb == 0) {
+//             for(auto x : stops) {
+//                 Objective<T>::lb += schedule.minDuration(x);
+//             }
+//             for(auto& transitions : stops.transition) {
+//                 Objective<T>::lb += *(std::min_element(transitions.begin(),
+//                 transitions.end()));
+//             }
+//         }
+//     }
+//
+//     void updateUpperBound() {
+//         std::sort(stops.begin(), stops.end(), [&](const task a, const task b)
+//         {return schedule.lower(START(a)) < schedule.lower(START(b));} );
+//
+//         Objective<T>::ub = schedule.minDuration(stops[0]);
+//         for(size_t i{1}; i<stops.size(); ++i) {
+//             Objective<T>::ub += stops.transition[stops[i-1]][stops[i]];
+//             Objective<T>::ub += schedule.minDuration(stops[i]);
+//         }
+////        Objective<T>::ub = schedule.lower(HORIZON);
+//    }
+//
+// private:
+//  Scheduler<T> &schedule;
+//    Resource<T> &stops;
+//};
+//
+// template <typename T> class NoObj : public Objective<T> {
+// public:
+//  NoObj() : Objective<T>() {}
+//  ~NoObj() = default;
+//
+//  void updateLowerBound() { Objective<T>::lb = 0; }
+//
+//  void updateUpperBound() { Objective<T>::ub = 1; }
+//};
+//
+// template <typename T> class No {
+// public:
+//  static const NoObj<T> Obj;
+//};
+//
+// template <typename T> const NoObj<T> No<T>::Obj = NoObj<T>();
 
 /// DISTANCE
 
@@ -795,7 +898,7 @@ template <typename T> T Scheduler<T>::maxDuration(const task t) const {
   return max_duration[t];
 }
 
-template <typename T> T Scheduler<T>::getMakespan() const { return ub; }
+// template <typename T> T Scheduler<T>::getMakespan() const { return ub; }
 
 template <typename T> std::vector<bool> Scheduler<T>::getSolution() const { return best_solution; }
 
@@ -1340,28 +1443,27 @@ void Scheduler<T>::undo() {
   search_vars.setStart(edge_propag_pointer);
 }
 
-template<typename T>
-void Scheduler<T>::notifySolution() {
-
-  assert(lower(HORIZON) < ub);
-
-  ub = lower(HORIZON);
-
-  if (options.verbosity >= Options::NORMAL)
-    displayStats(std::cout, " new ub");
-
-  restart(true);
-
-  setUpperBound(ub - Gap<T>::epsilon());
-
-  best_solution = polarity;
-    
-//#ifdef DBG_SOL
-//    if(not ref_solution.empty())
-//    exit(1);
-//#endif
-}
-
+// template<typename T>
+// void Scheduler<T>::notifySolution() {
+//
+//   assert(lower(HORIZON) < ub);
+//
+//   ub = lower(HORIZON);
+//
+//   if (options.verbosity >= Options::NORMAL)
+//     displayStats(std::cout, " new ub");
+//
+//   restart(true);
+//
+//   setUpperBound(ub - Gap<T>::epsilon());
+//
+//   best_solution = polarity;
+//
+////#ifdef DBG_SOL
+////    if(not ref_solution.empty())
+////    exit(1);
+////#endif
+//}
 
 template<typename T>
 void Scheduler<T>::branchRight() {
@@ -1548,178 +1650,180 @@ template <typename T> void Scheduler<T>::minimization(const size_t max_width) {
   }
 }
 
-template <typename T> void Scheduler<T>::quickxplain() {
-
-  baseline->setUpperBound(ub - Gap<T>::epsilon());
-
-  cons.reserve(conflict.size());
-  cons.clear();
-  for (size_t i{0}; i < conflict.size(); ++i) {
-    cons.add(i);
-  }
-  necessary.clear();
-
-  while (cons.size() > necessary.size()) {
-
-#ifdef DBG_MINIMIZATION
-    std::cout << std::endl
-              << *baseline << std::endl
-              << "new round " << cons.size() << "/" << necessary.size() << "\n";
-    std::cout << cons << std::endl;
-#endif
-
-    baseline->saveState();
-
-    for (auto i : necessary) {
-      auto l{conflict[i]};
-      //            auto pl{baseline->num_literals};
-
-#ifdef DBG_MINIMIZATION
-      std::cout << "-add necessary cons (" << i << ") ";
-      if (LTYPE(l) == EDGE_LIT)
-        std::cout << getEdge(FROM_GEN(l)) << std::endl;
-      else
-        std::cout << getBound(FROM_GEN(l)) << std::endl;
-#endif
-
-      try {
-        if (LTYPE(l) == EDGE_LIT)
-          baseline->set(FROM_GEN(l));
-        else
-          baseline->set(getBound(FROM_GEN(l)));
-        baseline->propagate();
-      } catch (Failure &f) {
-        cons.setStart(cons.end_idx());
-        break;
-      }
-      cons.remove_back(i);
-      //            assert(pl != baseline->num_literals);
-    }
-
-#ifdef DBG_MINIMIZATION
-    std::cout << cons << std::endl << *baseline << std::endl;
-#endif
-
-    while (not cons.empty()) {
-      auto i{cons.back()};
-      auto l{conflict[i]};
-
-      //            auto [x,y,k] = C[i];
-      auto pl{baseline->num_literals};
-
-#ifdef DBG_MINIMIZATION
-      std::cout << " -try (" << i << ") ";
-      if (LTYPE(l) == EDGE_LIT)
-        std::cout << getEdge(FROM_GEN(l)) << std::endl;
-      else
-        std::cout << getBound(FROM_GEN(l)) << std::endl;
-#endif
-
-      bool fail{false};
-      try {
-        if (LTYPE(l) == EDGE_LIT)
-          baseline->set(FROM_GEN(l));
-        else
-          baseline->set(getBound(FROM_GEN(l)));
-        baseline->propagate();
-      } catch (Failure &f) {
-        fail = true;
-      }
-      if (fail) {
-#ifdef DBG_MINIMIZATION
-        std::cout << " --> all the rest is subsumed (fail)!\n";
-#endif
-        necessary.push_back(i);
-        cons.remove_back(i);
-        while (not cons.empty()) {
-          cons.remove_front(cons.back());
-        }
-        //                    cons.setEnd(cons.start_idx());
-      } else if (pl == baseline->num_literals) {
-#ifdef DBG_MINIMIZATION
-        std::cout << " --> subsumed!\n";
-#endif
-        cons.remove_front(i);
-      } else {
-        if (cons.size() == 1) {
-#ifdef DBG_MINIMIZATION
-          std::cout << " --> necessary!\n";
-#endif
-          necessary.push_back(i);
-        }
-        cons.pop_back();
-      }
-#ifdef DBG_MINIMIZATION
-      std::cout << cons << std::endl;
-#endif
-    }
-
-    cons.setEnd(conflict.size());
-    baseline->restoreState(1);
-  }
-
-#ifdef DBG_MINIMIZATION
-  std::cout << "original cl:";
-  for (auto i : conflict) {
-    std::cout << " " << prettyLiteral(i);
-  }
-  std::cout << std::endl;
-  std::cout << "minimal cl:";
-  for (auto i : necessary) {
-    std::cout << " " << prettyLiteral(conflict[i]);
-  }
-  std::cout << std::endl;
-#endif
-    
-    
-    
-//    if(conflict.size() > necessary.size()) {
-//        cons.clear();
-//        for(auto i : necessary)
-//        {
-//            cons.add(i);
-//        }
-//        std::cout << std::endl;
-//        for (auto i : conflict) {
-//          std::cout << " " << prettyLiteral(i);
-//            if(not cons.has(i))
-//                std::cout << " (deleted)";
-//            std::cout << std::endl;
-//        }
-//        std::cout << std::endl;
-//    }
-    
-
-  //    if(num_fails==6)
-  //        exit(1);
-
-  //    std::cout << conflict.size() << "/" << necessary.size() << std::endl;
-
-  conflict_set.clear();
-  for (auto i : necessary) {
-    //        std::cout << i << "/" << conflict.size() << std::endl;
-    conflict_set.push_back(conflict[i]);
-  }
-  conflict = conflict_set;
-
-  //    std::cout << *this << std::endl;
-  //  std::cout << *baseline << std::endl;
-
-  //  exit(1);
-
-  //    for(auto l : conflict) {
-  //
-  //    }
-}
+// template <typename T> void Scheduler<T>::quickxplain(const T ub) {
+//
+//   baseline->setUpperBound(ub - Gap<T>::epsilon());
+//
+//   cons.reserve(conflict.size());
+//   cons.clear();
+//   for (size_t i{0}; i < conflict.size(); ++i) {
+//     cons.add(i);
+//   }
+//   necessary.clear();
+//
+//   while (cons.size() > necessary.size()) {
+//
+//#ifdef DBG_MINIMIZATION
+//     std::cout << std::endl
+//               << *baseline << std::endl
+//               << "new round " << cons.size() << "/" << necessary.size() <<
+//               "\n";
+//     std::cout << cons << std::endl;
+//#endif
+//
+//     baseline->saveState();
+//
+//     for (auto i : necessary) {
+//       auto l{conflict[i]};
+//       //            auto pl{baseline->num_literals};
+//
+//#ifdef DBG_MINIMIZATION
+//       std::cout << "-add necessary cons (" << i << ") ";
+//       if (LTYPE(l) == EDGE_LIT)
+//         std::cout << getEdge(FROM_GEN(l)) << std::endl;
+//       else
+//         std::cout << getBound(FROM_GEN(l)) << std::endl;
+//#endif
+//
+//       try {
+//         if (LTYPE(l) == EDGE_LIT)
+//           baseline->set(FROM_GEN(l));
+//         else
+//           baseline->set(getBound(FROM_GEN(l)));
+//         baseline->propagate();
+//       } catch (Failure &f) {
+//         cons.setStart(cons.end_idx());
+//         break;
+//       }
+//       cons.remove_back(i);
+//       //            assert(pl != baseline->num_literals);
+//     }
+//
+//#ifdef DBG_MINIMIZATION
+//     std::cout << cons << std::endl << *baseline << std::endl;
+//#endif
+//
+//     while (not cons.empty()) {
+//       auto i{cons.back()};
+//       auto l{conflict[i]};
+//
+//       //            auto [x,y,k] = C[i];
+//       auto pl{baseline->num_literals};
+//
+//#ifdef DBG_MINIMIZATION
+//       std::cout << " -try (" << i << ") ";
+//       if (LTYPE(l) == EDGE_LIT)
+//         std::cout << getEdge(FROM_GEN(l)) << std::endl;
+//       else
+//         std::cout << getBound(FROM_GEN(l)) << std::endl;
+//#endif
+//
+//       bool fail{false};
+//       try {
+//         if (LTYPE(l) == EDGE_LIT)
+//           baseline->set(FROM_GEN(l));
+//         else
+//           baseline->set(getBound(FROM_GEN(l)));
+//         baseline->propagate();
+//       } catch (Failure &f) {
+//         fail = true;
+//       }
+//       if (fail) {
+//#ifdef DBG_MINIMIZATION
+//         std::cout << " --> all the rest is subsumed (fail)!\n";
+//#endif
+//         necessary.push_back(i);
+//         cons.remove_back(i);
+//         while (not cons.empty()) {
+//           cons.remove_front(cons.back());
+//         }
+//         //                    cons.setEnd(cons.start_idx());
+//       } else if (pl == baseline->num_literals) {
+//#ifdef DBG_MINIMIZATION
+//         std::cout << " --> subsumed!\n";
+//#endif
+//         cons.remove_front(i);
+//       } else {
+//         if (cons.size() == 1) {
+//#ifdef DBG_MINIMIZATION
+//           std::cout << " --> necessary!\n";
+//#endif
+//           necessary.push_back(i);
+//         }
+//         cons.pop_back();
+//       }
+//#ifdef DBG_MINIMIZATION
+//       std::cout << cons << std::endl;
+//#endif
+//     }
+//
+//     cons.setEnd(conflict.size());
+//     baseline->restoreState(1);
+//   }
+//
+//#ifdef DBG_MINIMIZATION
+//   std::cout << "original cl:";
+//   for (auto i : conflict) {
+//     std::cout << " " << prettyLiteral(i);
+//   }
+//   std::cout << std::endl;
+//   std::cout << "minimal cl:";
+//   for (auto i : necessary) {
+//     std::cout << " " << prettyLiteral(conflict[i]);
+//   }
+//   std::cout << std::endl;
+//#endif
+//
+//
+//
+////    if(conflict.size() > necessary.size()) {
+////        cons.clear();
+////        for(auto i : necessary)
+////        {
+////            cons.add(i);
+////        }
+////        std::cout << std::endl;
+////        for (auto i : conflict) {
+////          std::cout << " " << prettyLiteral(i);
+////            if(not cons.has(i))
+////                std::cout << " (deleted)";
+////            std::cout << std::endl;
+////        }
+////        std::cout << std::endl;
+////    }
+//
+//
+//  //    if(num_fails==6)
+//  //        exit(1);
+//
+//  //    std::cout << conflict.size() << "/" << necessary.size() << std::endl;
+//
+//  conflict_set.clear();
+//  for (auto i : necessary) {
+//    //        std::cout << i << "/" << conflict.size() << std::endl;
+//    conflict_set.push_back(conflict[i]);
+//  }
+//  conflict = conflict_set;
+//
+//  //    std::cout << *this << std::endl;
+//  //  std::cout << *baseline << std::endl;
+//
+//  //  exit(1);
+//
+//  //    for(auto l : conflict) {
+//  //
+//  //    }
+//}
 
 template<typename T>
 void Scheduler<T>::learnConflict(Explanation e) {
 
   analyze(e);
 
-  if (options.minimization >= 1000) {
-    quickxplain();
-  } else if (options.minimization >= 0) {
+  //  if (options.minimization >= 1000) {
+  //    quickxplain();
+  //  } else
+  if (options.minimization >= 0) {
     minimization(static_cast<size_t>(options.minimization));
   }
 
@@ -1736,7 +1840,7 @@ void Scheduler<T>::learnConflict(Explanation e) {
   int max_level{
       (conflict.size() > 1 ? decisionLevel(conflict[1]) : init_level)};
 
-  assert(upper(HORIZON) == ub - Gap<T>::epsilon());
+//  assert(upper(HORIZON) == ub - Gap<T>::epsilon());
 
 #ifdef DBG_CL
 //  if (++num_clauses > DBG_CL)
@@ -1836,9 +1940,8 @@ void Scheduler<T>::restart(const bool on_solution) {
 //      std::cout << num_fails << " / " << restart_limit << std::endl;
   } else {
     restart_policy->reset(restart_limit);
-    if (options.verbosity >= Options::YACKING)
-      displayStats(std::cout, "restart");
-//      std::cout << num_fails << " / " << restart_limit << std::endl;
+    //      std::cout << num_fails << " / " << restart_limit << std::endl;
+    displayStats(std::cout, "             ");
   }
 
   SearchRestarted.trigger();
@@ -1848,16 +1951,16 @@ void Scheduler<T>::restart(const bool on_solution) {
 template<typename T>
 void Scheduler<T>::printTrace() const {
   if (DBG_BOUND and (DBG_TRACE & SEARCH)) {
-    std::cout << "bounds = [" << lb << ".." << lower(HORIZON) << ".." << ub
-              << "]\n";
+//      std::cout << "bounds = ";
+//      
+//      std::cout << "\n";
     display(std::cout, (DBG_TRACE & DOMAINS), (DBG_TRACE & BRANCH),
             (DBG_TRACE & CLAUSES), false, false, false);
   }
 }
 #endif
 
-template<typename T>
-bool Scheduler<T>::satisfiable() const {
+template <typename T> bool Scheduler<T>::hasSolution() const {
   return not best_solution.empty();
 }
 
@@ -1885,170 +1988,293 @@ template <typename T> void Scheduler<T>::initialize_baseline() {
   //  std::cout << *baseline << std::endl;
 }
 
-template <typename T> void Scheduler<T>::search() {
+template <typename T> lit Scheduler<T>::polarityChoice(const var cp) {
+  lit d{NoLit};
+  if ((random() % 10) == 0) {
+    d = (random() % 2 ? POS(cp) : NEG(cp));
+  } else {
+    auto prec_a{getEdge(POS(cp))};
+    auto prec_b{getEdge(NEG(cp))};
+    auto gap_a = upper(prec_a.from) - lower(prec_a.to);
+    auto gap_b = upper(prec_b.from) - lower(prec_b.to);
+    d = (gap_a < gap_b ? NEG(cp) : POS(cp));
+  }
 
-  assert(not satisfiable());
+#ifdef DBG_TRACE
+  if (DBG_BOUND and (DBG_TRACE & SEARCH)) {
+    std::cout << *this << "\n-- new decision: " << edges[d] << std::endl;
+  }
+#endif
 
-  initialize_baseline();
+  return d;
+}
+
+template <typename T> void Scheduler<T>::initializeSearch() {
+  if (options.minimization >= 1000)
+    initialize_baseline();
 
   heuristic.emplace(*this, options);
 
   restart_policy->initialize(restart_limit);
   start_time = cpu_time();
-  //      ground_facts = numLiterals();
-  //  bool SAT{false};
-
-  // initialisation
-  lb = lower(HORIZON);
-  ub = upper(HORIZON) + 1;
-
   init_level = env.level();
+}
 
-  //    size_t ground_arcs{domain.arcCount()};
+template <typename T>
+template <typename S>
+void Scheduler<T>::minimize(S &objective) {
 
-  while (lb < ub and not KillHandler::instance().signalReceived()) {
+  initializeSearch();
 
-    //        if(domain.arcCount() != (ground_arcs + numVariable() -
-    //        search_vars.size())) {
-    //            std::cout << domain.arcCount() << " / " << (ground_arcs +
-    //            numVariable() - search_vars.size()) << std::endl; exit(1);
-    //        }
+  while (objective.gap() and not KillHandler::instance().signalReceived()) {
+    if (search(objective)) {
+      objective.updateUpperBound();
+      if (options.verbosity >= Options::NORMAL) {
+        //                ub = objective.upperBound();
+        objective.display(std::cout);
+        displayStats(std::cout, "");
+      }
+      best_solution = polarity;
+      restart(true);
+      objective.applyUpperBound();
+      //      setUpperBound(objective.upperBound() - Gap<T>::epsilon());
+    } else {
+      objective.closeGap();
+    }
+  }
+}
+
+template <typename T> bool Scheduler<T>::satisfiable() {
+    initializeSearch();
+  return search(No<T>::Obj);
+}
+
+template <typename T>
+template <typename S>
+void Scheduler<T>::updateLowerBound(S &objective) {
+  if (env.level() == init_level) {
+    auto lb{objective.lowerBound()};
+    objective.updateLowerBound();
+    if (lb < objective.lowerBound()) {
+      objective.display(std::cout);
+      displayStats(std::cout, "");
+    }
+  }
+}
+
+template <typename T>
+template <typename S>
+bool Scheduler<T>::search(S &objective) {
+
+  while (not KillHandler::instance().signalReceived()) {
 
     ++num_choicepoints;
-
-#ifdef DBG_TRACE
-    if (DBG_BOUND) {
-      std::cout << "--- search node (lvl=" << env.level()
-                << ") [i=" << num_choicepoints << "] ---\n";
-      printTrace();
-    }
-#endif
-
     try {
-
-#ifdef DBG_SOL
-        var x{is_on_track()};
-        try {
-#endif
-            
-            propagate();
-            
-#ifdef DBG_SOL
-        } catch(Failure &f) {
-            if(x == NoVar) {
-                std::cout << "failure while on track at (" << num_choicepoints << ")\n";
-                exit(1);
-            }
-            throw f;
-        }
-        if(x == NoVar and (is_on_track() != NoVar)) {
-            std::cout << "get out of track after propag at (" << num_choicepoints << ")\n";
-            std::cout << "literal " << edges[LIT(x,value(x))] << " whereas it is "
-            << edges[LIT(x,ref_solution[x])] << " in sol.txt\n";
-            exit(1);
-        }
-#endif
-            
-
-#ifdef DBG_TRACE
-      if (DBG_BOUND and (DBG_TRACE & PROPAGATION)) {
-        std::cout << "--- propagation ---\n";
-        printTrace();
-      }
-#endif
-
-      assert(propagation_queue.empty());
-
-      if (env.level() == init_level) {
-
-        if (lower(HORIZON) > lb) {
-          lb = lower(HORIZON);
-          if (options.verbosity >= Options::NORMAL)
-            displayStats(std::cout, " new lb");
-        }
-      }
+      propagate();
+      updateLowerBound(objective);
 
       // make a checkpoint
       saveState();
 
-      //          auto cp = search_vars.any();
-
       // all resource constraints are accounted for => a solution has been found
       if (search_vars.empty()) {
-
-        //        SAT = true;
-        notifySolution();
-
+        return true;
       } else {
         ++num_choicepoints;
 
-        var cp = heuristic->nextChoicePoint(*this);
-        lit d;
-//#ifdef DBG_SOL
-//          if(not ref_solution.empty())
-//              d = LIT(cp, ref_solution[cp]);
-//          else if ((random() % 10) == 0) {
-//              d = (random() % 2 ? POS(cp) : NEG(cp));
-//            } else {
-//              auto prec_a{getEdge(POS(cp))};
-//              auto prec_b{getEdge(NEG(cp))};
-//              auto gap_a = upper(prec_a.from) - lower(prec_a.to);
-//              auto gap_b = upper(prec_b.from) - lower(prec_b.to);
-//              d = (gap_a < gap_b ? NEG(cp) : POS(cp));
-//            }
-//              
-//#else
-        if ((random() % 10) == 0) {
-          d = (random() % 2 ? POS(cp) : NEG(cp));
-        } else {
-          auto prec_a{getEdge(POS(cp))};
-          auto prec_b{getEdge(NEG(cp))};
-          auto gap_a = upper(prec_a.from) - lower(prec_a.to);
-          auto gap_b = upper(prec_b.from) - lower(prec_b.to);
-          d = (gap_a < gap_b ? NEG(cp) : POS(cp));
-        }
-//#endif
-
 #ifdef DBG_TRACE
-        if (DBG_BOUND and (DBG_TRACE & SEARCH)) {
-          std::cout << *this << "\n-- new decision: " << edges[d] << std::endl;
+        if (DBG_BOUND) {
+          std::cout << "--- search node (lvl=" << env.level()
+                    << ") [i=" << num_choicepoints << "] ---\n";
+          printTrace();
         }
 #endif
 
+        var x = heuristic->nextChoicePoint(*this);
+        lit d{polarityChoice(x)};
         set(d);
       }
     } catch (const Failure &f) {
       try {
         backtrack(f.reason);
       } catch (const SearchExhausted &f) {
-
-#ifdef DBG_TRACE
-        if (DBG_BOUND and (DBG_TRACE & SEARCH)) {
-          if (satisfiable())
-            std::cout << " => optimal! (" << ub << ")\n";
-          else
-            std::cout << " => unfeasible!\n";
-        }
-#endif
-
-        lb = ub;
-        if (options.verbosity > Options::SILENT)
-          displayStats(std::cout,
-                       (satisfiable() ? "optimal" : "unsatisfiable"));
+        break;
       }
-
       if (num_fails > restart_limit) {
         restart();
       }
     }
   }
-
-#ifdef DBG_TRACE
-  std::cout << "--- end search ---\n";
-#endif
-
-  //  return satisfiable();
+  return false;
 }
+
+// template <typename T> void Scheduler<T>::search() {
+//
+//   assert(not hasSolution());
+//
+//     if(options.minimization >= 1000)
+//         initialize_baseline();
+//
+//   heuristic.emplace(*this, options);
+//
+//   restart_policy->initialize(restart_limit);
+//   start_time = cpu_time();
+//   //      ground_facts = numLiterals();
+//   //  bool SAT{false};
+//
+//   // initialisation
+//   lb = lower(HORIZON);
+//   ub = upper(HORIZON) + 1;
+//
+//   init_level = env.level();
+//
+//   //    size_t ground_arcs{domain.arcCount()};
+//
+//   while (lb < ub and not KillHandler::instance().signalReceived()) {
+//
+//     //        if(domain.arcCount() != (ground_arcs + numVariable() -
+//     //        search_vars.size())) {
+//     //            std::cout << domain.arcCount() << " / " << (ground_arcs +
+//     //            numVariable() - search_vars.size()) << std::endl; exit(1);
+//     //        }
+//
+//     ++num_choicepoints;
+//
+//#ifdef DBG_TRACE
+//     if (DBG_BOUND) {
+//       std::cout << "--- search node (lvl=" << env.level()
+//                 << ") [i=" << num_choicepoints << "] ---\n";
+//       printTrace();
+//     }
+//#endif
+//
+//     try {
+//
+//#ifdef DBG_SOL
+//         var x{is_on_track()};
+//         try {
+//#endif
+//
+//             propagate();
+//
+//#ifdef DBG_SOL
+//         } catch(Failure &f) {
+//             if(x == NoVar) {
+//                 std::cout << "failure while on track at (" <<
+//                 num_choicepoints << ")\n"; exit(1);
+//             }
+//             throw f;
+//         }
+//         if(x == NoVar and (is_on_track() != NoVar)) {
+//             std::cout << "get out of track after propag at (" <<
+//             num_choicepoints << ")\n"; std::cout << "literal " <<
+//             edges[LIT(x,value(x))] << " whereas it is "
+//             << edges[LIT(x,ref_solution[x])] << " in sol.txt\n";
+//             exit(1);
+//         }
+//#endif
+//
+//
+//#ifdef DBG_TRACE
+//       if (DBG_BOUND and (DBG_TRACE & PROPAGATION)) {
+//         std::cout << "--- propagation ---\n";
+//         printTrace();
+//       }
+//#endif
+//
+//       assert(propagation_queue.empty());
+//
+//       if (env.level() == init_level) {
+//
+//         if (lower(HORIZON) > lb) {
+//           lb = lower(HORIZON);
+//           if (options.verbosity >= Options::NORMAL)
+//             displayStats(std::cout, " new lb");
+//         }
+//       }
+//
+//       // make a checkpoint
+//       saveState();
+//
+//       //          auto cp = search_vars.any();
+//
+//       // all resource constraints are accounted for => a solution has been
+//       found if (search_vars.empty()) {
+//
+//         //        SAT = true;
+//         notifySolution();
+//
+//       } else {
+//         ++num_choicepoints;
+//
+//         var cp = heuristic->nextChoicePoint(*this);
+//         lit d;
+////#ifdef DBG_SOL
+////          if(not ref_solution.empty())
+////              d = LIT(cp, ref_solution[cp]);
+////          else if ((random() % 10) == 0) {
+////              d = (random() % 2 ? POS(cp) : NEG(cp));
+////            } else {
+////              auto prec_a{getEdge(POS(cp))};
+////              auto prec_b{getEdge(NEG(cp))};
+////              auto gap_a = upper(prec_a.from) - lower(prec_a.to);
+////              auto gap_b = upper(prec_b.from) - lower(prec_b.to);
+////              d = (gap_a < gap_b ? NEG(cp) : POS(cp));
+////            }
+////
+////#else
+//        if ((random() % 10) == 0) {
+//          d = (random() % 2 ? POS(cp) : NEG(cp));
+//        } else {
+//          auto prec_a{getEdge(POS(cp))};
+//          auto prec_b{getEdge(NEG(cp))};
+//          auto gap_a = upper(prec_a.from) - lower(prec_a.to);
+//          auto gap_b = upper(prec_b.from) - lower(prec_b.to);
+//          d = (gap_a < gap_b ? NEG(cp) : POS(cp));
+//        }
+////#endif
+//
+//#ifdef DBG_TRACE
+//        if (DBG_BOUND and (DBG_TRACE & SEARCH)) {
+//          std::cout << *this << "\n-- new decision: " << edges[d] <<
+//          std::endl;
+//        }
+//#endif
+//
+//        set(d);
+//      }
+//    } catch (const Failure &f) {
+//      try {
+//        backtrack(f.reason);
+//      } catch (const SearchExhausted &f) {
+//
+//#ifdef DBG_TRACE
+//        if (DBG_BOUND and (DBG_TRACE & SEARCH)) {
+//          if (hasSolution())
+//            std::cout << " => optimal! (" << ub << ")\n";
+//          else
+//            std::cout << " => unfeasible!\n";
+//        }
+//#endif
+//
+//        lb = ub;
+//        if (options.verbosity > Options::SILENT)
+//          displayStats(std::cout,
+//                       (hasSolution() ? "optimal" : "unhasSolution"));
+//      }
+//
+//      if (num_fails > restart_limit) {
+//        restart();
+//      }
+//    }
+//  }
+//
+//#ifdef DBG_TRACE
+//  std::cout << "--- end search ---\n";
+//#endif
+//
+//  //  return hasSolution();
+//}
 
 template <typename T> bool Scheduler<T>::stoppingCondition() const {
   return conflict_set.size() == 1 and LTYPE(conflict_set[0]) == EDGE_LIT;
@@ -2175,6 +2401,18 @@ template <typename T> void Scheduler<T>::analyze(Explanation e) {
   //    domain.bounds.visited[l] = false;
   //    clearVisited();
 
+
+
+}
+
+template <typename T> void Scheduler<T>::clearVisited() {
+  for (auto x : conflict_edges)
+    visited_edge[x] = false;
+
+  for (auto l : conflict_bounds)
+    domain.bounds.visited[l] = false;
+    
+    
 #ifdef DBG_TRACE
 
   for (lit e{0}; e < static_cast<lit>(numBoundLiteral()); ++e) {
@@ -2185,15 +2423,7 @@ template <typename T> void Scheduler<T>::analyze(Explanation e) {
   }
 
 #endif
-
-}
-
-template <typename T> void Scheduler<T>::clearVisited() {
-  for (auto x : conflict_edges)
-    visited_edge[x] = false;
-
-  for (auto l : conflict_bounds)
-    domain.bounds.visited[l] = false;
+    
 }
 
 template <typename T>
@@ -2379,17 +2609,10 @@ std::ostream &Scheduler<T>::displayBranch(std::ostream &os) const {
   return os;
 }
 
-template<typename T>
-std::ostream &Scheduler<T>::displayStats(std::ostream &os, const char* msg) const {
-  os << msg << ": [" << std::left << std::setw(5) << std::setfill('.') << lb
-     << std::setfill(' ');
-  if (ub < INFTY)
-    os << std::right << std::setw(6) << std::setfill('.') << ub
-       << std::setfill(' ');
-  else
-    os << ".infty";
-#ifndef DEBUGCMP
-  os << "] fails=" << std::setw(7) << std::left << num_fails
+template <typename T>
+std::ostream &Scheduler<T>::displayStats(std::ostream &os,
+                                         const char *msg) const {
+  os << msg << " fails=" << std::setw(7) << std::left << num_fails
      << " literals=" << std::setw(12) << std::left << num_literals;
   if (options.learning) {
     os << " |cflct|=";
@@ -2403,12 +2626,8 @@ std::ostream &Scheduler<T>::displayStats(std::ostream &os, const char* msg) cons
     os << " #prop=" << std::setw(7) << std::left << num_cons_propagations;
   }
   os << " cpu=" << (cpu_time() - start_time) << "\n";
-#else
-  os << std::endl;
-#endif
   return os;
 }
-
 
 template<typename T>
 std::ostream &Scheduler<T>::display(std::ostream &os, const bool dom, const bool bra, const bool cla, const bool egr, const bool vgr, const bool con) const {

@@ -10,21 +10,51 @@
 
 namespace osp {
 
-template <class DT>
-DT getUb(const std::vector<DT> &duration,
-         const std::vector<std::vector<int>> &resource) {
+// template <class DT>
+// DT getUb(const std::vector<DT> &duration,
+//          const std::vector<std::vector<int>> &resource) {
+//   DT ub{0};
+//   std::vector<DT> current;
+//   current.resize(resource.size(), 0);
+//   std::vector<std::vector<int>> resource_of;
+//   resource_of.resize(duration.size());
+//   for (unsigned i = 0; i < resource.size(); ++i) {
+//     for (auto a : resource[i]) {
+//       resource_of[a].push_back(i);
+//     }
+//   }
+//   for (unsigned i = 0; i < duration.size(); ++i) {
+//     auto d = duration[i];
+//     auto first = 0;
+//
+//     for (auto j : resource_of[i]) {
+//       if (current[j] > first)
+//         first = current[j];
+//     }
+//
+//     for (auto j : resource_of[i]) {
+//       current[j] = first + d;
+//       if (ub < current[j])
+//         ub = current[j];
+//     }
+//   }
+//
+//   return ub;
+// }
+
+template <class DT> DT getUb(const ProblemInstance &data) {
   DT ub{0};
   std::vector<DT> current;
-  current.resize(resource.size(), 0);
+  current.resize(data.resources.size(), 0);
   std::vector<std::vector<int>> resource_of;
-  resource_of.resize(duration.size());
-  for (unsigned i = 0; i < resource.size(); ++i) {
-    for (auto a : resource[i]) {
+  resource_of.resize(data.durations.size());
+  for (unsigned i = 0; i < data.resources.size(); ++i) {
+    for (auto a : data.resources[i]) {
       resource_of[a].push_back(i);
     }
   }
-  for (unsigned i = 0; i < duration.size(); ++i) {
-    auto d = duration[i];
+  for (unsigned i = 0; i < data.durations.size(); ++i) {
+    auto d = data.durations[i];
     auto first = 0;
 
     for (auto j : resource_of[i]) {

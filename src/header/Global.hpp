@@ -10,7 +10,7 @@ namespace tempo {
 
 //#define DBG_BOUND true  //(num_fails >= 236)
 //#define DBG_BBOUND true //(sched.num_fails >= 236)
-//#define DBG_TRACE 32    // 183 //1+2+4+32+128
+//#define DBG_TRACE 7    // 183 //1+2+4+32+128
 #define SEARCH 1
 #define DOMAINS 2
 #define BRANCH 4

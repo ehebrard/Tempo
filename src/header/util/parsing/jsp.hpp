@@ -10,25 +10,59 @@
 
 namespace jsp {
 
-template <class DT>
-DT getUb(const std::vector<DT> &duration,
-         const std::vector<std::vector<int>> &resource) {
+// template <class DT>
+// DT getUb(const std::vector<DT> &duration,
+//          const std::vector<std::vector<int>> &resource) {
+//   DT ub{0};
+//   std::vector<DT> current;
+//   auto nm{resource.size()};
+//   current.resize(nm + duration.size() / nm, 0);
+//   std::vector<std::vector<int>> resource_of;
+//   resource_of.resize(duration.size());
+//   for (unsigned i = 0; i < nm; ++i) {
+//     for (auto a : resource[i]) {
+//       resource_of[a].push_back(i);
+//     }
+//   }
+//   for (unsigned a{0}; a < duration.size(); ++a) {
+//     resource_of[a].push_back(a / nm);
+//   }
+//   for (unsigned i = 0; i < duration.size(); ++i) {
+//     auto d = duration[i];
+//     auto first = 0;
+//
+//     for (auto j : resource_of[i]) {
+//       if (current[j] > first)
+//         first = current[j];
+//     }
+//
+//     for (auto j : resource_of[i]) {
+//       current[j] = first + d;
+//       if (ub < current[j])
+//         ub = current[j];
+//     }
+//   }
+//
+//   return ub;
+// }
+
+template <class DT> DT getUb(const ProblemInstance &data) {
   DT ub{0};
   std::vector<DT> current;
-  auto nm{resource.size()};
-  current.resize(nm + duration.size() / nm, 0);
+  auto nm{data.resources.size()};
+  current.resize(nm + data.durations.size() / nm, 0);
   std::vector<std::vector<int>> resource_of;
-  resource_of.resize(duration.size());
+  resource_of.resize(data.durations.size());
   for (unsigned i = 0; i < nm; ++i) {
-    for (auto a : resource[i]) {
+    for (auto a : data.resources[i]) {
       resource_of[a].push_back(i);
     }
   }
-  for (unsigned a{0}; a < duration.size(); ++a) {
+  for (unsigned a{0}; a < data.durations.size(); ++a) {
     resource_of[a].push_back(a / nm);
   }
-  for (unsigned i = 0; i < duration.size(); ++i) {
-    auto d = duration[i];
+  for (unsigned i = 0; i < data.durations.size(); ++i) {
+    auto d = data.durations[i];
     auto first = 0;
 
     for (auto j : resource_of[i]) {
