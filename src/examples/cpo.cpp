@@ -36,52 +36,45 @@ using namespace tempo;
 
 int main(int argc, char *argv[]) {
   Options opt = tempo::parse(argc, argv);
-    
-  ProblemInstance data;
-    
-    IloEnv env;
-    IloModel model(env);
 
-    
-    
+  ProblemInstance data;
+
+  IloEnv env;
+  IloModel model(env);
+
   if (opt.input_format == "osp") {
     data = osp::read_instance(opt.instance_file);
-  }
-  else if (opt.input_format == "jsp") {
+  } else if (opt.input_format == "jsp") {
     data = jsp::read_instance(opt.instance_file);
   } else if (opt.input_format == "tsptw") {
     data = tsptw::read_instance(opt.instance_file);
   }
-    
- 
-    IloIntExprArray ends(env);
-    for(auto& resource : data.resources) {
-        IloIntervalVarArray scope;
-        for(auto ti : resource) {
-            IloIntervalVar tx(env, data.duration[ti]);
-            scope.add(tx);
-            ends.add(IloEndOf(tx));
-        }
-        model.add(IloNoOverlap(env, scope));
-    }
-    
-    IloObjective objective = IloMinimize(env,IloMax(ends));
-    model.add(objective);
 
-    IloCP cp(model);
-      cp.setParameter(IloCP::Workers, 1);
-    cp.setParameter(IloCP::FailLimit, failLimit);
-      cp.setParameter(IloCP::LogVerbosity, IloCP::Terse);
-    cp.out() << "Instance \t: " << filename << std::endl;
-    if (cp.solve()) {
-      cp.out() << "Makespan \t: " << cp.getObjValue() << std::endl;
-    } else {
-      cp.out() << "No solution found."  << std::endl;
+  IloIntExprArray ends(env);
+  for (auto &resource : data.resources) {
+    IloIntervalVarArray scope;
+    for (auto ti : resource) {
+      IloIntervalVar tx(env, data.duration[ti]);
+      scope.add(tx);
+      ends.add(IloEndOf(tx));
     }
-  } catch(IloException& e){
-    env.out() << " ERROR: " << e << std::endl;
+    model.add(IloNoOverlap(env, scope));
   }
+
+  IloObjective objective = IloMinimize(env, IloMax(ends));
+  model.add(objective);
+
+  IloCP cp(model);
+  cp.setParameter(IloCP::Workers, 1);
+  cp.setParameter(IloCP::FailLimit, failLimit);
+  cp.setParameter(IloCP::LogVerbosity, IloCP::Terse);
+  cp.out() << "Instance \t: " << filename << std::endl;
+  if (cp.solve()) {
+    cp.out() << "Makespan \t: " << cp.getObjValue() << std::endl;
+  } else {
+    cp.out() << "No solution found." << std::endl;
+  }
+
   env.end();
   return 0;
-
 }
