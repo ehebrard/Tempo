@@ -65,6 +65,10 @@ public:
 // };
 
 struct ProblemInstance {
+    
+    ProblemInstance() = default;
+    ~ProblemInstance() = default;
+    
     int lowerBound;
     int optimalSolution;
     std::vector<int> durations;
@@ -72,6 +76,10 @@ struct ProblemInstance {
     std::vector<Resource<int>> resources;
     //    std::vector<std::vector<tempo::task>> resources;
     //    std::vector<std::vector<int>> transition;
+    
+//    size_t nbTasks() { return durations.size(); }
+    
+    
 };
 
 
