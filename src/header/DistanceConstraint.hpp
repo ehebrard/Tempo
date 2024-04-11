@@ -1,6 +1,7 @@
 #ifndef _TEMPO_DISTANCECONSTRAINT_HPP
 #define _TEMPO_DISTANCECONSTRAINT_HPP
 
+#include <iostream>
 
 #include "Global.hpp"
 
