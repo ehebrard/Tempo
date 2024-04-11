@@ -34,57 +34,59 @@ namespace tempo::heuristics {
     class HeuristicManager {
        //       using Distance = const RestrictedDistanceMatrix<T> &;
        using Distance = const Scheduler<T> &;
-        using Implementations = std::variant<Tightest<Distance>
-        , VSIDS<T>
-        , WeightedDegree<T>
-//        , EpsilonGreedyVSIDS
-        >;
-    public:
-        /**
-         * Ctor: Internally constructs the heuristic inferred from the given arguments
-         * @tparam T type of scheduler
-         * @param scheduler scheduler for which to create a heuristic
-         * @param options options specifying the type of heuristic and further config values
-         * @throws std::runtime_error if an unknown heuristics type was given in options
-         */
-        HeuristicManager( Scheduler<T> &scheduler, const Options &options) {
-            switch (options.choice_point_heuristics) {
-                case Options::ChoicePointHeuristics::Tightest:
-                  impl.emplace(std::in_place_type<Tightest<Distance>>,
-                               scheduler);
-                  break;
-                case Options::ChoicePointHeuristics::VSIDS:
-                    if(options.learning) {
-                        impl.emplace(std::in_place_type<VSIDS<T>>,
-                                     scheduler);
-                    } else // closest thing if not learning
-                        impl.emplace(std::in_place_type<WeightedDegree<T>>,
-                                     scheduler, false);
-                  break;
-                case Options::ChoicePointHeuristics::WeightedDegree:
-                  impl.emplace(std::in_place_type<WeightedDegree<T>>,
-                               scheduler, false);
-                  break;
-                case Options::ChoicePointHeuristics::WeightedCriticalPath:
-                  impl.emplace(std::in_place_type<WeightedDegree<T>>,
-                               scheduler, true);
-                  break;
-//                case Options::ChoicePointHeuristics::EG_VSIDS:
-//                  impl.emplace(std::in_place_type<EpsilonGreedyVSIDS>,
-//                               options.vsids_epsilon, scheduler, options,
-//                               scheduler);
-//                  break;
-//
-//#if __TORCH_ENABLED__
-//                case Options::ChoicePointHeuristics::GNN_HeatMap:
-//                    impl.emplace(std::in_place_type<HeatMap>, options.gnn_model_location, options.feature_extractor_conf,
-//                                 scheduler);
-//                    break;
-//#endif
-                default:
-                    throw std::runtime_error("unknown heuristic type");
-            }
-        }
+       using Implementations =
+           std::variant<Tightest<T>, VSIDS<T>, WeightedDegree<T>
+                        //        , EpsilonGreedyVSIDS
+                        >;
+
+     public:
+       /**
+        * Ctor: Internally constructs the heuristic inferred from the given
+        * arguments
+        * @tparam T type of scheduler
+        * @param scheduler scheduler for which to create a heuristic
+        * @param options options specifying the type of heuristic and further
+        * config values
+        * @throws std::runtime_error if an unknown heuristics type was given in
+        * options
+        */
+       HeuristicManager(Scheduler<T> &scheduler, const Options &options) {
+         switch (options.choice_point_heuristics) {
+         case Options::ChoicePointHeuristics::Tightest:
+           impl.emplace(std::in_place_type<Tightest<T>>, scheduler);
+           break;
+         case Options::ChoicePointHeuristics::VSIDS:
+           if (options.learning) {
+             impl.emplace(std::in_place_type<VSIDS<T>>, scheduler);
+           } else // closest thing if not learning
+             impl.emplace(std::in_place_type<WeightedDegree<T>>, scheduler,
+                          false);
+           break;
+         case Options::ChoicePointHeuristics::WeightedDegree:
+           impl.emplace(std::in_place_type<WeightedDegree<T>>, scheduler,
+                        false);
+           break;
+         case Options::ChoicePointHeuristics::WeightedCriticalPath:
+           impl.emplace(std::in_place_type<WeightedDegree<T>>, scheduler, true);
+           break;
+           //                case Options::ChoicePointHeuristics::EG_VSIDS:
+           //                  impl.emplace(std::in_place_type<EpsilonGreedyVSIDS>,
+           //                               options.vsids_epsilon, scheduler,
+           //                               options, scheduler);
+           //                  break;
+           //
+           //#if __TORCH_ENABLED__
+           //                case Options::ChoicePointHeuristics::GNN_HeatMap:
+           //                    impl.emplace(std::in_place_type<HeatMap>,
+           //                    options.gnn_model_location,
+           //                    options.feature_extractor_conf,
+           //                                 scheduler);
+           //                    break;
+           //#endif
+         default:
+           throw std::runtime_error("unknown heuristic type");
+         }
+       }
 
         /**
          * Calls the internally stored heuristic with the given arguments

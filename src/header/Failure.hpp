@@ -4,6 +4,7 @@
 
 #include <exception>
 
+#include "Constant.hpp"
 #include "Explanation.hpp"
 
 namespace tempo {

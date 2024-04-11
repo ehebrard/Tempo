@@ -31,6 +31,8 @@ public:
   bool edge_finding;
   bool transitivity;
 
+  bool dichotomy;
+
   enum class ChoicePointHeuristics {
     Tightest = 0,
     WeightedDegree,

@@ -46,13 +46,15 @@ namespace jsp {
 //   return ub;
 // }
 
+//#define RANK
+
 template <class DT> DT getUb(const ProblemInstance &data) {
   DT ub{0};
   std::vector<DT> current;
   auto nm{data.resources.size()};
-  current.resize(nm + data.durations.size() / nm, 0);
-  std::vector<std::vector<int>> resource_of;
-  resource_of.resize(data.durations.size());
+  auto nj{data.durations.size() / nm};
+  current.resize(nm + nj, 0);
+  std::vector<std::vector<int>> resource_of(data.durations.size());
   for (unsigned i = 0; i < nm; ++i) {
     for (auto a : data.resources[i]) {
       resource_of[a].push_back(i);
@@ -61,7 +63,36 @@ template <class DT> DT getUb(const ProblemInstance &data) {
   for (unsigned a{0}; a < data.durations.size(); ++a) {
     resource_of[a].push_back(a / nm);
   }
-  for (unsigned i = 0; i < data.durations.size(); ++i) {
+
+  std::vector<DT> trail(data.durations.size());
+  for (size_t j{0}; j < nj; ++j) {
+    trail[j * nm + nm - 1] = 0;
+  }
+  for (auto i{nm}; --i > 0;) {
+    for (size_t j{0}; j < nj; ++j) {
+      trail[j * nm + i - 1] = trail[j * nm + i] + data.durations[j * nm + i];
+    }
+  }
+
+  std::vector<int> insertion_order(nm * nj);
+  for (size_t i{0}; i < nm * nj; ++i) {
+    insertion_order[i] = i;
+  }
+
+  std::sort(insertion_order.begin(), insertion_order.end(),
+            [&](const int x, const int y) {
+              return (((x % nm) < (y % nm)) or
+                      ((x % nm) == (y % nm) and trail[x] > trail[y]));
+            });
+
+  //        // proceed by job rank
+  //    for(unsigned i{0}; i<nm; ++i) {
+  //
+  //    }
+  //
+
+  for (unsigned z = 0; z < data.durations.size(); ++z) {
+    auto i{insertion_order[z]};
     auto d = data.durations[i];
     auto first = 0;
 

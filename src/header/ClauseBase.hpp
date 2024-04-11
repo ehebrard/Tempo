@@ -42,7 +42,8 @@ public:
   //    template <typename iter>
   //    void add(const iter first, const iter last);
 
-  template <typename iter> Clause *learn(const iter first, const iter last);
+  template <typename iter>
+  Clause *add(const iter first, const iter last, const bool learnt = false);
 
   void unit_propagate(const lit l);
 
@@ -71,6 +72,7 @@ public:
   void forget(Clause *cl);
   void forget_worst();
   void forget();
+  void forgetAll();
   double looseness(const lit l);
   double inverseActivity(const lit l);
   double loosenessOverActivity(const lit l);
@@ -163,8 +165,9 @@ size_t ClauseBase<T>::size() const {
     exit(1);
   }
 
-  return free_cl_indices
-      .backsize(); // base.size() - free_cl_indices.size(); // + learnt.size();
+  return free_cl_indices.backsize() +
+         free_cl_indices.frontsize(); // base.size() - free_cl_indices.size();
+                                      // // + learnt.size();
   //    return var_level.size();
 }
 
@@ -974,6 +977,12 @@ template <typename T> double ClauseBase<T>::looseness(const lit l) {
   }
 }
 
+template <typename T> void ClauseBase<T>::forgetAll() {
+  while (free_cl_indices.backsize() > 0) {
+    forget_worst();
+  }
+}
+
 template <typename T> void ClauseBase<T>::forget() {
   if (size() < 1000)
     return;
@@ -1095,7 +1104,8 @@ template <typename T> void ClauseBase<T>::forget() {
 
 template <typename T>
 template <typename iter>
-Clause *ClauseBase<T>::learn(const iter first, const iter last) {
+Clause *ClauseBase<T>::add(const iter first, const iter last,
+                           const bool learnt) {
 
 #ifdef DBG_WATCHERS
   verifyWatchers("before learn");
@@ -1105,52 +1115,37 @@ Clause *ClauseBase<T>::learn(const iter first, const iter last) {
   assert(first != last);
 
   if (first + 1 == last) {
-
-    //      std::cout << "LEARNT UNIT CLAUSE!\n";
-    //      exit(1);
-
     assign(*first, Constant::NoReason);
-
   } else {
-
     if (not free_cl_indices.empty()) {
       int id{free_cl_indices.back()};
-
-      //            std::cout << "RECYCLE INDEX " << id << std::endl;
-
-      free_cl_indices.remove_back(id);
-      //            free_cl_indices.pop_back();
+      if (learnt)
+        free_cl_indices.remove_back(id);
+      else
+        free_cl_indices.remove_front(id);
       c = base[id];
       assert(c->empty());
-      //            c->clear();
     } else {
       int id{static_cast<int>(base.size())};
       c = new Clause(id);
       base.push_back(c);
-        score.push_back(0);
-      //            locked.resize(base.size(),false);
+      score.push_back(0);
       free_cl_indices.reserve(base.size());
+      if (not learnt) {
+        free_cl_indices.add(id);
+        free_cl_indices.remove_front(id);
+      }
     }
 
     for (auto l{first}; l != last; ++l) {
       c->push_back(*l);
     }
-      
-//      std::cout << "add ";
-//      displayClause(std::cout, c);
-//      std::cout << std::endl;
-//      assert(base[c->id] == c);
 
     set_watcher(0, 0, c);
     set_watcher(1, 1, c);
 
     lit l{(*c)[0]};
 
-    //        if(id == )
-    //        base.push_back(c);
-    //        base[id] = c;
-
-    //        locked[c->id] = true;
     assign(l, {this, c->id});
 
     total_size += c->size();

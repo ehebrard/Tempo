@@ -121,6 +121,9 @@ tempo::Options tempo::parse(int argc, char *argv[]) {
   cmd.add<SwitchArg>(opt.transitivity, "", "no-transitivity",
                      "do not use transitivity reasoning", true);
 
+  cmd.add<SwitchArg>(opt.dichotomy, "", "dichotomy", "use dichotomic search",
+                     false);
+
   cmd.add<ValueArg<int>>(
       opt.choice_point_heuristics, "", "cp-heuristic",
       "type of heuristic used for choice point selection (0: Tightest "
@@ -141,7 +144,7 @@ tempo::Options tempo::parse(int argc, char *argv[]) {
       false, 0.999, "double");
 
   cmd.add<ValueArg<double>>(opt.forgetfulness, "", "forgetfulness",
-                            "clause base reduction factor", false, 0.1,
+                            "clause base reduction factor (0.1)", false, 0.1,
                             "double");
 
   cmd.add<ValueArg<int>>(
@@ -176,11 +179,12 @@ tempo::Options tempo::parse(int argc, char *argv[]) {
                             "VSIDS is used as choice point heuristic",
                             false, 0.05, "double");
 
-  cmd.add<ValueArg<std::string>>(opt.input_format, "", "input-format",
-                                 "format of input file "
-                                 "(osp: Open Shop (default), jsp: Job Shop "
-                                 "(Lawrence), tsptw: TSP with Time Windows)",
-                                 false, "osp", "string");
+  cmd.add<ValueArg<std::string>>(
+      opt.input_format, "", "input-format",
+      "format of input file "
+      "(osp: Open Shop (default), jsp: Job Shop "
+      "(Lawrence), tsptw: TSP with Time Windows, jstl: JSP with Time Lags)",
+      false, "osp", "string");
 
   cmd.parse(argc, argv);
   return opt;

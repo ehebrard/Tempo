@@ -29,6 +29,7 @@ along with minicsp.  If not, see <http://www.gnu.org/licenses/>.
 #include "Scheduler.hpp"
 #include "util/parsing/format.hpp"
 #include "util/parsing/jsp.hpp"
+#include "util/parsing/jstl.hpp"
 #include "util/parsing/osp.hpp"
 #include "util/parsing/tsptw.hpp"
 
@@ -56,6 +57,7 @@ void load(std::string &solfile_name, std::vector<bool> &solution) {
 }
 
 int main(int argc, char *argv[]) {
+
   auto start = std::chrono::system_clock::now();
   Options opt = tempo::parse(argc, argv);
 
@@ -74,6 +76,9 @@ int main(int argc, char *argv[]) {
     ub = jsp::getUb<int>(data);
   } else if (opt.input_format == "tsptw") {
     data = tsptw::read_instance(opt.instance_file);
+  } else if (opt.input_format == "jstl") {
+    data = jstl::read_instance(opt.instance_file);
+    ub = jstl::getUb<int>(data);
   }
 
   if (opt.print_ins) {
@@ -95,16 +100,13 @@ int main(int argc, char *argv[]) {
   }
 
   Scheduler<int> S(opt);
+  std::vector<task> t;
   for (auto d : data.durations) {
-    S.newTask(d, d);
+    t.push_back(S.newTask(d, d));
   }
 
+  //  S.setUpperBound(ub);
 
-  S.setUpperBound(ub);
-
-
-
-    
   for (auto [x, y, k] : data.constraints) {
 
     S.newPrecedence(x, y, k);
@@ -115,12 +117,14 @@ int main(int argc, char *argv[]) {
   //  //    exit(1);
 
   std::vector<var> scope;
+  std::vector<var> tasks;
   for (auto &job : data.resources) {
     for (size_t i{0}; i < job.size(); ++i) {
+      tasks.push_back(t[job[i]]);
       for (size_t j{i + 1}; j < job.size(); ++j) {
         scope.push_back(S.newVariable(
-            {START(job[i]), END(job[j]), job.getTransitionTime(j, i)},
-            {START(job[j]), END(job[i]), job.getTransitionTime(i, j)}));
+            {START(t[job[i]]), END(t[job[j]]), -job.getTransitionTime(j, i)},
+            {START(t[job[j]]), END(t[job[i]]), -job.getTransitionTime(i, j)}));
       }
     }
 
@@ -131,12 +135,13 @@ int main(int argc, char *argv[]) {
     //          }
     //      }
     if (opt.edge_finding) {
-      S.postEdgeFinding(job.begin(), job.end(), scope.begin(), scope.end());
+      S.postEdgeFinding(tasks.begin(), tasks.end(), scope.begin(), scope.end());
     }
       if (opt.transitivity) {
-        S.postTransitivityReasoning(job.begin(), job.end(), scope.begin(),
+        S.postTransitivityReasoning(tasks.begin(), tasks.end(), scope.begin(),
                                     scope.end());
       }
+      tasks.clear();
       scope.clear();
   }
 
@@ -156,6 +161,11 @@ int main(int argc, char *argv[]) {
 
   //  S.search();
 
+  if (opt.print_mod) {
+    S.display(std::cout, true, true, true, true, false, false, true);
+    std::cout << S << std::endl;
+  }
+
   int sol;
   if (opt.input_format == "tsptw") {
     //        PathLength<int> tour(S, data.resources[0]);
@@ -164,9 +174,13 @@ int main(int argc, char *argv[]) {
     sol = S.satisfiable();
       std::cout << (sol ? "SAT" : "UNSAT") << std::endl;
   } else {
-    Makespan<int> makespan(S);
-    S.minimize(makespan);
-    sol = makespan.upperBound();
+    Makespan<int> makespan(S, ub);
+    //      makespan.setUpperBound(ub);
+    if (opt.dichotomy)
+      S.optimize_dichotomy(makespan);
+    else
+      S.optimize(makespan);
+    sol = makespan.primalBound();
   }
 
   if (opt.verbosity > tempo::Options::SILENT) {

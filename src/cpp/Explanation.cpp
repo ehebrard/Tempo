@@ -36,7 +36,7 @@ bool Explanation::operator==(const Explanation &e) const {
 
 Explanation::Explanation(Explainer *e, hint h) : expl(e), the_hint(h) {}
 
-Explanation Constant::NoReason = Explanation(new Explainer(), NoHint);
+// Explanation Constant::NoReason = Explanation(new Explainer(), NoHint);
 
 int Explanation::getType() const { return expl->getType(); }
 

@@ -58,10 +58,10 @@ public:
   hint the_hint{NoHint};
 };
 
-class Constant {
-public:
-  static Explanation NoReason;
-};
+// class Constant {
+// public:
+//   static Explanation NoReason;
+// };
 
 std::ostream &operator<<(std::ostream &os, Explanation &x);
 
