@@ -52,11 +52,15 @@ endif ()
 
 file(GLOB SOURCES ${CMAKE_SOURCE_DIR}/src/cpp/*.cpp ${CMAKE_SOURCE_DIR}/src/cpp/util/*.cpp ${CMAKE_SOURCE_DIR}/src/cpp/constraints/*.cpp)
 
-message("Source files: " ${SOURCES})
+message("Source files:")
+foreach(SRC ${SOURCES})
+    message(\t${SRC})    
+endforeach()
+
 include_directories(${CMAKE_SOURCE_DIR}/src/header/)
 include_directories(${CMAKE_SOURCE_DIR}/tools/)
 
-
+# Examples
 file(GLOB_RECURSE EXECUTABLES ${CMAKE_SOURCE_DIR}/src/examples/*.cpp)
 message("Generating targets for the following cpp files:")
 foreach(EXEC ${EXECUTABLES})
@@ -71,3 +75,11 @@ foreach(EXEC ${EXECUTABLES})
     endif()
 endforeach()
 
+
+# Creating a library, following tutorial here: https://stackoverflow.com/a/45843676
+message("Generating target for library")
+add_library(tempo STATIC ${SOURCES})
+include(GNUInstallDirs)
+install(TARGETS tempo
+    LIBRARY DESTINATION ${CMAKE_INSTALL_TEMPO}
+    PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
