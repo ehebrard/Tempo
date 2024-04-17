@@ -355,6 +355,8 @@ public:
   long unsigned int num_edge_prunings{0};
   long unsigned int num_cons_prunings{0};
   long unsigned int learnt_size{0};
+  //    double gap_ratio{0.0};
+  //    long unsigned int num_tight{0};
 
   lit endEdgeLit() const;
   lit endBoundLit() const;
@@ -2111,6 +2113,28 @@ template <typename T> lit Scheduler<T>::polarityChoice(const var cp) {
     if (prec_b != Constant::NoEdge<T>)
       gap_b = upper(prec_b.from) - lower(prec_b.to);
 
+    //      double g{1};
+    ////          std::cout << static_cast<double>(gap_a) << " <> " <<
+    ///static_cast<double>(gap_b) << ": " << gap_ratio << " -> ";
+    //          if(gap_a < gap_b) {
+    ////              std::cout << "(" <<
+    ///(static_cast<double>(gap_a)/static_cast<double>(gap_b)) << ") ";
+    //
+    //              g = (static_cast<double>(gap_a)/static_cast<double>(gap_b));
+    //          } else {
+    ////              std::cout << "(" <<
+    ///(static_cast<double>(gap_b)/static_cast<double>(gap_a)) << ") ";
+    //
+    //              g = (gap_a > 0 ?
+    //              static_cast<double>(gap_b)/static_cast<double>(gap_a) : 1);
+    //          }
+    ////          std::cout << gap_ratio << "\n";
+    //
+    //      gap_ratio += g;
+    //      if(g == 1) {
+    //          ++num_tight;
+    //      }
+
     d = (gap_a < gap_b ? NEG(cp) : POS(cp));
   }
 
@@ -2809,6 +2833,11 @@ std::ostream &Scheduler<T>::displayProgress(std::ostream &os) const {
     os << "  " << std::setw(6) << std::setprecision(4)
        << static_cast<double>(clauses.volume()) /
               static_cast<double>(clauses.size());
+
+  //    os << "  " << std::setw(6) << std::setprecision(4) << (gap_ratio /
+  //    static_cast<double>(num_choicepoints)) ; os << "  " << std::setw(6) <<
+  //    std::setprecision(4) << (static_cast<double>(num_tight) /
+  //    static_cast<double>(num_choicepoints)) ;
   os << "   " << std::left << (cpu_time() - start_time) << std::right
      << std::endl;
 
