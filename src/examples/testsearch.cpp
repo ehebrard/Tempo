@@ -65,7 +65,7 @@ int main(int argc, char *argv[]) {
 
   ProblemInstance data;
 
-  int ub{INFTY};
+  int ub{opt.ub};
 
   if (opt.input_format == "osp") {
     data = osp::read_instance(opt.instance_file);
@@ -78,7 +78,7 @@ int main(int argc, char *argv[]) {
     data = tsptw::read_instance(opt.instance_file);
   } else if (opt.input_format == "jstl") {
     data = jstl::read_instance(opt.instance_file);
-    ub = jstl::getUb<int>(data);
+//    ub = jstl::getUb<int>(data);
   }
 
   if (opt.print_ins) {

@@ -18,6 +18,8 @@ public:
   int verbosity;
 
   int seed;
+    
+    int ub;
 
   bool print_sol;
   bool print_par;

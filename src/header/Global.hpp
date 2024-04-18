@@ -80,7 +80,7 @@ using lit_type = int;
 //#define POSITIVE 1
 //#define NEGATIVE 0
 
-#define INFTY 1000000000 //std::numeric_limits<T>::max()
+#define INFTY std::numeric_limits<int32_t>::max()
 
 #define OUT 0
 #define IN 1
