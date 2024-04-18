@@ -35,7 +35,7 @@ endif(NOT CMAKE_BUILD_TYPE)
 
 set(CMAKE_CXX_STANDARD 20)
 
-set(CMAKE_CXX_FLAGS "-Wall -Wextra -Wpedantic -mtune=native -march=native")
+set(CMAKE_CXX_FLAGS "-Wall -Wextra -Wpedantic -mtune=native")
 string(TOLOWER ${CMAKE_BUILD_TYPE} BUILD_TYPE)
 if (BUILD_TYPE STREQUAL "debug")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -fno-omit-frame-pointer -g")
@@ -55,11 +55,15 @@ endif ()
 
 file(GLOB SOURCES ${CMAKE_SOURCE_DIR}/src/cpp/*.cpp ${CMAKE_SOURCE_DIR}/src/cpp/util/*.cpp ${CMAKE_SOURCE_DIR}/src/cpp/constraints/*.cpp)
 
-message("Source files: " ${SOURCES})
+message("Source files:")
+foreach(SRC ${SOURCES})
+    message(\t${SRC})    
+endforeach()
+
 include_directories(${CMAKE_SOURCE_DIR}/src/header/)
 include_directories(${CMAKE_SOURCE_DIR}/tools/)
 
-
+# Examples
 file(GLOB_RECURSE EXECUTABLES ${CMAKE_SOURCE_DIR}/src/examples/*.cpp)
 message("Generating targets for the following cpp files:")
 foreach(EXEC ${EXECUTABLES})
@@ -74,3 +78,11 @@ foreach(EXEC ${EXECUTABLES})
     endif()
 endforeach()
 
+
+# Creating a library, following tutorial here: https://stackoverflow.com/a/45843676
+message("Generating target for library")
+add_library(tempo STATIC ${SOURCES})
+include(GNUInstallDirs)
+install(TARGETS tempo
+    LIBRARY DESTINATION ${CMAKE_INSTALL_TEMPO}
+    PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
