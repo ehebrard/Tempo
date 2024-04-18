@@ -67,18 +67,27 @@ int main(int argc, char *argv[]) {
 
   int ub{opt.ub};
 
+//    std::cout << ub << " <> " << INFTY << std::endl;
+    
   if (opt.input_format == "osp") {
     data = osp::read_instance(opt.instance_file);
-    ub = osp::getUb<int>(data);
+    if (ub == INFTY)
+      ub = osp::getUb<int>(data);
+    else {
+        std::cout << ub << " <> " << INFTY << std::endl;
+        exit(1);
+    }
   }
   else if (opt.input_format == "jsp") {
     data = jsp::read_instance(opt.instance_file);
-    ub = jsp::getUb<int>(data);
+    if (ub == INFTY)
+      ub = jsp::getUb<int>(data);
   } else if (opt.input_format == "tsptw") {
     data = tsptw::read_instance(opt.instance_file);
   } else if (opt.input_format == "jstl") {
     data = jstl::read_instance(opt.instance_file);
-//    ub = jstl::getUb<int>(data);
+    if (ub == INFTY)
+      ub = jstl::getUb<int>(data);
   }
 
   if (opt.print_ins) {
@@ -161,20 +170,30 @@ int main(int argc, char *argv[]) {
 
   //  S.search();
 
-  if (opt.print_mod) {
-    S.display(std::cout, true, true, true, true, false, false, true);
-    std::cout << S << std::endl;
-  }
+
 
   int sol;
   if (opt.input_format == "tsptw") {
     //        PathLength<int> tour(S, data.resources[0]);
     //        S.minimize(tour);
     //        sol = tour.upperBound();
+      
+      if (opt.print_mod) {
+        S.display(std::cout, true, true, true, true, false, false, true);
+        std::cout << S << std::endl;
+      }
+      
     sol = S.satisfiable();
       std::cout << (sol ? "SAT" : "UNSAT") << std::endl;
   } else {
     Makespan<int> makespan(S, ub);
+      
+      
+      if (opt.print_mod) {
+        S.display(std::cout, true, true, true, true, false, false, true);
+        std::cout << S << std::endl;
+      }
+      
     //      makespan.setUpperBound(ub);
     if (opt.dichotomy)
       S.optimize_dichotomy(makespan);
