@@ -110,6 +110,7 @@ ProblemInstance read_instance(const std::string &fn) {
           if (m == 0) {
             ret.constraints.push_back(
                 std::make_tuple(ORIGIN, tempo::START(job * nm), 0));
+
           } else {
 
             ret.constraints.push_back(

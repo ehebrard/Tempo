@@ -43,7 +43,7 @@ template <typename T> class Scheduler;
 template <typename T> class Makespan {
 public:
   Makespan(Scheduler<T> &s) : schedule(s) {}
-  Makespan(Scheduler<T> &s, const T u) : schedule(s), p_b(u) {}
+  Makespan(Scheduler<T> &s, const T u) : schedule(s) { setPrimal(u); }
   ~Makespan() = default;
 
   //  void updatedualBound() { Objective<T>::d_b = schedule.lower(HORIZON); }

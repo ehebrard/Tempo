@@ -2,6 +2,7 @@
 #include <memory>
 #include <numeric>
 
+#include <Global.hpp>
 #include <util/Options.hpp>
 
 // using namespace schedcl;
@@ -85,6 +86,9 @@ tempo::Options tempo::parse(int argc, char *argv[]) {
 
   cmd.add<ValueArg<int>>(opt.seed, "", "seed", "random seed", false, 12345,
                          "int");
+    
+    cmd.add<ValueArg<int>>(opt.ub, "", "ub", "initial ub", false, INFTY,
+                           "int");
 
   cmd.add<SwitchArg>(opt.print_sol, "", "print-sol",
                      "print the best found schedule", false);
