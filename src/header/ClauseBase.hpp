@@ -916,6 +916,7 @@ template <typename T> void ClauseBase<T>::forget(Clause *cl) {
     }
   }
   free_cl_indices.add(cl->id);
+    
   total_size -= cl->size();
 
   cl->clear();
@@ -984,6 +985,7 @@ template <typename T> void ClauseBase<T>::forgetAll() {
 }
 
 template <typename T> void ClauseBase<T>::forget() {
+ 
   if (size() < 1000)
     return;
 
@@ -1001,7 +1003,6 @@ template <typename T> void ClauseBase<T>::forget() {
         score[*idx] += looseness(l);
       }
     }
-//    std::cout << "looseness\n";
   } else if (caller.getOptions().forget_strategy ==
              Options::LiteralScore::LoosenessOverActivity) {
     for (auto idx{free_cl_indices.bbegin()}; idx != free_cl_indices.bend();
@@ -1011,7 +1012,6 @@ template <typename T> void ClauseBase<T>::forget() {
         score[*idx] += loosenessOverActivity(l);
       }
     }
-//    std::cout << "looseness/activity\n";
   } else if (caller.getOptions().forget_strategy ==
              Options::LiteralScore::Activity) {
     for (auto idx{free_cl_indices.bbegin()}; idx != free_cl_indices.bend();
@@ -1021,34 +1021,8 @@ template <typename T> void ClauseBase<T>::forget() {
         score[*idx] += inverseActivity(l);
       }
     }
-//    std::cout << "activity\n";
-  } 
-//  else {
-//    std::cout << "size\n";
-//  }
+  }
 
-  //        displayClause(std::cout, base[*idx]);
-  //        std::cout << ": " << score[*idx] << std::endl;
-  //        for(auto l : *base[*idx]) {
-  //            if(LTYPE(l) == EDGE_LIT) {
-  //                auto c{caller.getEdge(FROM_GEN(l))};
-  //                std::cout << c << ": " << caller.looseness(c)
-  //                << " / " << caller.getActivityMap()->get(c) << std::endl;
-  //            } else {
-  //                auto c{constraint[FROM_GEN(l)]};
-  //                std::cout << c << ": " << caller.looseness(c)
-  //                << " / " << caller.getActivityMap()->get(c) << std::endl;
-  //            }
-  //        }
-  //    }
-  //
-  //
-  //    if(caller.getActivityMap() != NULL) {
-  //        std::cout << "cool\n";
-  //        exit(1);
-  //    }
-
-  //    std::cout << *this << std::endl;
 
   if (caller.getOptions().forget_strategy == Options::LiteralScore::Size) {
     std::sort(free_cl_indices.bbegin(), free_cl_indices.bend(),
@@ -1064,39 +1038,16 @@ template <typename T> void ClauseBase<T>::forget() {
 
   free_cl_indices.re_index(free_cl_indices.bbegin(), free_cl_indices.bend());
 
-  //    for(auto i{free_cl_indices.bbegin()}; i!=free_cl_indices.bend(); ++i) {
-  //        displayClause(std::cout, base[*i]);
-  //        std::cout << std::endl;
-  //    }
-
-  //  auto target_size = static_cast<size_t>(static_cast<double>(size()) * .9);
   auto target_size = static_cast<size_t>(
       static_cast<double>(size()) * (1.0 - caller.getOptions().forgetfulness));
 
-  // (1.0 - caller.getOptions().forgetfulness));
-
   while (size() > target_size) {
-    //        if(locked[*(free_cl_indices.bbegin())])
-    //            break;
     forget_worst();
   }
 
-  //    std::cout << "\n==>\n";
-  //    for(auto i{free_cl_indices.bbegin()}; i!=free_cl_indices.bend(); ++i) {
-  //        displayClause(std::cout, base[*i]);
-  //        std::cout << std::endl;
-  //    }
-  //
-  //    exit(1);
 
-  //    for(auto i{target_size}; i<learnt.size(); ++i) {
-  //      total_size -= learnt[i]->size();
-  //    }
-
-  //    learnt.resize(target_size);
-
-  //    std::cout << *this << std::endl;
-
+    
+    
 #ifdef DBG_WATCHERS
   verifyWatchers("after forget");
 #endif
@@ -1106,7 +1057,7 @@ template <typename T>
 template <typename iter>
 Clause *ClauseBase<T>::add(const iter first, const iter last,
                            const bool learnt) {
-
+    
 #ifdef DBG_WATCHERS
   verifyWatchers("before learn");
 #endif
@@ -1145,12 +1096,12 @@ Clause *ClauseBase<T>::add(const iter first, const iter last,
     set_watcher(1, 1, c);
 
     lit l{(*c)[0]};
+      
+      total_size += c->size();
 
     assign(l, {this, c->id});
-
-    total_size += c->size();
   }
-
+ 
   return c;
 #ifdef DBG_WATCHERS
   verifyWatchers("after learn");

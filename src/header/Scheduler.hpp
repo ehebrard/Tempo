@@ -2830,9 +2830,11 @@ std::ostream &Scheduler<T>::displayProgress(std::ostream &os) const {
   if (clauses.size() == 0)
     os << "     n/a";
   else
-    os << "  " << std::setw(6) << std::setprecision(4)
+    os << "  " 
+      << std::setw(6) << std::setprecision(4)
        << static_cast<double>(clauses.volume()) /
               static_cast<double>(clauses.size());
+//      << clauses.volume() << " " << clauses.size();
 
   //    os << "  " << std::setw(6) << std::setprecision(4) << (gap_ratio /
   //    static_cast<double>(num_choicepoints)) ; os << "  " << std::setw(6) <<
