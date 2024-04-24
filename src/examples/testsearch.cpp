@@ -220,11 +220,23 @@ int main(int argc, char *argv[]) {
     std::exit(1);
   }
 
-    if(opt.print_sol) {
-        auto solution{S.getSolution()};
-        std::cout << solution.size() ;
-        for(size_t i{0}; i<solution.size(); ++i)
-            std::cout << " " << solution[i];
-        std::cout << std::endl;
-    }
+  //    vector<task>  the_tasks;
+  //
+  //    vector<vector<int>> order;
+  //
+  //    //order[i][j] -> indice de newVariable()
+  //
+  //    sort(the_tasks.begin(), the_tasks.end(), [](const task a, const task b)
+  //    {
+  //        return before[oder[a][b]];
+  //    };
+  //         );
+
+  if (opt.print_sol) {
+    auto before{S.getSolution()};
+    std::cout << before.size();
+    for (size_t i{0}; i < before.size(); ++i)
+      std::cout << " " << before[i];
+    std::cout << std::endl;
+  }
 }
