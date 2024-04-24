@@ -25,7 +25,12 @@ private:
   //  std::vector<SparseSet<int, Reversible<size_t>>> forward;
   //  std::vector<SparseSet<int, Reversible<size_t>>> backward;
 
+  // encoding: (y \in front(DAG[x]) && x \in back(y)) <=> edge (x,y)
   std::vector<SparseSet<int, Reversible<size_t>>> DAG;
+  // encoding: y \in RED[x] <=> edge (x,y)
+//  std::vector<SparseSet<int, Reversible<size_t>>> RED;
+  SparseSet<int, Reversible<size_t>> TRANSRED_EDGES;
+  std::vector<std::vector<T>> distance_matrix;
 
   //    std::vector<var>
   std::vector<std::vector<lit>> disjunct;
@@ -46,10 +51,24 @@ private:
 
   bool change_flag{false};
 
+  bool transition_flag{false};
+
   //  std::vector<lit> cur_explanation;
   //  std::vector<std::vector<lit>> explanations;
 
   //    int lvl;
+
+  T length(const size_t e) const {
+      auto i{first(e)};
+      auto j{second(e)};
+      return transition_time(i,j);
+  }
+    size_t edge(const size_t i, const size_t j) const {
+      return m_tasks.size() * i + j;
+    }
+  size_t first(const size_t e) const { return e / m_tasks.size(); }
+  size_t second(const size_t e) const { return e % m_tasks.size(); }
+  T transition_time(const int i, const int j) const;
 
 public:
   template <typename ItTask, typename ItVar>
@@ -81,7 +100,7 @@ template <typename ItTask, typename ItVar>
 Transitivity<T>::Transitivity(Scheduler<T> &scheduler, const ItTask beg_task,
                               const ItTask end_task, const ItVar beg_var,
                               const ItVar end_var)
-    : m_schedule(scheduler)
+    : m_schedule(scheduler), TRANSRED_EDGES(std::distance(beg_task, end_task)*std::distance(beg_task, end_task), &m_schedule.getEnv())
 //    forward(Reversible<size_t>(0, m_schedule.getEnv()), Reversible<size_t>(0,
 //    m_schedule.getEnv())),
 // forward(Reversible<size_t>(0, m_schedule.getEnv()), Reversible<size_t>(0,
@@ -93,10 +112,10 @@ Transitivity<T>::Transitivity(Scheduler<T> &scheduler, const ItTask beg_task,
   task_map.resize(m_schedule.numTask());
 
   // get all tasks with non-zero duration
-  auto i{0};
-  for (auto j{beg_task}; j != end_task; ++j) {
+  size_t i{0}, j{0};
+  for (auto jp{beg_task}; jp != end_task; ++jp) {
 
-    task t{*j};
+    task t{*jp};
     task_map[t] = i++;
     m_tasks.push_back(t);
   }
@@ -119,12 +138,20 @@ Transitivity<T>::Transitivity(Scheduler<T> &scheduler, const ItTask beg_task,
   //  changed_pred.reserve(m_tasks.size());
   //  changed_succ.reserve(m_tasks.size());
 
-  for (size_t i{0}; i < m_tasks.size(); ++i) {
+    TRANSRED_EDGES.fill(); //resize(m_tasks.size() * m_tasks.size());
+
+  for (i = 0; i < m_tasks.size(); ++i) {
 
     disjunct[i].resize(m_tasks.size());
 
     DAG.emplace_back(m_tasks.size(), &m_schedule.getEnv());
     DAG.back().fill();
+
+//    RED.emplace_back(m_tasks.size(), &m_schedule.getEnv());
+//    RED.back().fill();
+//    RED.back().remove_back(i);
+
+    TRANSRED_EDGES.remove_back(edge(i, i));
     //        SparseSet<int, Reversible<size_t>> row(Reversible<size_t>(0,
     //        &m_schedule.getEnv()), Reversible<size_t>(0,
     //        &m_schedule.getEnv()), m_tasks.size()); forward.push_back(row);
@@ -134,15 +161,43 @@ Transitivity<T>::Transitivity(Scheduler<T> &scheduler, const ItTask beg_task,
     //        Reversible<size_t>(0, &m_schedule.getEnv()), m_tasks.size());
   }
 
+  //    int i,j;
   for (auto v{beg_var}; v != end_var; ++v) {
     auto ef{m_schedule.getEdge(POS(*v))};
-    disjunct[task_map[TASK(ef.from)]][task_map[TASK(ef.to)]] = POS(*v);
+    i = task_map[TASK(ef.from)];
+    j = task_map[TASK(ef.to)];
+    disjunct[i][j] = POS(*v);
+
+    if (not transition_flag) {
+      transition_flag = (transition_time(i, j) > 0);
+    }
+
     auto eb{m_schedule.getEdge(NEG(*v))};
-    disjunct[task_map[TASK(eb.from)]][task_map[TASK(eb.to)]] = NEG(*v);
+    i = task_map[TASK(eb.from)];
+    j = task_map[TASK(eb.to)];
+    disjunct[i][j] = NEG(*v);
+
+    if (not transition_flag) {
+      transition_flag = (transition_time(i, j) > 0);
+    }
   }
+
+  //    distance_matrix.resize(m_tasks.size());
+  //    for(size_t i{0}; i<m_tasks.size(); ++i) {
+  //        distance_matrix[i].resize(m_tasks.size());
+  //        for(size_t j{0}; j<m_tasks.size(); ++j) if(i != j) {
+  //            distance_matrix[i][j] =
+  //            -m_schedule.getEdge(disjunct[i][j]).distance;
+  //        }
+  //    }
 }
 
 template <typename T> Transitivity<T>::~Transitivity() {}
+
+template <typename T>
+T Transitivity<T>::transition_time(const int i, const int j) const {
+  return -m_schedule.getEdge(disjunct[i][j]).distance;
+}
 
 template <typename T> void Transitivity<T>::post(const int idx) {
 
@@ -215,11 +270,10 @@ void Transitivity<T>::add_edge(const int x, const int y, const int r) {
   DAG[x].remove_front(y);
   DAG[y].remove_back(x);
 
-  //  if (not changed_pred.has(y))
-  //    changed_pred.add(y);
-  //
-  //  if (not changed_succ.has(x))
-  //    changed_succ.add(x);
+  if (transition_flag) {
+    RED[y].remove_back(x);
+    TRANSRED_EDGES.remove_back(edge(y, x));
+  }
 }
 
 template <typename T> bool Transitivity<T>::notify_bound(const lit, const int) {
@@ -271,28 +325,6 @@ bool Transitivity<T>::notify_edge(const lit l, const int r) {
     return false;
   }
 
-  // new edge x -> y
-  // add egde between x and every successor of y
-  // add egde between every predecessor of x and y
-
-  ////  auto change_flag{false};
-  //    for (auto zp{DAG[y].frbegin()}; zp != DAG[y].frend(); ++zp) {
-  //        // there's a path x -> y -> z
-  //        auto z{*zp};
-  //        if (not DAG[x].isfront(z)) {
-  //            // there was no path x -> z
-  //            add_edge(x, z, l);
-  ////            change_flag = true;
-  //            for (auto tp{DAG[x].brbegin()}; tp != DAG[x].brend(); ++tp) {
-  //                // there's a path t -> x -> y -> z
-  //                auto t{*tp};
-  //                if (not DAG[t].isfront(z)) {
-  //                    add_edge(t, z, l);
-  //                }
-  //            }
-  //        }
-  //    }
-
   new_succ_of_x.clear();
   new_pred_of_y.clear();
   for (auto zp{DAG[y].frbegin()}; zp != DAG[y].frend(); ++zp) {
@@ -329,90 +361,13 @@ bool Transitivity<T>::notify_edge(const lit l, const int r) {
       add_edge(t, y, r);
   }
 
-  //    for (auto zp{DAG[y].frbegin()}; zp != DAG[y].frend(); ++zp) {
-  //
-  //        auto z{*zp};
-  //
-  //        std::cout << "*t" << m_tasks[z] << " -> t" << m_tasks[y] <<
-  //        std::endl;
-  //
-  //
-  //        if(not DAG[x].isfront(z)) {
-  //
-  //            std::cout << " add " << m_tasks[x] << " -> " << m_tasks[z] <<
-  //            std::endl;
-  //
-  //            add_edge(x, z, l);
-  //        }
-  //        for (auto tp{DAG[x].brbegin()}; tp != DAG[x].brend(); ++tp) {
-  //            auto t{*tp};
-  //
-  //            std::cout << "*t" << m_tasks[t] << " -> t" << m_tasks[x] <<
-  //            std::endl;
-  //
-  //            // there's a path t->x->y->z
-  //            if(not DAG[t].isfront(y)) {
-  //
-  //                std::cout << " add " << m_tasks[t] << " -> " << m_tasks[y]
-  //                << std::endl;
-  //
-  //                add_edge(t, y, l);
-  //            }
-  //            if(not DAG[t].isfront(z)) {
-  //
-  //                std::cout << " add " << m_tasks[t] << " -> " << m_tasks[z]
-  //                << std::endl;
-  //
-  //                add_edge(t, z, l);
-  //            }
-  //        }
-  //    }
-
-  //  std::cout << forward[x] << std::endl;
-  //
-  //
-  //    for(auto z : forward[y]) {
-  //        if(not forward[x].has(v)) {
-  //            forward[x].add(v);
-  //            backward[v].add(x);
-  //        }
-  //    }
-
-  //  // search for vertices reachable from y and not reachable from x
-  //  changed.add(y);
-  //  while (not changed.empty()) {
-  //    auto u{changed.front()};
-  //    changed.pop_front();
-  //    for (auto v : forward[u])
-  //      if (not changed.isfront(v) /*not visited*/ and
-  //          not forward[x].has(v) /*not reachable from x*/) {
-  //        changed.add(v);
-  //      }
-  //  }
-  //    // changed contains all those vertives in "front"
-  //    assert(not changed.isfront(x));
-  //    changed.add(x);
-  //    while (not changed.empty()) {
-  //      auto u{changed.back()};
-  //      changed.pop_back();
-  //      for (auto v : backward[u])
-  //        if (not changed.isfront(v) /*not visited*/) {
-  //          changed.add(v);
-  //        }
-  //    }
-
   assert(not DAG[x].isfront(y));
-
-  //  forward[x].add(y);
-  //  backward[y].add(x);
 
   DAG[x].remove_front(y);
   DAG[y].remove_back(x);
 
 #ifdef DBG_TRANSITIVITY
   if (DBG_TRANSITIVITY) {
-    //    if (change_flag)
-    //      std::cout << "***\n";
 
     for (size_t i{0}; i < m_tasks.size(); ++i) {
       std::cout << "t" << m_tasks[i] << ":";
@@ -437,26 +392,212 @@ bool Transitivity<T>::notify_edge(const lit l, const int r) {
     }
   }
 #endif
-  //  if (change_flag) {
-  //    change_flag = false;
-  //
-  //    //#ifdef DBG_TRANSITIVITY
-  //    //    if (DBG_TRANSITIVITY) {
-  //    //        std::cout << "after notify\nnew succs:";
-  //    //        for(auto x : changed_succ)
-  //    //            std::cout << " t" << m_tasks[x];
-  //    //        std::cout << std::endl;
-  //    //        std::cout << "new preds:";
-  //    //        for(auto x : changed_pred)
-  //    //            std::cout << " t" << m_tasks[x];
-  //    //        std::cout << std::endl;
-  //    //    }
-  //    //#endif
-  //
-  //    return true;
-  //  }
+
+  if (transition_flag) {
+    //    std::cout << "rm* " << y << " -> " << x << std::endl;
+    RED[y].remove_back(x);
+    TRANSRED_EDGES.remove_back(edge(y, x));
+
+    // new edge (x,y)
+
+    // for all successors of y
+    for (auto zp{DAG[y].frbegin()}; zp != DAG[y].frend(); ++zp) {
+      // z cannot be a direct successor of x
+      if (RED[x].has(*zp)) {
+        RED[x].remove_back(*zp);
+      }
+      auto e{edge(x, *zp)};
+      if (TRANSRED_EDGES.has(e)) {
+        TRANSRED_EDGES.remove_back(e);
+      }
+    }
+
+    // for all predecessors of x
+    for (auto zp{DAG[x].brbegin()}; zp != DAG[x].brend(); ++zp) {
+      // z cannot be a direct successor of x
+      if (RED[*zp].has(y)) {
+        RED[*zp].remove_back(y);
+      }
+      auto e{edge(*zp, y)};
+      if (TRANSRED_EDGES.has(e)) {
+        TRANSRED_EDGES.remove_back(e);
+      }
+    }
+
+    // for the cross-product:
+    for (auto sy{DAG[y].frbegin()}; sy != DAG[y].frend(); ++sy) {
+      for (auto px{DAG[x].brbegin()}; px != DAG[x].brend(); ++px) {
+        if (RED[*px].has(*sy)) {
+          RED[*px].remove_back(*sy);
+        }
+        auto e{edge(*px, *sy)};
+        if (TRANSRED_EDGES.has(e)) {
+          TRANSRED_EDGES.remove_back(e);
+        }
+      }
+    }
+
+    std::cout << "\nTRANS:\n";
+    for (size_t i{0}; i < m_tasks.size(); ++i) {
+      std::cout << "t" << m_tasks[i] << ":";
+      for (auto j{DAG[i].fbegin()}; j != DAG[i].fend(); ++j) {
+        std::cout << " -> t" << m_tasks[*j];
+      }
+      std::cout << std::endl;
+    }
+
+    std::cout << "RED:\n";
+    for (size_t i{0}; i < m_tasks.size(); ++i) {
+      std::cout << "t" << m_tasks[i] << ":";
+      for (auto j : RED[i]) {
+        std::cout << " -> t" << m_tasks[j];
+      }
+      std::cout << std::endl;
+    }
+    std::cout << std::endl;
+
+    std::cout << "TRED:\n";
+    for (size_t i{0}; i < m_tasks.size(); ++i) {
+      std::cout << "t" << m_tasks[i] << ":";
+      for (size_t j{0}; j < m_tasks.size(); ++j) {
+        if (TRANSRED_EDGES.has(edge(i, j)))
+          std::cout << " -> t" << m_tasks[j];
+      }
+      std::cout << std::endl;
+    }
+    std::cout << std::endl;
+
+    for (size_t i{0}; i < m_tasks.size(); ++i) {
+      for (size_t j{0}; j < m_tasks.size(); ++j) {
+        if (RED[i].has(j) != TRANSRED_EDGES.has(edge(i, j))) {
+          std::cout << "ERROR (" << m_tasks[i] << "," << m_tasks[j] << ")\n";
+          exit(1);
+        }
+      }
+    }
+  }
 
   return true;
+}
+
+// template <typename T>
+// bool Transitivity<T>::udpate_transitive_reduction(const lit l, const int r) {
+//   //  change_flag = false;
+//   auto e{m_schedule.getEdge(l)};
+//
+//#ifdef DBG_TRANSITIVITY
+//   if (DBG_TRANSITIVITY) {
+//     std::cout << std::endl;
+//     //      std::cout << "before notify\nnew succs:";
+//     //      for(auto x : changed_succ)
+//     //          std::cout << " t" << m_tasks[x];
+//     //      std::cout << std::endl;
+//     //      std::cout << "new preds:";
+//     //      for(auto x : changed_pred)
+//     //          std::cout << " t" << m_tasks[x];
+//     //      std::cout << std::endl;
+//     for (size_t i{0}; i < m_tasks.size(); ++i) {
+//       std::cout << "t" << m_tasks[i] << ":";
+//       for (auto j{RED[i].fbegin()}; j != RED[i].fend(); ++j) {
+//         std::cout << " -> t" << m_tasks[*j];
+//       }
+//       std::cout << std::endl;
+//     }
+//
+//     for (size_t i{0}; i < m_tasks.size(); ++i) {
+//       std::cout << "t" << m_tasks[i] << ":";
+//       for (auto j{RED[i].bbegin()}; j != RED[i].bend(); ++j) {
+//         std::cout << " <- t" << m_tasks[*j];
+//       }
+//       std::cout << std::endl;
+//     }
+//
+//     std::cout << "notify edge t" << TASK(e.from) << " -> t" << TASK(e.to)
+//               << std::endl;
+//   }
+//#endif
+//
+//   auto x{task_map[TASK(e.from)]};
+//   auto y{task_map[TASK(e.to)]};
+//
+//   if (DAG[x].isfront(y)) {
+//     assert(DAG[y].isback(x));
+//     return false;
+//   }
+//
+//   new_succ_of_x.clear();
+//   new_pred_of_y.clear();
+//   for (auto zp{DAG[y].frbegin()}; zp != DAG[y].frend(); ++zp) {
+//     auto z{*zp};
+//     if (not DAG[x].isfront(z)) {
+//       new_succ_of_x.push_back(z);
+//     }
+//   }
+//   for (auto tp{DAG[x].brbegin()}; tp != DAG[x].brend(); ++tp) {
+//     auto t{*tp};
+//     if (not DAG[t].isback(y)) {
+//       new_pred_of_y.push_back(t);
+//     }
+//   }
+//   for (auto z : new_succ_of_x) {
+//     for (auto tp{DAG[x].brbegin()}; tp != DAG[x].brend(); ++tp) {
+//       auto t{*tp};
+//       if (not DAG[z].isback(t)) {
+//         add_edge(t, z, r);
+//       }
+//     }
+//     if (not DAG[x].isfront(z))
+//       add_edge(x, z, r);
+//   }
+//
+//   for (auto t : new_pred_of_y) {
+//     for (auto zp{DAG[y].frbegin()}; zp != DAG[y].frend(); ++zp) {
+//       auto z{*zp};
+//       if (not DAG[t].isfront(z)) {
+//         add_edge(t, z, r);
+//       }
+//     }
+//     if (not DAG[y].isback(t))
+//       add_edge(t, y, r);
+//   }
+//
+//   assert(not DAG[x].isfront(y));
+//
+//   DAG[x].remove_front(y);
+//   DAG[y].remove_back(x);
+//
+//#ifdef DBG_TRANSITIVITY
+//   if (DBG_TRANSITIVITY) {
+//
+//     for (size_t i{0}; i < m_tasks.size(); ++i) {
+//       std::cout << "t" << m_tasks[i] << ":";
+//       for (auto j{DAG[i].fbegin()}; j != DAG[i].fend(); ++j) {
+//         std::cout << " -> t" << m_tasks[*j];
+//       }
+//       std::cout << std::endl;
+//     }
+//
+//     for (size_t i{0}; i < m_tasks.size(); ++i) {
+//       std::cout << "t" << m_tasks[i] << ":";
+//       for (auto j{DAG[i].bbegin()}; j != DAG[i].bend(); ++j) {
+//         std::cout << " <- t" << m_tasks[*j];
+//       }
+//       std::cout << std::endl;
+//     }
+//
+//     for (size_t i{0}; i < m_tasks.size(); ++i) {
+//       for (auto j{DAG[i].fbegin()}; j != DAG[i].fend(); ++j) {
+//         assert(DAG[*j].isback(i));
+//       }
+//     }
+//   }
+//#endif
+//
+//   return true;
+// }
+
+template <typename T> void Transitivity<T>::min_spanning_tree() {
+    std::sort(TRANSRED_EDGES.begin(), TRANSRED_EDGES.end(), [&](const int ));
 }
 
 template <typename T> void Transitivity<T>::propagate() {
