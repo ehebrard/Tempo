@@ -22,7 +22,7 @@ class DisjointSet {
 private:
     
   std::vector<E> parent;
-  std::vector<uin16_t> size;
+  std::vector<uint16_t> size;
 
     
 public:
@@ -34,10 +34,12 @@ public:
   /*!@name Accessors*/
   //@{
   size_t find(const E elt);
-    void union(const E x, const E y);
-    
-    // to use merge, x and y must be roots !!
     void merge(const E x, const E y);
+    void clear();
+    template<typename Iter>
+    void init(Iter, Iter);
+    // to use merge_roots, x and y must be roots !!
+    void merge_roots(const E x, const E y);
   //@}
 
 
@@ -63,25 +65,47 @@ void DisjointSet<E>::resize(const size_t n) {
 }
 
 template<typename E>
-size_t DisjointSet<E>::find(const E x) {
-    while(parent[x] != x) {
-        parent[x] = parent[parent[x]];
-        x = parent[x];
+void DisjointSet<E>::clear() {
+    for(size_t i{0}; i<parent.size(); ++i) {
+        parent[i] = i;
+        size[i] = 1;
     }
-    return x
 }
 
 template<typename E>
-void DisjointSet<E>::union(const E x, const E y) {
-    auto sx{find(x)};
-    auto sy{find(y)};
-    if(sx != sy) {
-        merge(sx, sy);
+template<typename Iter>
+void DisjointSet<E>::init(Iter beg_elt, Iter end_elt) {
+    for(auto it{beg_elt}; it!=end_elt; ++it) {
+        parent[*it] = *it;
+        size[*it] = 1;
     }
+}
+
+template<typename E>
+size_t DisjointSet<E>::find(const E elt) {
+    auto x{elt};
+    while(parent[x] != x) {
+        
+        std::cout << "p[" << x << "] <- p[" << parent[x] << "]\n";
+        
+        
+        parent[x] = parent[parent[x]];
+        x = parent[x];
+    }
+    return x;
 }
 
 template<typename E>
 void DisjointSet<E>::merge(const E x, const E y) {
+    auto sx{find(x)};
+    auto sy{find(y)};
+    if(sx != sy) {
+        merge_roots(sx, sy);
+    }
+}
+
+template<typename E>
+void DisjointSet<E>::merge_roots(const E x, const E y) {
     if(size[x] > size[y]) {
         parent[y] = x;
         size[x] += size[y];
@@ -95,26 +119,27 @@ void DisjointSet<E>::merge(const E x, const E y) {
 template<typename E>
 std::ostream &DisjointSet<E>::display(std::ostream &os) const {
     for(size_t i{0}; i<parent.size(); ++i) {
-        os << setw(4) << i;
+        os << std::setw(4) << i;
     }
     os << std::endl;
     for(auto p : parent) {
-        os << setw(4) << p;
+        os << std::setw(4) << p;
     }
     os << std::endl;
     for(auto s : size) {
-        os << setw(4) << s;
+        os << std::setw(4) << s;
     }
     os << std::endl;
+    return os;
 }
 
 template<typename E>
-std::ostream &operator<<(std::ostream &os, const DisjointSet<E,T> &x) {
+std::ostream &operator<<(std::ostream &os, const DisjointSet<E> &x) {
   return x.display(os);
 }
 
 template<typename E>
-std::ostream &operator<<(std::ostream &os, const DisjointSet<E,T> *x) {
+std::ostream &operator<<(std::ostream &os, const DisjointSet<E> *x) {
   return (x ? x->display(os) : os);
 }
 

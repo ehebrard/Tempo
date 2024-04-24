@@ -28,7 +28,7 @@ private:
   // encoding: (y \in front(DAG[x]) && x \in back(y)) <=> edge (x,y)
   std::vector<SparseSet<int, Reversible<size_t>>> DAG;
   // encoding: y \in RED[x] <=> edge (x,y)
-  std::vector<SparseSet<int, Reversible<size_t>>> RED;
+//  std::vector<SparseSet<int, Reversible<size_t>>> RED;
   SparseSet<int, Reversible<size_t>> TRANSRED_EDGES;
   std::vector<std::vector<T>> distance_matrix;
 
@@ -147,9 +147,9 @@ Transitivity<T>::Transitivity(Scheduler<T> &scheduler, const ItTask beg_task,
     DAG.emplace_back(m_tasks.size(), &m_schedule.getEnv());
     DAG.back().fill();
 
-    RED.emplace_back(m_tasks.size(), &m_schedule.getEnv());
-    RED.back().fill();
-    RED.back().remove_back(i);
+//    RED.emplace_back(m_tasks.size(), &m_schedule.getEnv());
+//    RED.back().fill();
+//    RED.back().remove_back(i);
 
     TRANSRED_EDGES.remove_back(edge(i, i));
     //        SparseSet<int, Reversible<size_t>> row(Reversible<size_t>(0,
@@ -597,7 +597,7 @@ bool Transitivity<T>::notify_edge(const lit l, const int r) {
 // }
 
 template <typename T> void Transitivity<T>::min_spanning_tree() {
-    std::sort(
+    std::sort(TRANSRED_EDGES.begin(), TRANSRED_EDGES.end(), [&](const int ));
 }
 
 template <typename T> void Transitivity<T>::propagate() {
