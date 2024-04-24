@@ -82,6 +82,7 @@ public:
   bool notify_edge(const int lit, const int rank) override;
   void post(const int idx) override;
   void propagate() override;
+  void min_spanning_tree();
 
   void xplain(const lit l, const hint h, std::vector<lit> &Cl) override;
   int getType() const override;
@@ -271,7 +272,7 @@ void Transitivity<T>::add_edge(const int x, const int y, const int r) {
   DAG[y].remove_back(x);
 
   if (transition_flag) {
-    RED[y].remove_back(x);
+    //    RED[y].remove_back(x);
     TRANSRED_EDGES.remove_back(edge(y, x));
   }
 }
@@ -395,7 +396,7 @@ bool Transitivity<T>::notify_edge(const lit l, const int r) {
 
   if (transition_flag) {
     //    std::cout << "rm* " << y << " -> " << x << std::endl;
-    RED[y].remove_back(x);
+    //    RED[y].remove_back(x);
     TRANSRED_EDGES.remove_back(edge(y, x));
 
     // new edge (x,y)
@@ -403,9 +404,9 @@ bool Transitivity<T>::notify_edge(const lit l, const int r) {
     // for all successors of y
     for (auto zp{DAG[y].frbegin()}; zp != DAG[y].frend(); ++zp) {
       // z cannot be a direct successor of x
-      if (RED[x].has(*zp)) {
-        RED[x].remove_back(*zp);
-      }
+      //      if (RED[x].has(*zp)) {
+      //        RED[x].remove_back(*zp);
+      //      }
       auto e{edge(x, *zp)};
       if (TRANSRED_EDGES.has(e)) {
         TRANSRED_EDGES.remove_back(e);
@@ -415,9 +416,9 @@ bool Transitivity<T>::notify_edge(const lit l, const int r) {
     // for all predecessors of x
     for (auto zp{DAG[x].brbegin()}; zp != DAG[x].brend(); ++zp) {
       // z cannot be a direct successor of x
-      if (RED[*zp].has(y)) {
-        RED[*zp].remove_back(y);
-      }
+      //      if (RED[*zp].has(y)) {
+      //        RED[*zp].remove_back(y);
+      //      }
       auto e{edge(*zp, y)};
       if (TRANSRED_EDGES.has(e)) {
         TRANSRED_EDGES.remove_back(e);
@@ -427,9 +428,9 @@ bool Transitivity<T>::notify_edge(const lit l, const int r) {
     // for the cross-product:
     for (auto sy{DAG[y].frbegin()}; sy != DAG[y].frend(); ++sy) {
       for (auto px{DAG[x].brbegin()}; px != DAG[x].brend(); ++px) {
-        if (RED[*px].has(*sy)) {
-          RED[*px].remove_back(*sy);
-        }
+        //        if (RED[*px].has(*sy)) {
+        //          RED[*px].remove_back(*sy);
+        //        }
         auto e{edge(*px, *sy)};
         if (TRANSRED_EDGES.has(e)) {
           TRANSRED_EDGES.remove_back(e);
@@ -445,16 +446,16 @@ bool Transitivity<T>::notify_edge(const lit l, const int r) {
       }
       std::cout << std::endl;
     }
-
-    std::cout << "RED:\n";
-    for (size_t i{0}; i < m_tasks.size(); ++i) {
-      std::cout << "t" << m_tasks[i] << ":";
-      for (auto j : RED[i]) {
-        std::cout << " -> t" << m_tasks[j];
-      }
-      std::cout << std::endl;
-    }
-    std::cout << std::endl;
+    //
+    //    std::cout << "RED:\n";
+    //    for (size_t i{0}; i < m_tasks.size(); ++i) {
+    //      std::cout << "t" << m_tasks[i] << ":";
+    //      for (auto j : RED[i]) {
+    //        std::cout << " -> t" << m_tasks[j];
+    //      }
+    //      std::cout << std::endl;
+    //    }
+    //    std::cout << std::endl;
 
     std::cout << "TRED:\n";
     for (size_t i{0}; i < m_tasks.size(); ++i) {
@@ -467,14 +468,14 @@ bool Transitivity<T>::notify_edge(const lit l, const int r) {
     }
     std::cout << std::endl;
 
-    for (size_t i{0}; i < m_tasks.size(); ++i) {
-      for (size_t j{0}; j < m_tasks.size(); ++j) {
-        if (RED[i].has(j) != TRANSRED_EDGES.has(edge(i, j))) {
-          std::cout << "ERROR (" << m_tasks[i] << "," << m_tasks[j] << ")\n";
-          exit(1);
-        }
-      }
-    }
+    //    for (size_t i{0}; i < m_tasks.size(); ++i) {
+    //      for (size_t j{0}; j < m_tasks.size(); ++j) {
+    //        if (RED[i].has(j) != TRANSRED_EDGES.has(edge(i, j))) {
+    //          std::cout << "ERROR (" << m_tasks[i] << "," << m_tasks[j] <<
+    //          ")\n"; exit(1);
+    //        }
+    //      }
+    //    }
   }
 
   return true;
@@ -597,7 +598,8 @@ bool Transitivity<T>::notify_edge(const lit l, const int r) {
 // }
 
 template <typename T> void Transitivity<T>::min_spanning_tree() {
-    std::sort(TRANSRED_EDGES.begin(), TRANSRED_EDGES.end(), [&](const int ));
+  std::sort(TRANSRED_EDGES.begin(), TRANSRED_EDGES.end(),
+            [&](const int a, const int b) { return length(a) < length(b); });
 }
 
 template <typename T> void Transitivity<T>::propagate() {
