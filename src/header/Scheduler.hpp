@@ -2220,7 +2220,11 @@ void Scheduler<T>::optimize(S &objective) {
       }
       best_solution = polarity;
       restart(true);
-      objective.setPrimal(best);
+        try {
+            objective.setPrimal(best);
+        } catch(Failure& f) {
+            objective.setDual(objective.primalBound());
+        }
     } else if (satisfiability == False) {
       objective.setDual(objective.primalBound());
     }

@@ -148,21 +148,19 @@ tempo::Options tempo::parse(int argc, char *argv[]) {
       false, 0.999, "double");
 
   cmd.add<ValueArg<double>>(opt.forgetfulness, "", "forgetfulness",
-                            "clause base reduction factor (0.1)", false, 0.1,
+                            "clause base reduction factor (0.1)", false, 0.3,
                             "double");
 
   cmd.add<ValueArg<int>>(
       opt.minimization, "", "clause-minimization",
-      "strategy for clause minimization "
-      "(-1: none, w=0..999: greedy with max width w (default 5),"
-      ">999: quickxplain",
-      false, 5, "int");
+      "depth for clause minimization (default 3)",
+      false, 3, "int");
 
   cmd.add<ValueArg<int>>(opt.forget_strategy, "", "forget-strategy",
                          "strategy for clause forgetting "
                          "(0: size (default), 1: literal looseness,"
                          "2: literal activity 3: looseness / activity",
-                         false, 25, "int");
+                         false, 3, "int");
 
   cmd.add<ValueArg<std::string>>(opt.restart_policy, "", "restart",
                                  "choice of restart policy (no, luby, geom)",
@@ -171,7 +169,7 @@ tempo::Options tempo::parse(int argc, char *argv[]) {
   cmd.add<ValueArg<int>>(
       opt.restart_base, "", "restart-base",
       "base of the sequence for geometric/luby restarts (default=100)", false,
-      100, "int");
+      128, "int");
 
   cmd.add<ValueArg<double>>(opt.restart_factor, "", "restart-factor",
                             "factor of the geometric sequence (default=1.2)",
