@@ -57,6 +57,7 @@ public:
   T primalBound() const { return p_b; }
 
   void setDual(const T v) { d_b = v; }
+  void initDual() { d_b = schedule.lower(HORIZON); }
 
   void setPrimal(const T v) {
     p_b = v;

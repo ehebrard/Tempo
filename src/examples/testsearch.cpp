@@ -173,42 +173,43 @@ int main(int argc, char *argv[]) {
 
 
   int sol;
-  if (opt.input_format == "tsptw") {
-    //        PathLength<int> tour(S, data.resources[0]);
-    //        S.minimize(tour);
-    //        sol = tour.upperBound();
-      
-      if (opt.print_mod) {
-        S.display(std::cout, true, true, true, true, false, false, true);
-        std::cout << S << std::endl;
-      }
-      
-    sol = S.satisfiable();
-      std::cout << (sol ? "SAT" : "UNSAT") << std::endl;
-  } else {
-    Makespan<int> makespan(S, ub);
-      
-      
-      if (opt.print_mod) {
-        S.display(std::cout, true, true, true, true, false, false, true);
-        std::cout << S << std::endl;
-      }
-      
+  //  if (opt.input_format == "tsptw") {
+  //    //        PathLength<int> tour(S, data.resources[0]);
+  //    //        S.minimize(tour);
+  //    //        sol = tour.upperBound();
+  //
+  //      if (opt.print_mod) {
+  //        S.display(std::cout, true, true, true, true, false, false, true);
+  //        std::cout << S << std::endl;
+  //      }
+  //
+  //    sol = S.satisfiable();
+  //      std::cout << (sol ? "SAT" : "UNSAT") << std::endl;
+  //  } else {
+  Makespan<int> makespan(S, ub);
+
+  if (opt.print_mod) {
+    S.display(std::cout, true, true, true, true, false, false, true);
+    std::cout << S << std::endl;
+  }
+
     //      makespan.setUpperBound(ub);
     if (opt.dichotomy)
       S.optimize_dichotomy(makespan);
     else
       S.optimize(makespan);
+    
     sol = makespan.primalBound();
-  }
+    //  }
 
-  if (opt.verbosity > tempo::Options::SILENT) {
-    auto end = std::chrono::system_clock::now();
-    auto elapsed =
-        std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-    std::cout << "Temps d'execution = " << elapsed.count() << " ms"
-              << std::endl;
-  }
+    if (opt.verbosity > tempo::Options::SILENT) {
+      auto end = std::chrono::system_clock::now();
+      auto elapsed =
+          std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+      std::cout << "Objective value = " << sol
+                << " Execution time = " << elapsed.count() << " ms"
+                << std::endl;
+    }
 
   //  auto sol = S.getMakespan();
   //  auto sol = makespan.upperBound();

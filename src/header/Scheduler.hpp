@@ -197,7 +197,7 @@ public:
   std::ostream &displayVariables(std::ostream &os) const;
   std::ostream &displayConstraints(std::ostream &os) const;
   std::ostream &displayProgress(std::ostream &os) const;
-  std::ostream &displayHeader(std::ostream &os) const;
+  std::ostream &displayHeader(std::ostream &os, const int width = 59) const;
   std::ostream &displaySummary(std::ostream &os, std::string msg) const;
 
   std::string prettyLiteral(const genlit el) const;
@@ -2171,33 +2171,54 @@ template <typename T> void Scheduler<T>::initializeSearch() {
 
   restart_policy->initialize(restart_limit);
   start_time = cpu_time();
-  init_level = env.level();
+//  init_level = env.level();
 }
 
 template <typename T>
 template <typename S>
 void Scheduler<T>::optimize_dichotomy(S &objective) {
-  initializeSearch();
+    initializeSearch();
+  objective.initDual();
+  bool sat;
+
+  displayHeader(std::cout, 62);
+
   while (objective.gap()) {
+
+    saveState();
+    std::cout << std::setw(6) << std::right << objective.dualBound() << " .. "
+              << std::setw(6) << std::left << objective.primalBound() << std::right ;
+    displayProgress(std::cout);
+
     auto target = (objective.primalBound() + objective.dualBound()) / 2;
 
-    std::cout << "try: " << target << std::endl;
+    try {
+      objective.apply(target);
+      sat = search();
+    } catch (Failure &f) {
+      sat = false;
+    }
+      
+      if(KillHandler::instance().signalReceived())
+          break;
+         
 
-    objective.apply(target);
-    if (search() == True) {
-
-      std::cout << " - yes!\n";
-
+    if (sat) {
       auto best{objective.value()};
       restart(true);
-      objective.setPrimal(best);
+      try {
+        objective.setPrimal(best);
+      } catch (Failure &f) {
+        objective.setDual(objective.primalBound());
+      }
     } else {
-      std::cout << " - no!\n";
-
       clearLearnedClauses();
       restart(true);
-      objective.setDual(target);
+      objective.setDual(target + Gap<T>::epsilon());
     }
+
+    assert(env.level() == 1);
+    restoreState(0);
   }
 }
 
@@ -2253,6 +2274,7 @@ void Scheduler<T>::updatedualBound(S &objective) {
 
 template <typename T> boolean_state Scheduler<T>::search() {
 
+    init_level = env.level();
   boolean_state satisfiability{Unknown};
   while (satisfiability == Unknown and
          not KillHandler::instance().signalReceived()) {
@@ -2817,11 +2839,12 @@ std::ostream &Scheduler<T>::displayBranch(std::ostream &os) const {
 }
 
 template <typename T>
-std::ostream &Scheduler<T>::displayHeader(std::ostream &os) const {
-//  os << " objective | failures | branches |    literals | clauses |  size | "
-    os << " objective | failures | branches | clauses |  size | "
-        "cpu\n";
-  os << std::setfill('=') << std::setw(59) << "\n" << std::setfill(' ');
+std::ostream &Scheduler<T>::displayHeader(std::ostream &os,
+                                          const int width) const {
+  os << std::right << std::setw(width)
+     << " objective | failures | branches | clauses |  size | cpu"
+     << std::endl << std::left;
+  os << std::setfill('=') << std::setw(width) << "=" << std::setfill(' ') << std::endl;
   return os;
 }
 
@@ -2847,7 +2870,7 @@ std::ostream &Scheduler<T>::displayProgress(std::ostream &os) const {
      //<< std::setw(12) << num_literals << "  "
      << std::setw(8) << clauses.size();
   if (clauses.size() == 0)
-    os << "     n/a";
+    os << "    n/a ";
   else
     os << "  " 
       << std::setw(6) << std::setprecision(4)
