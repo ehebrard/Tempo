@@ -120,6 +120,7 @@ public:
   T bound(const bool s, const event) const;
   T minDuration(const task) const;
   T maxDuration(const task) const;
+  T distance(const event x, const event y) const;
   //  T getMakespan() const;
 
   std::vector<bool> getSolution() const;
@@ -285,6 +286,8 @@ public:
   private:
     ClauseBase<T> clauses;
 
+    // edges[l] with l=2*i+t is a distance constraint x-y <= k (for t=0) and y-x
+    // <= k' this->satisfied(l) this->falsified(l)
     std::vector<DistanceConstraint<T>> edges;
 
     std::map<std::pair<event, event>, lit> edge_map;
@@ -953,6 +956,16 @@ template <typename T> T Scheduler<T>::maxDuration(const task t) const {
   return max_duration[t];
 }
 
+template <typename T>
+T Scheduler<T>::distance(const event x, const event y) const {
+  T ub{upper(y) - lower(x)};
+  std::pair<event, event> e{x, y};
+  if (hasEdge(e)) {
+    return std::min(getEdge(getEdgeLit(e)).distance, ub);
+  }
+  return ub;
+}
+
 // template <typename T> T Scheduler<T>::getMakespan() const { return ub; }
 
 template <typename T> std::vector<bool> Scheduler<T>::getSolution() const { return best_solution; }
@@ -1111,13 +1124,6 @@ void Scheduler<T>::set(const lit l, Explanation e) {
   if (isUndefined(x)) {
     search_vars.remove_front(x);
     polarity[x] = val;
-
-    //        if (val) {
-    //            branch.remove_front(x);
-    //        } else {
-    //            branch.remove_back(x);
-    //        }
-    //        propagation_stack.push_back(l);
 
     reason[x] = e;
     var_level[x] = env.level();
@@ -1348,6 +1354,12 @@ template <typename T> void tempo::Scheduler<T>::propagate() {
       lit l{
           LIT(search_vars[edge_pointer], polarity[search_vars[edge_pointer]])};
       trigger(l);
+
+      auto e{getEdge(l)};
+      std::cout << "prop edge " << e << std::endl;
+      std::cout << "dist(" << e.from << "," << e.to
+                << ") = " << distance(e.from, e.to) << std::endl;
+      std::cout << distance(END(12), START(7)) << std::endl << std::endl;
 
       ++edge_pointer;
     }

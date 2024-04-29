@@ -680,14 +680,15 @@ template <typename T> void Transitivity<T>::propagate() {
     }
 #endif
 
-    // get all the successors of x in the graph, (so predecessors in the
-    // schedule)
+    // get all the successors y of x in the graph, (so predecessors in the
+    // schedule: y < x)
     for (auto yp{DAG[x].fbegin()}; yp != DAG[x].fend(); ++yp) {
       offset[*yp] += m_schedule.minDuration(m_tasks[x]);
 
       // x must end before ex
       auto ex{m_schedule.upper(END(m_tasks[x]))};
 
+      // y must end before ey
       auto ey{m_schedule.upper(END(m_tasks[*yp]))};
 
 #ifdef DBG_TRANSITIVITY
@@ -696,6 +697,7 @@ template <typename T> void Transitivity<T>::propagate() {
                   << " <= " << ex - offset[*yp] << "/" << ey << std::endl;
 #endif
 
+      // y must end before ex -
       if ((ex - offset[*yp]) < ey) {
 #ifdef DBG_LTRANS
         pruning = true;
