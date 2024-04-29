@@ -1355,11 +1355,11 @@ template <typename T> void tempo::Scheduler<T>::propagate() {
           LIT(search_vars[edge_pointer], polarity[search_vars[edge_pointer]])};
       trigger(l);
 
-      auto e{getEdge(l)};
-      std::cout << "prop edge " << e << std::endl;
-      std::cout << "dist(" << e.from << "," << e.to
-                << ") = " << distance(e.from, e.to) << std::endl;
-      std::cout << distance(END(12), START(7)) << std::endl << std::endl;
+//      auto e{getEdge(l)};
+//      std::cout << "prop edge " << e << std::endl;
+//      std::cout << "dist(" << e.from << "," << e.to
+//                << ") = " << distance(e.from, e.to) << std::endl;
+//      std::cout << distance(END(12), START(7)) << std::endl << std::endl;
 
       ++edge_pointer;
     }
