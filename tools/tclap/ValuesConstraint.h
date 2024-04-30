@@ -1,11 +1,12 @@
-
+// -*- Mode: c++; c-basic-offset: 4; tab-width: 4; -*-
 
 /******************************************************************************
  *
  *  file:  ValuesConstraint.h
  *
  *  Copyright (c) 2005, Michael E. Smoot
- *  All rights reverved.
+ *  Copyright (c) 2017, Google LLC
+ *  All rights reserved.
  *
  *  See the file COPYING in the top directory of this distribution for
  *  more information.
@@ -20,43 +21,29 @@
  *
  *****************************************************************************/
 
-#ifndef TCLAP_VALUESCONSTRAINT_H
-#define TCLAP_VALUESCONSTRAINT_H
+#ifndef TCLAP_VALUES_CONSTRAINT_H
+#define TCLAP_VALUES_CONSTRAINT_H
+
+#include <tclap/Constraint.h>
+#include <tclap/sstream.h>
 
 #include <string>
-#include <tclap/Constraint.h>
 #include <vector>
 
-#ifdef HAVE_CONFIG_H
-#include <config.h>
-#else
-#define HAVE_SSTREAM
-#endif
-
-#if defined(HAVE_SSTREAM)
-#include <sstream>
-#elif defined(HAVE_STRSTREAM)
-#include <strstream>
-#else
-#error "Need a stringstream (sstream or strstream) to compile!"
-#endif
-
-namespace TCLAP
-{
+namespace TCLAP {
 
 /**
  * A Constraint that constrains the Arg to only those values specified
  * in the constraint.
  */
-template <class T> class ValuesConstraint : public Constraint<T>
-{
-
+template <class T>
+class ValuesConstraint : public Constraint<T> {
 public:
     /**
      * Constructor.
      * \param allowed - vector of allowed values.
      */
-    ValuesConstraint(std::vector<T>& allowed);
+    explicit ValuesConstraint(std::vector<T> &allowed);
 
     /**
      * Virtual destructor.
@@ -78,7 +65,7 @@ public:
      * line meets the constraint.
      * \param value - The value that will be checked.
      */
-    virtual bool check(const T& value) const;
+    virtual bool check(const T &value) const;
 
 protected:
     /**
@@ -93,47 +80,36 @@ protected:
 };
 
 template <class T>
-ValuesConstraint<T>::ValuesConstraint(std::vector<T>& allowed)
-    : _allowed(allowed)
-    , _typeDesc("")
-{
+ValuesConstraint<T>::ValuesConstraint(std::vector<T> &allowed)
+    : _allowed(allowed), _typeDesc("") {
     for (unsigned int i = 0; i < _allowed.size(); i++) {
-
-#if defined(HAVE_SSTREAM)
         std::ostringstream os;
-#elif defined(HAVE_STRSTREAM)
-        std::ostrstream os;
-#else
-#error "Need a stringstream (sstream or strstream) to compile!"
-#endif
-
         os << _allowed[i];
 
         std::string temp(os.str());
 
-        if (i > 0)
-            _typeDesc += "|";
+        if (i > 0) _typeDesc += "|";
         _typeDesc += temp;
     }
 }
 
-template <class T> bool ValuesConstraint<T>::check(const T& val) const
-{
+template <class T>
+bool ValuesConstraint<T>::check(const T &val) const {
     if (std::find(_allowed.begin(), _allowed.end(), val) == _allowed.end())
         return false;
     else
         return true;
 }
 
-template <class T> std::string ValuesConstraint<T>::shortID() const
-{
+template <class T>
+std::string ValuesConstraint<T>::shortID() const {
     return _typeDesc;
 }
 
-template <class T> std::string ValuesConstraint<T>::description() const
-{
+template <class T>
+std::string ValuesConstraint<T>::description() const {
     return _typeDesc;
 }
 
-} // namespace TCLAP
-#endif
+}  // namespace TCLAP
+#endif  // TCLAP_VALUES_CONSTRAINT_H

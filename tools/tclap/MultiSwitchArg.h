@@ -1,43 +1,43 @@
+// -*- Mode: c++; c-basic-offset: 4; tab-width: 4; -*-
 
 /******************************************************************************
-*
-*  file:  MultiSwitchArg.h
-*
-*  Copyright (c) 2003, Michael E. Smoot .
-*  Copyright (c) 2004, Michael E. Smoot, Daniel Aarno.
-*  Copyright (c) 2005, Michael E. Smoot, Daniel Aarno, Erik Zeek.
-*  All rights reverved.
-*
-*  See the file COPYING in the top directory of this distribution for
-*  more information.
-*
-*  THE SOFTWARE IS PROVIDED _AS IS_, WITHOUT WARRANTY OF ANY KIND, EXPRESS
-*  OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-*  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
-*  THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-*  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
-*  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
-*  DEALINGS IN THE SOFTWARE.
-*
-*****************************************************************************/
+ *
+ *  file:  MultiSwitchArg.h
+ *
+ *  Copyright (c) 2003, Michael E. Smoot .
+ *  Copyright (c) 2004, Michael E. Smoot, Daniel Aarno.
+ *  Copyright (c) 2005, Michael E. Smoot, Daniel Aarno, Erik Zeek.
+ *  Copyright (c) 2017, Google LLC
+ *  All rights reserved.
+ *
+ *  See the file COPYING in the top directory of this distribution for
+ *  more information.
+ *
+ *  THE SOFTWARE IS PROVIDED _AS IS_, WITHOUT WARRANTY OF ANY KIND, EXPRESS
+ *  OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ *  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL
+ *  THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ *  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ *  FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+ *  DEALINGS IN THE SOFTWARE.
+ *
+ *****************************************************************************/
 
 #ifndef TCLAP_MULTI_SWITCH_ARG_H
 #define TCLAP_MULTI_SWITCH_ARG_H
 
+#include <tclap/SwitchArg.h>
+
 #include <string>
 #include <vector>
 
-#include <tclap/SwitchArg.h>
-
-namespace TCLAP
-{
+namespace TCLAP {
 
 /**
-* A multiple switch argument.  If the switch is set on the command line, then
-* the getValue method will return the number of times the switch appears.
-*/
-class MultiSwitchArg : public SwitchArg
-{
+ * A multiple switch argument.  If the switch is set on the command line, then
+ * the getValue method will return the number of times the switch appears.
+ */
+class MultiSwitchArg : public SwitchArg {
 protected:
     /**
      * The value of the switch.
@@ -64,8 +64,8 @@ public:
      * \param v - An optional visitor.  You probably should not
      * use this unless you have a very good reason.
      */
-    MultiSwitchArg(const std::string& flag, const std::string& name,
-        const std::string& desc, int init = 0, Visitor* v = NULL);
+    MultiSwitchArg(const std::string &flag, const std::string &name,
+                   const std::string &desc, int init = 0, Visitor *v = NULL);
 
     /**
      * MultiSwitchArg constructor.
@@ -81,9 +81,9 @@ public:
      * \param v - An optional visitor.  You probably should not
      * use this unless you have a very good reason.
      */
-    MultiSwitchArg(const std::string& flag, const std::string& name,
-        const std::string& desc, CmdLineInterface& parser, int init = 0,
-        Visitor* v = NULL);
+    MultiSwitchArg(const std::string &flag, const std::string &name,
+                   const std::string &desc, ArgContainer &parser, int init = 0,
+                   Visitor *v = NULL);
 
     /**
      * Handles the processing of the argument.
@@ -93,57 +93,46 @@ public:
      * \param args - Mutable list of strings. Passed
      * in from main().
      */
-    virtual bool processArg(int* i, std::vector<std::string>& args);
+    virtual bool processArg(int *i, std::vector<std::string> &args);
 
     /**
      * Returns int, the number of times the switch has been set.
      */
-    int getValue();
+    int getValue() const { return _value; }
 
     /**
      * Returns the shortID for this Arg.
      */
-    std::string shortID(const std::string& val) const;
+    std::string shortID(const std::string &val) const;
 
     /**
      * Returns the longID for this Arg.
      */
-    std::string longID(const std::string& val) const;
+    std::string longID(const std::string &val) const;
 
     void reset();
 };
 
-//////////////////////////////////////////////////////////////////////
-// BEGIN MultiSwitchArg.cpp
-//////////////////////////////////////////////////////////////////////
-inline MultiSwitchArg::MultiSwitchArg(const std::string& flag,
-    const std::string& name, const std::string& desc, int init, Visitor* v)
-    : SwitchArg(flag, name, desc, false, v)
-    , _value(init)
-    , _default(init)
-{
-}
+inline MultiSwitchArg::MultiSwitchArg(const std::string &flag,
+                                      const std::string &name,
+                                      const std::string &desc, int init,
+                                      Visitor *v)
+    : SwitchArg(flag, name, desc, false, v), _value(init), _default(init) {}
 
-inline MultiSwitchArg::MultiSwitchArg(const std::string& flag,
-    const std::string& name, const std::string& desc, CmdLineInterface& parser,
-    int init, Visitor* v)
-    : SwitchArg(flag, name, desc, false, v)
-    , _value(init)
-    , _default(init)
-{
+inline MultiSwitchArg::MultiSwitchArg(const std::string &flag,
+                                      const std::string &name,
+                                      const std::string &desc,
+                                      ArgContainer &parser, int init,
+                                      Visitor *v)
+    : SwitchArg(flag, name, desc, false, v), _value(init), _default(init) {
     parser.add(this);
 }
 
-inline int MultiSwitchArg::getValue() { return _value; }
-
-inline bool MultiSwitchArg::processArg(int* i, std::vector<std::string>& args)
-{
-    if (_ignoreable && Arg::ignoreRest())
-        return false;
-
+inline bool MultiSwitchArg::processArg(int *i, std::vector<std::string> &args) {
     if (argMatches(args[*i])) {
         // so the isSet() method will work
         _alreadySet = true;
+        _setBy = args[*i];
 
         // Matched argument: increment value.
         ++_value;
@@ -159,35 +148,28 @@ inline bool MultiSwitchArg::processArg(int* i, std::vector<std::string>& args)
         ++_value;
 
         // Check for more in argument and increment value.
-        while (combinedSwitchesMatch(args[*i]))
-            ++_value;
+        while (combinedSwitchesMatch(args[*i])) ++_value;
 
         _checkWithVisitor();
 
         return false;
-    } else
+    } else {
         return false;
+    }
 }
 
-inline std::string MultiSwitchArg::shortID(const std::string& val) const
-{
-    return Arg::shortID(val) + " ... ";
+inline std::string MultiSwitchArg::shortID(const std::string &val) const {
+    return Arg::shortID(val) + " ...";
 }
 
-inline std::string MultiSwitchArg::longID(const std::string& val) const
-{
+inline std::string MultiSwitchArg::longID(const std::string &val) const {
     return Arg::longID(val) + "  (accepted multiple times)";
 }
 
-inline void MultiSwitchArg::reset()
-{
+inline void MultiSwitchArg::reset() {
     MultiSwitchArg::_value = MultiSwitchArg::_default;
 }
 
-//////////////////////////////////////////////////////////////////////
-// END MultiSwitchArg.cpp
-//////////////////////////////////////////////////////////////////////
+}  // namespace TCLAP
 
-} // namespace TCLAP
-
-#endif
+#endif  // TCLAP_MULTI_SWITCH_ARG_H

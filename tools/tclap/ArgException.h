@@ -5,7 +5,8 @@
  *  file:  ArgException.h
  *
  *  Copyright (c) 2003, Michael E. Smoot .
- *  All rights reverved.
+ *  Copyright (c) 2017 Google LLC
+ *  All rights reserved.
  *
  *  See the file COPYING in the top directory of this distribution for
  *  more information.
@@ -26,15 +27,13 @@
 #include <exception>
 #include <string>
 
-namespace TCLAP
-{
+namespace TCLAP {
 
 /**
  * A simple class that defines and argument exception.  Should be caught
  * whenever a CmdLine is created and parsed.
  */
-class ArgException : public std::exception
-{
+class ArgException : public std::exception {
 public:
     /**
      * Constructor.
@@ -43,15 +42,13 @@ public:
      * \param td - Text describing the type of ArgException it is.
      * of the exception.
      */
-    ArgException(const std::string& text = "undefined exception",
-        const std::string& id = "undefined",
-        const std::string& td = "Generic ArgException")
-        : std::exception()
-        , _errorText(text)
-        , _argId(id)
-        , _typeDescription(td)
-    {
-    }
+    ArgException(const std::string &text = "undefined exception",
+                 const std::string &id = "undefined",
+                 const std::string &td = "Generic ArgException")
+        : std::exception(),
+          _errorText(text),
+          _argId(id),
+          _typeDescription(td) {}
 
     /**
      * Destructor.
@@ -66,8 +63,7 @@ public:
     /**
      * Returns the argument id.
      */
-    std::string argId() const
-    {
+    std::string argId() const {
         if (_argId == "undefined")
             return " ";
         else
@@ -77,8 +73,7 @@ public:
     /**
      * Returns the arg id and error text.
      */
-    const char* what() const throw()
-    {
+    const char *what() const throw() {
         static std::string ex;
         ex = _argId + " -- " + _errorText;
         return ex.c_str();
@@ -112,8 +107,7 @@ private:
  * Thrown from within the child Arg classes when it fails to properly
  * parse the argument it has been passed.
  */
-class ArgParseException : public ArgException
-{
+class ArgParseException : public ArgException {
 public:
     /**
      * Constructor.
@@ -121,20 +115,18 @@ public:
      * \param id - The text identifying the argument source
      * of the exception.
      */
-    ArgParseException(const std::string& text = "undefined exception",
-        const std::string& id = "undefined")
-        : ArgException(text, id, std::string("Exception found while parsing ")
-                  + std::string("the value the Arg has been passed."))
-    {
-    }
+    ArgParseException(const std::string &text = "undefined exception",
+                      const std::string &id = "undefined")
+        : ArgException(text, id,
+                       std::string("Exception found while parsing ") +
+                           std::string("the value the Arg has been passed.")) {}
 };
 
 /**
  * Thrown from CmdLine when the arguments on the command line are not
  * properly specified, e.g. too many arguments, required argument missing, etc.
  */
-class CmdLineParseException : public ArgException
-{
+class CmdLineParseException : public ArgException {
 public:
     /**
      * Constructor.
@@ -142,22 +134,20 @@ public:
      * \param id - The text identifying the argument source
      * of the exception.
      */
-    CmdLineParseException(const std::string& text = "undefined exception",
-        const std::string& id = "undefined")
-        : ArgException(text, id, std::string("Exception found when the values ")
-                  + std::string("on the command line do not meet ")
-                  + std::string("the requirements of the defined ")
-                  + std::string("Args."))
-    {
-    }
+    CmdLineParseException(const std::string &text = "undefined exception",
+                          const std::string &id = "undefined")
+        : ArgException(text, id,
+                       std::string("Exception found when the values ") +
+                           std::string("on the command line do not meet ") +
+                           std::string("the requirements of the defined ") +
+                           std::string("Args.")) {}
 };
 
 /**
  * Thrown from Arg and CmdLine when an Arg is improperly specified, e.g.
  * same flag as another Arg, same name, etc.
  */
-class SpecificationException : public ArgException
-{
+class SpecificationException : public ArgException {
 public:
     /**
      * Constructor.
@@ -165,23 +155,29 @@ public:
      * \param id - The text identifying the argument source
      * of the exception.
      */
-    SpecificationException(const std::string& text = "undefined exception",
-        const std::string& id = "undefined")
-        : ArgException(
-              text, id, std::string("Exception found when an Arg object ")
-                  + std::string("is improperly defined by the ")
-                  + std::string("developer."))
-    {
-    }
+    SpecificationException(const std::string &text = "undefined exception",
+                           const std::string &id = "undefined")
+        : ArgException(text, id,
+                       std::string("Exception found when an Arg object ") +
+                           std::string("is improperly defined by the ") +
+                           std::string("developer.")) {}
 };
 
-class ExitException
-{
+/**
+ * Thrown when TCLAP thinks the program should exit.
+ *
+ * For example after parse error this exception will be thrown (and
+ * normally caught). This allows any resource to be clened properly
+ * before exit.
+ *
+ * If exception handling is disabled (CmdLine::setExceptionHandling),
+ * this exception will propagate to the call site, allowing the
+ * program to catch it and avoid program termination, or do it's own
+ * cleanup. See for example, https://sourceforge.net/p/tclap/bugs/29.
+ */
+class ExitException {
 public:
-    ExitException(int estat)
-        : _estat(estat)
-    {
-    }
+    explicit ExitException(int estat) : _estat(estat) {}
 
     int getExitStatus() const { return _estat; }
 
@@ -189,6 +185,6 @@ private:
     int _estat;
 };
 
-} // namespace TCLAP
+}  // namespace TCLAP
 
-#endif
+#endif  // TCLAP_ARG_EXCEPTION_H

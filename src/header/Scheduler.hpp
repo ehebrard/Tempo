@@ -6,6 +6,7 @@
 #include <sstream>
 #include <fstream>
 
+#include "Task.hpp"
 #include "ClauseBase.hpp"
 #include "Constant.hpp"
 #include "ConstraintQueue.hpp"
@@ -26,28 +27,6 @@
 //#define DBG_MINIMIZATION
 
 namespace tempo {
-
-//// literals x - y <= k (with x,y pointing to vars and k a constant)
-// template <typename T> class DistanceConstraint {
-//
-// public:
-//   DistanceConstraint(const event f, const event t, const T d)
-//       : from(f), to(t), distance(d) {}
-//
-//   event from;
-//   event to;
-//
-//   T distance;
-//
-//   DistanceConstraint<T> operator~() const;
-//
-//   static const DistanceConstraint<T> none;
-//
-//   bool entails(const DistanceConstraint<T> &e) const;
-//   bool contradicts(const DistanceConstraint<T> &e) const;
-//
-//   std::ostream &display(std::ostream &os) const;
-// };
 
 template<typename T>
 class Scheduler : public Explainer, public ReversibleObject
@@ -314,6 +293,8 @@ public:
     std::vector<int> var_level;
     //    std::vector<double> activity;
 
+    std::vector<Task<T>> tasks;
+
     void resize(const size_t n);
 
     void initialize_baseline();
@@ -438,136 +419,6 @@ public:
   void load(std::vector<bool> &sol) { ref_solution = sol; }
 #endif
 };
-
-// template <typename T> class Objective {
-// public:
-//   Objective() {}
-//   ~Objective() = default;
-//
-//   T gap() { return ub - lb; }
-//   void closeGap() { lb = ub; }
-//   T dualBound() const { return lb; }
-//   T primalBound() const { return ub; }
-//
-//   std::ostream &display(std::ostream &os) const {
-//     os << "[" << std::left << std::setw(5) << std::setfill('.') <<
-//     dualBound()
-//        << std::setfill(' ');
-//     auto ub{primalBound()};
-//     if (ub < INFTY)
-//       os << std::right << std::setw(6) << std::setfill('.') << ub
-//          << std::setfill(' ');
-//     else
-//       os << ".infty";
-//     os << "]";
-//     return os;
-//   }
-//
-// protected:
-//   T lb;
-//   T ub;
-// };
-//
-// template <typename T> class Makespan : public Objective<T> {
-// public:
-//   Makespan(Scheduler<T> &s) : Objective<T>(), schedule(s) {}
-//   ~Makespan() = default;
-//
-//   void updatedualBound() { Objective<T>::lb = schedule.lower(HORIZON); }
-//
-//   void updateprimalBound() { Objective<T>::ub = schedule.lower(HORIZON); }
-//
-// private:
-//   Scheduler<T> &schedule;
-// };
-//
-//
-// template <typename T> class PathLength : public Objective<T> {
-// public:
-//     PathLength(Scheduler<T> &s, Resource<T>& r) : Objective<T>(), schedule(s)
-//     { Objective<T>::lb = 0; }
-//   ~PathLength() = default;
-//
-//     void updatedualBound() {
-//         if(Objective<T>::lb == 0) {
-//             for(auto x : stops) {
-//                 Objective<T>::lb += schedule.minDuration(x);
-//             }
-//             for(auto& transitions : stops.transition) {
-//                 Objective<T>::lb += *(std::min_element(transitions.begin(),
-//                 transitions.end()));
-//             }
-//         }
-//     }
-//
-//     void updateprimalBound() {
-//         std::sort(stops.begin(), stops.end(), [&](const task a, const task b)
-//         {return schedule.lower(START(a)) < schedule.lower(START(b));} );
-//
-//         Objective<T>::ub = schedule.minDuration(stops[0]);
-//         for(size_t i{1}; i<stops.size(); ++i) {
-//             Objective<T>::ub += stops.transition[stops[i-1]][stops[i]];
-//             Objective<T>::ub += schedule.minDuration(stops[i]);
-//         }
-////        Objective<T>::ub = schedule.lower(HORIZON);
-//    }
-//
-// private:
-//  Scheduler<T> &schedule;
-//    Resource<T> &stops;
-//};
-//
-// template <typename T> class NoObj : public Objective<T> {
-// public:
-//  NoObj() : Objective<T>() {}
-//  ~NoObj() = default;
-//
-//  void updatedualBound() { Objective<T>::lb = 0; }
-//
-//  void updateprimalBound() { Objective<T>::ub = 1; }
-//};
-//
-// template <typename T> class No {
-// public:
-//  static const NoObj<T> Obj;
-//};
-//
-// template <typename T> const NoObj<T> No<T>::Obj = NoObj<T>();
-
-///// DISTANCE
-//
-// template <typename T>
-// bool operator==(const DistanceConstraint<T> &d1,
-//                const DistanceConstraint<T> &d2) {
-//  return d1.from == d2.from and d1.to == d2.to and d1.distance == d2.distance;
-//}
-//
-// template <typename T>
-// const DistanceConstraint<T>
-//    DistanceConstraint<T>::none = DistanceConstraint<T>(-1, -1, -1);
-//
-// template <typename T>
-// DistanceConstraint<T> DistanceConstraint<T>::operator~() const {
-//  return {to, from, -distance - Gap<T>::epsilon()};
-//}
-//
-// template <typename T>
-// bool DistanceConstraint<T>::entails(const DistanceConstraint<T> &e) const {
-//  return e.from == from and e.to == to and distance <= e.distance;
-//}
-//
-// template <typename T>
-// bool DistanceConstraint<T>::contradicts(const DistanceConstraint<T> &e) const
-// {
-//  return e.from == to and e.to == from and e.distance + distance < 0;
-//}
-//
-// template <typename T>
-// std::ostream &DistanceConstraint<T>::display(std::ostream &os) const {
-//  os << etype(to) << TASK(to) << " - " << etype(from) << TASK(from)
-//     << " <= " << distance;
-//  return os;
-//}
 
 /// SCHEDULER
 ///
@@ -753,6 +604,8 @@ task Scheduler<T>::newTask(const T min_dur, const T max_dur) {
 
   min_duration.push_back(min_dur);
   max_duration.push_back(max_dur);
+
+  tasks.emplace_back(*this, START(ti), END(ti), min_dur, max_dur);
 
   return ti;
 }
@@ -1568,38 +1421,13 @@ void Scheduler<T>::saveState() {
 
 template<typename T>
 void Scheduler<T>::restoreState(const int l) {
-
-//    std::cout << "RESTORE FROM " << env.level() << " TO " << l << std::endl;
-
-env.restore(l);
+  env.restore(l);
 }
 
 template<typename T>
 void Scheduler<T>::undo() {
   search_vars.setStart(edge_propag_pointer);
 }
-
-// template<typename T>
-// void Scheduler<T>::notifySolution() {
-//
-//   assert(lower(HORIZON) < ub);
-//
-//   ub = lower(HORIZON);
-//
-//   if (options.verbosity >= Options::NORMAL)
-//     displayStats(std::cout, " new ub");
-//
-//   restart(true);
-//
-//   setprimalBound(ub - Gap<T>::epsilon());
-//
-//   best_solution = polarity;
-//
-////#ifdef DBG_SOL
-////    if(not ref_solution.empty())
-////    exit(1);
-////#endif
-//}
 
 template<typename T>
 void Scheduler<T>::branchRight() {
