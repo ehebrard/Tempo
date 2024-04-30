@@ -77,6 +77,20 @@ namespace tempo::concepts {
     template<typename E, typename T>
     concept event_dist_fun = callable_r<E, T, event, event>;
 
+    template<typename E>
+    concept arbitrary_event_dist_fun = std::invocable<E, event, event> &&
+                                       scalar<std::remove_reference_t<std::invoke_result_t<E, event, event>>>;
+
+    template<typename R, typename T>
+    concept typed_range = std::ranges::range<R> && std::same_as<std::ranges::range_value_t<R>, T>;
+
+    template<typename R, template<typename> typename T>
+    concept ttyped_range = std::ranges::range<R> && traits::is_same_template_v<T, std::ranges::range_value_t<R>>;
+
+    template<typename T>
+    concept printable = requires(const T &obj, std::ostream &os) {
+        os << obj;
+    };
 }
 
 #endif //TEMPO_TRAITS_HPP

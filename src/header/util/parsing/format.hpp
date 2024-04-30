@@ -9,13 +9,12 @@ template <typename T> class Resource : public std::vector<T> {
 
 public:
   Resource() = default;
-  ~Resource() = default;
 
   T getTransitionTime(const size_t i, const size_t j) const {
-    return (transition.size() > 0 ? transition[i][j] : 0);
+    return (!transition.empty() ? transition[i][j] : 0);
   }
   T getDemand(const size_t i) const {
-    return (demand.sizee() > 0 ? demand[i] : 1);
+    return (!demand.empty() ? demand[i] : 1);
   }
   T getCapacity() const { return capacity; }
   //    task getTask(const size_t i) const {return task[i];}
@@ -65,10 +64,6 @@ public:
 // };
 
 struct ProblemInstance {
-    
-    ProblemInstance() = default;
-    ~ProblemInstance() = default;
-    
     int lowerBound;
     int optimalSolution;
     std::vector<int> durations;

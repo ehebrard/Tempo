@@ -8,6 +8,9 @@ FetchContent_Declare(backward
         GIT_TAG v1.6)
 FetchContent_MakeAvailable(backward)
 
+# Json lib
+FetchContent_Declare(json URL https://github.com/nlohmann/json/releases/download/v3.11.2/json.tar.xz)
+FetchContent_MakeAvailable(json)
 
 # iterator library for zip and enumerate
 string(COMPARE EQUAL ${CMAKE_CXX_COMPILER_ID} "Clang" IS_CLANG)
@@ -33,6 +36,7 @@ find_package(TorchScatter QUIET)
 find_package(TorchSparse QUIET)
 
 option(ENABLE_TORCH "Build with torch. If set to off (default), you are unable to use features that depend on torch")
+option(PRETTY_JSON "Save json files in a more human readable format at the cost of higher memory usage (default on)" ON)
 set(TORCH_ENABLED FALSE)
 
 if (${ENABLE_TORCH})
@@ -41,6 +45,12 @@ if (${ENABLE_TORCH})
     elseif (${ENABLE_TORCH})
         set(TORCH_ENABLED TRUE)
     endif ()
+endif ()
+
+if (${PRETTY_JSON})
+    add_compile_definitions(__JSON_INDENT__=2)
+else ()
+    add_compile_definitions(__JSON_INDENT__=)
 endif ()
 
 if (${TORCH_ENABLED})
@@ -110,6 +120,7 @@ foreach(EXEC ${EXECUTABLES})
         target_include_directories(${NAME} PRIVATE ${TorchSparse_INCLUDE_DIR})
         target_link_libraries(${NAME} PRIVATE ${TORCH_LIB})
     endif ()
+    target_link_libraries(${NAME} PRIVATE nlohmann_json::nlohmann_json)
 endforeach()
 
 
