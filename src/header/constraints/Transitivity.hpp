@@ -113,7 +113,7 @@ Transitivity<T>::Transitivity(Scheduler<T> &scheduler, const ItTask beg_task,
 // m_schedule.getEnv())),
 {
 
-  priority = LOW;
+  priority = Priority::Low;
 
   task_map.resize(m_schedule.numTask());
 

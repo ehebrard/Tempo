@@ -33,10 +33,23 @@ namespace tempo {
 //#define DBG_TRANSITIVITY true //(m_schedule.num_choicepoints >= 4064)
 //#define DBG_SOL
 
-using priority_t = unsigned;
-#define LOW 0
-#define MEDIUM 1
-#define HIGH 2
+enum class Priority {
+    Low = 0,
+    Medium,
+    High
+};
+
+/**
+ * Converts enum to underlying type
+ * @tparam E enum type
+ * @param e enum to convert
+ * @return value of underlying type
+ * @note replace with std impl in c++23: https://en.cppreference.com/w/cpp/utility/to_underlying
+ */
+template<typename E>
+constexpr auto to_underlying(E e) noexcept {
+    return static_cast<std::underlying_type_t<E>>(e);
+}
 
 using index_t = size_t;
 

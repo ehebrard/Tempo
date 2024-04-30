@@ -2,8 +2,8 @@
 // Created by tim on 15.11.22.
 //
 
-#ifndef SCHEDCL_TRAITS_HPP
-#define SCHEDCL_TRAITS_HPP
+#ifndef TEMPO_TRAITS_HPP
+#define TEMPO_TRAITS_HPP
 #include <type_traits>
 #include <functional>
 #include "Global.hpp"
@@ -78,4 +78,4 @@ namespace tempo::concepts {
 
 }
 
-#endif //SCHEDCL_TRAITS_HPP
+#endif //TEMPO_TRAITS_HPP

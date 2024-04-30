@@ -88,8 +88,8 @@ void ConstraintQueue<N>::bound_triggers(const lit var_id, const int rank,
 
   if (not cons->idempotent or responsible != static_cast<Explainer *>(cons)) {
     if (cons->notify_bound(var_id, rank) and
-        not active[cons->priority].has(cons_id)) {
-      active[cons->priority].add(cons_id);
+        not active[to_underlying(cons->priority)].has(cons_id)) {
+      active[to_underlying(cons->priority)].add(cons_id);
       ++count;
     }
   }
@@ -117,8 +117,8 @@ void ConstraintQueue<N>::edge_triggers(const lit var_id, const int rank,
   if (not cons->idempotent or responsible != static_cast<Explainer *>(cons)) {
 
     if (cons->notify_edge(var_id, rank) and
-        not active[cons->priority].has(cons_id)) {
-      active[cons->priority].add(cons_id);
+        not active[to_underlying(cons->priority)].has(cons_id)) {
+      active[to_underlying(cons->priority)].add(cons_id);
       ++count;
     }
   }
