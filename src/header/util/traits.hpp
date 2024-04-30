@@ -1,6 +1,7 @@
-//
-// Created by tim on 15.11.22.
-//
+/**
+ * @author Tim Luchterhand
+ * @date 15.11.22.
+ */
 
 #ifndef TEMPO_TRAITS_HPP
 #define TEMPO_TRAITS_HPP
