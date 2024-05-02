@@ -1,11 +1,10 @@
-// -*- Mode: c++; c-basic-offset: 4; tab-width: 4; -*-
 
 /******************************************************************************
  *
  *  file:  HelpVisitor.h
  *
  *  Copyright (c) 2003, Michael E. Smoot .
- *  All rights reserved.
+ *  All rights reverved.
  *
  *  See the file COPYING in the top directory of this distribution for
  *  more information.
@@ -38,19 +37,19 @@ private:
     /**
      * Prevent accidental copying.
      */
-    HelpVisitor(const HelpVisitor &rhs);
-    HelpVisitor &operator=(const HelpVisitor &rhs);
+  HelpVisitor(const HelpVisitor &rhs);
+  HelpVisitor &operator=(const HelpVisitor &rhs);
 
 protected:
     /**
      * The CmdLine the output will be generated for.
      */
-    CmdLineInterface *_cmd;
+  CmdLineInterface *_cmd;
 
-    /**
-     * The output object.
-     */
-    CmdLineOutput **_out;
+  /**
+   * The output object.
+   */
+  CmdLineOutput **_out;
 
 public:
     /**
@@ -58,18 +57,18 @@ public:
      * \param cmd - The CmdLine the output will be generated for.
      * \param out - The type of output.
      */
-    HelpVisitor(CmdLineInterface *cmd, CmdLineOutput **out)
-        : Visitor(), _cmd(cmd), _out(out) {}
+  HelpVisitor(CmdLineInterface *cmd, CmdLineOutput **out)
+      : Visitor(), _cmd(cmd), _out(out) {}
 
-    /**
-     * Calls the usage method of the CmdLineOutput for the
-     * specified CmdLine.
-     */
-    void visit() {
-        (*_out)->usage(*_cmd);
-        throw ExitException(0);
-    }
+  /**
+   * Calls the usage method of the CmdLineOutput for the
+   * specified CmdLine.
+   */
+  void visit() {
+    (*_out)->usage(*_cmd);
+    throw ExitException(0);
+  }
 };
-}  // namespace TCLAP
+} // namespace TCLAP
 
-#endif  // TCLAP_HELP_VISITOR_H
+#endif

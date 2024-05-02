@@ -1,12 +1,10 @@
-// -*- Mode: c++; c-basic-offset: 4; tab-width: 4; -*-
 
 /******************************************************************************
  *
  *  file:  Visitor.h
  *
  *  Copyright (c) 2003, Michael E. Smoot .
- *  Copyright (c) 2017, Google LLC
- *  All rights reserved.
+ *  All rights reverved.
  *
  *  See the file COPYING in the top directory of this distribution for
  *  more information.
@@ -42,11 +40,10 @@ public:
     virtual ~Visitor() {}
 
     /**
-     * This method (to implemented by children) will be
-     * called when the visitor is visited.
+     * Does nothing. Should be overridden by child.
      */
-    virtual void visit() = 0;
+    virtual void visit() {}
 };
-}  // namespace TCLAP
+} // namespace TCLAP
 
-#endif  // TCLAP_VISITOR_H
+#endif

@@ -1,13 +1,10 @@
-// -*- Mode: c++; c-basic-offset: 4; tab-width: 4; -*-
-
 /******************************************************************************
  *
  *  file:  ValueArg.h
  *
  *  Copyright (c) 2003, Michael E. Smoot .
  *  Copyright (c) 2004, Michael E. Smoot, Daniel Aarno.
- *  Copyright (c) 2017, Google LLC
- *  All rights reserved.
+ *  All rights reverved.
  *
  *  See the file COPYING in the top directory of this distribution for
  *  more information.
@@ -22,14 +19,14 @@
  *
  *****************************************************************************/
 
-#ifndef TCLAP_VALUE_ARG_H
-#define TCLAP_VALUE_ARG_H
-
-#include <tclap/Arg.h>
-#include <tclap/Constraint.h>
+#ifndef TCLAP_VALUE_ARGUMENT_H
+#define TCLAP_VALUE_ARGUMENT_H
 
 #include <string>
 #include <vector>
+
+#include <tclap/Arg.h>
+#include <tclap/Constraint.h>
 
 namespace TCLAP {
 
@@ -41,8 +38,7 @@ namespace TCLAP {
  * an unflagged ValueArg, it is unwise and would cause significant problems.
  * Instead use an UnlabeledValueArg.
  */
-template <class T>
-class ValueArg : public Arg {
+template <class T> class ValueArg : public Arg {
 protected:
     /**
      * The value parsed from the command line.
@@ -79,7 +75,7 @@ protected:
      */
     void _extractValue(const std::string &val);
 
-public:
+  public:
     /**
      * Labeled ValueArg constructor.
      * You could conceivably call this constructor with a blank flag,
@@ -133,7 +129,7 @@ public:
      */
     ValueArg(const std::string &flag, const std::string &name,
              const std::string &desc, bool req, T value,
-             const std::string &typeDesc, ArgContainer &parser,
+             const std::string &typeDesc, CmdLineInterface &parser,
              Visitor *v = NULL);
 
     /**
@@ -160,7 +156,7 @@ public:
      */
     ValueArg(const std::string &flag, const std::string &name,
              const std::string &desc, bool req, T value,
-             Constraint<T> *constraint, ArgContainer &parser,
+             Constraint<T> *constraint, CmdLineInterface &parser,
              Visitor *v = NULL);
 
     /**
@@ -202,13 +198,7 @@ public:
     /**
      * Returns the value of the argument.
      */
-    const T &getValue() const { return _value; }
-
-    /**
-     * A ValueArg can be used as as its value type (T) This is the
-     * same as calling getValue()
-     */
-    operator const T &() const { return getValue(); }
+    T &getValue();
 
     /**
      * Specialization of shortID.
@@ -224,12 +214,11 @@ public:
 
     virtual void reset();
 
-private:
     /**
      * Prevent accidental copying
      */
-    ValueArg<T>(const ValueArg<T> &rhs);
-    ValueArg<T> &operator=(const ValueArg<T> &rhs);
+    ValueArg(const ValueArg<T> &rhs) = delete;
+    ValueArg &operator=(const ValueArg<T> &rhs) = delete;
 };
 
 /**
@@ -239,127 +228,125 @@ template <class T>
 ValueArg<T>::ValueArg(const std::string &flag, const std::string &name,
                       const std::string &desc, bool req, T val,
                       const std::string &typeDesc, Visitor *v)
-    : Arg(flag, name, desc, req, true, v),
-      _value(val),
-      _default(val),
-      _typeDesc(typeDesc),
-      _constraint(NULL) {}
+    : Arg(flag, name, desc, req, true, v), _value(val), _default(val),
+      _typeDesc(typeDesc), _constraint(NULL) {}
 
 template <class T>
 ValueArg<T>::ValueArg(const std::string &flag, const std::string &name,
                       const std::string &desc, bool req, T val,
-                      const std::string &typeDesc, ArgContainer &parser,
+                      const std::string &typeDesc, CmdLineInterface &parser,
                       Visitor *v)
-    : Arg(flag, name, desc, req, true, v),
-      _value(val),
-      _default(val),
-      _typeDesc(typeDesc),
-      _constraint(NULL) {
-    parser.add(this);
+    : Arg(flag, name, desc, req, true, v), _value(val), _default(val),
+      _typeDesc(typeDesc), _constraint(NULL) {
+  parser.add(this);
 }
 
 template <class T>
 ValueArg<T>::ValueArg(const std::string &flag, const std::string &name,
                       const std::string &desc, bool req, T val,
                       Constraint<T> *constraint, Visitor *v)
-    : Arg(flag, name, desc, req, true, v),
-      _value(val),
-      _default(val),
-      _typeDesc(Constraint<T>::shortID(constraint)),
-      _constraint(constraint) {}
+    : Arg(flag, name, desc, req, true, v), _value(val), _default(val),
+      _typeDesc(constraint->shortID()), _constraint(constraint) {}
 
 template <class T>
 ValueArg<T>::ValueArg(const std::string &flag, const std::string &name,
                       const std::string &desc, bool req, T val,
-                      Constraint<T> *constraint, ArgContainer &parser,
+                      Constraint<T> *constraint, CmdLineInterface &parser,
                       Visitor *v)
-    : Arg(flag, name, desc, req, true, v),
-      _value(val),
-      _default(val),
-      _typeDesc(Constraint<T>::shortID(constraint)),
-      _constraint(constraint) {
-    parser.add(this);
+    : Arg(flag, name, desc, req, true, v), _value(val), _default(val),
+      _typeDesc(constraint->shortID()), _constraint(constraint) {
+  parser.add(this);
 }
+
+/**
+ * Implementation of getValue().
+ */
+template <class T> T &ValueArg<T>::getValue() { return _value; }
 
 /**
  * Implementation of processArg().
  */
 template <class T>
 bool ValueArg<T>::processArg(int *i, std::vector<std::string> &args) {
-    if (_hasBlanks(args[*i])) return false;
+  if (_ignoreable && Arg::ignoreRest())
+    return false;
 
-    std::string flag = args[*i];
+  if (_hasBlanks(args[*i]))
+    return false;
 
-    std::string value = "";
-    trimFlag(flag, value);
+  std::string flag = args[*i];
 
-    if (argMatches(flag)) {
-        if (_alreadySet) {
-            throw(CmdLineParseException("Argument already set!", toString()));
-        }
+  std::string value = "";
+  trimFlag(flag, value);
 
-        if (Arg::delimiter() != ' ' && value == "")
-            throw(ArgParseException(
-                "Couldn't find delimiter for this argument!", toString()));
-
-        if (value == "") {
-            (*i)++;
-            if (static_cast<unsigned int>(*i) < args.size())
-                _extractValue(args[*i]);
-            else
-                throw(ArgParseException("Missing a value for this argument!",
-                                        toString()));
-        } else {
-            _extractValue(value);
-        }
-
-        _alreadySet = true;
-        _setBy = flag;
-        _checkWithVisitor();
-        return true;
-    } else {
-        return false;
+  if (argMatches(flag)) {
+    if (_alreadySet) {
+      if (_xorSet)
+        throw(CmdLineParseException("Mutually exclusive argument already set!",
+                                    toString()));
+      else
+        throw(CmdLineParseException("Argument already set!", toString()));
     }
+
+    if (Arg::delimiter() != ' ' && value == "")
+      throw(ArgParseException("Couldn't find delimiter for this argument!",
+                              toString()));
+
+    if (value == "") {
+      (*i)++;
+      if (static_cast<unsigned int>(*i) < args.size())
+        _extractValue(args[*i]);
+      else
+        throw(ArgParseException("Missing a value for this argument!",
+                                toString()));
+    } else
+      _extractValue(value);
+
+    _alreadySet = true;
+    _checkWithVisitor();
+    return true;
+  } else
+    return false;
 }
 
 /**
  * Implementation of shortID.
  */
 template <class T>
-std::string ValueArg<T>::shortID(const std::string &) const {
-    return Arg::shortID("<" + _typeDesc + ">");
+std::string ValueArg<T>::shortID(const std::string &val) const {
+  static_cast<void>(val); // Ignore input, don't warn
+  return Arg::shortID(_typeDesc);
 }
 
 /**
  * Implementation of longID.
  */
 template <class T>
-std::string ValueArg<T>::longID(const std::string &) const {
-    return Arg::longID("<" + _typeDesc + ">");
+std::string ValueArg<T>::longID(const std::string &val) const {
+  static_cast<void>(val); // Ignore input, don't warn
+  return Arg::longID(_typeDesc);
 }
 
-template <class T>
-void ValueArg<T>::_extractValue(const std::string &val) {
-    try {
-        ExtractValue(_value, val, typename ArgTraits<T>::ValueCategory());
-    } catch (ArgParseException &e) {
-        throw ArgParseException(e.error(), toString());
-    }
+template <class T> void ValueArg<T>::_extractValue(const std::string &val) {
+  try {
+    ExtractValue(_value, val, typename ArgTraits<T>::ValueCategory());
+  } catch (ArgParseException &e) {
+    throw ArgParseException(e.error(), toString());
+  }
 
-    if (_constraint != NULL)
-        if (!_constraint->check(_value))
-            throw(CmdLineParseException("Value '" + val +
-                                            +"' does not meet constraint: " +
-                                            _constraint->description(),
-                                        toString()));
+  if (_constraint != NULL)
+    if (!_constraint->check(_value))
+      throw(CmdLineParseException(
+          "Value '" + val +
+              +"' does not meet constraint: " + _constraint->description(),
+          toString()));
 }
 
-template <class T>
-void ValueArg<T>::reset() {
-    Arg::reset();
-    _value = _default;
+template <class T> void ValueArg<T>::reset() {
+  Arg::reset();
+  _value = _default;
 }
 
-}  // namespace TCLAP
+} // namespace TCLAP
 
-#endif  // TCLAP_VALUE_ARG_H
+#endif

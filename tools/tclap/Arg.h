@@ -6,8 +6,7 @@
  *
  *  Copyright (c) 2003, Michael E. Smoot .
  *  Copyright (c) 2004, Michael E. Smoot, Daniel Aarno .
- *  Copyright (c) 2017 Google Inc.
- *  All rights reserved.
+ *  All rights reverved.
  *
  *  See the file COPYING in the top directory of this distribution for
  *  more information.
@@ -22,19 +21,14 @@
  *
  *****************************************************************************/
 
-#ifndef TCLAP_ARG_H
-#define TCLAP_ARG_H
+#ifndef TCLAP_ARGUMENT_H
+#define TCLAP_ARGUMENT_H
 
-#ifdef HAVE_TCLAP_CONFIG_H
-#include <tclap/TCLAPConfig.h>
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#else
+#define HAVE_SSTREAM
 #endif
-
-#include <tclap/ArgException.h>
-#include <tclap/ArgTraits.h>
-#include <tclap/CmdLineInterface.h>
-#include <tclap/StandardTraits.h>
-#include <tclap/Visitor.h>
-#include <tclap/sstream.h>
 
 #include <cstdio>
 #include <iomanip>
@@ -42,6 +36,22 @@
 #include <list>
 #include <string>
 #include <vector>
+
+#if defined(HAVE_SSTREAM)
+#include <sstream>
+typedef std::istringstream istringstream;
+#elif defined(HAVE_STRSTREAM)
+#include <strstream>
+typedef std::istrstream istringstream;
+#else
+#error "Need a stringstream (sstream or strstream) to compile!"
+#endif
+
+#include <tclap/ArgException.h>
+#include <tclap/ArgTraits.h>
+#include <tclap/CmdLineInterface.h>
+#include <tclap/StandardTraits.h>
+#include <tclap/Visitor.h>
 
 namespace TCLAP {
 
@@ -55,21 +65,29 @@ private:
     /**
      * Prevent accidental copying.
      */
-    Arg(const Arg &rhs);
+  Arg(const Arg &rhs);
 
-    /**
-     * Prevent accidental copying.
-     */
-    Arg &operator=(const Arg &rhs);
+  /**
+   * Prevent accidental copying.
+   */
+  Arg &operator=(const Arg &rhs);
+
+  /**
+   * Indicates whether the rest of the arguments should be ignored.
+   */
+  static bool &ignoreRestRef() {
+    static bool ign = false;
+    return ign;
+  }
 
     /**
      * The delimiter that separates an argument flag/name from the
      * value.
      */
-    static char &delimiterRef() {
-        static char delim = ' ';
-        return delim;
-    }
+  static char &delimiterRef() {
+    static char delim = ' ';
+    return delim;
+  }
 
 protected:
     /**
@@ -83,7 +101,7 @@ protected:
     std::string _flag;
 
     /**
-     * A single word namd identifying the argument.
+     * A single work namd indentifying the argument.
      * This value (preceded by two dashed {--}) can also be used
      * to identify an argument on the command line.  Note that the
      * _name does NOT include the two dashes as part of the _name. The
@@ -99,7 +117,7 @@ protected:
     /**
      * Indicating whether the argument is required.
      */
-    const bool _required;
+    bool _required;
 
     /**
      * Label to be used in usage description.  Normally set to
@@ -121,12 +139,8 @@ protected:
      */
     bool _alreadySet;
 
-    /** Indicates the value specified to set this flag (like -a or --all).
-     */
-    std::string _setBy;
-
     /**
-     * A pointer to a visitor object.
+     * A pointer to a vistitor object.
      * The visitor allows special handling to occur as soon as the
      * argument is matched.  This defaults to NULL and should not
      * be used unless absolutely necessary.
@@ -138,16 +152,16 @@ protected:
      */
     bool _ignoreable;
 
+    /**
+     * Indicates that the arg was set as part of an XOR and not on the
+     * command line.
+     */
+    bool _xorSet;
+
     bool _acceptsMultipleValues;
 
     /**
-     * Indicates if the argument is visible in the help output (e.g.,
-     * when specifying --help).
-     */
-    bool _visibleInHelp;
-
-    /**
-     * Performs the special handling described by the Visitor.
+     * Performs the special handling described by the Vistitor.
      */
     void _checkWithVisitor() const;
 
@@ -167,7 +181,7 @@ protected:
     Arg(const std::string &flag, const std::string &name,
         const std::string &desc, bool req, bool valreq, Visitor *v = NULL);
 
-public:
+  public:
     /**
      * Destructor.
      */
@@ -180,6 +194,16 @@ public:
     virtual void addToList(std::list<Arg *> &argList) const;
 
     /**
+     * Begin ignoring arguments since the "--" argument was specified.
+     */
+    static void beginIgnoring() { ignoreRestRef() = true; }
+
+    /**
+     * Whether to ignore the rest.
+     */
+    static bool ignoreRest() { return ignoreRestRef(); }
+
+    /**
      * The delimiter that separates an argument flag/name from the
      * value.
      */
@@ -189,7 +213,7 @@ public:
      * The char used as a place holder when SwitchArgs are combined.
      * Currently set to the bell char (ASCII 7).
      */
-    static char blankChar() { return '\a'; }
+    static char blankChar() { return (char)7; }
 
 /**
  * The char that indicates the beginning of a flag.  Defaults to '-', but
@@ -259,22 +283,24 @@ public:
     /**
      * Returns the argument description.
      */
-    std::string getDescription() const { return getDescription(_required); }
-
-    /**
-     * Returns the argument description.
-     *
-     * @param required if the argument should be treated as
-     * required when described.
-     */
-    std::string getDescription(bool required) const {
-        return (required ? "(" + _requireLabel + ") " : "") + _description;
-    }
+    std::string getDescription() const;
 
     /**
      * Indicates whether the argument is required.
      */
     virtual bool isRequired() const;
+
+    /**
+     * Sets _required to true. This is used by the XorHandler.
+     * You really have no reason to ever use it.
+     */
+    void forceRequired();
+
+    /**
+     * Sets the _alreadySet value to true.  This is used by the XorHandler.
+     * You really have no reason to ever use it.
+     */
+    void xorSet();
 
     /**
      * Indicates whether a value must be specified for argument.
@@ -286,11 +312,6 @@ public:
      * if the arg has been matched on the command line.
      */
     bool isSet() const;
-
-    /**
-     * Returns the value specified to set this flag (like -a or --all).
-     */
-    const std::string &setBy() const { return _setBy; }
 
     /**
      * Indicates whether the argument can be ignored, if desired.
@@ -343,8 +364,15 @@ public:
     bool _hasBlanks(const std::string &s) const;
 
     /**
-     * Used for MultiArgs to determine whether args can still be
-     * set.
+     * Sets the requireLabel. Used by XorHandler.  You shouldn't ever
+     * use this.
+     * \param s - Set the requireLabel to this value.
+     */
+    void setRequireLabel(const std::string &s);
+
+    /**
+     * Used for MultiArgs and XorHandler to determine whether args
+     * can still be set.
      */
     virtual bool allowMore();
 
@@ -359,35 +387,22 @@ public:
      * command lines.
      */
     virtual void reset();
-
-    /**
-     * Hide this argument from the help output (e.g., when
-     * specifying the --help flag or on error.
-     */
-    virtual void hideFromHelp(bool hide = true) { _visibleInHelp = !hide; }
-
-    /**
-     * Returns true if this Arg is visible in the help output.
-     */
-    virtual bool visibleInHelp() const { return _visibleInHelp; }
-
-    virtual bool hasLabel() const { return true; }
 };
 
 /**
  * Typedef of an Arg list iterator.
  */
-typedef std::list<Arg *>::const_iterator ArgListIterator;
+typedef std::list<Arg *>::iterator ArgListIterator;
 
 /**
  * Typedef of an Arg vector iterator.
  */
-typedef std::vector<Arg *>::const_iterator ArgVectorIterator;
+typedef std::vector<Arg *>::iterator ArgVectorIterator;
 
 /**
  * Typedef of a Visitor list iterator.
  */
-typedef std::list<Visitor *>::const_iterator VisitorListIterator;
+typedef std::list<Visitor *>::iterator VisitorListIterator;
 
 /*
  * Extract a value of type T from it's string representation contained
@@ -397,12 +412,12 @@ typedef std::list<Visitor *>::const_iterator VisitorListIterator;
  */
 template <typename T>
 void ExtractValue(T &destVal, const std::string &strVal, ValueLike vl) {
-    static_cast<void>(vl);  // Avoid warning about unused vl
-    istringstream is(strVal.c_str());
+  static_cast<void>(vl); // Avoid warning about unused vl
+  std::istringstream is(strVal);
 
-    int valuesRead = 0;
-    while (is.good()) {
-        if (is.peek() != EOF)
+  int valuesRead = 0;
+  while (is.good()) {
+    if (is.peek() != EOF)
 #ifdef TCLAP_SETBASE_ZERO
             is >> std::setbase(0) >> destVal;
 #else
@@ -412,17 +427,15 @@ void ExtractValue(T &destVal, const std::string &strVal, ValueLike vl) {
             break;
 
         valuesRead++;
-    }
+  }
 
     if (is.fail())
-        throw(
-            ArgParseException("Couldn't read argument value "
+      throw(ArgParseException("Couldn't read argument value "
                               "from string '" +
                               strVal + "'"));
 
     if (valuesRead > 1)
-        throw(
-            ArgParseException("More than one valid value parsed from "
+      throw(ArgParseException("More than one valid value parsed from "
                               "string '" +
                               strVal + "'"));
 }
@@ -435,8 +448,8 @@ void ExtractValue(T &destVal, const std::string &strVal, ValueLike vl) {
  */
 template <typename T>
 void ExtractValue(T &destVal, const std::string &strVal, StringLike sl) {
-    static_cast<void>(sl);  // Avoid warning about unused sl
-    SetString(destVal, strVal);
+  static_cast<void>(sl); // Avoid warning about unused sl
+  SetString(destVal, strVal);
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -445,79 +458,89 @@ void ExtractValue(T &destVal, const std::string &strVal, StringLike sl) {
 
 inline Arg::Arg(const std::string &flag, const std::string &name,
                 const std::string &desc, bool req, bool valreq, Visitor *v)
-    : _flag(flag),
-      _name(name),
-      _description(desc),
-      _required(req),
-      _requireLabel("required"),
-      _valueRequired(valreq),
-      _alreadySet(false),
-      _setBy(),
-      _visitor(v),
-      _ignoreable(true),
-      _acceptsMultipleValues(false),
-      _visibleInHelp(true) {
-    if (_flag.length() > 1)
-        throw(SpecificationException(
-            "Argument flag can only be one character long", toString()));
+    : _flag(flag), _name(name), _description(desc), _required(req),
+      _requireLabel("required"), _valueRequired(valreq), _alreadySet(false),
+      _visitor(v), _ignoreable(true), _xorSet(false),
+      _acceptsMultipleValues(false) {
+  if (_flag.length() > 1)
+    throw(SpecificationException("Argument flag can only be one character long",
+                                 toString()));
 
-    if (_name != ignoreNameString() &&
-        (_flag == Arg::flagStartString() || _flag == Arg::nameStartString() ||
-         _flag == " "))
-        throw(SpecificationException(
-            "Argument flag cannot be either '" + Arg::flagStartString() +
-                "' or '" + Arg::nameStartString() + "' or a space.",
-            toString()));
+  if (_name != ignoreNameString() &&
+      (_flag == Arg::flagStartString() || _flag == Arg::nameStartString() ||
+       _flag == " "))
+    throw(SpecificationException("Argument flag cannot be either '" +
+                                     Arg::flagStartString() + "' or '" +
+                                     Arg::nameStartString() + "' or a space.",
+                                 toString()));
 
-    if ((_name.substr(0, Arg::flagStartString().length()) ==
-         Arg::flagStartString()) ||
-        (_name.substr(0, Arg::nameStartString().length()) ==
-         Arg::nameStartString()) ||
-        (_name.find(" ", 0) != std::string::npos))
-        throw(SpecificationException("Argument name begin with either '" +
-                                         Arg::flagStartString() + "' or '" +
-                                         Arg::nameStartString() + "' or space.",
-                                     toString()));
+  if ((_name.substr(0, Arg::flagStartString().length()) ==
+       Arg::flagStartString()) ||
+      (_name.substr(0, Arg::nameStartString().length()) ==
+       Arg::nameStartString()) ||
+      (_name.find(" ", 0) != std::string::npos))
+    throw(SpecificationException("Argument name begin with either '" +
+                                     Arg::flagStartString() + "' or '" +
+                                     Arg::nameStartString() + "' or space.",
+                                 toString()));
 }
 
 inline Arg::~Arg() {}
 
 inline std::string Arg::shortID(const std::string &valueId) const {
-    std::string id = "";
+  std::string id = "";
 
-    if (_flag != "")
-        id = Arg::flagStartString() + _flag;
-    else
-        id = Arg::nameStartString() + _name;
+  if (_flag != "")
+    id = Arg::flagStartString() + _flag;
+  else
+    id = Arg::nameStartString() + _name;
 
-    if (_valueRequired) id += std::string(1, Arg::delimiter()) + valueId;
+  if (_valueRequired)
+    id += std::string(1, Arg::delimiter()) + "<" + valueId + ">";
 
-    return id;
+  if (!_required)
+    id = "[" + id + "]";
+
+  return id;
 }
 
 inline std::string Arg::longID(const std::string &valueId) const {
-    std::string id = "";
+  std::string id = "";
 
-    if (_flag != "") {
-        id += Arg::flagStartString() + _flag;
+  if (_flag != "") {
+    id += Arg::flagStartString() + _flag;
 
-        if (_valueRequired) id += std::string(1, Arg::delimiter()) + valueId;
+    if (_valueRequired)
+      id += std::string(1, Arg::delimiter()) + "<" + valueId + ">";
 
-        id += ",  ";
-    }
+    id += ",  ";
+  }
 
-    id += Arg::nameStartString() + _name;
+  id += Arg::nameStartString() + _name;
 
-    if (_valueRequired) id += std::string(1, Arg::delimiter()) + valueId;
+  if (_valueRequired)
+    id += std::string(1, Arg::delimiter()) + "<" + valueId + ">";
 
-    return id;
+  return id;
 }
 
 inline bool Arg::operator==(const Arg &a) const {
-    if ((_flag != "" && _flag == a._flag) || _name == a._name)
-        return true;
-    else
-        return false;
+  if ((_flag != "" && _flag == a._flag) || _name == a._name)
+    return true;
+  else
+    return false;
+}
+
+inline std::string Arg::getDescription() const {
+  std::string desc = "";
+  if (_required)
+    desc = "(" + _requireLabel + ")  ";
+
+  //	if ( _valueRequired )
+  //		desc += "(value required)  ";
+
+  desc += _description;
+  return desc;
 }
 
 inline const std::string &Arg::getFlag() const { return _flag; }
@@ -528,76 +551,96 @@ inline bool Arg::isRequired() const { return _required; }
 
 inline bool Arg::isValueRequired() const { return _valueRequired; }
 
-inline bool Arg::isSet() const { return _alreadySet; }
+inline bool Arg::isSet() const {
+  if (_alreadySet && !_xorSet)
+    return true;
+  else
+    return false;
+}
 
 inline bool Arg::isIgnoreable() const { return _ignoreable; }
 
+inline void Arg::setRequireLabel(const std::string &s) { _requireLabel = s; }
+
 inline bool Arg::argMatches(const std::string &argFlag) const {
-    if ((argFlag == Arg::flagStartString() + _flag && _flag != "") ||
-        argFlag == Arg::nameStartString() + _name)
-        return true;
-    else
-        return false;
+  if ((argFlag == Arg::flagStartString() + _flag && _flag != "") ||
+      argFlag == Arg::nameStartString() + _name)
+    return true;
+  else
+    return false;
 }
 
 inline std::string Arg::toString() const {
-    std::string s = "";
+  std::string s = "";
 
-    if (_flag != "") s += Arg::flagStartString() + _flag + " ";
+  if (_flag != "")
+    s += Arg::flagStartString() + _flag + " ";
 
-    s += "(" + Arg::nameStartString() + _name + ")";
+  s += "(" + Arg::nameStartString() + _name + ")";
 
-    return s;
+  return s;
 }
 
 inline void Arg::_checkWithVisitor() const {
-    if (_visitor != NULL) _visitor->visit();
+  if (_visitor != NULL)
+    _visitor->visit();
 }
 
 /**
  * Implementation of trimFlag.
  */
 inline void Arg::trimFlag(std::string &flag, std::string &value) const {
-    int stop = 0;
-    for (int i = 0; static_cast<unsigned int>(i) < flag.length(); i++)
-        if (flag[i] == Arg::delimiter()) {
-            stop = i;
-            break;
-        }
-
-    if (stop > 1) {
-        value = flag.substr(stop + 1);
-        flag = flag.substr(0, stop);
+  int stop = 0;
+  for (int i = 0; static_cast<unsigned int>(i) < flag.length(); i++)
+    if (flag[i] == Arg::delimiter()) {
+      stop = i;
+      break;
     }
+
+  if (stop > 1) {
+    value = flag.substr(stop + 1);
+    flag = flag.substr(0, stop);
+  }
 }
 
 /**
  * Implementation of _hasBlanks.
  */
 inline bool Arg::_hasBlanks(const std::string &s) const {
-    for (int i = 1; static_cast<unsigned int>(i) < s.length(); i++)
-        if (s[i] == Arg::blankChar()) return true;
+  for (int i = 1; static_cast<unsigned int>(i) < s.length(); i++)
+    if (s[i] == Arg::blankChar())
+      return true;
 
-    return false;
+  return false;
+}
+
+inline void Arg::forceRequired() { _required = true; }
+
+inline void Arg::xorSet() {
+  _alreadySet = true;
+  _xorSet = true;
 }
 
 /**
  * Overridden by Args that need to added to the end of the list.
  */
 inline void Arg::addToList(std::list<Arg *> &argList) const {
-    argList.push_front(const_cast<Arg *>(this));
+  argList.push_front(const_cast<Arg *>(this));
 }
 
 inline bool Arg::allowMore() { return false; }
 
 inline bool Arg::acceptsMultipleValues() { return _acceptsMultipleValues; }
 
-inline void Arg::reset() { _alreadySet = false; }
+inline void Arg::reset() {
+  _xorSet = false;
+  _alreadySet = false;
+}
 
 //////////////////////////////////////////////////////////////////////
 // END Arg.cpp
 //////////////////////////////////////////////////////////////////////
 
-}  // namespace TCLAP
+} // namespace TCLAP
 
-#endif  // TCLAP_ARG_H
+#endif

@@ -5,8 +5,7 @@
  *  file:  DocBookOutput.h
  *
  *  Copyright (c) 2004, Michael E. Smoot
- *  Copyright (c) 2017, Google LLC
- *  All rights reserved.
+ *  All rights reverved.
  *
  *  See the file COPYING in the top directory of this distribution for
  *  more information.
@@ -21,18 +20,19 @@
  *
  *****************************************************************************/
 
-#ifndef TCLAP_DOC_BOOK_OUTPUT_H
-#define TCLAP_DOC_BOOK_OUTPUT_H
-
-#include <tclap/Arg.h>
-#include <tclap/CmdLineInterface.h>
-#include <tclap/CmdLineOutput.h>
+#ifndef TCLAP_DOCBOOKOUTPUT_H
+#define TCLAP_DOCBOOKOUTPUT_H
 
 #include <algorithm>
 #include <iostream>
 #include <list>
 #include <string>
 #include <vector>
+
+#include <tclap/Arg.h>
+#include <tclap/CmdLineInterface.h>
+#include <tclap/CmdLineOutput.h>
+#include <tclap/XorHandler.h>
 
 namespace TCLAP {
 
@@ -41,30 +41,29 @@ namespace TCLAP {
  * given CmdLine and its Args.
  */
 class DocBookOutput : public CmdLineOutput {
+
 public:
     /**
      * Prints the usage to stdout.  Can be overridden to
      * produce alternative behavior.
      * \param c - The CmdLine object the output is generated for.
      */
-    virtual void usage(CmdLineInterface &c);
+  virtual void usage(CmdLineInterface &c);
 
-    /**
-     * Prints the version to stdout. Can be overridden
-     * to produce alternative behavior.
-     * \param c - The CmdLine object the output is generated for.
-     */
-    virtual void version(CmdLineInterface &c);
+  /**
+   * Prints the version to stdout. Can be overridden
+   * to produce alternative behavior.
+   * \param c - The CmdLine object the output is generated for.
+   */
+  virtual void version(CmdLineInterface &c);
 
-    /**
-     * Prints (to stderr) an error message, short usage
-     * Can be overridden to produce alternative behavior.
-     * \param c - The CmdLine object the output is generated for.
-     * \param e - The ArgException that caused the failure.
-     */
-    virtual void failure(CmdLineInterface &c, ArgException &e);
-
-    DocBookOutput() : theDelimiter('=') {}
+  /**
+   * Prints (to stderr) an error message, short usage
+   * Can be overridden to produce alternative behavior.
+   * \param c - The CmdLine object the output is generated for.
+   * \param e - The ArgException that caused the failure.
+   */
+  virtual void failure(CmdLineInterface &c, ArgException &e);
 
 protected:
     /**
@@ -73,228 +72,208 @@ protected:
      * \param r - The char to replace.
      * \param x - What to replace r with.
      */
-    void substituteSpecialChars(std::string &s, char r,
-                                const std::string &x) const;
-    void removeChar(std::string &s, char r) const;
+  void substituteSpecialChars(std::string &s, char r, std::string &x);
+  void removeChar(std::string &s, char r);
+  void basename(std::string &s);
 
-    void printShortArg(Arg *it, bool required);
-    void printLongArg(const ArgGroup &it) const;
+  void printShortArg(Arg *it);
+  void printLongArg(Arg *it);
 
-    char theDelimiter;
+  char theDelimiter;
 };
 
 inline void DocBookOutput::version(CmdLineInterface &_cmd) {
-    std::cout << _cmd.getVersion() << std::endl;
+  std::cout << _cmd.getVersion() << std::endl;
 }
-
-namespace internal {
-const char *GroupChoice(const ArgGroup &group) {
-    if (!group.showAsGroup()) {
-        return "plain";
-    }
-
-    if (group.isRequired()) {
-        return "req";
-    }
-
-    return "opt";
-}
-}  // namespace internal
 
 inline void DocBookOutput::usage(CmdLineInterface &_cmd) {
-    std::list<ArgGroup *> argSets = _cmd.getArgGroups();
-    std::string progName = _cmd.getProgramName();
-    std::string xversion = _cmd.getVersion();
-    theDelimiter = _cmd.getDelimiter();
+  std::list<Arg *> argList = _cmd.getArgList();
+  std::string progName = _cmd.getProgramName();
+  std::string xversion = _cmd.getVersion();
+  theDelimiter = _cmd.getDelimiter();
+  XorHandler xorHandler = _cmd.getXorHandler();
+  std::vector<std::vector<Arg *>> xorList = xorHandler.getXorList();
+  basename(progName);
 
-    std::cout << "<?xml version='1.0'?>\n";
-    std::cout
-        << "<!DOCTYPE refentry PUBLIC \"-//OASIS//DTD DocBook XML V4.2//EN\"\n";
-    std::cout
-        << "\t\"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd\">\n\n";
+  std::cout << "<?xml version='1.0'?>" << std::endl;
+  std::cout
+      << "<!DOCTYPE refentry PUBLIC \"-//OASIS//DTD DocBook XML V4.2//EN\""
+      << std::endl;
+  std::cout << "\t\"http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd\">"
+            << std::endl
+            << std::endl;
 
-    std::cout << "<refentry>\n";
+  std::cout << "<refentry>" << std::endl;
 
-    std::cout << "<refmeta>\n";
-    std::cout << "<refentrytitle>" << progName << "</refentrytitle>\n";
-    std::cout << "<manvolnum>1</manvolnum>\n";
-    std::cout << "</refmeta>\n";
+  std::cout << "<refmeta>" << std::endl;
+  std::cout << "<refentrytitle>" << progName << "</refentrytitle>" << std::endl;
+  std::cout << "<manvolnum>1</manvolnum>" << std::endl;
+  std::cout << "</refmeta>" << std::endl;
 
-    std::cout << "<refnamediv>\n";
-    std::cout << "<refname>" << progName << "</refname>\n";
-    std::cout << "<refpurpose>" << _cmd.getMessage() << "</refpurpose>\n";
-    std::cout << "</refnamediv>\n";
+  std::cout << "<refnamediv>" << std::endl;
+  std::cout << "<refname>" << progName << "</refname>" << std::endl;
+  std::cout << "<refpurpose>" << _cmd.getMessage() << "</refpurpose>"
+            << std::endl;
+  std::cout << "</refnamediv>" << std::endl;
 
-    std::cout << "<refsynopsisdiv>\n";
-    std::cout << "<cmdsynopsis>\n";
+  std::cout << "<refsynopsisdiv>" << std::endl;
+  std::cout << "<cmdsynopsis>" << std::endl;
 
-    std::cout << "<command>" << progName << "</command>\n";
+  std::cout << "<command>" << progName << "</command>" << std::endl;
 
-    for (std::list<ArgGroup *>::iterator sit = argSets.begin();
-         sit != argSets.end(); ++sit) {
-        int visible = CountVisibleArgs(**sit);
-        if (visible > 1) {
-            std::cout << "<group choice='" << internal::GroupChoice(**sit)
-                      << "'>\n";
-        }
-        for (ArgGroup::iterator it = (*sit)->begin(); it != (*sit)->end();
-             ++it) {
-            if (!(*it)->visibleInHelp()) {
-                continue;
-            }
+  // xor
+  for (int i = 0; (unsigned int)i < xorList.size(); i++) {
+    std::cout << "<group choice='req'>" << std::endl;
+    for (ArgVectorIterator it = xorList[i].begin(); it != xorList[i].end();
+         it++)
+      printShortArg((*it));
 
-            printShortArg(*it, (*it)->isRequired() ||
-                                   (visible == 1 && (**sit).isRequired()));
-        }
-        if (visible > 1) {
-            std::cout << "</group>\n";
-        }
-    }
+    std::cout << "</group>" << std::endl;
+  }
 
-    std::cout << "</cmdsynopsis>\n";
-    std::cout << "</refsynopsisdiv>\n";
+  // rest of args
+  for (ArgListIterator it = argList.begin(); it != argList.end(); it++)
+    if (!xorHandler.contains((*it)))
+      printShortArg((*it));
 
-    std::cout << "<refsect1>\n";
-    std::cout << "<title>Description</title>\n";
-    std::cout << "<para>\n";
-    std::cout << _cmd.getMessage() << '\n';
-    std::cout << "</para>\n";
-    std::cout << "</refsect1>\n";
+  std::cout << "</cmdsynopsis>" << std::endl;
+  std::cout << "</refsynopsisdiv>" << std::endl;
 
-    std::cout << "<refsect1>\n";
-    std::cout << "<title>Options</title>\n";
+  std::cout << "<refsect1>" << std::endl;
+  std::cout << "<title>Description</title>" << std::endl;
+  std::cout << "<para>" << std::endl;
+  std::cout << _cmd.getMessage() << std::endl;
+  std::cout << "</para>" << std::endl;
+  std::cout << "</refsect1>" << std::endl;
 
-    std::cout << "<variablelist>\n";
+  std::cout << "<refsect1>" << std::endl;
+  std::cout << "<title>Options</title>" << std::endl;
 
-    for (std::list<ArgGroup *>::iterator sit = argSets.begin();
-         sit != argSets.end(); ++sit) {
-        printLongArg(**sit);
-    }
+  std::cout << "<variablelist>" << std::endl;
 
-    std::cout << "</variablelist>\n";
-    std::cout << "</refsect1>\n";
+  for (ArgListIterator it = argList.begin(); it != argList.end(); it++)
+    printLongArg((*it));
 
-    std::cout << "<refsect1>\n";
-    std::cout << "<title>Version</title>\n";
-    std::cout << "<para>\n";
-    std::cout << xversion << '\n';
-    std::cout << "</para>\n";
-    std::cout << "</refsect1>\n";
+  std::cout << "</variablelist>" << std::endl;
+  std::cout << "</refsect1>" << std::endl;
 
-    std::cout << "</refentry>" << std::endl;
+  std::cout << "<refsect1>" << std::endl;
+  std::cout << "<title>Version</title>" << std::endl;
+  std::cout << "<para>" << std::endl;
+  std::cout << xversion << std::endl;
+  std::cout << "</para>" << std::endl;
+  std::cout << "</refsect1>" << std::endl;
+
+  std::cout << "</refentry>" << std::endl;
 }
 
 inline void DocBookOutput::failure(CmdLineInterface &_cmd, ArgException &e) {
-    static_cast<void>(_cmd);  // unused
-    std::cout << e.what() << std::endl;
-    throw ExitException(1);
+  static_cast<void>(_cmd); // unused
+  std::cout << e.what() << std::endl;
+  throw ExitException(1);
 }
 
 inline void DocBookOutput::substituteSpecialChars(std::string &s, char r,
-                                                  const std::string &x) const {
-    size_t p;
-    while ((p = s.find_first_of(r)) != std::string::npos) {
-        s.erase(p, 1);
-        s.insert(p, x);
-    }
+                                                  std::string &x) {
+  size_t p;
+  while ((p = s.find_first_of(r)) != std::string::npos) {
+    s.erase(p, 1);
+    s.insert(p, x);
+  }
 }
 
-inline void DocBookOutput::removeChar(std::string &s, char r) const {
-    size_t p;
-    while ((p = s.find_first_of(r)) != std::string::npos) {
-        s.erase(p, 1);
-    }
+inline void DocBookOutput::removeChar(std::string &s, char r) {
+  size_t p;
+  while ((p = s.find_first_of(r)) != std::string::npos) {
+    s.erase(p, 1);
+  }
 }
 
-inline void DocBookOutput::printShortArg(Arg *a, bool required) {
-    std::string lt = "&lt;";
-    std::string gt = "&gt;";
-
-    std::string id = a->shortID();
-    substituteSpecialChars(id, '<', lt);
-    substituteSpecialChars(id, '>', gt);
-    removeChar(id, '[');
-    removeChar(id, ']');
-
-    std::string choice = "opt";
-    if (required) {
-        choice = "plain";
-    }
-
-    std::cout << "<arg choice='" << choice << '\'';
-    if (a->acceptsMultipleValues()) std::cout << " rep='repeat'";
-
-    std::cout << '>';
-    if (!a->getFlag().empty())
-        std::cout << a->flagStartChar() << a->getFlag();
-    else
-        std::cout << a->nameStartString() << a->getName();
-    if (a->isValueRequired()) {
-        std::string arg = a->shortID();
-        removeChar(arg, '[');
-        removeChar(arg, ']');
-        removeChar(arg, '<');
-        removeChar(arg, '>');
-        removeChar(arg, '.');
-        arg.erase(0, arg.find_last_of(theDelimiter) + 1);
-        std::cout << theDelimiter;
-        std::cout << "<replaceable>" << arg << "</replaceable>";
-    }
-    std::cout << "</arg>" << std::endl;
+inline void DocBookOutput::basename(std::string &s) {
+  size_t p = s.find_last_of('/');
+  if (p != std::string::npos) {
+    s.erase(0, p + 1);
+  }
 }
 
-inline void DocBookOutput::printLongArg(const ArgGroup &group) const {
-    const std::string lt = "&lt;";
-    const std::string gt = "&gt;";
+inline void DocBookOutput::printShortArg(Arg *a) {
+  std::string lt = "&lt;";
+  std::string gt = "&gt;";
 
-    bool forceRequired = group.isRequired() && CountVisibleArgs(group) == 1;
-    for (ArgGroup::const_iterator it = group.begin(); it != group.end(); ++it) {
-        Arg &a = **it;
-        if (!a.visibleInHelp()) {
-            continue;
-        }
+  std::string id = a->shortID();
+  substituteSpecialChars(id, '<', lt);
+  substituteSpecialChars(id, '>', gt);
+  removeChar(id, '[');
+  removeChar(id, ']');
 
-        std::string desc = a.getDescription(forceRequired || a.isRequired());
-        substituteSpecialChars(desc, '<', lt);
-        substituteSpecialChars(desc, '>', gt);
+  std::string choice = "opt";
+  if (a->isRequired())
+    choice = "plain";
 
-        std::cout << "<varlistentry>\n";
+  std::cout << "<arg choice='" << choice << '\'';
+  if (a->acceptsMultipleValues())
+    std::cout << " rep='repeat'";
 
-        if (!a.getFlag().empty()) {
-            std::cout << "<term>\n";
-            std::cout << "<option>";
-            std::cout << a.flagStartChar() << a.getFlag();
-            std::cout << "</option>\n";
-            std::cout << "</term>\n";
-        }
-
-        std::cout << "<term>\n";
-        std::cout << "<option>";
-        std::cout << a.nameStartString() << a.getName();
-        if (a.isValueRequired()) {
-            std::string arg = a.shortID();
-            removeChar(arg, '[');
-            removeChar(arg, ']');
-            removeChar(arg, '<');
-            removeChar(arg, '>');
-            removeChar(arg, '.');
-            arg.erase(0, arg.find_last_of(theDelimiter) + 1);
-            std::cout << theDelimiter;
-            std::cout << "<replaceable>" << arg << "</replaceable>";
-        }
-
-        std::cout << "</option>\n";
-        std::cout << "</term>\n";
-
-        std::cout << "<listitem>\n";
-        std::cout << "<para>\n";
-        std::cout << desc << '\n';
-        std::cout << "</para>\n";
-        std::cout << "</listitem>\n";
-
-        std::cout << "</varlistentry>" << std::endl;
-    }
+  std::cout << '>';
+  if (!a->getFlag().empty())
+    std::cout << a->flagStartChar() << a->getFlag();
+  else
+    std::cout << a->nameStartString() << a->getName();
+  if (a->isValueRequired()) {
+    std::string arg = a->shortID();
+    removeChar(arg, '[');
+    removeChar(arg, ']');
+    removeChar(arg, '<');
+    removeChar(arg, '>');
+    arg.erase(0, arg.find_last_of(theDelimiter) + 1);
+    std::cout << theDelimiter;
+    std::cout << "<replaceable>" << arg << "</replaceable>";
+  }
+  std::cout << "</arg>" << std::endl;
 }
 
-}  // namespace TCLAP
-#endif  // TCLAP_DOC_BOOK_OUTPUT_H
+inline void DocBookOutput::printLongArg(Arg *a) {
+  std::string lt = "&lt;";
+  std::string gt = "&gt;";
+
+  std::string desc = a->getDescription();
+  substituteSpecialChars(desc, '<', lt);
+  substituteSpecialChars(desc, '>', gt);
+
+  std::cout << "<varlistentry>" << std::endl;
+
+  if (!a->getFlag().empty()) {
+    std::cout << "<term>" << std::endl;
+    std::cout << "<option>";
+    std::cout << a->flagStartChar() << a->getFlag();
+    std::cout << "</option>" << std::endl;
+    std::cout << "</term>" << std::endl;
+  }
+
+  std::cout << "<term>" << std::endl;
+  std::cout << "<option>";
+  std::cout << a->nameStartString() << a->getName();
+  if (a->isValueRequired()) {
+    std::string arg = a->shortID();
+    removeChar(arg, '[');
+    removeChar(arg, ']');
+    removeChar(arg, '<');
+    removeChar(arg, '>');
+    arg.erase(0, arg.find_last_of(theDelimiter) + 1);
+    std::cout << theDelimiter;
+    std::cout << "<replaceable>" << arg << "</replaceable>";
+  }
+  std::cout << "</option>" << std::endl;
+  std::cout << "</term>" << std::endl;
+
+  std::cout << "<listitem>" << std::endl;
+  std::cout << "<para>" << std::endl;
+  std::cout << desc << std::endl;
+  std::cout << "</para>" << std::endl;
+  std::cout << "</listitem>" << std::endl;
+
+  std::cout << "</varlistentry>" << std::endl;
+}
+
+} // namespace TCLAP
+#endif

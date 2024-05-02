@@ -1,4 +1,3 @@
-// -*- Mode: c++; c-basic-offset: 4; tab-width: 4; -*-
 
 /******************************************************************************
  *
@@ -6,8 +5,7 @@
  *
  *  Copyright (c) 2003, Michael E. Smoot .
  *  Copyright (c) 2004, Michael E. Smoot, Daniel Aarno.
- *  Copyright (c) 2017, Google LLC
- *  All rights reserved.
+ *  All rights reverved.
  *
  *  See the file COPYING in the top directory of this distribution for
  *  more information.
@@ -22,10 +20,8 @@
  *
  *****************************************************************************/
 
-#ifndef TCLAP_CMD_LINE_INTERFACE_H
-#define TCLAP_CMD_LINE_INTERFACE_H
-
-#include <tclap/ArgContainer.h>
+#ifndef TCLAP_COMMANDLINE_INTERFACE_H
+#define TCLAP_COMMANDLINE_INTERFACE_H
 
 #include <algorithm>
 #include <iostream>
@@ -36,14 +32,14 @@
 namespace TCLAP {
 
 class Arg;
-class ArgGroup;
 class CmdLineOutput;
+class XorHandler;
 
 /**
  * The base class that manages the command line definition and passes
  * along the parsing to the appropriate Arg classes.
  */
-class CmdLineInterface : public ArgContainer {
+class CmdLineInterface {
 public:
     /**
      * Destructor
@@ -51,45 +47,32 @@ public:
     virtual ~CmdLineInterface() {}
 
     /**
-     * Adds an argument. Ownership is not transfered.
-     * @param a - Argument to be added.
-     * @retval A reference to this so that add calls can be chained
+     * Adds an argument to the list of arguments to be parsed.
+     * \param a - Argument to be added.
      */
-    virtual ArgContainer &add(Arg &a) = 0;
+    virtual void add(Arg &a) = 0;
 
     /**
-     * Adds an argument. Ownership is not transfered.
-     * @param a - Argument to be added.
-     * @retval A reference to this so that add calls can be chained
+     * An alternative add.  Functionally identical.
+     * \param a - Argument to be added.
      */
-    virtual ArgContainer &add(Arg *a) = 0;
-
-    // TODO: Rename this to something smarter or refactor this logic so
-    // it's not needed.
-    // Internal - do not use
-    virtual void addToArgList(Arg *a) = 0;
+    virtual void add(Arg *a) = 0;
 
     /**
-     * Adds an argument group to the list of arguments to be parsed.
-     *
-     * All arguments in the group are added and the ArgGroup
-     * object will validate that the input matches its
-     * constraints.
-     *
-     * @param args - Argument group to be added.
-     * @retval A reference to this so that add calls can be chained
-     */
-    virtual ArgContainer &add(ArgGroup &args) = 0;
-
-    /**
-     * \deprecated Use OneOf instead.
+     * Add two Args that will be xor'd.
+     * If this method is used, add does
+     * not need to be called.
+     * \param a - Argument to be added and xor'd.
+     * \param b - Argument to be added and xor'd.
      */
     virtual void xorAdd(Arg &a, Arg &b) = 0;
 
     /**
-     * \deprecated Use OneOf instead.
+     * Add a list of Args that will be xor'd.  If this method is used,
+     * add does not need to be called.
+     * \param xors - List of Args to be added and xor'd.
      */
-    virtual void xorAdd(const std::vector<Arg *> &xors) = 0;
+    virtual void xorAdd(std::vector<Arg *> &xors) = 0;
 
     /**
      * Parses the command line.
@@ -106,6 +89,11 @@ public:
     void parse(std::vector<std::string> &args);
 
     /**
+     * Returns the CmdLineOutput object.
+     */
+    virtual CmdLineOutput *getOutput() = 0;
+
+    /**
      * \param co - CmdLineOutput object that we want to use instead.
      */
     virtual void setOutput(CmdLineOutput *co) = 0;
@@ -113,54 +101,46 @@ public:
     /**
      * Returns the version string.
      */
-    virtual std::string getVersion() const = 0;
+    virtual std::string &getVersion() = 0;
 
     /**
      * Returns the program name string.
      */
-    virtual std::string getProgramName() const = 0;
+    virtual std::string &getProgramName() = 0;
 
     /**
-     * Returns the list of ArgGroups.
+     * Returns the argList.
      */
-    virtual std::list<ArgGroup *> getArgGroups() = 0;
-    virtual std::list<Arg *> getArgList() const = 0;  // TODO: get rid of this
+    virtual std::list<Arg *> &getArgList() = 0;
+
+    /**
+     * Returns the XorHandler.
+     */
+    virtual XorHandler &getXorHandler() = 0;
 
     /**
      * Returns the delimiter string.
      */
-    virtual char getDelimiter() const = 0;
+    virtual char getDelimiter() = 0;
 
     /**
      * Returns the message string.
      */
-    virtual std::string getMessage() const = 0;
+    virtual std::string &getMessage() = 0;
 
     /**
      * Indicates whether or not the help and version switches were created
      * automatically.
      */
-    virtual bool hasHelpAndVersion() const = 0;
+    virtual bool hasHelpAndVersion() = 0;
 
     /**
      * Resets the instance as if it had just been constructed so that the
      * instance can be reused.
      */
     virtual void reset() = 0;
-
-    /**
-     * Begin ignoring arguments since the "--" argument was specified.
-     * \internal
-     */
-    virtual void beginIgnoring() = 0;
-
-    /**
-     * Whether to ignore the rest.
-     * \internal
-     */
-    virtual bool ignoreRest() = 0;
 };
 
-}  // namespace TCLAP
+} // namespace TCLAP
 
-#endif  // TCLAP_CMD_LINE_INTERFACE_H
+#endif

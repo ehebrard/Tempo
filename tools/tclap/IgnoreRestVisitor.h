@@ -1,12 +1,10 @@
-// -*- Mode: c++; c-basic-offset: 4; tab-width: 4; -*-
 
 /******************************************************************************
  *
  *  file:  IgnoreRestVisitor.h
  *
  *  Copyright (c) 2003, Michael E. Smoot .
- *  Copyright (c) 2020, Google LLC
- *  All rights reserved.
+ *  All rights reverved.
  *
  *  See the file COPYING in the top directory of this distribution for
  *  more information.
@@ -24,24 +22,27 @@
 #ifndef TCLAP_IGNORE_REST_VISITOR_H
 #define TCLAP_IGNORE_REST_VISITOR_H
 
-#include <tclap/CmdLineInterface.h>
+#include <tclap/Arg.h>
 #include <tclap/Visitor.h>
 
 namespace TCLAP {
 
 /**
- * A Visitor that tells the CmdLine to begin ignoring arguments after
+ * A Vistor that tells the CmdLine to begin ignoring arguments after
  * this one is parsed.
  */
 class IgnoreRestVisitor : public Visitor {
 public:
-    IgnoreRestVisitor(CmdLineInterface &cmdLine)
-        : Visitor(), cmdLine_(cmdLine) {}
-    void visit() { cmdLine_.beginIgnoring(); }
+  /**
+   * Constructor.
+   */
+  IgnoreRestVisitor() : Visitor() {}
 
-private:
-    CmdLineInterface &cmdLine_;
+  /**
+   * Sets Arg::_ignoreRest.
+   */
+  void visit() { Arg::beginIgnoring(); }
 };
-}  // namespace TCLAP
+} // namespace TCLAP
 
-#endif  // TCLAP_IGNORE_REST_VISITOR_H
+#endif

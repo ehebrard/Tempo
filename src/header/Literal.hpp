@@ -2,7 +2,7 @@
 #ifndef __TEMPO_LITERAL_HPP
 #define __TEMPO_LITERAL_HPP
 
-
+#include <stdint.h>
 
 namespace tempo {
 
@@ -11,8 +11,8 @@ namespace tempo {
 * Literal
 **********************************************/
 
-using var_t = std::uint32_t;
-using info_t = std::uint32_t;
+using var_t = uint32_t;
+using info_t = uint32_t;
 
 //// this
 // struct LitInfo {

@@ -5,8 +5,7 @@
  *  file:  StandardTraits.h
  *
  *  Copyright (c) 2007, Daniel Aarno, Michael E. Smoot .
- *  Copyright (c) 2017, Google LLC
- *  All rights reserved.
+ *  All rights reverved.
  *
  *  See the file COPYING in the top directory of this distribution for
  *  more information.
@@ -27,7 +26,9 @@
 #ifndef TCLAP_STANDARD_TRAITS_H
 #define TCLAP_STANDARD_TRAITS_H
 
-#include <string>
+#ifdef HAVE_CONFIG_H
+#include <config.h> // To check for long long
+#endif
 
 // If Microsoft has already typedef'd wchar_t as an unsigned
 // short, then compiles will break because it's as if we're
@@ -40,20 +41,123 @@
 
 namespace TCLAP {
 
-// Integer types (signed, unsigned and bool) and floating point types all
-// have value-like semantics.
+// ======================================================================
+// Integer types
+// ======================================================================
 
-// Strings have string like argument traits.
-template <>
-struct ArgTraits<std::string> {
-    typedef StringLike ValueCategory;
+/**
+ * longs have value-like semantics.
+ */
+template <> struct ArgTraits<long> { typedef ValueLike ValueCategory; };
+
+/**
+ * ints have value-like semantics.
+ */
+template <> struct ArgTraits<int> { typedef ValueLike ValueCategory; };
+
+/**
+ * shorts have value-like semantics.
+ */
+template <> struct ArgTraits<short> { typedef ValueLike ValueCategory; };
+
+/**
+ * chars have value-like semantics.
+ */
+template <> struct ArgTraits<char> { typedef ValueLike ValueCategory; };
+
+#ifdef HAVE_LONG_LONG
+/**
+ * long longs have value-like semantics.
+ */
+template <> struct ArgTraits<long long> { typedef ValueLike ValueCategory; };
+#endif
+
+// ======================================================================
+// Unsigned integer types
+// ======================================================================
+
+/**
+ * unsigned longs have value-like semantics.
+ */
+template <> struct ArgTraits<unsigned long> {
+  typedef ValueLike ValueCategory;
 };
 
-template <typename T>
-void SetString(T &dst, const std::string &src) {
-    dst = src;
+/**
+ * unsigned ints have value-like semantics.
+ */
+template <> struct ArgTraits<unsigned int> { typedef ValueLike ValueCategory; };
+
+/**
+ * unsigned shorts have value-like semantics.
+ */
+template <> struct ArgTraits<unsigned short> {
+  typedef ValueLike ValueCategory;
+};
+
+/**
+ * unsigned chars have value-like semantics.
+ */
+template <> struct ArgTraits<unsigned char> {
+  typedef ValueLike ValueCategory;
+};
+
+// Microsoft implements size_t awkwardly.
+#if defined(_MSC_VER) && defined(_M_X64)
+/**
+ * size_ts have value-like semantics.
+ */
+template <> struct ArgTraits<size_t> { typedef ValueLike ValueCategory; };
+#endif
+
+#ifdef HAVE_LONG_LONG
+/**
+ * unsigned long longs have value-like semantics.
+ */
+template <> struct ArgTraits<unsigned long long> {
+  typedef ValueLike ValueCategory;
+};
+#endif
+
+// ======================================================================
+// Float types
+// ======================================================================
+
+/**
+ * floats have value-like semantics.
+ */
+template <> struct ArgTraits<float> { typedef ValueLike ValueCategory; };
+
+/**
+ * doubles have value-like semantics.
+ */
+template <> struct ArgTraits<double> { typedef ValueLike ValueCategory; };
+
+// ======================================================================
+// Other types
+// ======================================================================
+
+/**
+ * bools have value-like semantics.
+ */
+template <> struct ArgTraits<bool> { typedef ValueLike ValueCategory; };
+
+/**
+ * wchar_ts have value-like semantics.
+ */
+#ifndef TCLAP_DONT_DECLARE_WCHAR_T_ARGTRAITS
+template <> struct ArgTraits<wchar_t> { typedef ValueLike ValueCategory; };
+#endif
+
+/**
+ * Strings have string like argument traits.
+ */
+template <> struct ArgTraits<std::string> { typedef StringLike ValueCategory; };
+
+template <typename T> void SetString(T &dst, const std::string &src) {
+  dst = src;
 }
 
-}  // namespace TCLAP
+} // namespace TCLAP
 
-#endif  // TCLAP_STANDARD_TRAITS_H
+#endif
