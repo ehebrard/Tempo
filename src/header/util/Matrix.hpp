@@ -13,6 +13,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <nlohmann/json.hpp>
 
 #include "util/traits.hpp"
 
@@ -293,4 +294,22 @@ namespace tempo {
     };
 }
 
+namespace nlohmann {
+    template<typename T>
+    struct adl_serializer<tempo::Matrix<T>> {
+        static void to_json(json &j, const tempo::Matrix<T> &matrix) {
+            using Layout = tempo::Layout;
+            j["data"] = matrix.rawData();
+            j["nRows"] = matrix.numRows();
+            j["nCols"] = matrix.numColumns();
+            j["layout"] = matrix.storageLayout() == Layout::RowMajor ? "RowMajor" : "ColMajor";
+        }
+
+        static void from_json(const json &j, tempo::Matrix<T> &matrix) {
+            matrix = tempo::Matrix<T>(j.at("nRows"), j.at("nCols"), j.at("data"),
+                                      j.at("layout").get<std::string>() == "RowMajor" ? tempo::Layout::RowMajor
+                                                                                      : tempo::Layout::ColMajor);
+        }
+    };
+}
 #endif //TEMPO_MATRIX_HPP

@@ -4,11 +4,16 @@
 #include <vector>
 
 #include "Global.hpp"
+#include "util/serialization.hpp"
 
 template <typename T> class Resource : public std::vector<T> {
 
 public:
   Resource() = default;
+
+    Resource(std::vector<T> tasks, std::vector<T> demand, std::vector<std::vector<T>> transition, T capacity) :
+            std::vector<T>(std::move(tasks)), demand(std::move(demand)), transition(std::move(transition)),
+            capacity(capacity) {}
 
   T getTransitionTime(const size_t i, const size_t j) const {
     return (!transition.empty() ? transition[i][j] : 0);
@@ -26,6 +31,23 @@ public:
   std::vector<std::vector<T>> transition;
   T capacity{1};
 };
+
+namespace nlohmann {
+    template<typename T>
+    struct adl_serializer<Resource<T>> {
+        static void to_json(json &j, const Resource<T> &resource) {
+            j["tasks"] = static_cast<const std::vector<T>&>(resource);
+            j["demand"] = resource.demand;
+            j["transition"] = resource.transition;
+            j["capacity"] = resource.capacity;
+        }
+
+        static void from_json(const json &j, Resource<T> &resource) {
+            resource = Resource<T>(j.at("tasks"), j.at("demand"), j.at("transition"), j.at("capacity"));
+        }
+    };
+
+}
 
 // template<typename T>
 // class Resource {
@@ -73,9 +95,9 @@ struct ProblemInstance {
     //    std::vector<std::vector<int>> transition;
     
 //    size_t nbTasks() { return durations.size(); }
-    
-    
 };
+
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(ProblemInstance, lowerBound, optimalSolution, durations, constraints, resources)
 
 
 #endif
