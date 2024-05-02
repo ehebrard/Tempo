@@ -53,6 +53,8 @@ else ()
     add_compile_definitions(__JSON_INDENT__=)
 endif ()
 
+add_compile_definitions(__TEST_DATA_DIR__="${CMAKE_SOURCE_DIR}/Tests/data")
+
 if (${TORCH_ENABLED})
     add_compile_definitions(__TORCH_ENABLED__=1)
     set(TORCH_LIB TorchScatter::TorchScatter TorchSparse::TorchSparse)
@@ -131,3 +133,5 @@ include(GNUInstallDirs)
 install(TARGETS tempo
     LIBRARY DESTINATION ${CMAKE_INSTALL_TEMPO}
     PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+
+add_subdirectory(Tests)
