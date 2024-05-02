@@ -17,52 +17,37 @@
 #include "nn/topology_extractors.hpp"
 
 struct TestMinimalTopologyBuilder : public tempo::nn::MinimalTopologyBuilder {
-    TestMinimalTopologyBuilder() : tempo::nn::MinimalTopologyBuilder(100) {}
     using tempo::nn::MinimalTopologyBuilder::MinimalTopologyBuilder;
     using tempo::nn::MinimalTopologyBuilder::getTopology;
     using tempo::nn::MinimalTopologyBuilder::addPrecedenceEdges;
-    using tempo::nn::MinimalTopologyBuilder::resetToImmutableTopology;
     using tempo::nn::MinimalTopologyBuilder::addEdge;
     using tempo::nn::MinimalTopologyBuilder::completeSubGraph;
-    auto &getTaskIdx() noexcept { return this->taskIdx; }
-    auto &getResIdx() noexcept { return this->resIdx; }
-    auto &getResDemands() noexcept { return this->resDemands; }
-    auto &getEdgeIdx() noexcept { return this->edgeIdx; }
-    auto &getEdgeRelResIdx() noexcept { return this->edgeRelResIdx; }
-    auto &getEdges() noexcept { return this->edges; }
-    auto &getEdgePairMask() noexcept { return this->edgePairMask; }
-    auto &getEdgeLookup() noexcept { return this->edgeLookup; }
-    std::size_t edgeLookupSize() {
-        std::size_t ret = 0;
-        getEdgeLookup().for_each([&ret](auto val) { ret += (val != tempo::nn::impl::EdgeLookup::NoValue); });
-        return ret;
-    }
 };
 
 using tempo::nn::Edge;
 using tempo::nn::EdgeVector;
 using tempo::nn::IndexType;
 using EdgeSet = std::unordered_set<Edge, boost::hash<Edge>>;
-using EdgeMap = std::remove_cvref_t<decltype(std::declval<TestMinimalTopologyBuilder>().getEdgeLookup())>;
+using EdgeMap = tempo::nn::impl::EdgeLookup;
 
 TEST_F(TopologyBuilderTest, MinimalBuilder_resource_dependencies) {
     using namespace tempo::nn;
     MinimalTopologyBuilder topologyBuilder(instance());
-    auto topology = topologyBuilder.getTopology();
+    const auto& topology = topologyBuilder.getTopology();
     testResourceDependencies(topology);
 }
 
 TEST_F(TopologyBuilderTest, MinimalBuilder_edges) {
     using namespace tempo::nn;
     MinimalTopologyBuilder topologyBuilder(instance());
-    auto topology = topologyBuilder.getTopology();
+    const auto& topology = topologyBuilder.getTopology();
     testEdges(topology);
 }
 
 TEST_F(TopologyBuilderTest, MinimalBuilder_edge_mask) {
     using namespace tempo::nn;
     MinimalTopologyBuilder topologyBuilder(instance());
-    auto topology = topologyBuilder.getTopology();
+    const auto& topology = topologyBuilder.getTopology();
     testEdgePairMask(topology);
 }
 
@@ -79,44 +64,25 @@ TEST_F(TopologyBuilderTest, MinimalBuilder_edge_resource_relations) {
 
 TEST(nn_MinimalTopologyBuilder, MinimalBuilder_addEdge) {
     using tempo::nn::Edge;
-    TestMinimalTopologyBuilder topologyBuilder;
-    topologyBuilder.addEdge({3, 2}, true, false, 19);
-    ASSERT_EQ(topologyBuilder.getEdges().size(), 1);
-    ASSERT_EQ(topologyBuilder.getEdgePairMask().size(), 1);
-    EXPECT_EQ(topologyBuilder.getEdges().back(), Edge(3, 2));
-    EXPECT_EQ(topologyBuilder.getEdgePairMask().back(), 19);
-    EXPECT_TRUE(topologyBuilder.getEdgeIdx().empty());
-    ASSERT_EQ(topologyBuilder.edgeLookupSize(), 1);
-    EXPECT_EQ(topologyBuilder.getEdgeLookup().at(3, 2), 0);
+    tempo::nn::impl::TopologyData data{.edgeLookup = tempo::nn::impl::EdgeLookup(100)};
+    TestMinimalTopologyBuilder::addEdge({3, 2}, false, 19, data);
+    ASSERT_EQ(data.edges.size(), 1);
+    ASSERT_EQ(data.edgePairMask.size(), 1);
+    EXPECT_EQ(data.edges.back(), Edge(3, 2));
+    EXPECT_EQ(data.edgePairMask.back(), 19);
+    EXPECT_TRUE(data.edgeIdx.empty());
+    ASSERT_EQ(data.edgeLookup.getNumEdges(), 1);
+    EXPECT_EQ(data.edgeLookup.at(3, 2), 0);
 
-    topologyBuilder.addEdge({1, 4}, true, true, 17);
-    ASSERT_EQ(topologyBuilder.getEdges().size(), 2);
-    ASSERT_EQ(topologyBuilder.getEdgePairMask().size(), 2);
-    EXPECT_EQ(topologyBuilder.getEdges().back(), Edge(1, 4));
-    EXPECT_EQ(topologyBuilder.getEdgePairMask().back(), 17);
-    EXPECT_EQ(topologyBuilder.getEdgeIdx().size(), 1);
-    EXPECT_EQ(topologyBuilder.getEdgeIdx().back(), 1);
-    EXPECT_EQ(topologyBuilder.edgeLookupSize(), 2);
-    EXPECT_EQ(topologyBuilder.getEdgeLookup().at(1, 4), 1);
-
-    topologyBuilder.addEdge({8, 3}, false, true, 7);
-    ASSERT_EQ(topologyBuilder.getEdges().size(), 3);
-    ASSERT_EQ(topologyBuilder.getEdgePairMask().size(), 3);
-    EXPECT_EQ(topologyBuilder.getEdges().back(), Edge(8, 3));
-    EXPECT_EQ(topologyBuilder.getEdgePairMask().back(), 7);
-    ASSERT_EQ(topologyBuilder.getEdgeIdx().size(), 2);
-    EXPECT_EQ(topologyBuilder.getEdgeIdx().back(), 2);
-    EXPECT_EQ(topologyBuilder.edgeLookupSize(), 3);
-    EXPECT_EQ(topologyBuilder.getEdgeLookup().at(8, 3), 2);
-
-    topologyBuilder.addEdge({2, 3}, false, false, 5);
-    ASSERT_EQ(topologyBuilder.getEdges().size(), 4);
-    ASSERT_EQ(topologyBuilder.getEdgePairMask().size(), 4);
-    EXPECT_EQ(topologyBuilder.getEdges().back(), Edge(2, 3));
-    EXPECT_EQ(topologyBuilder.getEdgePairMask().back(), 5);
-    ASSERT_EQ(topologyBuilder.getEdgeIdx().size(), 2);
-    EXPECT_EQ(topologyBuilder.edgeLookupSize(), 3);
-
+    TestMinimalTopologyBuilder::addEdge({1, 4}, true, 17, data);
+    ASSERT_EQ(data.edges.size(), 2);
+    ASSERT_EQ(data.edgePairMask.size(), 2);
+    EXPECT_EQ(data.edges.back(), Edge(1, 4));
+    EXPECT_EQ(data.edgePairMask.back(), 17);
+    EXPECT_EQ(data.edgeIdx.size(), 1);
+    EXPECT_EQ(data.edgeIdx.back(), 1);
+    EXPECT_EQ(data.edgeLookup.getNumEdges(), 2);
+    EXPECT_EQ(data.edgeLookup.at(1, 4), 1);
 }
 
 TEST(nn_MinimalTopologyBuilder, MinimalBuilder_addPrecedenceEdges) {
@@ -124,49 +90,23 @@ TEST(nn_MinimalTopologyBuilder, MinimalBuilder_addPrecedenceEdges) {
     using iterators::const_zip_enumerate;
     using namespace tempo;
     using std::views::transform;
+    tempo::nn::impl::TopologyData data{.edgeLookup = tempo::nn::impl::EdgeLookup(100)};
     auto evtViewer = transform(
             [](const auto &dc) { return DistanceConstraint<int>(START(dc.from), END(dc.to), dc.distance); });
     std::vector<DistanceConstraint<int>> edges{{1, 2, 0}, {2, 3, 2}, {3, 4, -1}};
-    TestMinimalTopologyBuilder topologyBuilder;
-    topologyBuilder.addEdge({2, 5}, true, true, -1);
-    topologyBuilder.addPrecedenceEdges(edges | evtViewer, true);
-    ASSERT_EQ(topologyBuilder.getEdges().size(), 4);
-    EXPECT_EQ(topologyBuilder.getEdgeIdx().size(), 1);
-    EXPECT_EQ(topologyBuilder.getEdgeIdx().front(), 0);
+    TestMinimalTopologyBuilder::addEdge({2, 5}, true, -1, data);
+    TestMinimalTopologyBuilder::addPrecedenceEdges(edges | evtViewer, data);
+    ASSERT_EQ(data.edges.size(), 4);
+    EXPECT_EQ(data.edgeIdx.size(), 1);
+    EXPECT_EQ(data.edgeIdx.front(), 0);
     EdgeSet gtEdges{{2, 5}, {1, 2}, {2, 3}, {3, 4}};
-    EXPECT_EQ(gtEdges, EdgeSet(topologyBuilder.getEdges().begin(), topologyBuilder.getEdges().end()));
-    for (auto [idx, e, m] : const_zip_enumerate(topologyBuilder.getEdges(), topologyBuilder.getEdgePairMask())) {
-        EXPECT_EQ(topologyBuilder.getEdgeLookup().at(e.first, e.second), idx);
+    EXPECT_EQ(gtEdges, EdgeSet(data.edges.begin(), data.edges.end()));
+    for (auto [idx, e, m] : const_zip_enumerate(data.edges, data.edgePairMask)) {
+        EXPECT_EQ(data.edgeLookup.at(e.first, e.second), idx);
         EXPECT_EQ(m, idx - 1);
     }
-
-    edges = decltype(edges){{4, 5, -2}, {5, 6, -1}};
-    topologyBuilder.addPrecedenceEdges(edges | evtViewer, false);
-    ASSERT_EQ(topologyBuilder.getEdges().size(), 6);
-    EXPECT_EQ(topologyBuilder.getEdgeIdx().size(), 1);
-    EXPECT_EQ(topologyBuilder.edgeLookupSize(), 4);
-    EXPECT_EQ(topologyBuilder.getEdges()[4], Edge(4, 5));
-    EXPECT_EQ(topologyBuilder.getEdges()[5], Edge(5, 6));
 }
 
-TEST(nn_MinimalTopologyBuilder, MinimalBuilder_resetToImmutableTopology) {
-    using tempo::nn::Edge;
-    using iterators::const_zip_enumerate;
-    using namespace tempo;
-    TestMinimalTopologyBuilder topologyBuilder;
-    topologyBuilder.addEdge({1, 2}, true, true, 1);
-    topologyBuilder.addEdge({2, 3}, true, false, 2);
-    std::vector<DistanceConstraint<int>> precedences{{3, 4, -1}, {4, 5, 0}};
-    topologyBuilder.addPrecedenceEdges(precedences, false);
-    topologyBuilder.addEdge({17, 4}, false, false, 9);
-    topologyBuilder.resetToImmutableTopology();
-    ASSERT_EQ(topologyBuilder.getEdges().size(), 2);
-    ASSERT_EQ(topologyBuilder.getEdgePairMask().size(), 2);
-    for (auto [idx, e, m] : const_zip_enumerate(topologyBuilder.getEdges(), topologyBuilder.getEdgePairMask(), 1)) {
-        EXPECT_EQ(e, Edge(idx, idx + 1));
-        EXPECT_EQ(m, idx);
-    }
-}
 
 auto edgeFromTensor(const torch::Tensor &tensor) -> tempo::nn::Edge {
     using tempo::nn::Edge;
@@ -225,43 +165,42 @@ void testEdges(const EdgeVector &edges, const EdgeSet &gtEdges, const EdgeMap &e
 
 
 TEST(nn_MinimalTopologyBuilder, MinimalBuilder_completeSubGraphOneResource) {
-    TestMinimalTopologyBuilder topologyBuilder;
     std::vector<int> tasks{1, 2, 3};
     std::vector<int> demands{2, 1, 4};
     constexpr int Capacity = 4;
     Resource<int> resource(tasks, demands, {}, Capacity);
-    topologyBuilder.completeSubGraph(resource, 17);
-    topologyBuilder.resetToImmutableTopology();
-    ASSERT_EQ(topologyBuilder.getTaskIdx().size(), 3);
-    ASSERT_EQ(topologyBuilder.getResIdx().size(), 3);
-    ASSERT_EQ(topologyBuilder.getResDemands().size(), 3);
-    ASSERT_EQ(topologyBuilder.getEdges().size(), 6);
-    ASSERT_EQ(topologyBuilder.getEdgePairMask().size(), 6);
-    ASSERT_EQ(topologyBuilder.getEdgeRelResIdx().size(), 6);
-    ASSERT_EQ(topologyBuilder.getEdgeIdx().size(), 6);
-    ASSERT_EQ(topologyBuilder.edgeLookupSize(), 6);
+    tempo::nn::impl::TopologyData data{.edgeLookup = tempo::nn::impl::EdgeLookup(100)};
+    TestMinimalTopologyBuilder::completeSubGraph(resource, 17, data);
+    ASSERT_EQ(data.taskIdx.size(), 3);
+    ASSERT_EQ(data.resIdx.size(), 3);
+    ASSERT_EQ(data.resDemands.size(), 3);
+    ASSERT_EQ(data.edges.size(), 6);
+    ASSERT_EQ(data.edgePairMask.size(), 6);
+    ASSERT_EQ(data.edgeRelResIdx.size(), 6);
+    ASSERT_EQ(data.edgeIdx.size(), 6);
+    ASSERT_EQ(data.edgeLookup.getNumEdges(), 6);
     EdgeSet gtEdges {{1, 2}, {2, 1}, {1, 3}, {3, 1}, {2, 3}, {3, 2}};
-    testEdges(topologyBuilder.getEdges(), gtEdges, topologyBuilder.getEdgeLookup(), topologyBuilder.getEdgePairMask());
+    testEdges(data.edges, gtEdges, data.edgeLookup, data.edgePairMask);
 
     // test task resource relation
-    for (auto r : topologyBuilder.getResIdx()) {
+    for (auto r : data.resIdx) {
         EXPECT_EQ(r, 17);
     }
 
     for (auto [t, gtDemand] : iterators::const_zip(tasks, demands)) {
-        auto res = std::ranges::find(topologyBuilder.getTaskIdx(), t);
-        ASSERT_NE(res, topologyBuilder.getTaskIdx().end());
-        auto idx = static_cast<std::size_t>(res - topologyBuilder.getTaskIdx().begin());
-        EXPECT_EQ(topologyBuilder.getResDemands().at(idx), gtDemand / static_cast<tempo::nn::DataType>(Capacity));
+        auto res = std::ranges::find(data.taskIdx, t);
+        ASSERT_NE(res, data.taskIdx.end());
+        auto idx = static_cast<std::size_t>(res - data.taskIdx.begin());
+        EXPECT_EQ(data.resDemands.at(idx), gtDemand / static_cast<tempo::nn::DataType>(Capacity));
     }
 
     // test edge resource relation
-    for (auto r : topologyBuilder.getEdgeRelResIdx()) {
+    for (auto r : data.edgeRelResIdx) {
         EXPECT_EQ(r, 17);
     }
 
     using iterators::const_enumerate;
-    for (auto [idx, edgeIdx] : const_enumerate(topologyBuilder.getEdgeIdx())) {
+    for (auto [idx, edgeIdx] : const_enumerate(data.edgeIdx)) {
         EXPECT_EQ(idx, edgeIdx);
     }
 }
@@ -283,29 +222,28 @@ void checkEdge(const Edge &edge, const EdgeVector &allEdges, std::vector<IndexTy
 }
 
 TEST(nn_MinimalTopologyBuilder, MinimalBuilder_completeSubGraph_multiple_resources) {
-    TestMinimalTopologyBuilder topologyBuilder;
     std::vector<int> tasks17{1, 2};
     std::vector<int> demands17{2, 1};
     constexpr int Capacity17 = 2;
-    topologyBuilder.completeSubGraph(Resource<int>(tasks17, demands17, {}, Capacity17), 17);
+    tempo::nn::impl::TopologyData data{.edgeLookup = tempo::nn::impl::EdgeLookup(100)};
+    TestMinimalTopologyBuilder::completeSubGraph(Resource<int>(tasks17, demands17, {}, Capacity17), 17, data);
     decltype(tasks17) tasks18{1, 2, 3};
     decltype(demands17) demands18{2, 1, 1};
     constexpr int Capacity18 = 3;
-    topologyBuilder.completeSubGraph(Resource<int>(tasks18, demands18, {}, Capacity18), 18);
-    ASSERT_EQ(topologyBuilder.getTaskIdx().size(), 5);
-    ASSERT_EQ(topologyBuilder.getResIdx().size(), 5);
-    ASSERT_EQ(topologyBuilder.getResDemands().size(), 5);
-    ASSERT_EQ(topologyBuilder.getEdges().size(), 6);
-    ASSERT_EQ(topologyBuilder.getEdgePairMask().size(), 6);
-    ASSERT_EQ(topologyBuilder.getEdgeIdx().size(), 8);
-    ASSERT_EQ(topologyBuilder.getEdgeRelResIdx().size(), 8);
+    TestMinimalTopologyBuilder::completeSubGraph(Resource<int>(tasks18, demands18, {}, Capacity18), 18, data);
+    ASSERT_EQ(data.taskIdx.size(), 5);
+    ASSERT_EQ(data.resIdx.size(), 5);
+    ASSERT_EQ(data.resDemands.size(), 5);
+    ASSERT_EQ(data.edges.size(), 6);
+    ASSERT_EQ(data.edgePairMask.size(), 6);
+    ASSERT_EQ(data.edgeIdx.size(), 8);
+    ASSERT_EQ(data.edgeRelResIdx.size(), 8);
     EdgeSet gtEdges{{1, 2}, {2, 1}, {1, 3}, {3, 1}, {2, 3}, {3, 2}};
-    testEdges(topologyBuilder.getEdges(), gtEdges, topologyBuilder.getEdgeLookup(), topologyBuilder.getEdgePairMask());
+    testEdges(data.edges, gtEdges, data.edgeLookup, data.edgePairMask);
 
-    checkIdxTensor(topologyBuilder.getResIdx(), topologyBuilder.getTaskIdx(), 17, {1, 2});
-    checkIdxTensor(topologyBuilder.getResIdx(), topologyBuilder.getTaskIdx(), 18, {1, 2, 3});
-    for (auto [t, r, d]: iterators::zip(topologyBuilder.getTaskIdx(), topologyBuilder.getResIdx(),
-                                        topologyBuilder.getResDemands())) {
+    checkIdxTensor(data.resIdx, data.taskIdx, 17, {1, 2});
+    checkIdxTensor(data.resIdx, data.taskIdx, 18, {1, 2, 3});
+    for (auto [t, r, d]: iterators::zip(data.taskIdx, data.resIdx,data.resDemands)) {
         const auto &gtT = r == 17 ? tasks17 : tasks18;
         const auto &gtD = r == 17 ? demands17 : demands18;
         auto cap = r == 17 ? Capacity17 : Capacity18;
@@ -315,16 +253,10 @@ TEST(nn_MinimalTopologyBuilder, MinimalBuilder_completeSubGraph_multiple_resourc
         EXPECT_EQ(d, gtD.at(idx) / static_cast<tempo::nn::DataType>(cap));
     }
 
-    checkEdge({1, 2}, topologyBuilder.getEdges(), topologyBuilder.getEdgeIdx(), topologyBuilder.getEdgeRelResIdx(),
-              {17, 18});
-    checkEdge({2, 1}, topologyBuilder.getEdges(), topologyBuilder.getEdgeIdx(), topologyBuilder.getEdgeRelResIdx(),
-              {17, 18});
-    checkEdge({1, 3}, topologyBuilder.getEdges(), topologyBuilder.getEdgeIdx(), topologyBuilder.getEdgeRelResIdx(),
-              {18});
-    checkEdge({3, 1}, topologyBuilder.getEdges(), topologyBuilder.getEdgeIdx(), topologyBuilder.getEdgeRelResIdx(),
-              {18});
-    checkEdge({2, 3}, topologyBuilder.getEdges(), topologyBuilder.getEdgeIdx(), topologyBuilder.getEdgeRelResIdx(),
-              {18});
-    checkEdge({3, 2}, topologyBuilder.getEdges(), topologyBuilder.getEdgeIdx(), topologyBuilder.getEdgeRelResIdx(),
-              {18});
+    checkEdge({1, 2}, data.edges, data.edgeIdx, data.edgeRelResIdx, {17, 18});
+    checkEdge({2, 1}, data.edges, data.edgeIdx, data.edgeRelResIdx, {17, 18});
+    checkEdge({1, 3}, data.edges, data.edgeIdx, data.edgeRelResIdx, {18});
+    checkEdge({3, 1}, data.edges, data.edgeIdx, data.edgeRelResIdx, {18});
+    checkEdge({2, 3}, data.edges, data.edgeIdx, data.edgeRelResIdx, {18});
+    checkEdge({3, 2}, data.edges, data.edgeIdx, data.edgeRelResIdx, {18});
 }

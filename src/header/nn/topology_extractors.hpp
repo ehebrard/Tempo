@@ -76,10 +76,23 @@ namespace tempo::nn {
                 return static_cast<const Matrix<IndexType>&>(*this)(e.first, e.second);
             }
 
+            [[nodiscard]] std::size_t getNumEdges() const;
+
             using Matrix<IndexType>::at;
             using Matrix<IndexType>::for_each;
         };
 
+        struct TopologyData {
+            EdgeLookup edgeLookup;
+            std::vector<IndexType> taskIdx{};
+            std::vector<IndexType> resIdx{};
+            std::vector<DataType> resDemands{};
+            std::vector<IndexType> edgeIdx{};
+            std::vector<IndexType> edgeRelResIdx{};
+            EdgeVector edges{};
+            std::vector<IndexType> edgePairMask{};
+            IndexType pairMaskVal{};
+        };
     }
 
     /**
@@ -106,69 +119,38 @@ namespace tempo::nn {
          * @return the graph topology representing the initial problem and the added precedences
          */
         template<typename EvtFun>
-        auto getTopology(const SolverState<EvtFun> &solverState) -> Topology {
-            resetToImmutableTopology();
-            auto edgeTensor = util::makeIndexTensor(edges);
-            auto pairMask = torch::from_blob(edgePairMask.data(), static_cast<long>(edgePairMask.size()),
-                                             indexTensorOptions()).clone();
-            return {.numTasks=numTasks, .numResources=numResources, .edgeIndices=std::move(edgeTensor),
-                    .edgePairMask=std::move(pairMask), .edgeResourceRelations=edgeResourceRelations,
-                    .resourceDependencies=resourceDependencies, .resourceDemands=resourceDemands};
+        [[nodiscard]] auto getTopology(const SolverState<EvtFun> &) const -> const Topology &{
+            return cache;
         }
 
         /**
          * Generates a graph topology based only on the initial problem instance
          * @return the graph topology representing the initial problem
          */
-        auto getTopology() -> Topology;
+        [[nodiscard]] auto getTopology() const -> const Topology&;
 
     protected:
-        explicit MinimalTopologyBuilder(std::size_t numEvents);
-
         template<std::ranges::range R>
-        void addPrecedenceEdges(const R &precedences, bool immutable) {
-            auto maskVal = pairMaskVal;
-            auto &m = immutable ? pairMaskVal : maskVal;
+        static void addPrecedenceEdges(const R &precedences, impl::TopologyData &topologyData) {
             for (auto [from, to, dist] : precedences) {
                 assert(from != ORIGIN and from != HORIZON and to != ORIGIN and to != HORIZON &&
                        "You probably passed a precedence between tasks instead of events!");
                 Edge e(TASK(from), TASK(to));
-                if (e.first == e.second or edgeLookup.contains(e)) {
+                if (e.first == e.second or topologyData.edgeLookup.contains(e)) {
                     continue;
                 }
 
-                addEdge(e, immutable, false, m++);
+                addEdge(e, false, topologyData.pairMaskVal++, topologyData);
             }
         }
 
-        void resetToImmutableTopology();
+        static void addEdge(const Edge &e, bool isResourceEdge, IndexType maskVal, impl::TopologyData &topologyData);
 
-        void addEdge(const Edge &e, bool immutable, bool isResourceEdge, IndexType maskVal);
-
-        void completeSubGraph(const Resource<int> &resourceSpec, IndexType resource);
-
-        void immutableTopologyFromDescription(const ProblemInstance &problem);
+        static void completeSubGraph(const Resource<int> &resourceSpec, IndexType resource,
+                                     impl::TopologyData &topologyData);
 
     private:
-        unsigned numTasks, numResources;
-        torch::Tensor resourceDependencies{};
-        torch::Tensor edgeResourceRelations{};
-        torch::Tensor resourceDemands{};
-        IndexType pairMaskVal = 0;
-        std::size_t immutableIdx = 0;
-
-    protected:
-        // relation index tensors, these do not change
-        std::vector<IndexType> taskIdx{};
-        std::vector<IndexType> resIdx{};
-        std::vector<DataType> resDemands{};
-        std::vector<IndexType> edgeIdx{};
-        std::vector<IndexType> edgeRelResIdx{};
-        // actual edges, these might change
-        EdgeVector edges{};
-        std::vector<IndexType> edgePairMask{};
-        //implementation stuff
-        impl::EdgeLookup edgeLookup;
+        Topology cache;
     };
 
     MAKE_FACTORY(MinimalTopologyBuilder, const ProblemInstance &problemInstance) {
