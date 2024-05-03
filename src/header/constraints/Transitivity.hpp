@@ -99,7 +99,7 @@ Transitivity<T>::Transitivity(Scheduler<T> &scheduler,
                                std::distance(beg_task, end_task),
                            &m_schedule.getEnv()) {
 
-  priority = LOW;
+  priority = Priority::Low;
 
 //  auto n{std::distance(beg_task, end_task)};
 //  auto m{std::distance(beg_var, end_var)};
