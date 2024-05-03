@@ -20,7 +20,8 @@ namespace tempo {
 template <typename T> class Transitivity : public Constraint {
 private:
   Scheduler<T> &m_schedule;
-  std::vector<task> m_tasks;
+//  std::vector<task> m_tasks;
+    std::vector<Task<T>*> the_tasks;
   //    std::vector<int> task_from; // for each disjunct (in the order they are
   //    declared as triggers, the 'from' event) std::vector<int> task_to; // for
   //    each disjunct (in the order they are declared as triggers, the 'to'
@@ -53,20 +54,18 @@ private:
       return transition_time(i,j);
   }
     size_t edge(const size_t i, const size_t j) const {
-      return m_tasks.size() * i + j;
+      return the_tasks.size() * i + j;
     }
-  size_t first(const size_t e) const { return e / m_tasks.size(); }
-  size_t second(const size_t e) const { return e % m_tasks.size(); }
+  size_t first(const size_t e) const { return e / the_tasks.size(); }
+  size_t second(const size_t e) const { return e % the_tasks.size(); }
   T transition_time(const int i, const int j) const;
 
 public:
-  template <typename ItTask, typename ItTaskI, typename ItVar>
+  template <typename ItTask, typename ItVar>
   Transitivity(Scheduler<T> &scheduler,
                const ItTask beg_task,
-               const ItTask end_task, 
-               const ItTaskI beg_taski,
-               const ItTaskI end_taski,
-               const ItVar beg_var, const ItVar end_var);
+               const ItTask end_task,
+               const ItVar beg_var);
   virtual ~Transitivity();
 
   void add_edge(const int x, const int y, const int r);
@@ -90,14 +89,11 @@ public:
 };
 
 template <typename T>
-template <typename ItTask, typename ItTaskI, typename ItVar>
+template <typename ItTask, typename ItVar>
 Transitivity<T>::Transitivity(Scheduler<T> &scheduler, 
                               const ItTask beg_task,
-                              const ItTask end_task, 
-                              const ItTaskI beg_taski,
-                              const ItTaskI end_taski,
-                              const ItVar beg_var,
-                              const ItVar end_var)
+                              const ItTask end_task,
+                              const ItVar beg_var)
     : m_schedule(scheduler),
       transitive_reduction(std::distance(beg_task, end_task) *
                                std::distance(beg_task, end_task),
@@ -105,30 +101,34 @@ Transitivity<T>::Transitivity(Scheduler<T> &scheduler,
 
   priority = LOW;
 
-  auto n{std::distance(beg_task, end_task)};
-  auto m{std::distance(beg_var, end_var)};
-  assert(m = n * (n - 1) / 2);
+//  auto n{std::distance(beg_task, end_task)};
+//  auto m{std::distance(beg_var, end_var)};
+//  assert(m = n * (n - 1) / 2);
 
   // get all tasks with non-zero duration
   //  size_t i{0}, j{0};
-  for (auto jp{beg_task}; jp != end_task; ++jp) {
+//  for (auto jp{beg_task}; jp != end_task; ++jp) {
+//
+//    task t{*jp};
+//    m_tasks.push_back(t);
+//  }
+          
+          for (auto jp{beg_task}; jp != end_task; ++jp) {
+            the_tasks.push_back(*jp);
+          }
 
-    task t{*jp};
-    m_tasks.push_back(t);
-  }
-
-  disjunct.resize(m_tasks.size());
-  sorted_tasks.resize(m_tasks.size());
-  offset.resize(m_tasks.size());
+  disjunct.resize(the_tasks.size());
+  sorted_tasks.resize(the_tasks.size());
+  offset.resize(the_tasks.size());
 
   transitive_reduction.fill(); // resize(m_tasks.size() * m_tasks.size());
-  forest.resize(m_tasks.size());
+  forest.resize(the_tasks.size());
 
-  for (size_t i{0}; i < m_tasks.size(); ++i) {
+  for (size_t i{0}; i < the_tasks.size(); ++i) {
 
-    disjunct[i].resize(m_tasks.size());
+    disjunct[i].resize(the_tasks.size());
 
-    DAG.emplace_back(m_tasks.size(), &m_schedule.getEnv());
+    DAG.emplace_back(the_tasks.size(), &m_schedule.getEnv());
     DAG.back().fill();
 
     transitive_reduction.remove_back(edge(i, i));
@@ -171,11 +171,14 @@ template <typename T> void Transitivity<T>::post(const int idx) {
   }
 #endif
 
-  for (size_t i{0}; i < m_tasks.size(); ++i) {
-    m_schedule.wake_me_on_event(LOWERBOUND(START(m_tasks[i])), cons_id);
-    m_schedule.wake_me_on_event(UPPERBOUND(END(m_tasks[i])), cons_id);
+  for (size_t i{0}; i < the_tasks.size(); ++i) {
+//    m_schedule.wake_me_on_event(LOWERBOUND(START(m_tasks[i])), cons_id);
+//    m_schedule.wake_me_on_event(UPPERBOUND(END(m_tasks[i])), cons_id);
+      m_schedule.wake_me_on_event(LOWERBOUND(the_tasks[i]->getStart()), cons_id);
+      m_schedule.wake_me_on_event(UPPERBOUND(the_tasks[i]->getEnd()), cons_id);
 
-    for (size_t j{0}; j < m_tasks.size(); ++j)
+      
+    for (size_t j{0}; j < the_tasks.size(); ++j)
       if (i != j) {
 
         m_schedule.wake_me_on_edge(disjunct[i][j], cons_id);
@@ -190,7 +193,7 @@ void Transitivity<T>::add_edge(const int x, const int y, const int r) {
 
 #ifdef DBG_TRANSITIVITY
   if (DBG_TRANSITIVITY)
-    std::cout << " ==> add edge t" << m_tasks[x] << " -> t" << m_tasks[y]
+    std::cout << " ==> add edge t" << the_tasks[x]->id() << " -> t" << the_tasks[y]->id()
               << std::endl;
 #endif
 
@@ -229,18 +232,18 @@ bool Transitivity<T>::notify_edge(const lit, const int r) {
 #ifdef DBG_TRANSITIVITY
   if (DBG_TRANSITIVITY) {
     std::cout << std::endl;
-    for (size_t i{0}; i < m_tasks.size(); ++i) {
-      std::cout << "t" << m_tasks[i] << ":";
+    for (size_t i{0}; i < the_tasks.size(); ++i) {
+      std::cout << "t" << the_tasks[i] << ":";
       for (auto j{DAG[i].fbegin()}; j != DAG[i].fend(); ++j) {
-        std::cout << " -> t" << m_tasks[*j];
+        std::cout << " -> t" << the_tasks[*j]->id();
       }
       std::cout << std::endl;
     }
 
-    for (size_t i{0}; i < m_tasks.size(); ++i) {
-      std::cout << "t" << m_tasks[i] << ":";
+    for (size_t i{0}; i < the_tasks.size(); ++i) {
+      std::cout << "t" << the_tasks[i]->id() << ":";
       for (auto j{DAG[i].bbegin()}; j != DAG[i].bend(); ++j) {
-        std::cout << " <- t" << m_tasks[*j];
+        std::cout << " <- t" << the_tasks[*j]->id();
       }
       std::cout << std::endl;
     }
@@ -299,23 +302,23 @@ bool Transitivity<T>::notify_edge(const lit, const int r) {
 #ifdef DBG_TRANSITIVITY
   if (DBG_TRANSITIVITY) {
 
-    for (size_t i{0}; i < m_tasks.size(); ++i) {
-      std::cout << "t" << m_tasks[i] << ":";
+    for (size_t i{0}; i < the_tasks.size(); ++i) {
+      std::cout << "t" << the_tasks[i]->id() << ":";
       for (auto j{DAG[i].fbegin()}; j != DAG[i].fend(); ++j) {
-        std::cout << " -> t" << m_tasks[*j];
+        std::cout << " -> t" << the_tasks[*j]->id();
       }
       std::cout << std::endl;
     }
 
-    for (size_t i{0}; i < m_tasks.size(); ++i) {
-      std::cout << "t" << m_tasks[i] << ":";
+    for (size_t i{0}; i < the_tasks.size(); ++i) {
+      std::cout << "t" << the_tasks[i]->id() << ":";
       for (auto j{DAG[i].bbegin()}; j != DAG[i].bend(); ++j) {
-        std::cout << " <- t" << m_tasks[*j];
+        std::cout << " <- t" << the_tasks[*j]->id();
       }
       std::cout << std::endl;
     }
 
-    for (size_t i{0}; i < m_tasks.size(); ++i) {
+    for (size_t i{0}; i < the_tasks.size(); ++i) {
       for (auto j{DAG[i].fbegin()}; j != DAG[i].fend(); ++j) {
         assert(DAG[*j].isback(i));
       }
@@ -353,20 +356,20 @@ bool Transitivity<T>::notify_edge(const lit, const int r) {
     }
 
     std::cout << "\nTRANS:\n";
-    for (size_t i{0}; i < m_tasks.size(); ++i) {
-      std::cout << "t" << m_tasks[i] << ":";
+    for (size_t i{0}; i < the_tasks.size(); ++i) {
+      std::cout << "t" << the_tasks[i]->id() << ":";
       for (auto j{DAG[i].fbegin()}; j != DAG[i].fend(); ++j) {
-        std::cout << " -> t" << m_tasks[*j];
+        std::cout << " -> t" << the_tasks[*j]->id();
       }
       std::cout << std::endl;
     }
 
     std::cout << "TRED:\n";
-    for (size_t i{0}; i < m_tasks.size(); ++i) {
-      std::cout << "t" << m_tasks[i] << ":";
-      for (size_t j{0}; j < m_tasks.size(); ++j) {
+    for (size_t i{0}; i < the_tasks.size(); ++i) {
+      std::cout << "t" << the_tasks[i]->id() << ":";
+      for (size_t j{0}; j < the_tasks.size(); ++j) {
         if (transitive_reduction.has(edge(i, j)))
-          std::cout << " -> t" << m_tasks[j];
+          std::cout << " -> t" << the_tasks[j]->id();
       }
       std::cout << std::endl;
     }
@@ -402,8 +405,8 @@ template <typename T> void Transitivity<T>::min_spanning_tree() {
       std::cout << "add " << first(e) << " -> " << second(e) << " ("
                 << length(e) << ") ==> " << path_length << "\n";
 
-      if (path_count == m_tasks.size() - 1) {
-        std::cout << "the tree has " << (m_tasks.size() - 1) << " edges\n";
+      if (path_count == the_tasks.size() - 1) {
+        std::cout << "the tree has " << (the_tasks.size() - 1) << " edges\n";
         break;
       }
     } else {
@@ -412,10 +415,14 @@ template <typename T> void Transitivity<T>::min_spanning_tree() {
   }
 
   T min_start{INFTY};
-  for (auto t : m_tasks) {
-    path_length += m_schedule.minDuration(t);
-    min_start = std::min(min_start, m_schedule.lower(START(t)));
-  }
+//  for (auto t : m_tasks) {
+//    path_length += m_schedule.minDuration(t);
+//    min_start = std::min(min_start, m_schedule.lower(START(t)));
+//  }
+    for (auto t : the_tasks) {
+      path_length += t->minDuration();
+      min_start = std::min(min_start, t->getEarliestStart());
+    }
   path_length += min_start;
 
   std::cout << "lb = " << path_length << " / " << m_schedule.lower(HORIZON)
@@ -430,26 +437,31 @@ template <typename T> void Transitivity<T>::propagate() {
   bool pruning{false};
 #endif
 
-  for (size_t x{0}; x < m_tasks.size(); ++x) {
+  for (size_t x{0}; x < the_tasks.size(); ++x) {
     sorted_tasks[x] = x;
     offset[x] = 0;
   }
   std::sort(sorted_tasks.begin(), sorted_tasks.end(),
             [&](const int x, const int y) -> bool {
-              return m_schedule.upper(END(m_tasks[x])) <
-                     m_schedule.upper(END(m_tasks[y]));
-            });
+      //              return m_schedule.upper(END(m_tasks[x])) <
+      //                     m_schedule.upper(END(m_tasks[y]));
+      return the_tasks[x]->getLatestEnd() <
+      the_tasks[y]->getLatestEnd();});
+
 
   for (auto x : sorted_tasks) {
 
 #ifdef DBG_TRANSITIVITY
     if (DBG_TRANSITIVITY) {
-      std::cout << "t" << m_tasks[x] << " ["
-                << m_schedule.lower(START(m_tasks[x])) << ".."
-                << m_schedule.upper(END(m_tasks[x])) << "] ("
-                << m_schedule.minDuration(m_tasks[x]) << ")";
+      std::cout << "t" << the_tasks[x]->id() << " ["
+        << the_tasks[x]->getEarliestStart() << ".."
+        << the_tasks[x]->getLatestEnd() << "] ("
+        << the_tasks[x]->minDuration() << ")";
+//                << m_schedule.lower(START(m_tasks[x])) << ".."
+//                << m_schedule.upper(END(m_tasks[x])) << "] ("
+//                << m_schedule.minDuration(m_tasks[x]) << ")";
       for (auto yp{DAG[x].fbegin()}; yp != DAG[x].fend(); ++yp) {
-        std::cout << " -> t" << m_tasks[*yp];
+        std::cout << " -> t" << the_tasks[*yp]->id();
       }
       std::cout << std::endl;
     }
@@ -458,18 +470,22 @@ template <typename T> void Transitivity<T>::propagate() {
     // get all the successors y of x in the graph, (so predecessors in the
     // schedule: y < x)
     for (auto yp{DAG[x].fbegin()}; yp != DAG[x].fend(); ++yp) {
-      offset[*yp] += m_schedule.minDuration(m_tasks[x]);
+//      offset[*yp] += m_schedule.minDuration(m_tasks[x]);
+        offset[*yp] += the_tasks[x]->minDuration();
 
       // x must end before ex
-      auto ex{m_schedule.upper(END(m_tasks[x]))};
+//      auto ex{m_schedule.upper(END(m_tasks[x]))};
+        auto ex{the_tasks[x]->getLatestEnd()};
 
       // y must end before ey
-      auto ey{m_schedule.upper(END(m_tasks[*yp]))};
+//      auto ey{m_schedule.upper(END(m_tasks[*yp]))};
+        auto ey{the_tasks[*yp]->getLatestEnd()};
 
 #ifdef DBG_TRANSITIVITY
       if (DBG_TRANSITIVITY)
-        std::cout << " new bound " << prettyEvent(END(m_tasks[*yp]))
-                  << " <= " << ex - offset[*yp] << "/" << ey << std::endl;
+        std::cout << " new bound " << the_tasks[*yp]->end.before(ex - offset[*yp])
+//                  << " <= " << ex - offset[*yp]
+          << "/" << ey << std::endl;
 #endif
 
       // y must end before ex -
@@ -477,8 +493,12 @@ template <typename T> void Transitivity<T>::propagate() {
 #ifdef DBG_LTRANS
         pruning = true;
 #endif
-        m_schedule.set({UPPERBOUND(END(m_tasks[*yp])), ex - offset[*yp]},
-                       {this, offset[*yp]});
+//        m_schedule.set({UPPERBOUND(END(m_tasks[*yp])), ex - offset[*yp]},
+//                       {this, offset[*yp]});
+          
+//          std::cout << "hello\n";
+          m_schedule.set(the_tasks[*yp]->end.before(ex - offset[*yp]), {this, offset[*yp]});
+
       }
     }
 //        }
@@ -493,14 +513,16 @@ template <typename T> void Transitivity<T>::propagate() {
     std::cout << std::endl;
 #endif
 
-  for (size_t x{0}; x < m_tasks.size(); ++x) {
+  for (size_t x{0}; x < the_tasks.size(); ++x) {
     //        sorted_tasks[x] = x;
     offset[x] = 0;
   }
   std::sort(sorted_tasks.begin(), sorted_tasks.end(),
             [&](const int x, const int y) -> bool {
-              return m_schedule.lower(START(m_tasks[x])) >
-                     m_schedule.lower(START(m_tasks[y]));
+//              return m_schedule.lower(START(m_tasks[x])) >
+//                     m_schedule.lower(START(m_tasks[y]));
+      return the_tasks[x]->getEarliestStart() >
+      the_tasks[y]->getEarliestStart();
             });
 
   //    for(auto x : sorted_tasks) {
@@ -511,36 +533,43 @@ template <typename T> void Transitivity<T>::propagate() {
   for (auto y : sorted_tasks) {
 #ifdef DBG_TRANSITIVITY
     if (DBG_TRANSITIVITY) {
-      std::cout << "t" << m_tasks[y] << " ["
-                << m_schedule.lower(START(m_tasks[y])) << ".."
-                << m_schedule.upper(END(m_tasks[y])) << "] ("
-                << m_schedule.minDuration(m_tasks[y]) << ")";
+      std::cout << "t" << the_tasks[y]->id() << " ["
+                << the_tasks[y]->getEarliestStart() << ".."
+                << the_tasks[y]->getLatestEnd() << "] ("
+                << the_tasks[y]->minDuration() << ")";
       //        if(DAG[x].frontsize() > 0) {
       for (auto xp{DAG[y].bbegin()}; xp != DAG[y].bend(); ++xp) {
-        std::cout << " <- t" << m_tasks[*xp];
+        std::cout << " <- t" << the_tasks[*xp]->id();
       }
     }
     std::cout << std::endl;
 #endif
     //        if(DAG[x].frontsize() > 0) {
     for (auto xp{DAG[y].bbegin()}; xp != DAG[y].bend(); ++xp) {
-      offset[*xp] += m_schedule.minDuration(m_tasks[y]);
+        offset[*xp] += the_tasks[y]->minDuration(); //m_schedule.minDuration(m_tasks[y]);
 
-      auto sy{m_schedule.lower(START(m_tasks[y]))};
-      auto sz{m_schedule.lower(START(m_tasks[*xp]))};
+//      auto sy{m_schedule.lower(START(m_tasks[y]))};
+//      auto sz{m_schedule.lower(START(m_tasks[*xp]))};
+        auto sy{the_tasks[y]->getEarliestStart()};
+        auto sz{the_tasks[*xp]->getEarliestStart()};
 
 #ifdef DBG_TRANSITIVITY
       if (DBG_TRANSITIVITY)
-        std::cout << " new bound " << prettyEvent(START(m_tasks[*xp]))
-                  << " >= " << sy + offset[*xp] << "/" << sz << std::endl;
+        std::cout << " new bound " 
+          the_tasks[*xp]->start.after(sy + offset[*xp])
+//          << prettyEvent(START(m_tasks[*xp]))
+//                  << " >= " << sy + offset[*xp] 
+          << "/" << sz << std::endl;
 #endif
 
       if ((sy + offset[*xp]) > sz) {
 #ifdef DBG_LTRANS
         pruning = true;
 #endif
-        m_schedule.set({LOWERBOUND(START(m_tasks[*xp])), -sy - offset[*xp]},
-                       {this, offset[*xp]});
+//        m_schedule.set({LOWERBOUND(START(m_tasks[*xp])), -sy - offset[*xp]},
+//                       {this, offset[*xp]});
+          m_schedule.set(the_tasks[*xp]->start.after(sy + offset[*xp]),
+                         {this, offset[*xp]});
       }
     }
 //        }
@@ -622,18 +651,25 @@ void Transitivity<T>::xplain(const lit l, const hint h, std::vector<lit> &Cl) {
 #endif
 
     if (SIGN(bc.l) == LOWER) {
-      auto t{TASK(EVENT(bc.l))};
+        
+//        std::cout << "hello\n";
+        
+//      auto t{TASK(EVENT(bc.l))};
+        Task<T>& t{m_schedule.getTask(EVENT(bc.l))};
       task x{-1};
-      for (unsigned i{0}; i < m_tasks.size(); ++i) {
-        if (m_tasks[i] == t) {
+      for (unsigned i{0}; i < the_tasks.size(); ++i) {
+        if (the_tasks[i]->id() == t.id()) {
           x = i;
           break;
         }
       }
 
       for (auto yp{DAG[x].fbegin()}; yp != DAG[x].fend(); ++yp) {
-        BoundConstraint<T> yc{LIT(START(m_tasks[*yp]), LOWER), bc.distance + h};
+//        BoundConstraint<T> yc_old{LIT(START(m_tasks[*yp]), LOWER), bc.distance + h};
+          BoundConstraint<T> yc{the_tasks[*yp]->start.after(-bc.distance - h)};
 
+//          assert(yc_old == yc);
+          
 #ifdef DBG_EXPL_TRANS
         std::cout << " implicant of " << yc << ": ";
 #endif
@@ -646,8 +682,9 @@ void Transitivity<T>::xplain(const lit l, const hint h, std::vector<lit> &Cl) {
 
 #ifdef DBG_EXPL_TRANS
             std::cout << m_schedule.prettyLiteral(BOUND(p)) << " ("
-                      << m_schedule.minDuration(
-                             TASK(EVENT(m_schedule.getBound(p).l)))
+//                      << m_schedule.minDuration(
+//                             TASK(EVENT(m_schedule.getBound(p).l)))
+              << m_schedule.getTask(EVENT(m_schedule.getBound(p).l)).minDuration()
                       << ") & "
                       << m_schedule.prettyLiteral(EDGE(disjunct[x][*yp]))
                       << std::endl;
@@ -665,16 +702,20 @@ void Transitivity<T>::xplain(const lit l, const hint h, std::vector<lit> &Cl) {
         }
       }
     } else {
-      auto t{TASK(EVENT(bc.l))};
+        Task<T>& t{m_schedule.getTask(EVENT(bc.l))};
+//      auto t{TASK(EVENT(bc.l))};
       task y{-1};
-      for (unsigned i{0}; i < m_tasks.size(); ++i) {
-        if (m_tasks[i] == t) {
+      for (unsigned i{0}; i < the_tasks.size(); ++i) {
+        if (the_tasks[i]->id() == t.id()) {
           y = i;
           break;
         }
       }
       for (auto xp{DAG[y].bbegin()}; xp != DAG[y].bend(); ++xp) {
-        BoundConstraint<T> xc{LIT(END(m_tasks[*xp]), UPPER), bc.distance + h};
+//        BoundConstraint<T> xc_old{LIT(END(m_tasks[*xp]), UPPER), bc.distance + h};
+          BoundConstraint<T> xc{the_tasks[*xp]->end.before(bc.distance + h)};
+          
+//          assert(xc_old == xc);
 
 #ifdef DBG_EXPL_TRANS
         std::cout << " implicant of " << xc << ": ";
@@ -688,8 +729,9 @@ void Transitivity<T>::xplain(const lit l, const hint h, std::vector<lit> &Cl) {
 
 #ifdef DBG_EXPL_TRANS
             std::cout << m_schedule.prettyLiteral(BOUND(p)) << " ("
-                      << m_schedule.minDuration(
-                             TASK(EVENT(m_schedule.getBound(p).l)))
+//                      << m_schedule.minDuration(
+//                             TASK(EVENT(m_schedule.getBound(p).l)))
+              << m_schedule.getTask(EVENT(m_schedule.getBound(p).l)).minDuration()
                       << ") & "
                       << m_schedule.prettyLiteral(EDGE(disjunct[*xp][y]))
                       << std::endl;
@@ -720,8 +762,8 @@ std::ostream &Transitivity<T>::display(std::ostream &os) const {
 #endif
 
   os << "(";
-  for (auto t : m_tasks) {
-    std::cout << " t" << t;
+  for (auto t : the_tasks) {
+    std::cout << " t" << t->id();
   }
   std::cout << " )";
   return os;

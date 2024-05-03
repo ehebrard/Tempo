@@ -773,7 +773,7 @@ template <typename T> void DisjunctiveEdgeFinding<T>::propagateForward() {
         
         if (ect(r) < ect_omega) {
 
-          BoundConstraint<T> bc = tl->endAfter(ect_omega);
+          BoundConstraint<T> bc = tl->end.after(ect_omega);
 
           //          BoundConstraint<T> bc_verif{LOWERBOUND(END(l)),
           //          -ect_omega};
@@ -962,7 +962,7 @@ template <typename T> void DisjunctiveEdgeFinding<T>::propagateBackward() {
        
         if (lst(r) < lst_omega) {
 
-          BoundConstraint<T> bc = fl->startBefore(lst_omega);
+          BoundConstraint<T> bc = fl->start.before(lst_omega);
 
           //          BoundConstraint<T> bc_verif{UPPERBOUND(START(f)),
           //          lst_omega};
@@ -1028,12 +1028,12 @@ void DisjunctiveEdgeFinding<T>::xplain(const lit l, const hint h,
     //#endif
     //    }
     for (auto ti : the_explanation_tasks[h]) {
-      BoundConstraint<T> lb{ti->startAfter(
+      BoundConstraint<T> lb{ti->start.after(
           explanation_lb[h])}; // LOWERBOUND(START(i)), -explanation_lb[h]};
       auto ll{m_schedule.getImplicant(lb)};
       Cl.push_back(BOUND(ll));
 
-      BoundConstraint<T> ub{ti->endBefore(
+      BoundConstraint<T> ub{ti->end.before(
           explanation_ub[h])}; // UPPERBOUND(END(i)), explanation_ub[h]};
       auto ul{m_schedule.getImplicant(ub)};
       Cl.push_back(BOUND(ul));
@@ -1133,12 +1133,12 @@ void DisjunctiveEdgeFinding<T>::xplain(const lit l, const hint h,
     for (size_t i{0}; i < n; ++i) {
       auto ti{the_explanation_tasks[h][i]};
 
-      BoundConstraint<T> lb{ti->startAfter(
+      BoundConstraint<T> lb{ti->start.after(
           explanation_lb[h])}; // LOWERBOUND(START(t)), -explanation_lb[h]};
       auto ll{m_schedule.getImplicant(lb)};
       Cl.push_back(BOUND(ll));
 
-      BoundConstraint<T> ub{ti->endBefore(
+      BoundConstraint<T> ub{ti->end.before(
           explanation_ub[h])}; // UPPERBOUND(END(t)), explanation_ub[h]};
       auto ul{m_schedule.getImplicant(ub)};
       Cl.push_back(BOUND(ul));
@@ -1161,10 +1161,10 @@ void DisjunctiveEdgeFinding<T>::xplain(const lit l, const hint h,
       auto lc{m_schedule.getBound(FROM_GEN(l))};
       BoundConstraint<T> pc;
       if (SIGN(lc.l) == LOWER) {
-        pc = {t->startAfter(
+        pc = {t->start.after(
             explanation_lb[h])}; // LOWERBOUND(START(i)), -explanation_lb[h]};
       } else {
-        pc = {t->endBefore(
+        pc = {t->end.before(
             explanation_ub[h])}; // UPPERBOUND(END(i)), explanation_ub[h]};
       }
       p = m_schedule.getImplicant(pc);
@@ -1173,10 +1173,10 @@ void DisjunctiveEdgeFinding<T>::xplain(const lit l, const hint h,
             auto lc{m_schedule.getEdge(FROM_GEN(l))};
             BoundConstraint<T> pc;
             if (m_schedule.getTask(lc.from) == *t) {
-              pc = {t->startAfter(explanation_lb[h])}; // LOWERBOUND(START(i)),
+              pc = {t->start.after(explanation_lb[h])}; // LOWERBOUND(START(i)),
                                                        // -explanation_lb[h]};
             } else {
-              pc = {t->endBefore(explanation_ub[h])}; // UPPERBOUND(END(i)),
+              pc = {t->end.before(explanation_ub[h])}; // UPPERBOUND(END(i)),
                                                       // explanation_ub[h]};
             }
             p = m_schedule.getImplicant(pc);

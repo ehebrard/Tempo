@@ -67,7 +67,7 @@ public:
    */
   ///@{
   void load(ProblemInstance &p);
-  event newEvent();
+//  event newEvent();
   task newTask(const T min_dur, const T max_dur);
   task newTask(const T release, const T deadline, const T min_dur,
                const T max_dur);
@@ -80,17 +80,14 @@ public:
 
   template <typename Container> void addClause(Container &c);
 
-  template <typename ItTask/*, typename ItTaskI*/, typename ItVar>
+  template <typename ItTask, typename ItVar>
   void postEdgeFinding(const ItTask beg_task, const ItTask end_task,
-//                       const ItTaskI beg_taski, const ItTaskI end_taski,
                        const ItVar beg_var
-//                       , const ItVar end_var
     );
 
-  template <typename ItTask, typename ItTaskI, typename ItVar>
+  template <typename ItTask, typename ItVar>
   void postTransitivityReasoning(const ItTask beg_task, const ItTask end_task,
-                                 const ItTaskI beg_taski, const ItTaskI end_taski,
-                                 const ItVar beg_var, const ItVar end_var);
+                                 const ItVar beg_var);
     
     
 
@@ -107,8 +104,8 @@ public:
   T upper(const event) const;
   T lower(const event) const;
   T bound(const bool s, const event) const;
-  T minDuration(const task) const;
-  T maxDuration(const task) const;
+//  T minDuration(const task) const;
+//  T maxDuration(const task) const;
   T distance(const event x, const event y) const;
   //  T getMakespan() const;
 
@@ -246,6 +243,8 @@ public:
   void clearLearnedClauses() { clauses.forgetAll(); }
 
   Task<T> &getTask(const event e);
+    
+    void resize(const size_t n);
 
 private:
   Options options;
@@ -283,8 +282,8 @@ private:
 
   std::map<std::pair<event, event>, lit> edge_map;
 
-  std::vector<T> min_duration;
-  std::vector<T> max_duration;
+//  std::vector<T> min_duration;
+//  std::vector<T> max_duration;
 
   std::vector<Constraint *> constraints;
   //    std::vector<int> task_cons_id; // the "id" of the constraint (among
@@ -312,8 +311,6 @@ private:
                                       // (and '-1' if it's independent)
   //    std::vector<std::vector<size_t>> task2rank_map; // for each task j, and
   //    for the constraint of task_id i
-
-  void resize(const size_t n);
 
   void initialize_baseline();
 
@@ -484,8 +481,8 @@ size_t Scheduler<T>::numTask() const {
 
   //    std::cout << min_duration.size() << " / " << tasks.size() << std::endl;
 
-  assert(min_duration.size() == tasks.size() or
-         min_duration.size() == (tasks.size() + 1));
+//  assert(min_duration.size() == tasks.size() or
+//         min_duration.size() == (tasks.size() + 1));
 
   return tasks.size();
 }
@@ -578,35 +575,25 @@ template <typename T> void Scheduler<T>::load(ProblemInstance &data) {
   std::vector<var> task_ids;
   std::vector<Task<int> *> the_tasks;
   for (auto &job : data.resources) {
-
-    //      std::cout << "job : " << job.size() << std::endl;
-
     for (size_t i{0}; i < job.size(); ++i) {
       task_ids.push_back(job[i]);
-
-      //        std::cout << job[i] << " / " << tasks.size() << std::endl;
-
       the_tasks.push_back(&tasks[job[i]]);
       for (size_t j{i + 1}; j < job.size(); ++j) {
-        scope.push_back(newVariable(
-            {START(job[i]), END(job[j]), -job.getTransitionTime(j, i)},
-            {START(job[j]), END(job[i]), -job.getTransitionTime(i, j)}));
+          scope.push_back(newVariable(
+                                      tasks[job[i]].start.after(tasks[job[j]].end),
+                                      tasks[job[j]].start.after(tasks[job[i]].end)));
       }
     }
     if (options.edge_finding) {
       postEdgeFinding(
-//                      task_ids.begin(), task_ids.end(),
                       the_tasks.begin(),
                       the_tasks.end(), scope.begin()
-//                      , scope.end()
                       );
     }
     if (options.transitivity) {
-      postTransitivityReasoning(task_ids.begin(), task_ids.end(), 
-                                the_tasks.begin(),
+      postTransitivityReasoning(the_tasks.begin(),
                                 the_tasks.end(), 
-                                scope.begin(),
-                                scope.end());
+                                scope.begin());
     }
     the_tasks.clear();
     task_ids.clear();
@@ -655,37 +642,41 @@ void Scheduler<T>::newPrecedence(event x, event y, T d) {
   newMaximumLag(y, x, -d);
 }
 
-template <typename T> task Scheduler<T>::newEvent() {
-
-  auto ei{static_cast<event>(numEvent())};
-  resize(numEvent() + 1);
-
-  if ((ei % 2) == 0) {
-    min_duration.push_back(0);
-    max_duration.push_back(INFTY);
-  }
-
-  return ei;
-}
+//template <typename T> task Scheduler<T>::newEvent() {
+//
+//  auto ei{static_cast<event>(numEvent())};
+//  resize(numEvent() + 1);
+//
+//  if ((ei % 2) == 0) {
+//    min_duration.push_back(0);
+//    max_duration.push_back(INFTY);
+//  }
+//
+//  return ei;
+//}
 
 template <typename T>
 task Scheduler<T>::newTask(const T min_dur, const T max_dur) {
   assert(env.level() == 0);
   assert(numEvent() >= 2);
 
-  if (2 * (numTask() + 1) != numEvent()) {
-    std::cout << "not ok\n";
-  }
-  task ti{static_cast<task>((numEvent() - 2) / 2)};
-  resize(END(ti) + 1);
+//  if (2 * (numTask() + 1) != numEvent()) {
+//    std::cout << "not ok\n";
+//  }
+  task ti{static_cast<task>(numTask())};
+    tasks.emplace_back(*this, min_dur, max_dur);
+    
 
-  newMaximumLag(START(ti), END(ti), max_dur);
-  newMaximumLag(END(ti), START(ti), -min_dur);
+//  newMaximumLag(START(ti), END(ti), max_dur);
+//  newMaximumLag(END(ti), START(ti), -min_dur);
+    
+//    newMaximumLag(START(ti), END(ti), max_dur);
+//    newMaximumLag(END(ti), START(ti), -min_dur);
 
-  min_duration.push_back(min_dur);
-  max_duration.push_back(max_dur);
+//  min_duration.push_back(min_dur);
+//  max_duration.push_back(max_dur);
 
-  tasks.emplace_back(*this, START(ti), END(ti), min_dur, max_dur);
+  
   event2task_map[tasks.back().getStart()] =
       event2task_map[tasks.back().getEnd()] = (tasks.size() - 1);
 
@@ -696,14 +687,16 @@ template <typename T>
 task Scheduler<T>::newTask(const T release, const T deadline, const T min_dur, const T max_dur) {
   assert(release + max_dur <= deadline);
 
-  task tk = newTask(min_dur, max_dur);
+  task k = newTask(min_dur, max_dur);
 
   // Minimal starting date
-  newPrecedence(ORIGIN, START(tk), release);
+//  newPrecedence(ORIGIN, START(tk), release);
+    set(tasks[k].start.after(release));
   // Maximal ending date
-  newMaximumLag(ORIGIN, END(tk), deadline);
+    set(tasks[k].end.before(deadline));
+//  newMaximumLag(ORIGIN, END(tk), deadline);
 
-  return tk;
+  return k;
 }
 
 template <typename T>
@@ -883,13 +876,13 @@ T Scheduler<T>::bound(const bool s, const event e) const {
   return domain.bounds.get(s, e);
 }
 
-template <typename T> T Scheduler<T>::minDuration(const task t) const {
-  return min_duration[t];
-}
-
-template <typename T> T Scheduler<T>::maxDuration(const task t) const {
-  return max_duration[t];
-}
+//template <typename T> T Scheduler<T>::minDuration(const task t) const {
+//  return min_duration[t];
+//}
+//
+//template <typename T> T Scheduler<T>::maxDuration(const task t) const {
+//  return max_duration[t];
+//}
 
 template <typename T>
 T Scheduler<T>::distance(const event x, const event y) const {
@@ -978,30 +971,21 @@ void Scheduler<T>::addClause(Container &c) {
 }
 
 template <typename T>
-template <typename ItTask/*, typename ItTaskI*/, typename ItVar>
+template <typename ItTask, typename ItVar>
 void Scheduler<T>::postEdgeFinding(const ItTask beg_task, const ItTask end_task,
-//                                   const ItTaskI beg_taski,
-//                                   const ItTaskI end_taski, 
                                    const ItVar beg_var
-//,                                   const ItVar end_var
                                    ) {
   post(new DisjunctiveEdgeFinding(*this, beg_task, end_task,
-//                                  , beg_taski,
-//                                  end_taski, 
                                   beg_var
-//                                  , end_var
                                   ));
 }
 
 template <typename T>
-template <typename ItTask, typename ItTaskI, typename ItVar>
+template <typename ItTask, typename ItVar>
 void Scheduler<T>::postTransitivityReasoning(const ItTask beg_task,
                                              const ItTask end_task,
-                                             const ItTaskI beg_taski,
-                                                                                          const ItTaskI end_taski,
-                                             const ItVar beg_var,
-                                             const ItVar end_var) {
-  post(new Transitivity(*this, beg_task, end_task, beg_taski, end_taski, beg_var, end_var));
+                                             const ItVar beg_var) {
+  post(new Transitivity(*this, beg_task, end_task, beg_var));
 }
 
 template <typename T> void Scheduler<T>::post(Constraint *con) {
@@ -2026,7 +2010,8 @@ template <typename T> void Scheduler<T>::initialize_baseline() {
   baseline = new Scheduler<T>(options);
   baseline->resize(numEvent());
   for (size_t i{0}; i < numTask(); ++i)
-    baseline->newTask(minDuration(i), maxDuration(i));
+//    baseline->newTask(minDuration(i), maxDuration(i));
+      baseline->newTask(tasks[i].minDuration(), tasks[i].maxDuration());
   for (var x{0}; x < static_cast<var>(numVariable()); ++x) {
     baseline->newVariable(getEdge(NEG(x)), getEdge(POS(x)));
   }
