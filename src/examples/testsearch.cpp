@@ -109,50 +109,59 @@ int main(int argc, char *argv[]) {
   }
 
   Scheduler<int> S(opt);
-  std::vector<task> t;
-  for (auto d : data.durations) {
-    t.push_back(S.newTask(d, d));
-  }
 
-  //  S.setUpperBound(ub);
+  //  std::vector<task> t;
+  //  for (auto d : data.durations) {
+  //    t.push_back(S.newTask(d, d));
+  //  }
+  //
+  //  //  S.setUpperBound(ub);
+  //
+  //  for (auto [x, y, k] : data.constraints) {
+  //
+  //    S.newPrecedence(x, y, k);
+  //  }
+  //
+  //  //  std::cout << data.resources.size() << std::endl;
+  //  //  std::cout << data.resources[0].size() << std::endl;
+  //  //  //    exit(1);
+  //
+  //  std::vector<var> scope;
+  //  std::vector<var> tasks;
+  //    std::vector<Task<int>> the_tasks;
+  //  for (auto &job : data.resources) {
+  //    for (size_t i{0}; i < job.size(); ++i) {
+  //      tasks.push_back(t[job[i]]);
+  //        the_tasks.push_back(S.getTask(t[job[i]]));
+  //      for (size_t j{i + 1}; j < job.size(); ++j) {
+  //        scope.push_back(S.newVariable(
+  //            {START(t[job[i]]), END(t[job[j]]), -job.getTransitionTime(j,
+  //            i)}, {START(t[job[j]]), END(t[job[i]]),
+  //            -job.getTransitionTime(i, j)}));
+  //      }
+  //    }
+  //
+  //    //           for (auto ti{job.begin()}; ti!=job.end(); ++ti) {
+  //    //          for (auto tj{ti+1}; tj!=job.end(); ++tj) {
+  //    //            scope.push_back(S.newVariable({START(*ti), END(*tj), 0},
+  //    //                                          {START(*tj), END(*ti), 0}));
+  //    //          }
+  //    //      }
+  //    if (opt.edge_finding) {
+  //      S.postEdgeFinding(tasks.begin(), tasks.end(), the_tasks.begin(),
+  //      the_tasks.end(), scope.begin(), scope.end());
+  //    }
+  //      if (opt.transitivity) {
+  //        S.postTransitivityReasoning(tasks.begin(), tasks.end(),
+  //        scope.begin(),
+  //                                    scope.end());
+  //      }
+  //      the_tasks.clear();
+  //      tasks.clear();
+  //      scope.clear();
+  //  }
 
-  for (auto [x, y, k] : data.constraints) {
-
-    S.newPrecedence(x, y, k);
-  }
-
-  //  std::cout << data.resources.size() << std::endl;
-  //  std::cout << data.resources[0].size() << std::endl;
-  //  //    exit(1);
-
-  std::vector<var> scope;
-  std::vector<var> tasks;
-  for (auto &job : data.resources) {
-    for (size_t i{0}; i < job.size(); ++i) {
-      tasks.push_back(t[job[i]]);
-      for (size_t j{i + 1}; j < job.size(); ++j) {
-        scope.push_back(S.newVariable(
-            {START(t[job[i]]), END(t[job[j]]), -job.getTransitionTime(j, i)},
-            {START(t[job[j]]), END(t[job[i]]), -job.getTransitionTime(i, j)}));
-      }
-    }
-
-    //           for (auto ti{job.begin()}; ti!=job.end(); ++ti) {
-    //          for (auto tj{ti+1}; tj!=job.end(); ++tj) {
-    //            scope.push_back(S.newVariable({START(*ti), END(*tj), 0},
-    //                                          {START(*tj), END(*ti), 0}));
-    //          }
-    //      }
-    if (opt.edge_finding) {
-      S.postEdgeFinding(tasks.begin(), tasks.end(), scope.begin(), scope.end());
-    }
-      if (opt.transitivity) {
-        S.postTransitivityReasoning(tasks.begin(), tasks.end(), scope.begin(),
-                                    scope.end());
-      }
-      tasks.clear();
-      scope.clear();
-  }
+  S.load(data);
 
 #ifdef DBG_SOL
   if (opt.dbg_file != "") {

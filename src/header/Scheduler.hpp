@@ -13,6 +13,7 @@
 #include "Global.hpp"
 #include "Objective.hpp"
 #include "Restart.hpp"
+#include "Task.hpp"
 #include "TemporalNetwork.hpp"
 #include "constraints/DisjunctiveEdgeFinding.hpp"
 #include "constraints/EdgeConstraint.hpp"
@@ -22,32 +23,11 @@
 #include "util/KillHandler.hpp"
 #include "util/Options.hpp"
 #include "util/SubscribableEvent.hpp"
+#include "util/parsing/format.hpp"
 
 //#define DBG_MINIMIZATION
 
 namespace tempo {
-
-//// literals x - y <= k (with x,y pointing to vars and k a constant)
-// template <typename T> class DistanceConstraint {
-//
-// public:
-//   DistanceConstraint(const event f, const event t, const T d)
-//       : from(f), to(t), distance(d) {}
-//
-//   event from;
-//   event to;
-//
-//   T distance;
-//
-//   DistanceConstraint<T> operator~() const;
-//
-//   static const DistanceConstraint<T> none;
-//
-//   bool entails(const DistanceConstraint<T> &e) const;
-//   bool contradicts(const DistanceConstraint<T> &e) const;
-//
-//   std::ostream &display(std::ostream &os) const;
-// };
 
 template<typename T>
 class Scheduler : public Explainer, public ReversibleObject
@@ -86,9 +66,12 @@ public:
    * @name modelling methods
    */
   ///@{
-  event newEvent();
+  void load(ProblemInstance &p);
+//  event newEvent();
   task newTask(const T min_dur, const T max_dur);
-  task newTask(const T release, const T deadline, const T min_dur, const T max_dur);
+  task newTask(const T release, const T deadline, const T min_dur,
+               const T max_dur);
+  //    Task<T> getTask(const task i) {return tasks[i];}
   var newVariable(const DistanceConstraint<T> &if_true = Constant::NoEdge<T>,
                   const DistanceConstraint<T> &if_false = Constant::NoEdge<T>);
 
@@ -99,11 +82,14 @@ public:
 
   template <typename ItTask, typename ItVar>
   void postEdgeFinding(const ItTask beg_task, const ItTask end_task,
-                       const ItVar beg_var, const ItVar end_var);
+                       const ItVar beg_var
+    );
 
   template <typename ItTask, typename ItVar>
   void postTransitivityReasoning(const ItTask beg_task, const ItTask end_task,
-                                 const ItVar beg_var, const ItVar end_var);
+                                 const ItVar beg_var);
+    
+    
 
   bool value(const var x) const;
   bool isTrue(const var x) const;
@@ -118,8 +104,8 @@ public:
   T upper(const event) const;
   T lower(const event) const;
   T bound(const bool s, const event) const;
-  T minDuration(const task) const;
-  T maxDuration(const task) const;
+//  T minDuration(const task) const;
+//  T maxDuration(const task) const;
   T distance(const event x, const event y) const;
   //  T getMakespan() const;
 
@@ -230,123 +216,133 @@ public:
   //    const std::vector<std::vector<Arc>> & getForwardGraph() const;
   //    const std::vector<std::vector<Arc>> & getBackwardGraph() const;
 
-    void setActivityMap(heuristics::impl::EventActivityMap<T> *map) {
-        activityMap = map;
+  void setActivityMap(heuristics::impl::EventActivityMap<T> *map) {
+    activityMap = map;
+  }
+  heuristics::impl::EventActivityMap<T> *getActivityMap() {
+    return activityMap;
+  }
+  double looseness(const DistanceConstraint<T> &c) const {
+    // to - from <= distance
+    return static_cast<double>(upper(c.from) - lower(c.to) + c.distance) /
+           static_cast<double>(upper(HORIZON));
+  }
+  double looseness(const BoundConstraint<T> &c) const {
+    auto x{EVENT(c.l)};
+    if (SIGN(c.l) == LOWER) {
+      // x >= distance
+      return static_cast<double>(upper(x) + c.distance) /
+             static_cast<double>(upper(HORIZON));
+    } else {
+      // x <= distance
+      return static_cast<double>(c.distance - lower(x)) /
+             static_cast<double>(upper(HORIZON));
     }
-    heuristics::impl::EventActivityMap<T>* getActivityMap() {
-        return activityMap;
-    }
-    double looseness(const DistanceConstraint<T>& c) const {
-        // to - from <= distance
-        return static_cast<double>(upper(c.from) - lower(c.to) + c.distance) /
-               static_cast<double>(upper(HORIZON));
-    }
-    double looseness(const BoundConstraint<T>& c) const {
-        auto x{EVENT(c.l)};
-        if(SIGN(c.l) == LOWER) {
-            // x >= distance
-            return static_cast<double>(upper(x) + c.distance) /
-                   static_cast<double>(upper(HORIZON));
-        } else {
-            // x <= distance
-            return static_cast<double>(c.distance - lower(x)) /
-                   static_cast<double>(upper(HORIZON));
-        }
-    }
+  }
 
-    void clearLearnedClauses() { clauses.forgetAll(); }
+  void clearLearnedClauses() { clauses.forgetAll(); }
 
-  private:
-    Options options;
-
-    BacktrackEnvironment env;
-
-    /*
-    // the current temporal graph (manages its own reversibility), used to
-    compute the bounds, i.e., the shortest paths from an to the origin
-    DirectedGraph<StampedLabeledEdge<T>> core;
-
-    // the following two vectors are indexed with dualBound(e)/primalBound(e)
-    // the current bounds (sortest path)
-    std::vector<T> bound;
-    std::vector<lit> bound_index;
-
-    // all literals 1 bit for type (bound/edge),
-    //  * if edge: 1 bit for pos/neg and the rest for the variable
-    //  * if bound: 1 bit
-    std::vector<anylit> trail;
-    std::vector<lit> prev;
-    std::vector<Explanation> reason;
-
-    */
-
-  public:
-    TemporalNetwork<T> domain;
-
-  private:
-    ClauseBase<T> clauses;
-
-    // edges[l] with l=2*i+t is a distance constraint x-y <= k (for t=0) and y-x
-    // <= k' this->satisfied(l) this->falsified(l)
-    std::vector<DistanceConstraint<T>> edges;
-
-    std::map<std::pair<event, event>, lit> edge_map;
-
-    std::vector<T> min_duration;
-    std::vector<T> max_duration;
-
-    std::vector<Constraint *> constraints;
-
-    DirectedGraph<int> evt_constraint_network;
-    DirectedGraph<int> var_constraint_network;
-
-    ConstraintQueue<3> propagation_queue;
-
-    SparseSet<var> search_vars;
-    Reversible<size_t> edge_propag_pointer;
-    std::vector<bool> polarity;
-
-    std::vector<bool> best_solution;
-
-    Reversible<size_t> bound_propag_pointer;
-    std::vector<Explanation> reason;
-
-    std::vector<int> var_level;
-    //    std::vector<double> activity;
-
+  Task<T> &getTask(const event e);
+    
     void resize(const size_t n);
 
-    void initialize_baseline();
+private:
+  Options options;
 
-    //
+  BacktrackEnvironment env;
 
-    //    T dualBound(const event x) const;
-    //    T primalBound(const event x) const;
+  /*
+  // the current temporal graph (manages its own reversibility), used to
+  compute the bounds, i.e., the shortest paths from an to the origin
+  DirectedGraph<StampedLabeledEdge<T>> core;
 
-    std::optional<heuristics::HeuristicManager<T>> heuristic;
-    RestartPolicy *restart_policy = nullptr;
-    unsigned int restart_limit{static_cast<unsigned int>(-1)};
+  // the following two vectors are indexed with dualBound(e)/primalBound(e)
+  // the current bounds (sortest path)
+  std::vector<T> bound;
+  std::vector<lit> bound_index;
 
-    // parameters
-    double weight_unit{1};
-    double decay{1};
-    double guard{1.0e+25};
-    int init_level{0};
+  // all literals 1 bit for type (bound/edge),
+  //  * if edge: 1 bit for pos/neg and the rest for the variable
+  //  * if bound: 1 bit
+  std::vector<anylit> trail;
+  std::vector<lit> prev;
+  std::vector<Explanation> reason;
 
-    // buffers
-    std::vector<lit> conflict_edges;
-    std::vector<lit> conflict_bounds;
-    std::vector<genlit> conflict_set;
-    std::vector<genlit> conflict;
-    std::vector<bool> visited_edge;
+  */
 
-    //    T lb{0};
-    //    T ub{INFTY};
+public:
+  TemporalNetwork<T> domain;
 
-    double start_time;
+private:
+  ClauseBase<T> clauses;
 
-    Scheduler<T> *baseline;
-    heuristics::impl::EventActivityMap<T> *activityMap{NULL};
+  // edges[l] with l=2*i+t is a distance constraint x-y <= k (for t=0) and y-x
+  // <= k' this->satisfied(l) this->falsified(l)
+  std::vector<DistanceConstraint<T>> edges;
+
+  std::map<std::pair<event, event>, lit> edge_map;
+
+//  std::vector<T> min_duration;
+//  std::vector<T> max_duration;
+
+  std::vector<Constraint *> constraints;
+  //    std::vector<int> task_cons_id; // the "id" of the constraint (among
+  //    constraints on tasks)
+
+  DirectedGraph<int> evt_constraint_network;
+  DirectedGraph<int> var_constraint_network;
+
+  ConstraintQueue<3> propagation_queue;
+
+  SparseSet<var> search_vars;
+  Reversible<size_t> edge_propag_pointer;
+  std::vector<bool> polarity;
+
+  std::vector<bool> best_solution;
+
+  Reversible<size_t> bound_propag_pointer;
+  std::vector<Explanation> reason;
+
+  std::vector<int> var_level;
+  //    std::vector<double> activity;
+
+  std::vector<Task<T>> tasks;
+  std::vector<size_t> event2task_map; // for each event, the task it belongs to
+                                      // (and '-1' if it's independent)
+  //    std::vector<std::vector<size_t>> task2rank_map; // for each task j, and
+  //    for the constraint of task_id i
+
+  void initialize_baseline();
+
+  //
+
+  //    T dualBound(const event x) const;
+  //    T primalBound(const event x) const;
+
+  std::optional<heuristics::HeuristicManager<T>> heuristic;
+  RestartPolicy *restart_policy = nullptr;
+  unsigned int restart_limit{static_cast<unsigned int>(-1)};
+
+  // parameters
+  double weight_unit{1};
+  double decay{1};
+  double guard{1.0e+25};
+  int init_level{0};
+
+  // buffers
+  std::vector<lit> conflict_edges;
+  std::vector<lit> conflict_bounds;
+  std::vector<genlit> conflict_set;
+  std::vector<genlit> conflict;
+  std::vector<bool> visited_edge;
+
+  //    T lb{0};
+  //    T ub{INFTY};
+
+  double start_time;
+
+  Scheduler<T> *baseline;
+  heuristics::impl::EventActivityMap<T> *activityMap{NULL};
 
 public:
   long unsigned int num_fails{0};
@@ -421,15 +417,15 @@ private:
 #ifdef DBG_SOL
   std::vector<bool> ref_solution;
   var is_on_track() {
-      
-//      assert(ref_solution.empty());
-      
-      if(ref_solution.empty())
-          return NoVar;
+
+    //      assert(ref_solution.empty());
+
+    if (ref_solution.empty())
+      return NoVar;
     auto n{static_cast<var>(numVariable())};
     for (var x{0}; x < n; ++x) {
-      if(not isUndefined(x) and (value(x) != ref_solution[x]))
-          return x;
+      if (not isUndefined(x) and (value(x) != ref_solution[x]))
+        return x;
     }
     return NoVar;
   }
@@ -438,136 +434,6 @@ public:
   void load(std::vector<bool> &sol) { ref_solution = sol; }
 #endif
 };
-
-// template <typename T> class Objective {
-// public:
-//   Objective() {}
-//   ~Objective() = default;
-//
-//   T gap() { return ub - lb; }
-//   void closeGap() { lb = ub; }
-//   T dualBound() const { return lb; }
-//   T primalBound() const { return ub; }
-//
-//   std::ostream &display(std::ostream &os) const {
-//     os << "[" << std::left << std::setw(5) << std::setfill('.') <<
-//     dualBound()
-//        << std::setfill(' ');
-//     auto ub{primalBound()};
-//     if (ub < INFTY)
-//       os << std::right << std::setw(6) << std::setfill('.') << ub
-//          << std::setfill(' ');
-//     else
-//       os << ".infty";
-//     os << "]";
-//     return os;
-//   }
-//
-// protected:
-//   T lb;
-//   T ub;
-// };
-//
-// template <typename T> class Makespan : public Objective<T> {
-// public:
-//   Makespan(Scheduler<T> &s) : Objective<T>(), schedule(s) {}
-//   ~Makespan() = default;
-//
-//   void updatedualBound() { Objective<T>::lb = schedule.lower(HORIZON); }
-//
-//   void updateprimalBound() { Objective<T>::ub = schedule.lower(HORIZON); }
-//
-// private:
-//   Scheduler<T> &schedule;
-// };
-//
-//
-// template <typename T> class PathLength : public Objective<T> {
-// public:
-//     PathLength(Scheduler<T> &s, Resource<T>& r) : Objective<T>(), schedule(s)
-//     { Objective<T>::lb = 0; }
-//   ~PathLength() = default;
-//
-//     void updatedualBound() {
-//         if(Objective<T>::lb == 0) {
-//             for(auto x : stops) {
-//                 Objective<T>::lb += schedule.minDuration(x);
-//             }
-//             for(auto& transitions : stops.transition) {
-//                 Objective<T>::lb += *(std::min_element(transitions.begin(),
-//                 transitions.end()));
-//             }
-//         }
-//     }
-//
-//     void updateprimalBound() {
-//         std::sort(stops.begin(), stops.end(), [&](const task a, const task b)
-//         {return schedule.lower(START(a)) < schedule.lower(START(b));} );
-//
-//         Objective<T>::ub = schedule.minDuration(stops[0]);
-//         for(size_t i{1}; i<stops.size(); ++i) {
-//             Objective<T>::ub += stops.transition[stops[i-1]][stops[i]];
-//             Objective<T>::ub += schedule.minDuration(stops[i]);
-//         }
-////        Objective<T>::ub = schedule.lower(HORIZON);
-//    }
-//
-// private:
-//  Scheduler<T> &schedule;
-//    Resource<T> &stops;
-//};
-//
-// template <typename T> class NoObj : public Objective<T> {
-// public:
-//  NoObj() : Objective<T>() {}
-//  ~NoObj() = default;
-//
-//  void updatedualBound() { Objective<T>::lb = 0; }
-//
-//  void updateprimalBound() { Objective<T>::ub = 1; }
-//};
-//
-// template <typename T> class No {
-// public:
-//  static const NoObj<T> Obj;
-//};
-//
-// template <typename T> const NoObj<T> No<T>::Obj = NoObj<T>();
-
-///// DISTANCE
-//
-// template <typename T>
-// bool operator==(const DistanceConstraint<T> &d1,
-//                const DistanceConstraint<T> &d2) {
-//  return d1.from == d2.from and d1.to == d2.to and d1.distance == d2.distance;
-//}
-//
-// template <typename T>
-// const DistanceConstraint<T>
-//    DistanceConstraint<T>::none = DistanceConstraint<T>(-1, -1, -1);
-//
-// template <typename T>
-// DistanceConstraint<T> DistanceConstraint<T>::operator~() const {
-//  return {to, from, -distance - Gap<T>::epsilon()};
-//}
-//
-// template <typename T>
-// bool DistanceConstraint<T>::entails(const DistanceConstraint<T> &e) const {
-//  return e.from == from and e.to == to and distance <= e.distance;
-//}
-//
-// template <typename T>
-// bool DistanceConstraint<T>::contradicts(const DistanceConstraint<T> &e) const
-// {
-//  return e.from == to and e.to == from and e.distance + distance < 0;
-//}
-//
-// template <typename T>
-// std::ostream &DistanceConstraint<T>::display(std::ostream &os) const {
-//  os << etype(to) << TASK(to) << " - " << etype(from) << TASK(from)
-//     << " <= " << distance;
-//  return os;
-//}
 
 /// SCHEDULER
 ///
@@ -605,9 +471,20 @@ Scheduler<T>::~Scheduler() {
 #endif
 }
 
+template <typename T> Task<T> &Scheduler<T>::getTask(const event e) {
+  assert(event2task_map[e] < numTask());
+  return tasks[event2task_map[e]];
+}
+
 template<typename T>
 size_t Scheduler<T>::numTask() const {
-  return min_duration.size();
+
+  //    std::cout << min_duration.size() << " / " << tasks.size() << std::endl;
+
+//  assert(min_duration.size() == tasks.size() or
+//         min_duration.size() == (tasks.size() + 1));
+
+  return tasks.size();
 }
 
 template<typename T>
@@ -675,12 +552,53 @@ void Scheduler<T>::resize(const size_t n) {
 
 //    assert(env.level() == 0);
 
+event2task_map.resize(n, static_cast<size_t>(-1));
 domain.resize(n);
 //    front_propag_pointer = 0;
 edge_propag_pointer = 0;
 
 //    visited_bound[LOWER].resize(n, INFTY);
 //    visited_bound[UPPER].resize(n, INFTY);
+}
+
+template <typename T> void Scheduler<T>::load(ProblemInstance &data) {
+  //    resize(data.durations.size());
+  for (auto d : data.durations) {
+    newTask(d, d);
+    //        task ti{static_cast<task>(tasks.size())};
+    //        tasks.emplace_back(*this, START(ti), END(ti), d, d);
+  }
+  for (auto [x, y, k] : data.constraints) {
+    newPrecedence(x, y, k);
+  }
+  std::vector<var> scope;
+  std::vector<var> task_ids;
+  std::vector<Task<int> *> the_tasks;
+  for (auto &job : data.resources) {
+    for (size_t i{0}; i < job.size(); ++i) {
+      task_ids.push_back(job[i]);
+      the_tasks.push_back(&tasks[job[i]]);
+      for (size_t j{i + 1}; j < job.size(); ++j) {
+          scope.push_back(newVariable(
+                                      tasks[job[i]].start.after(tasks[job[j]].end),
+                                      tasks[job[j]].start.after(tasks[job[i]].end)));
+      }
+    }
+    if (options.edge_finding) {
+      postEdgeFinding(
+                      the_tasks.begin(),
+                      the_tasks.end(), scope.begin()
+                      );
+    }
+    if (options.transitivity) {
+      postTransitivityReasoning(the_tasks.begin(),
+                                the_tasks.end(), 
+                                scope.begin());
+    }
+    the_tasks.clear();
+    task_ids.clear();
+    scope.clear();
+  }
 }
 
 // [y - x <= d]
@@ -724,35 +642,43 @@ void Scheduler<T>::newPrecedence(event x, event y, T d) {
   newMaximumLag(y, x, -d);
 }
 
-template <typename T> task Scheduler<T>::newEvent() {
-
-  auto ei{static_cast<event>(numEvent())};
-  resize(numEvent() + 1);
-
-  if ((ei % 2) == 0) {
-    min_duration.push_back(0);
-    max_duration.push_back(INFTY);
-  }
-
-  return ei;
-}
+//template <typename T> task Scheduler<T>::newEvent() {
+//
+//  auto ei{static_cast<event>(numEvent())};
+//  resize(numEvent() + 1);
+//
+//  if ((ei % 2) == 0) {
+//    min_duration.push_back(0);
+//    max_duration.push_back(INFTY);
+//  }
+//
+//  return ei;
+//}
 
 template <typename T>
 task Scheduler<T>::newTask(const T min_dur, const T max_dur) {
   assert(env.level() == 0);
   assert(numEvent() >= 2);
 
-  if (2 * (numTask() + 1) != numEvent()) {
-    std::cout << "not ok\n";
-  }
-  task ti{static_cast<task>((numEvent() - 2) / 2)};
-  resize(END(ti) + 1);
+//  if (2 * (numTask() + 1) != numEvent()) {
+//    std::cout << "not ok\n";
+//  }
+  task ti{static_cast<task>(numTask())};
+    tasks.emplace_back(*this, min_dur, max_dur);
+    
 
-  newMaximumLag(START(ti), END(ti), max_dur);
-  newMaximumLag(END(ti), START(ti), -min_dur);
+//  newMaximumLag(START(ti), END(ti), max_dur);
+//  newMaximumLag(END(ti), START(ti), -min_dur);
+    
+//    newMaximumLag(START(ti), END(ti), max_dur);
+//    newMaximumLag(END(ti), START(ti), -min_dur);
 
-  min_duration.push_back(min_dur);
-  max_duration.push_back(max_dur);
+//  min_duration.push_back(min_dur);
+//  max_duration.push_back(max_dur);
+
+  
+  event2task_map[tasks.back().getStart()] =
+      event2task_map[tasks.back().getEnd()] = (tasks.size() - 1);
 
   return ti;
 }
@@ -760,15 +686,17 @@ task Scheduler<T>::newTask(const T min_dur, const T max_dur) {
 template <typename T>
 task Scheduler<T>::newTask(const T release, const T deadline, const T min_dur, const T max_dur) {
   assert(release + max_dur <= deadline);
-  
-  task tk = newTask(min_dur, max_dur);
+
+  task k = newTask(min_dur, max_dur);
 
   // Minimal starting date
-  newPrecedence(ORIGIN, START(tk), release);
+//  newPrecedence(ORIGIN, START(tk), release);
+    set(tasks[k].start.after(release));
   // Maximal ending date
-  newMaximumLag(ORIGIN, END(tk), deadline);
+    set(tasks[k].end.before(deadline));
+//  newMaximumLag(ORIGIN, END(tk), deadline);
 
-  return tk;
+  return k;
 }
 
 template <typename T>
@@ -948,13 +876,13 @@ T Scheduler<T>::bound(const bool s, const event e) const {
   return domain.bounds.get(s, e);
 }
 
-template <typename T> T Scheduler<T>::minDuration(const task t) const {
-  return min_duration[t];
-}
-
-template <typename T> T Scheduler<T>::maxDuration(const task t) const {
-  return max_duration[t];
-}
+//template <typename T> T Scheduler<T>::minDuration(const task t) const {
+//  return min_duration[t];
+//}
+//
+//template <typename T> T Scheduler<T>::maxDuration(const task t) const {
+//  return max_duration[t];
+//}
 
 template <typename T>
 T Scheduler<T>::distance(const event x, const event y) const {
@@ -1045,17 +973,19 @@ void Scheduler<T>::addClause(Container &c) {
 template <typename T>
 template <typename ItTask, typename ItVar>
 void Scheduler<T>::postEdgeFinding(const ItTask beg_task, const ItTask end_task,
-                                   const ItVar beg_var, const ItVar end_var) {
-  post(new DisjunctiveEdgeFinding(*this, beg_task, end_task, beg_var, end_var));
+                                   const ItVar beg_var
+                                   ) {
+  post(new DisjunctiveEdgeFinding(*this, beg_task, end_task,
+                                  beg_var
+                                  ));
 }
 
 template <typename T>
 template <typename ItTask, typename ItVar>
 void Scheduler<T>::postTransitivityReasoning(const ItTask beg_task,
                                              const ItTask end_task,
-                                             const ItVar beg_var,
-                                             const ItVar end_var) {
-  post(new Transitivity(*this, beg_task, end_task, beg_var, end_var));
+                                             const ItVar beg_var) {
+  post(new Transitivity(*this, beg_task, end_task, beg_var));
 }
 
 template <typename T> void Scheduler<T>::post(Constraint *con) {
@@ -1355,11 +1285,12 @@ template <typename T> void tempo::Scheduler<T>::propagate() {
           LIT(search_vars[edge_pointer], polarity[search_vars[edge_pointer]])};
       trigger(l);
 
-//      auto e{getEdge(l)};
-//      std::cout << "prop edge " << e << std::endl;
-//      std::cout << "dist(" << e.from << "," << e.to
-//                << ") = " << distance(e.from, e.to) << std::endl;
-//      std::cout << distance(END(12), START(7)) << std::endl << std::endl;
+      //      auto e{getEdge(l)};
+      //      std::cout << "prop edge " << e << std::endl;
+      //      std::cout << "dist(" << e.from << "," << e.to
+      //                << ") = " << distance(e.from, e.to) << std::endl;
+      //      std::cout << distance(END(12), START(7)) << std::endl <<
+      //      std::endl;
 
       ++edge_pointer;
     }
@@ -1568,38 +1499,13 @@ void Scheduler<T>::saveState() {
 
 template<typename T>
 void Scheduler<T>::restoreState(const int l) {
-
-//    std::cout << "RESTORE FROM " << env.level() << " TO " << l << std::endl;
-
-env.restore(l);
+  env.restore(l);
 }
 
 template<typename T>
 void Scheduler<T>::undo() {
   search_vars.setStart(edge_propag_pointer);
 }
-
-// template<typename T>
-// void Scheduler<T>::notifySolution() {
-//
-//   assert(lower(HORIZON) < ub);
-//
-//   ub = lower(HORIZON);
-//
-//   if (options.verbosity >= Options::NORMAL)
-//     displayStats(std::cout, " new ub");
-//
-//   restart(true);
-//
-//   setprimalBound(ub - Gap<T>::epsilon());
-//
-//   best_solution = polarity;
-//
-////#ifdef DBG_SOL
-////    if(not ref_solution.empty())
-////    exit(1);
-////#endif
-//}
 
 template<typename T>
 void Scheduler<T>::branchRight() {
@@ -1976,7 +1882,7 @@ void Scheduler<T>::learnConflict(Explanation e) {
   int max_level{
       (conflict.size() > 1 ? decisionLevel(conflict[1]) : init_level)};
 
-//  assert(upper(HORIZON) == ub - Gap<T>::epsilon());
+  //  assert(upper(HORIZON) == ub - Gap<T>::epsilon());
 
 #ifdef DBG_CL
 //  if (++num_clauses > DBG_CL)
@@ -2019,7 +1925,7 @@ void Scheduler<T>::learnConflict(Explanation e) {
     std::cout << std::endl;
   }
 #endif
-    
+
 #ifdef DBG_CL
   if (++num_clauses > DBG_CL)
     exit(1);
@@ -2072,8 +1978,8 @@ void Scheduler<T>::restart(const bool on_solution) {
 
   if (on_solution) {
     restart_policy->initialize(restart_limit);
-      restart_limit += num_fails;
-//      std::cout << num_fails << " / " << restart_limit << std::endl;
+    restart_limit += num_fails;
+    //      std::cout << num_fails << " / " << restart_limit << std::endl;
   } else {
     restart_policy->reset(restart_limit);
     //      std::cout << num_fails << " / " << restart_limit << std::endl;
@@ -2087,9 +1993,9 @@ void Scheduler<T>::restart(const bool on_solution) {
 template<typename T>
 void Scheduler<T>::printTrace() const {
   if (DBG_BOUND and (DBG_TRACE & SEARCH)) {
-//      std::cout << "bounds = ";
-//      
-//      std::cout << "\n";
+    //      std::cout << "bounds = ";
+    //
+    //      std::cout << "\n";
     display(std::cout, (DBG_TRACE & DOMAINS), (DBG_TRACE & BRANCH),
             (DBG_TRACE & CLAUSES), false, false, false);
   }
@@ -2104,7 +2010,8 @@ template <typename T> void Scheduler<T>::initialize_baseline() {
   baseline = new Scheduler<T>(options);
   baseline->resize(numEvent());
   for (size_t i{0}; i < numTask(); ++i)
-    baseline->newTask(minDuration(i), maxDuration(i));
+//    baseline->newTask(minDuration(i), maxDuration(i));
+      baseline->newTask(tasks[i].minDuration(), tasks[i].maxDuration());
   for (var x{0}; x < static_cast<var>(numVariable()); ++x) {
     baseline->newVariable(getEdge(NEG(x)), getEdge(POS(x)));
   }
@@ -2142,7 +2049,7 @@ template <typename T> lit Scheduler<T>::polarityChoice(const var cp) {
 
     //      double g{1};
     ////          std::cout << static_cast<double>(gap_a) << " <> " <<
-    ///static_cast<double>(gap_b) << ": " << gap_ratio << " -> ";
+    /// static_cast<double>(gap_b) << ": " << gap_ratio << " -> ";
     //          if(gap_a < gap_b) {
     ////              std::cout << "(" <<
     ///(static_cast<double>(gap_a)/static_cast<double>(gap_b)) << ") ";
@@ -2183,13 +2090,13 @@ template <typename T> void Scheduler<T>::initializeSearch() {
 
   restart_policy->initialize(restart_limit);
   start_time = cpu_time();
-//  init_level = env.level();
+  //  init_level = env.level();
 }
 
 template <typename T>
 template <typename S>
 void Scheduler<T>::optimize_dichotomy(S &objective) {
-    initializeSearch();
+  initializeSearch();
   objective.initDual();
   bool sat;
 
@@ -2199,7 +2106,8 @@ void Scheduler<T>::optimize_dichotomy(S &objective) {
 
     saveState();
     std::cout << std::setw(6) << std::right << objective.dualBound() << " .. "
-              << std::setw(6) << std::left << objective.primalBound() << std::right ;
+              << std::setw(6) << std::left << objective.primalBound()
+              << std::right;
     displayProgress(std::cout);
 
     auto target = (objective.primalBound() + objective.dualBound()) / 2;
@@ -2210,10 +2118,9 @@ void Scheduler<T>::optimize_dichotomy(S &objective) {
     } catch (Failure &f) {
       sat = false;
     }
-      
-      if(KillHandler::instance().signalReceived())
-          break;
-         
+
+    if (KillHandler::instance().signalReceived())
+      break;
 
     if (sat) {
       auto best{objective.value()};
@@ -2240,8 +2147,10 @@ void Scheduler<T>::optimize(S &objective) {
 
   initializeSearch();
   displayHeader(std::cout);
+  std::cout << std::right;
 
   while (objective.gap() and not KillHandler::instance().signalReceived()) {
+    //      std::cout << objective.gap() << std::endl;
     auto satisfiability = search();
     if (satisfiability == True) {
       auto best{objective.value()};
@@ -2253,14 +2162,18 @@ void Scheduler<T>::optimize(S &objective) {
       }
       best_solution = polarity;
       restart(true);
-        try {
-            objective.setPrimal(best);
-        } catch(Failure& f) {
-            objective.setDual(objective.primalBound());
-        }
+      try {
+        objective.setPrimal(best);
+      } catch (Failure &f) {
+        objective.setDual(objective.primalBound());
+      }
     } else if (satisfiability == False) {
       objective.setDual(objective.primalBound());
     }
+    //    else {
+    //        std::cout << "here\n";
+    //        std::cout << objective.gap() << std::endl;
+    //    }
   }
 
   displaySummary(std::cout, (objective.gap() > 0 ? "killed" : "optimal"));
@@ -2286,7 +2199,7 @@ void Scheduler<T>::updatedualBound(S &objective) {
 
 template <typename T> boolean_state Scheduler<T>::search() {
 
-    init_level = env.level();
+  init_level = env.level();
   boolean_state satisfiability{Unknown};
   while (satisfiability == Unknown and
          not KillHandler::instance().signalReceived()) {
@@ -2329,6 +2242,10 @@ template <typename T> boolean_state Scheduler<T>::search() {
       }
     }
   }
+
+  //    std::cout << "return " << satisfiability << " / " << Unknown <<
+  //    std::endl;
+
   return satisfiability;
 }
 
@@ -2624,9 +2541,6 @@ template <typename T> void Scheduler<T>::analyze(Explanation e) {
   //  for (auto l : conflict_bounds)
   //    domain.bounds.visited[l] = false;
   //    clearVisited();
-
-
-
 }
 
 template <typename T> void Scheduler<T>::clearVisited() {
@@ -2635,8 +2549,7 @@ template <typename T> void Scheduler<T>::clearVisited() {
 
   for (auto l : conflict_bounds)
     domain.bounds.visited[l] = false;
-    
-    
+
 #ifdef DBG_TRACE
 
   for (lit e{0}; e < static_cast<lit>(numBoundLiteral()); ++e) {
@@ -2647,7 +2560,6 @@ template <typename T> void Scheduler<T>::clearVisited() {
   }
 
 #endif
-    
 }
 
 template <typename T>
@@ -2854,9 +2766,10 @@ template <typename T>
 std::ostream &Scheduler<T>::displayHeader(std::ostream &os,
                                           const int width) const {
   os << std::right << std::setw(width)
-     << " objective | failures | branches | clauses |  size | cpu"
-     << std::endl << std::left;
-  os << std::setfill('=') << std::setw(width) << "=" << std::setfill(' ') << std::endl;
+     << " objective | failures | branches | clauses |  size | cpu" << std::endl
+     << std::left;
+  os << std::setfill('=') << std::setw(width) << "=" << std::setfill(' ')
+     << std::endl;
   return os;
 }
 
@@ -2878,17 +2791,17 @@ template <typename T>
 std::ostream &Scheduler<T>::displayProgress(std::ostream &os) const {
 
   os << "  " << std::setw(9) << num_fails << "  " << std::setw(9)
-     << num_choicepoints << "  "
+     << num_choicepoints
+     << "  "
      //<< std::setw(12) << num_literals << "  "
      << std::setw(8) << clauses.size();
   if (clauses.size() == 0)
     os << "    n/a ";
   else
-    os << "  " 
-      << std::setw(6) << std::setprecision(4)
+    os << "  " << std::setw(6) << std::setprecision(4)
        << static_cast<double>(clauses.volume()) /
               static_cast<double>(clauses.size());
-//      << clauses.volume() << " " << clauses.size();
+  //      << clauses.volume() << " " << clauses.size();
 
   //    os << "  " << std::setw(6) << std::setprecision(4) << (gap_ratio /
   //    static_cast<double>(num_choicepoints)) ; os << "  " << std::setw(6) <<

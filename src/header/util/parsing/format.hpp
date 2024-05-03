@@ -6,7 +6,7 @@
 #include "Global.hpp"
 #include "util/serialization.hpp"
 
-template <typename T> class Resource : public std::vector<T> {
+template <typename T> class Resource : public std::vector<int> {
 
 public:
   Resource() = default;
@@ -48,42 +48,6 @@ namespace nlohmann {
     };
 
 }
-
-// template<typename T>
-// class Resource {
-//
-// public:
-//     Resource() = default;
-//     ~Resource() = default;
-//
-//     virtual T getTransitionTime(const size_t i, const size_t j) const = 0;
-//     virtual T getDemand(const size_t i) const = 0;
-//     virtual T getCapacity() const = 0;
-//     task getTask(const size_t i) const = 0;
-//
-// private:
-//
-//     std::vector<tempo::task> tasks;
-//
-// };
-
-// template<typename T>
-// class DisjunctiveResource : public Resource<T> {
-//
-// public:
-//     Resource() = default;
-//     ~Resource() = default;
-//
-//     virtual T getTransitionTime(const size_t i, const size_t j) const = 0;
-//     virtual T getDemand(const size_t i) const = 0;
-//     virtual T getCapacity() const = 0;
-//     task getTask(const size_t i) const = 0;
-//
-// private:
-//
-//     std::vector<tempo::task> tasks;
-//
-// };
 
 struct ProblemInstance {
     int lowerBound;

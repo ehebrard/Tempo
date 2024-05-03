@@ -26,8 +26,7 @@
 #ifndef TCLAP_ARGTRAITS_H
 #define TCLAP_ARGTRAITS_H
 
-namespace TCLAP
-{
+namespace TCLAP {
 
 // We use two empty structs to get compile type specialization
 // function to work
@@ -77,9 +76,9 @@ struct ValueLikeTrait {
  * supported types are StringLike and ValueLike.
  */
 template <typename T> struct ArgTraits {
-    typedef typename T::ValueCategory ValueCategory;
-    virtual ~ArgTraits() {}
-    // typedef ValueLike ValueCategory;
+  typedef typename T::ValueCategory ValueCategory;
+  virtual ~ArgTraits() {}
+  // typedef ValueLike ValueCategory;
 };
 
 #endif

@@ -25,29 +25,24 @@
 #include <tclap/Arg.h>
 #include <tclap/Visitor.h>
 
-namespace TCLAP
-{
+namespace TCLAP {
 
 /**
  * A Vistor that tells the CmdLine to begin ignoring arguments after
  * this one is parsed.
  */
-class IgnoreRestVisitor : public Visitor
-{
+class IgnoreRestVisitor : public Visitor {
 public:
-    /**
-     * Constructor.
-     */
-    IgnoreRestVisitor()
-        : Visitor()
-    {
-    }
+  /**
+   * Constructor.
+   */
+  IgnoreRestVisitor() : Visitor() {}
 
-    /**
-     * Sets Arg::_ignoreRest.
-     */
-    void visit() { Arg::beginIgnoring(); }
+  /**
+   * Sets Arg::_ignoreRest.
+   */
+  void visit() { Arg::beginIgnoring(); }
 };
-}
+} // namespace TCLAP
 
 #endif

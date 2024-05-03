@@ -85,7 +85,7 @@ public:
 
 private:
   Scheduler<T> &schedule;
-  T d_b{-INFTY};
+  T d_b{0};
   T p_b;
 };
 
