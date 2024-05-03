@@ -74,19 +74,6 @@ namespace tempo::nn {
          * problem)
          */
         template<concepts::arbitrary_event_dist_fun EvtFun>
-        [[nodiscard]] auto getGraph(const EvtFun &distances) {
-            return getGraph(distances, std::initializer_list<DistanceConstraint<std::remove_cvref_t<
-                    std::invoke_result_t<EvtFun, event, event>>>>{});
-        }
-
-        /**
-         * @copydoc getGraph()
-         * @param choices list with additional precedences (i.e. the choices already taken by the solver). These need
-         * be precedences between events, NOT tasks!
-         * @return pair(InputGraph containing topology and feature information, vector containing all edges of the
-         * problem)
-         */
-        template<concepts::arbitrary_event_dist_fun EvtFun>
         auto getGraph(const EvtFun& distances) -> InputGraph {
             static_assert(FactoryChecker<EvtFun>::value,
                           "Not all feature extractors or topology extractors have the correct signature");

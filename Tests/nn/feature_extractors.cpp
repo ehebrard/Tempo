@@ -20,10 +20,6 @@ auto getInput() -> std::pair<ProblemInstance, tempo::nn::Topology> {
     return {std::move(problem), std::move(topology)};
 }
 
-struct TaskSpec {
-    int minDur, maxDur, release, deadline;
-};
-
 TEST(nn_feature_extractors, TaskTimingExtractor) {
     using namespace tempo::nn;
     using namespace tempo;
@@ -37,7 +33,7 @@ TEST(nn_feature_extractors, TaskTimingExtractor) {
     const auto [instance, topology] = getInput();
     const auto numEvents = instance.durations.size() * 2 + 2;
     Matrix<int> eventNet(numEvents, numEvents);
-    std::vector<TaskSpec> taskSpecs;
+    std::vector<tempo::testing::TaskSpec> taskSpecs;
     for (std::size_t t = 0; t < instance.durations.size(); ++t) {
         taskSpecs.emplace_back(random_int(1, 5), random_int(5, 10), random_int(-10, 0), random_int(-10, 0));
         setTaskDurations(static_cast<tempo::task>(t), taskSpecs.back().minDur, taskSpecs.back().maxDur,

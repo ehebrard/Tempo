@@ -11,6 +11,7 @@
 #include <concepts>
 
 #include "util/Matrix.hpp"
+#include "util/parsing/format.hpp"
 #include "util/serialization.hpp"
 #include "Global.hpp"
 
@@ -78,6 +79,13 @@ namespace tempo::testing {
         std::uniform_real_distribution<T> dist(min, max);
         return dist(el);
     }
+
+    struct TaskSpec {
+        int minDur, maxDur, release, deadline;
+    };
+
+    auto createRandomProblem(std::size_t numTasks, std::size_t numResources,
+                             double precedenceChance = 0.3) -> std::pair<ProblemInstance, Matrix<int>>;
 }
 
 #endif //SCHEDCL_TESTING_HPP
