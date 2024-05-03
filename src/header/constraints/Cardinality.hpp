@@ -57,7 +57,7 @@ CardinalityGeq<T>::CardinalityGeq(Scheduler<T> &scheduler, const Iter beg_lit,
     : m_schedule(scheduler), lower_limit(lb)
 {
 
-  priority = LOW;
+  priority = Priority::Low;
 
   for (auto l{beg_lit}; l != end_lit; ++l) {
       literals.push_back(*l);

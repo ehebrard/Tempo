@@ -20,7 +20,7 @@ public:
   Constraint &operator=(const Constraint &) = delete;
   Constraint &operator=(Constraint &&) = delete;
 
-  priority_t priority{HIGH};
+  Priority priority = Priority::High;
   bool idempotent{false};
 
   //

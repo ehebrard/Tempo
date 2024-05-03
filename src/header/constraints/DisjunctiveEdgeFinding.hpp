@@ -311,7 +311,7 @@ DisjunctiveEdgeFinding<T>::DisjunctiveEdgeFinding(
     : m_schedule(scheduler), TT(std::distance(beg_task, end_task)),
       num_explanations(0, &(m_schedule.getEnv())) {
 
-  priority = MEDIUM;
+  priority = Priority::Medium;
 
 //  task_map.resize(m_schedule.numTask());
 
