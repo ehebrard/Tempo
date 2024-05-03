@@ -77,6 +77,7 @@ public:
 
   void newPrecedence(event x, event y, T delay);
   void newMaximumLag(event x, event y, T maxlag);
+    void addConstraint(const DistanceConstraint<T>& c);
 
   template <typename Container> void addClause(Container &c);
 
@@ -250,6 +251,8 @@ private:
   Options options;
 
   BacktrackEnvironment env;
+    
+//    Task<T> schedule;
 
   /*
   // the current temporal graph (manages its own reversibility), used to
@@ -439,7 +442,9 @@ public:
 ///
 template <typename T>
 Scheduler<T>::Scheduler(Options opt)
-    : ReversibleObject(&env), options(std::move(opt)), domain(*this),
+    : ReversibleObject(&env), options(std::move(opt)), 
+//    schedule(*this, 0, INFTY),
+domain(*this),
       clauses(*this), evt_constraint_network(&env),
       var_constraint_network(&env), propagation_queue(constraints),
       edge_propag_pointer(0, &env), bound_propag_pointer(0, &env) {
@@ -569,8 +574,22 @@ template <typename T> void Scheduler<T>::load(ProblemInstance &data) {
     //        tasks.emplace_back(*this, START(ti), END(ti), d, d);
   }
   for (auto [x, y, k] : data.constraints) {
+//      // HACK
+//      auto c{tasks[TASK(x)].end.before(tasks[TASK(y)].start, k)};
+//      
+//      std::cout << c << std::endl;
+//      
+////      addConstraint(c);
+//      
+//      
+//      std::cout << prettyEvent(y) << " " << prettyEvent(x) << " " << -k << std::endl;
+//      
+      
     newPrecedence(x, y, k);
   }
+    
+    
+    
   std::vector<var> scope;
   std::vector<var> task_ids;
   std::vector<Task<int> *> the_tasks;
@@ -600,6 +619,11 @@ template <typename T> void Scheduler<T>::load(ProblemInstance &data) {
     scope.clear();
   }
 }
+                        
+                        template<typename T>
+                        void Scheduler<T>::addConstraint(const DistanceConstraint<T>& c) {
+                        domain.newEdge(c.from, c.to, c.distance);
+                        }
 
 // [y - x <= d]
 template<typename T>
