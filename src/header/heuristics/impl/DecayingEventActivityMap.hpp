@@ -87,14 +87,8 @@ template<typename T>
                 std::cout << "\nnormalize (" << increment << ")\n" ;
 #endif
 
-                auto u{
-                    *(std::max_element(EventActivityMap<T>::activity.begin(),
-                                       EventActivityMap<T>::activity.end()))};
-                auto l{
-                    *(std::min_element(EventActivityMap<T>::activity.begin(),
-                                       EventActivityMap<T>::activity.end()))};
-
-                this->for_each([lb = l, gap = u - l](auto &val) {
+                auto [l, u] = std::ranges::minmax_element(this->activity);
+                this->for_each([lb = *l, gap = *u - *l](auto &val) {
                   val = (val - lb) / gap * baseGap + baseIncrement;
                 });
                 increment = baseIncrement;
@@ -117,7 +111,7 @@ template<typename T>
     };
 }
 
-#endif //SCHEDCL_DECAYINGEVENTACTIVITYMAP_HPP
+#endif //TEMPO_DECAYINGEVENTACTIVITYMAP_HPP
 
 // x - y <= a
 // x <= b

@@ -20,12 +20,10 @@ namespace tempo::heuristics {
      * @details @copybrief
      * Requires a member function named getCost with valid signature
      * @tparam Impl
-     * @tparam T
      */
-    template<typename Impl, typename T>
-    concept HeuristicImplementation = requires(Impl instance, var x, Scheduler<T> scheduler) {
+    template<typename Impl>
+    concept HeuristicImplementation = requires(Impl instance, var x) {
         { instance.getCost(x) } -> std::convertible_to<double>;
-        instance.preEvaluation(scheduler);
     };
 
     /**
@@ -44,9 +42,8 @@ namespace tempo::heuristics {
          * @param scheduler scheduler for which to generate a choice point
          * @return selected choice point or DistanceConstraint::none if no further choices can be made
          */
-        template<typename T> //requires HeuristicImplementation<Impl, T>
+        template<typename T> requires(HeuristicImplementation<Impl>)
         auto nextChoicePoint(Scheduler<T> & scheduler) {
-            getImpl().preEvaluation(scheduler);
             var best_var{NoVar};
             auto &indexSequence = scheduler.getBranch();
             double minCost = std::numeric_limits<double>::infinity();
