@@ -88,6 +88,8 @@ file(GLOB SOURCES ${CMAKE_SOURCE_DIR}/src/cpp/*.cpp ${CMAKE_SOURCE_DIR}/src/cpp/
         ${CMAKE_SOURCE_DIR}/src/cpp/constraints/*.cpp ${CMAKE_SOURCE_DIR}/src/cpp/heuristics/*.cpp)
 file(GLOB TORCH_SOURCES ${CMAKE_SOURCE_DIR}/src/cpp/nn/*.cpp)
 
+message("compiler flags: ${CMAKE_CXX_FLAGS}")
+
 message("Source files:")
 foreach(SRC ${SOURCES})
     message(\t${SRC})    
