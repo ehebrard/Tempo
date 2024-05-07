@@ -1,7 +1,7 @@
 /**
 * @author Tim Luchterhand
 * @date 06.05.24
-* @brief
+* @brief Solution guided value selection
 */
 
 #ifndef TEMPO_SOLUTIONGUIDED_HPP
@@ -15,10 +15,27 @@
 #include "util/SubscribableEvent.hpp"
 
 namespace tempo::heuristics {
+
+    /**
+     * @brief Solution guided value selection heuristic.
+     * @details @copybrief
+     * Performs the first decent using tempo::heuristics::TightestValue. After that follows the most recent solution
+     */
     class SolutionGuided : public BaseValueHeuristic<SolutionGuided> {
     public:
+        /**
+         * Ctor.
+         * @param epsilon see tempo::heuristics::BaseValueHeuristic
+         */
         explicit SolutionGuided(double epsilon): BaseValueHeuristic<SolutionGuided>(epsilon) {}
 
+        /**
+         * heuristic interface
+         * @tparam T timing type
+         * @param cp choice point
+         * @param scheduler scheduler instance
+         * @return either POS(cp) or NEG(cp)
+         */
         template<concepts::scalar T>
         [[nodiscard]] lit choose(var cp, const Scheduler<T> &scheduler) const {
             if (not scheduler.hasSolution()) {

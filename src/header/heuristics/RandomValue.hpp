@@ -1,7 +1,7 @@
 /**
 * @author Tim Luchterhand
 * @date 07.05.24
-* @brief
+* @brief Random value selection
 */
 
 #ifndef TEMPO_RANDOMVALUE_HPP
@@ -14,8 +14,21 @@
 
 namespace tempo::heuristics {
 
+    /**
+     * @brief Random value selection heuristic.
+     * @details @copybrief
+     * Chooses choice point polarity always randomly
+     */
     class RandomValue {
     public:
+
+        /**
+         * heuristic interface
+         * @tparam T timing type
+         * @param cp choice point
+         * @param scheduler scheduler instance
+         * @return either POS(cp) or NEG(cp)
+         */
         template<concepts::scalar T>
         static lit choosePolarity(var cp, const Scheduler <T> &) noexcept {
             return tempo::random() % 2 == 0 ? POS(cp) : NEG(cp);
