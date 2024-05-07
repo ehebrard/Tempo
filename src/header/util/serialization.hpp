@@ -16,6 +16,11 @@
 
 #define DELIM ,
 
+#ifndef __JSON_INDENT__
+    // Should be defined by cmake
+    #define __JSON_INDENT__
+#endif
+
 #define DEFINE_SERIALIZATION(TTYPE, Type, ...)                                              \
 template<TTYPE>                                                                             \
 void to_json(nlohmann::json& nlohmann_json_j, const Type& nlohmann_json_t) {                \
