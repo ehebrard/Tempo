@@ -111,7 +111,7 @@ public:
   T distance(const event x, const event y) const;
   //  T getMakespan() const;
 
-  std::vector<bool> getSolution() const;
+  auto getSolution() const noexcept -> const std::vector<bool>&;
 
   // get edge literal from an edge propagation index
   lit getEdgeLiteral(const lit s) const;
@@ -206,7 +206,6 @@ public:
   mutable SubscribableEvent<Explanation &>
       ConflictEncountered; ///< triggered when a conflict is encountered
   mutable SubscribableEvent<> SearchRestarted; ///< triggered on restart
-  mutable SubscribableEvent<const Scheduler<T>&> SolutionFound; ///< triggered when a feasible solution is found
   //    mutable SubscribableEvent<T, T, std::function<T(event, event)>,
   //    std::size_t> SolutionFound; ///< triggered when a solution is found
   //    mutable SubscribableEvent<std::function<T(event, event)>, std::size_t>
@@ -922,7 +921,8 @@ T Scheduler<T>::distance(const event x, const event y) const {
 
 // template <typename T> T Scheduler<T>::getMakespan() const { return ub; }
 
-template <typename T> std::vector<bool> Scheduler<T>::getSolution() const { return best_solution; }
+template<typename T>
+auto Scheduler<T>::getSolution() const noexcept -> const std::vector<bool> & { return best_solution; }
 
 template<typename T>
 lit Scheduler<T>::getEdgeLiteral(const lit s) const {

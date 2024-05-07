@@ -16,27 +16,21 @@
 
 namespace tempo::heuristics {
     class SolutionGuided : public BaseValueHeuristic<SolutionGuided> {
-        std::vector<bool> polarityCache;
-        SubscriberHandle handle;
     public:
-        template<concepts::scalar T>
-        SolutionGuided(double epsilon, const Scheduler<T> &scheduler): BaseValueHeuristic<SolutionGuided>(epsilon),
-                handle(scheduler.SolutionFound.subscribe_handled([this](const auto &sched) {
-                    polarityCache = sched.getSolution();
-                })) {}
+        explicit SolutionGuided(double epsilon): BaseValueHeuristic<SolutionGuided>(epsilon) {}
 
         template<concepts::scalar T>
         [[nodiscard]] lit choose(var cp, const Scheduler<T> &scheduler) const {
-            if (polarityCache.empty()) {
+            if (not scheduler.hasSolution()) {
                 return TightestValue::choose(cp, scheduler);
             }
 
-            return polarityCache[cp] ? POS(cp) : NEG(cp);
+            return scheduler.getSolution()[cp] ? POS(cp) : NEG(cp);
         }
     };
 
-    MAKE_TEMPLATE_FACTORY(SolutionGuided, concepts::scalar T, const ValueHeuristicConfig<T> &config) {
-            return SolutionGuided(config.epsilon, config.scheduler);
+    MAKE_FACTORY(SolutionGuided, const ValueHeuristicConfig &config) {
+            return SolutionGuided(config.epsilon);
     }};
 }
 

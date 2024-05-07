@@ -21,9 +21,7 @@ namespace tempo {
 
 namespace tempo::heuristics {
 
-    template<concepts::scalar T>
     struct ValueHeuristicConfig {
-        const Scheduler<T> &scheduler;
         double epsilon;
     };
 

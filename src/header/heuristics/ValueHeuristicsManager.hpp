@@ -25,8 +25,7 @@ namespace tempo::heuristics {
 
     auto valHeuristicTypeToString(Options::PolarityHeuristic type) -> std::string;
 
-    MAKE_T_FACTORY_PATTERN(ValueHeuristic, template<concepts::scalar T>, ValueHeuristicConfig<T>, TightestValue,
-                           SolutionGuided)
+    MAKE_FACTORY_PATTERN(ValueHeuristic, ValueHeuristicConfig, TightestValue, SolutionGuided)
 
     class ValueHeuristicsManager {
         std::optional<ValueHeuristic> impl;
@@ -36,7 +35,7 @@ namespace tempo::heuristics {
         explicit ValueHeuristicsManager(const Scheduler<T> &scheduler) {
             impl.emplace(ValueHeuristicFactory::getInstance().create(
                     valHeuristicTypeToString(scheduler.getOptions().polarity_heuristic),
-                    ValueHeuristicConfig<T>{.scheduler = scheduler, .epsilon = 0.1}));
+                    ValueHeuristicConfig{.epsilon = 0.1}));
         }
 
         template<concepts::scalar T>

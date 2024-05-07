@@ -73,7 +73,7 @@ namespace tempo::heuristics {
         }
     };
 
-    MAKE_TEMPLATE_FACTORY(TightestValue, concepts::scalar T, const ValueHeuristicConfig<T> &config) {
+    MAKE_FACTORY(TightestValue, const ValueHeuristicConfig &config) {
             return TightestValue(config.epsilon);
     }};
 }
