@@ -12,7 +12,6 @@
 #include "Constant.hpp"
 #include "util/factory_pattern.hpp"
 #include "util/traits.hpp"
-#include "ValueHeuristicConfig.hpp"
 
 namespace tempo {
     template<typename T>
@@ -22,10 +21,10 @@ namespace tempo {
 namespace tempo::heuristics {
     class TightestValue : public BaseValueHeuristic<TightestValue>{
     public:
-        explicit TightestValue(const ValueHeuristicConfig &config): BaseValueHeuristic<TightestValue>(config.epsilon) {}
+        explicit TightestValue(double epsilon): BaseValueHeuristic<TightestValue>(epsilon) {}
 
         template<concepts::scalar T>
-        [[nodiscard]] lit choose(var cp, const Scheduler<T> &scheduler) const {
+        static lit choose(var cp, const Scheduler<T> &scheduler) {
             lit d = NoVar;
             auto prec_a{scheduler.getEdge(POS(cp))};
             auto prec_b{scheduler.getEdge(NEG(cp))};
@@ -74,8 +73,8 @@ namespace tempo::heuristics {
         }
     };
 
-    MAKE_FACTORY(TightestValue, const ValueHeuristicConfig &config) {
-            return TightestValue(config);
+    MAKE_TEMPLATE_FACTORY(TightestValue, concepts::scalar T, const ValueHeuristicConfig<T> &config) {
+            return TightestValue(config.epsilon);
     }};
 }
 

@@ -12,12 +12,10 @@ namespace tempo::heuristics {
 
     auto valHeuristicTypeToString(Options::PolarityHeuristic type) -> std::string {
         switch (type) {
-            case Options::PolarityHeuristic::Identity:
-                return "Identity";
-            case Options::PolarityHeuristic::LocalExploration:
-                return "SolutionGuided";
             case Options::PolarityHeuristic::Tightest:
                 return "TightestValue";
+            case Options::PolarityHeuristic::SolutionGuided:
+                return "SolutionGuided";
             default:
                 throw std::runtime_error("unknown value heuristic type");
         }

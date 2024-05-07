@@ -206,6 +206,7 @@ public:
   mutable SubscribableEvent<Explanation &>
       ConflictEncountered; ///< triggered when a conflict is encountered
   mutable SubscribableEvent<> SearchRestarted; ///< triggered on restart
+  mutable SubscribableEvent<const Scheduler<T>&> SolutionFound; ///< triggered when a feasible solution is found
   //    mutable SubscribableEvent<T, T, std::function<T(event, event)>,
   //    std::size_t> SolutionFound; ///< triggered when a solution is found
   //    mutable SubscribableEvent<std::function<T(event, event)>, std::size_t>

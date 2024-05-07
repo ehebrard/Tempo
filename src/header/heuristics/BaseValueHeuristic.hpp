@@ -20,6 +20,13 @@ namespace tempo {
 }
 
 namespace tempo::heuristics {
+
+    template<concepts::scalar T>
+    struct ValueHeuristicConfig {
+        const Scheduler<T> &scheduler;
+        double epsilon;
+    };
+
     template<typename H, typename T>
     concept value_heuristic = requires(H heuristic, var x, const Scheduler<T> scheduler) {
         {heuristic.choose(x, scheduler)} -> std::same_as<lit>;
