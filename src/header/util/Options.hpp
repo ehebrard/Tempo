@@ -49,6 +49,8 @@ public:
       Random
   };
 
+  double polarity_epsilon;
+
   PolarityHeuristic polarity_heuristic;
 
   double vsids_decay;

@@ -140,6 +140,12 @@ tempo::Options tempo::parse(int argc, char *argv[]) {
       "(0: tightest (default), 1: solution guided, 2: random)",
       false, 0, "int");
 
+  cmd.add<ValueArg<double>>(opt.polarity_epsilon, "", "polarity-epsilon",
+                                                      "epsilon greedy value for value selection. probability in [0, 1]."
+                                                      "0 means that the value selected by the heuristic is always"
+                                                      "chosen, 1 means always random. default: 0",
+                            false, 0, "double");
+
   cmd.add<ValueArg<double>>(
       opt.vsids_decay, "", "vsids-decay",
       "decay value for the vsids heuristic, only effective if VSIDS is used "

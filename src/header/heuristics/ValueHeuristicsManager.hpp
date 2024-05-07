@@ -36,7 +36,7 @@ namespace tempo::heuristics {
         explicit ValueHeuristicsManager(const Scheduler<T> &scheduler) {
             impl.emplace(ValueHeuristicFactory::getInstance().create(
                     valHeuristicTypeToString(scheduler.getOptions().polarity_heuristic),
-                    ValueHeuristicConfig{.epsilon = 0.1}));
+                    ValueHeuristicConfig{.epsilon = scheduler.getOptions().polarity_epsilon}));
         }
 
         template<concepts::scalar T>
