@@ -26,8 +26,13 @@ namespace tempo::heuristics {
     };
 
     template<typename H, typename T>
-    concept value_heuristic = requires(H heuristic, var x, const Scheduler<T> scheduler) {
+    concept value_heuristic_implementation = requires(H heuristic, var x, const Scheduler<T> scheduler) {
         {heuristic.choose(x, scheduler)} -> std::same_as<lit>;
+    };
+
+    template<typename H, typename T>
+    concept value_heuristic = requires(H heuristic, var x, const Scheduler<T> scheduler) {
+        {heuristic.choosePolarity(x, scheduler)} -> std::same_as<lit>;
     };
 
     template<typename Impl>
@@ -41,7 +46,7 @@ namespace tempo::heuristics {
             }
         }
 
-        template<concepts::scalar T> requires(value_heuristic<Impl, T>)
+        template<concepts::scalar T> requires(value_heuristic_implementation<Impl, T>)
         constexpr lit choosePolarity(var cp, const Scheduler<T> &scheduler) {
             if (tempo::random() % EpsScale < epsilon) {
                 return tempo::random() % 2 == 0 ? POS(cp) : NEG(cp);

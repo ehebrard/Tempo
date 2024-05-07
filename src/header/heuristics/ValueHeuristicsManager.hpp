@@ -30,6 +30,10 @@ namespace tempo::heuristics {
 
     class ValueHeuristicsManager {
         std::optional<ValueHeuristic> impl;
+        template<typename T>
+        struct FactoryChecker {
+            HOLDS_FOR_ALL(ValueHeuristic, value_heuristic, T)
+        };
 
     public:
         template<concepts::scalar T>
@@ -41,6 +45,8 @@ namespace tempo::heuristics {
 
         template<concepts::scalar T>
         lit choosePolarity(var cp, const Scheduler<T> &scheduler) {
+            static_assert(FactoryChecker<T>::template __ValueHeuristic_tester__<ValueHeuristic>::value,
+                          "At least one heuristic has an invalid signature");
             return std::visit([cp, &scheduler](auto &h) { return h.choosePolarity(cp, scheduler); }, *impl);
         }
     };
