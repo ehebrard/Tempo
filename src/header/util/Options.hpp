@@ -43,7 +43,11 @@ public:
   };
   ChoicePointHeuristics choice_point_heuristics;
 
-  enum class PolarityHeuristic { Tightest, SolutionGuided};
+  enum class PolarityHeuristic {
+      Tightest,
+      SolutionGuided,
+      Random
+  };
 
   PolarityHeuristic polarity_heuristic;
 

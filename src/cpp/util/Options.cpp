@@ -137,7 +137,7 @@ tempo::Options tempo::parse(int argc, char *argv[]) {
       opt.polarity_heuristic, "", "polarity-heuristic",
       "type "
       "of heuristic used for choice point polarity selection "
-      "(0: tightest (default), 1: solution guided)",
+      "(0: tightest (default), 1: solution guided, 2: random)",
       false, 0, "int");
 
   cmd.add<ValueArg<double>>(

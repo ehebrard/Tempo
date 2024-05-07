@@ -14,6 +14,7 @@
 #include "util/traits.hpp"
 #include "TightestValue.hpp"
 #include "SolutionGuided.hpp"
+#include "RandomValue.hpp"
 
 namespace tempo {
     template<typename T>
@@ -25,7 +26,7 @@ namespace tempo::heuristics {
 
     auto valHeuristicTypeToString(Options::PolarityHeuristic type) -> std::string;
 
-    MAKE_FACTORY_PATTERN(ValueHeuristic, ValueHeuristicConfig, TightestValue, SolutionGuided)
+    MAKE_FACTORY_PATTERN(ValueHeuristic, ValueHeuristicConfig, TightestValue, SolutionGuided, RandomValue)
 
     class ValueHeuristicsManager {
         std::optional<ValueHeuristic> impl;
