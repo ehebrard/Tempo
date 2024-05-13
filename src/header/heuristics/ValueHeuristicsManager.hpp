@@ -43,9 +43,9 @@ namespace tempo::heuristics {
                     ValueHeuristicConfig{.epsilon = scheduler.getOptions().polarity_epsilon}));
         }
 
-        template<concepts::scalar T>
-        lit choosePolarity(var cp, const Scheduler<T> &scheduler) {
-            static_assert(FactoryChecker<T>::template __ValueHeuristic_tester__<ValueHeuristic>::value,
+        template<typename Sched>
+        lit choosePolarity(var cp, const Sched &scheduler) {
+            static_assert(FactoryChecker<Sched>::template __ValueHeuristic_tester__<ValueHeuristic>::value,
                           "At least one heuristic has an invalid signature");
             return std::visit([cp, &scheduler](auto &h) { return h.choosePolarity(cp, scheduler); }, *impl);
         }

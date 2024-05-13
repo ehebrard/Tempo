@@ -24,13 +24,13 @@ namespace tempo::heuristics {
 
         /**
          * heuristic interface
-         * @tparam T timing type
+         * @tparam Sched class that provides additional information for the actual implementation
          * @param cp choice point
          * @param scheduler scheduler instance
          * @return either POS(cp) or NEG(cp)
          */
-        template<concepts::scalar T>
-        static lit choosePolarity(var cp, const Scheduler <T> &) noexcept {
+        template<typename Sched>
+        static lit choosePolarity(var cp, const Sched &) noexcept {
             return tempo::random() % 2 == 0 ? POS(cp) : NEG(cp);
         }
     };

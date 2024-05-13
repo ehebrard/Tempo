@@ -11,10 +11,17 @@
 
 #include "BaseValueHeuristic.hpp"
 #include "TightestValue.hpp"
-#include "util/traits.hpp"
 #include "util/SubscribableEvent.hpp"
 
 namespace tempo::heuristics {
+
+    namespace detail {
+        template<typename Sched>
+        concept solution_provider = requires(const Sched &s, var x) {
+            { s.hasSolution() } -> std::convertible_to<bool>;
+            { s.getSolution()[x] } -> std::convertible_to<bool>;
+        };
+    }
 
     /**
      * @brief Solution guided value selection heuristic.
@@ -31,13 +38,13 @@ namespace tempo::heuristics {
 
         /**
          * heuristic interface
-         * @tparam T timing type
+         * @tparam Sched class that provides previously encountered solutions
          * @param cp choice point
          * @param scheduler scheduler instance
          * @return either POS(cp) or NEG(cp)
          */
-        template<concepts::scalar T>
-        [[nodiscard]] lit choose(var cp, const Scheduler<T> &scheduler) const {
+        template<detail::solution_provider Sched>
+        [[nodiscard]] lit choose(var cp, const Sched &scheduler) const {
             if (not scheduler.hasSolution()) {
                 return TightestValue::choose(cp, scheduler);
             }

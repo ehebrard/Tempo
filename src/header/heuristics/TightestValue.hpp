@@ -10,6 +10,7 @@
 #include "BaseValueHeuristic.hpp"
 #include "Global.hpp"
 #include "Constant.hpp"
+#include "DistanceConstraint.hpp"
 #include "util/factory_pattern.hpp"
 #include "util/traits.hpp"
 
@@ -19,6 +20,15 @@ namespace tempo {
 }
 
 namespace tempo::heuristics {
+
+    namespace detail {
+        template<typename Sched>
+        concept distance_provider = requires(const Sched &s, lit l, event e) {
+            requires traits::is_same_template_v<DistanceConstraint, decltype(s.getEdge(l))>;
+            { s.upper(e) } -> concepts::scalar;
+            { s.lower(e) } -> concepts::scalar;
+        };
+    }
 
     /**
      * @brief Tightest value selection heuristic.
@@ -35,13 +45,14 @@ namespace tempo::heuristics {
 
         /**
          * heuristic interface
-         * @tparam T timing type
+         * @tparam Sched class that provides distances between events and a mapping from literals to edges
          * @param cp choice point
          * @param scheduler scheduler instance
          * @return either POS(cp) or NEG(cp)
          */
-        template<concepts::scalar T>
-        static lit choose(var cp, const Scheduler<T> &scheduler) {
+        template<detail::distance_provider Sched>
+        static lit choose(var cp, const Sched &scheduler) {
+            using T = decltype(scheduler.lower(tempo::event(0)));
             lit d = NoVar;
             auto prec_a{scheduler.getEdge(POS(cp))};
             auto prec_b{scheduler.getEdge(NEG(cp))};

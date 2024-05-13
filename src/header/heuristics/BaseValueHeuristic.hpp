@@ -12,12 +12,6 @@
 
 #include "Global.hpp"
 #include "util/crtp.hpp"
-#include "util/traits.hpp"
-
-namespace tempo {
-    template<typename T>
-    class Scheduler;
-}
 
 namespace tempo::heuristics {
 
@@ -31,20 +25,20 @@ namespace tempo::heuristics {
     /**
      * Interface for value selection heuristic implementations that derive from BaseValueHeuristic
      * @tparam H heuristic type
-     * @tparam T timing type
+     * @tparam Sched information provider (usually the scheduler)
      */
-    template<typename H, typename T>
-    concept value_heuristic_implementation = requires(H heuristic, var x, const Scheduler<T> scheduler) {
+    template<typename H, typename Sched>
+    concept value_heuristic_implementation = requires(H heuristic, var x, const Sched &scheduler) {
         {heuristic.choose(x, scheduler)} -> std::same_as<lit>;
     };
 
     /**
      * Interface for value selection heuristics
      * @tparam H heuristic type
-     * @tparam T timing type
+     * @tparam Sched information provider (usually the scheduler)
      */
-    template<typename H, typename T>
-    concept value_heuristic = requires(H heuristic, var x, const Scheduler<T> scheduler) {
+    template<typename H, typename Sched>
+    concept value_heuristic = requires(H heuristic, var x, const Sched &scheduler) {
         {heuristic.choosePolarity(x, scheduler)} -> std::same_as<lit>;
     };
 
@@ -71,14 +65,14 @@ namespace tempo::heuristics {
 
         /**
          * Value selection heuristic interface
-         * @tparam T timing type
+         * @tparam Sched class that provides additional information for the actual implementation
          * @param cp choice point
          * @param scheduler scheduler instance
          * @return either POS(cp) or NEG(cp)
          * @return polarity selected by the actual heuristic with probability 1-epsilon, random polarity otherwise
          */
-        template<concepts::scalar T> requires(value_heuristic_implementation<Impl, T>)
-        constexpr lit choosePolarity(var cp, const Scheduler<T> &scheduler) {
+        template<typename Sched> requires(value_heuristic_implementation<Impl, Sched>)
+        constexpr lit choosePolarity(var cp, const Sched &scheduler) {
             if (tempo::random() % EpsScale < epsilon) {
                 return tempo::random() % 2 == 0 ? POS(cp) : NEG(cp);
             }
