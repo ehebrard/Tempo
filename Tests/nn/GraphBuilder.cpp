@@ -28,7 +28,7 @@ void testFeatureExtraction(const std::string &featureName, const std::string &gr
     const auto [problem, evtNetwork] = createRandomProblem(100, 50);
     const auto topology = getGtTopology(problem);
     GraphBuilder graphBuilder(TestData::GraphBuilderConfig, problem);
-    auto graph = graphBuilder.getGraph(evtNetwork);
+    auto graph = graphBuilder.getGraph(makeSolverState(evtNetwork));
     std::ifstream configFile(TestData::GraphBuilderConfig);
     auto config = nlohmann::json::parse(configFile).at(featureName).get<ExtractorConfig>();
     auto extractor = FeatureExtractorFactory::getInstance().create(config.extractorName, config.arguments);
@@ -41,7 +41,7 @@ TEST(nn_GraphBuilder, get_graph_basic) {
     using namespace tempo::testing;
     const auto [problem, evtNetwork] = createRandomProblem(3, 2);
     GraphBuilder graphBuilder(TestData::GraphBuilderConfig, problem);
-    auto graph = graphBuilder.getGraph(evtNetwork);
+    auto graph = graphBuilder.getGraph(makeSolverState(evtNetwork));
     EXPECT_TRUE(graph.contains(GraphKeys::TaskFeatures));
     EXPECT_TRUE(graph.contains(GraphKeys::EdgeFeatures));
     EXPECT_TRUE(graph.contains(GraphKeys::ResourceFeatures));
@@ -72,7 +72,7 @@ TEST(nn_GraphBuilder, get_graph_resource_deps) {
     using namespace tempo::testing;
     auto [problem, evtNetwork] = createRandomProblem(10, 5);
     GraphBuilder graphBuilder(TestData::GraphBuilderConfig, problem);
-    auto graph = graphBuilder.getGraph(evtNetwork);
+    auto graph = graphBuilder.getGraph(makeSolverState(evtNetwork));
     const auto topology = getGtTopology(problem);
     EXPECT_TRUE(torch::all(topology.resourceDependencies == graph.at(GraphKeys::ResourceDependencies)).item<bool>());
     EXPECT_TRUE(torch::all(topology.resourceDemands == graph.at(GraphKeys::ResourceConsumptions)).item<bool>());
@@ -83,7 +83,7 @@ TEST(nn_GraphBuilder, get_graph_topology) {
     using namespace tempo::testing;
     const auto [problem, evtNetwork] = createRandomProblem(10, 5);
     GraphBuilder graphBuilder(TestData::GraphBuilderConfig, problem);
-    const auto graph = graphBuilder.getGraph(evtNetwork);
+    const auto graph = graphBuilder.getGraph(makeSolverState(evtNetwork));
     const auto topology = getGtTopology(problem);
     EXPECT_TRUE(torch::all(topology.edgePairMask == graph.at(GraphKeys::EdgePairMask)).item<bool>());
     EXPECT_TRUE(torch::all(topology.edgeResourceRelations == graph.at(GraphKeys::EdgeResourceRelations)).item<bool>());
