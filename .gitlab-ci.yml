@@ -78,7 +78,7 @@ unittest-job:
     - echo "----- build examples -----"
     - |
       targets=()
-      for file in ../examples/src/*.cpp; do
+      for file in ../src/examples/*.cpp; do
       targets+=($(basename "$file" .cpp))
       done
       echo "building the following targets ${targets[*]}"
