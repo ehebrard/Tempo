@@ -21,33 +21,33 @@ namespace tempo::heuristics {
  * how often it is involved in a conflict and not how often it is contained in a
  * learned clause
  */
-template <typename T>
-class WeightedDegree : public BaseHeuristic<WeightedDegree<T>> {
-public:
-  /**
-   * @copydoc VSIDS::VSIDS
-   */
-  explicit WeightedDegree( Scheduler<T> &scheduler, const bool critpath)
-      : sched(scheduler), activity(scheduler, sched.getOptions().vsids_decay),
-        handlerToken((critpath ?
-                     scheduler.ConflictEncountered.subscribe_handled(
-                                                                 [this](auto &expl) {
-                                                                     this->clause.clear();
-                                                                     if(expl.getType() == CYCLEEXPL)
-                                                                         expl.explain(NoLit,this->clause);
-                                                                     else
-                                                                         sched.getCriticalPath(this->clause);
-                                                                   this->activity.update(this->clause);
-                                                                 })
-                     :
-                     scheduler.ConflictEncountered.subscribe_handled(
-                                                                [this](auto &expl) {
-                                                                                     this->clause.clear();
-                                                                                     expl.explain(NoLit,this->clause);
-                                                                                   this->activity.update(this->clause);
-                                                                                 })
-            )
-                     )
+    template <typename T>
+    class WeightedDegree : public BaseHeuristic<WeightedDegree<T>> {
+    public:
+        /**
+         * @copydoc VSIDS::VSIDS
+         */
+        explicit WeightedDegree( Scheduler<T> &scheduler, const bool critpath)
+                : sched(scheduler), activity(scheduler, sched.getOptions().vsids_decay),
+                  handlerToken((critpath ?
+                                scheduler.ConflictEncountered.subscribe_handled(
+                                        [this](auto &expl) {
+                                            this->clause.clear();
+                                            if(expl.getType() == CYCLEEXPL)
+                                                expl.explain(NoLit,this->clause);
+                                            else
+                                                sched.getCriticalPath(this->clause);
+                                            this->activity.update(this->clause);
+                                        })
+                                         :
+                                scheduler.ConflictEncountered.subscribe_handled(
+                                        [this](auto &expl) {
+                                            this->clause.clear();
+                                            expl.explain(NoLit,this->clause);
+                                            this->activity.update(this->clause);
+                                        })
+                               )
+                  )
 //                                                                     :
 //                                [this](auto &expl) {
 //                this->clause.clear();
@@ -58,36 +58,35 @@ public:
 //                   
 //    
 //                     ) 
-    {
-            
+        {
+
         }
 
-  /**
-   * @copydoc VSIDS::getCost
-   */
-  double getCost(const var x) const {
-      auto prec_a{sched.getEdge(POS(x))};
-      auto prec_b{sched.getEdge(NEG(x))};
-      auto gap_a = sched.upper(prec_a.from) - sched.lower(prec_a.to);
-      auto gap_b = sched.upper(prec_b.from) - sched.lower(prec_b.to);
-      return static_cast<double>(std::max(gap_a, gap_b)) / activity.get(x);
-  }
+        /**
+         * @copydoc VSIDS::getCost
+         */
+        [[nodiscard]] double getCost(const var x) const {
+            auto prec_a{sched.getEdge(POS(x))};
+            auto prec_b{sched.getEdge(NEG(x))};
+            auto gap_a = sched.upper(prec_a.from) - sched.lower(prec_a.to);
+            auto gap_b = sched.upper(prec_b.from) - sched.lower(prec_b.to);
+            return static_cast<double>(std::max(gap_a, gap_b)) / activity.get(x);
+        }
 
-  constexpr void preEvaluation(const Scheduler<T> &) const noexcept {}
 
-  WeightedDegree(const WeightedDegree &) = delete;
-  WeightedDegree(WeightedDegree &&) = delete;
-  WeightedDegree &operator=(const WeightedDegree &) = delete;
-  WeightedDegree &operator=(WeightedDegree &&) = delete;
-  ~WeightedDegree() = default;
+        WeightedDegree(const WeightedDegree &) = delete;
+        WeightedDegree(WeightedDegree &&) = delete;
+        WeightedDegree &operator=(const WeightedDegree &) = delete;
+        WeightedDegree &operator=(WeightedDegree &&) = delete;
+        ~WeightedDegree() = default;
 
-private:
-    Scheduler<T>& sched;
-  impl::DecayingEventActivityMap<T> activity;
-  SubscriberHandle handlerToken;
-    std::vector<genlit> clause;
+    private:
+        Scheduler<T>& sched;
+        impl::DecayingEventActivityMap<T> activity;
+        SubscriberHandle handlerToken;
+        std::vector<genlit> clause;
 //  int polarity{-1};
-};
+    };
 }
 
 #endif //SCHEDCL_WEIGHTEDDEGREE_HPP

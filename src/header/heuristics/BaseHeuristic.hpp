@@ -9,6 +9,8 @@
 
 #include <concepts>
 
+#include "util/crtp.hpp"
+
 namespace tempo {
     template<typename T>
     class Scheduler;
@@ -20,12 +22,10 @@ namespace tempo::heuristics {
      * @details @copybrief
      * Requires a member function named getCost with valid signature
      * @tparam Impl
-     * @tparam T
      */
-    template<typename Impl, typename T>
-    concept HeuristicImplementation = requires(Impl instance, var x, Scheduler<T> scheduler) {
+    template<typename Impl>
+    concept HeuristicImplementation = requires(Impl instance, var x) {
         { instance.getCost(x) } -> std::convertible_to<double>;
-        instance.preEvaluation(scheduler);
     };
 
     /**
@@ -33,7 +33,7 @@ namespace tempo::heuristics {
      * @tparam Impl type of concrete Implementation
      */
     template<typename Impl>
-    class BaseHeuristic {
+    class BaseHeuristic : public crtp<Impl, BaseHeuristic>{
     public:
         /**
          * @brief Static polymorphic interface for the caller of the heuristic. Selects a choice point from a scheduler by
@@ -44,9 +44,8 @@ namespace tempo::heuristics {
          * @param scheduler scheduler for which to generate a choice point
          * @return selected choice point or DistanceConstraint::none if no further choices can be made
          */
-        template<typename T> //requires HeuristicImplementation<Impl, T>
+        template<typename T> requires(HeuristicImplementation<Impl>)
         auto nextChoicePoint(Scheduler<T> & scheduler) {
-            getImpl().preEvaluation(scheduler);
             var best_var{NoVar};
             auto &indexSequence = scheduler.getBranch();
             double minCost = std::numeric_limits<double>::infinity();
@@ -54,7 +53,7 @@ namespace tempo::heuristics {
             assert(not indexSequence.empty());
             
             for(auto x : indexSequence) {
-                const auto cost = getImpl().getCost(x);
+                const auto cost = this->getImpl().getCost(x);
                 
 #ifdef DEBUG_HEURISTICS_CHOICE
                 std::cout << scheduler.getEdge(POS(x)) << "<>" << scheduler.getEdge(NEG(x)) << ": " << cost;
@@ -80,14 +79,6 @@ namespace tempo::heuristics {
         }
 
     private:
-        constexpr Impl &getImpl() noexcept {
-            return static_cast<Impl&>(*this);
-        }
-
-        constexpr const Impl &getImpl() const noexcept {
-            return static_cast<const Impl&>(*this);
-        }
-
         BaseHeuristic() = default;
         friend Impl;
     };
