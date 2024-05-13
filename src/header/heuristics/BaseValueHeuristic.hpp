@@ -73,8 +73,9 @@ namespace tempo::heuristics {
          */
         template<typename Sched> requires(value_heuristic_implementation<Impl, Sched>)
         constexpr lit choosePolarity(var cp, const Sched &scheduler) {
-            if (tempo::random() % EpsScale < epsilon) {
-                return tempo::random() % 2 == 0 ? POS(cp) : NEG(cp);
+            auto rval = tempo::random();
+            if (rval % EpsScale < epsilon) {
+                return rval % 2 == 0 ? POS(cp) : NEG(cp);
             }
 
             return this->getImpl().choose(cp, scheduler);
