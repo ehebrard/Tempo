@@ -48,6 +48,7 @@ public:
     size_t size() const;
     
     std::ostream &display(std::ostream& os, const bool print_graph=false) const;
+    std::ostream &displayConstraint(std::ostream &os, const DistanceConstraint<T>&) const;
     
     BoundSystem<T> bounds;
     
@@ -124,6 +125,8 @@ template <typename T> const auto &TemporalNetwork<T>::getBackwardGraph() const {
 template<typename T>
 void TemporalNetwork<T>::xplain(const lit l, const hint h, std::vector<lit> &Cl) {
     if(l == NoLit) {
+        
+//        std::cout << "xplain failure\n";
 
         event x{EVENT(h)};
         auto s{SIGN(h)};
@@ -147,6 +150,8 @@ void TemporalNetwork<T>::xplain(const lit l, const hint h, std::vector<lit> &Cl)
 
         if(LTYPE(h) == EDGE_LIT) {
             
+            
+            
             assert(FROM_GEN(h) <= bounds.getStamp(FROM_GEN(l)));
             
             // h is the responsible edge
@@ -154,12 +159,25 @@ void TemporalNetwork<T>::xplain(const lit l, const hint h, std::vector<lit> &Cl)
             auto ec{sched.getEdge(el)};
             auto cx{bounds.getConstraint(FROM_GEN(l))};
             
+//            std::cout << "\nxplain " << sched.prettyLiteral(l) << " b/c " ;
+//            displayConstraint(std::cout, ec);
+//            std::cout << std::endl;
+            
             //            auto bl{FROM_GEN(l)};
             if(SIGN(cx.l) == LOWER) {
                 // evt(cx.l) = ec.from -> ec.to
                 assert(EVENT(cx.l) == ec.from);
                 
-                auto r{BOUND(bounds.getImplicant({LIT(ec.to, LOWER), cx.distance+ec.distance}))};
+                
+                BoundConstraint<T> eb{LIT(ec.to, LOWER), cx.distance-ec.distance};
+                
+//                std::cout << " AND ";
+//                bounds.displayBound(std::cout,eb);
+//                std::cout << std::endl;
+                
+                auto r{BOUND(bounds.getImplicant(eb))};
+                
+//                std::cout << " ==> " << sched.prettyLiteral(r) << std::endl;
                 
                 assert(r < l);
                 
@@ -169,7 +187,15 @@ void TemporalNetwork<T>::xplain(const lit l, const hint h, std::vector<lit> &Cl)
 
                 assert(EVENT(cx.l) == ec.to);
                 
-                auto r{BOUND(bounds.getImplicant({LIT(ec.from, UPPER), cx.distance+ec.distance}))};
+                BoundConstraint<T> eb{LIT(ec.from, UPPER), cx.distance-ec.distance};
+                
+//                std::cout << " AND ";
+//                bounds.displayBound(std::cout,eb);
+//                std::cout << std::endl;
+                
+                auto r{BOUND(bounds.getImplicant(eb))};
+                
+//                std::cout << " ==> " << sched.prettyLiteral(r) << std::endl;
                 
                 assert(r < l);
                 
@@ -177,6 +203,9 @@ void TemporalNetwork<T>::xplain(const lit l, const hint h, std::vector<lit> &Cl)
             }
             Cl.push_back(EDGE(el));
         } else {
+            
+//            std::cout << "xplain bound\n";
+            
             Cl.push_back(h);
         }
     }
@@ -185,13 +214,14 @@ void TemporalNetwork<T>::xplain(const lit l, const hint h, std::vector<lit> &Cl)
 template<typename T>
 std::ostream &TemporalNetwork<T>::print_reason(std::ostream &os, const hint h) const {
     if(h<0)
-        os << "negative cycle via " << prettyEvent(h) ;
+        os << "negative cycle via " << bounds.getLabel(h) ;
     else {
         if(LTYPE(h) == EDGE_LIT) {
             // h is the responsible edge
             auto el{sched.getEdgeLiteral(FROM_GEN(h))};
             auto ec{sched.getEdge(el)};
-            os << "shortest path via " << ec;
+            os << "shortest path via " ;
+            displayConstraint(os, ec);
         } else {
           os << "shortest path via " << sched.prettyLiteral(h)
              << " (and ground edge)";
@@ -303,7 +333,7 @@ void TemporalNetwork<T>::findExplanationPath(const event x, const event y, std::
                 
 #ifdef DBG_BELLMAN_EXPL
                 if(DBG_BELLMAN_EXPL) {
-                    std::cout << " * shorter path to " << prettyEvent(v) << " (" << length[u]+1 << "/" << size() << ") "<< std::endl ;
+                    std::cout << " * shorter path to " << bounds.getLabel(v) << " (" << length[u]+1 << "/" << size() << ") "<< std::endl ;
                 }
 #endif
 
@@ -327,7 +357,7 @@ void TemporalNetwork<T>::findExplanationPath(const event x, const event y, std::
                     changed.add(v);
 #ifdef DBG_BELLMAN_EXPL
             else if(DBG_BELLMAN_EXPL) {
-                std::cout << " does not push " << prettyEvent(v) << std::endl ;
+                std::cout << " does not push " << bounds.getLabel(v) << std::endl ;
             }
 #endif
                 
@@ -358,7 +388,7 @@ void TemporalNetwork<T>::findExplanationPath(const event x, const event y, std::
             }
 #ifdef DBG_BELLMAN_EXPL
             else if(DBG_BELLMAN_EXPL) {
-                std::cout << " ignore " << prettyEvent(v) << std::endl ;
+                std::cout << " ignore " << bounds.getLabel(v) << std::endl ;
             }
 #endif
         }
@@ -379,7 +409,7 @@ void TemporalNetwork<T>::findExplanationPath(const event x, const event y, std::
     
 #ifdef DBG_BELLMAN_EXPL
     if(DBG_BELLMAN_EXPL) {
-        std::cout << prettyEvent(z) ;
+        std::cout << bounds.getLabel(z) ;
     }
                         visited.clear();
                         visited.add(z);
@@ -396,7 +426,7 @@ void TemporalNetwork<T>::findExplanationPath(const event x, const event y, std::
 #ifdef DBG_BELLMAN_EXPL
             if(DBG_BELLMAN_EXPL) {
                 
-                std::cout << " <= " << prettyEvent(z) ;
+                std::cout << " <= " << bounds.getLabel(z) ;
             }
 #endif
             
@@ -405,7 +435,7 @@ void TemporalNetwork<T>::findExplanationPath(const event x, const event y, std::
         } 
 #ifdef DBG_BELLMAN_EXPL
         else if(DBG_BELLMAN_EXPL) {
-            std::cout << " <- " << prettyEvent(z);
+            std::cout << " <- " << bounds.getLabel(z);
             if(visited.has(z)) {
                                 std::cout << std::endl;
                                 exit(1);
@@ -446,24 +476,24 @@ void TemporalNetwork<T>::update(const bool bt, const event s,
   changed.add(s);
 
 #ifdef DBG_BELLMAN
-    core.display(std::cout, [](const event e) {return prettyEvent(e);}, [](const StampedLabeledEdge<T,lit>& e) {return prettyEvent(static_cast<int>(e));});
-    std::cout << "\nstart explore from " << prettyEvent(s) << (bt==LOWER ? " (backward)" : " (forward)") << std::endl ;
+    if(DBG_BELLMAN) {
+        core.display(std::cout, [this](const event e) {return bounds.getLabel(e);}, [this](const StampedLabeledEdge<T,lit>& e) {return bounds.getLabel(static_cast<int>(e)) + " (" + std::to_string(e.label()) + ")";});
+        std::cout << "\nstart explore from " << bounds.getLabel(s) << (bt==LOWER ? " (backward)" : " (forward)") << std::endl ;
+    }
 #endif
     
     while (not changed.empty()) {
-        
-//        if(--max_iter < 0)
-//            exit(1);
-        
-        
+    
         auto u{changed.front()};
         changed.pop_front();
         
 #ifdef DBG_BELLMAN
-        std::cout << "pop " << prettyEvent(u) << " q=(";
-        for(auto evt : changed)
-            std::cout << " " << prettyEvent(evt);
-        std::cout << " )" << std::endl ;
+        if(DBG_BELLMAN) {
+            std::cout << "pop " << bounds.getLabel(u) << " q=(";
+            for(auto evt : changed)
+                std::cout << " " << bounds.getLabel(evt);
+            std::cout << " )" << std::endl ;
+        }
 #endif
         
         for (auto edge : neighbors[u]) {
@@ -473,34 +503,35 @@ void TemporalNetwork<T>::update(const bool bt, const event s,
             if (shortest_path[u] + w < shortest_path[v]) {
                     
 #ifdef DBG_BELLMAN
-                    std::cout << " * shorter path " << (bt==LOWER ? "from " : "to ") << prettyEvent(v) << std::endl ;
+                if(DBG_BELLMAN) {
+                    std::cout << " * shorter path " << (bt==LOWER ? "from " : "to ") << bounds.getLabel(v) << std::endl ;
+                }
 #endif
-                    
-//                    path[v] = u;
-//                elit[v] = edge.stamp();
                     
                     if (v == s) {
                         
                         
                         
 #ifdef DBG_TRACE
-                        if (DBG_TRACE & PROPAGATION) {
-                            std::cout << "FAIL on negative cycle!";
-                            event evt{v};
-                            std::cout << " " << prettyEvent(evt) ;
-                            //                            do {
-                            //                                if(bt==LOWER)
-                            //                                    std::cout << "
-                            //                                    -> ";
-                            //                                else
-                            //                                    std::cout << "
-                            //                                    <- ";
-                            //                                evt = path[evt];
-                            //                                std::cout <<
-                            //                                prettyEvent(evt) ;
-                            //                            } while (evt != v);
-                            std::cout << std::endl;
-                        }
+//                        if(DBG_BELLMAN) {
+                            if (DBG_TRACE & PROPAGATION) {
+                                std::cout << "FAIL on negative cycle!";
+                                event evt{v};
+                                std::cout << " " << bounds.getLabel(evt) ;
+                                //                            do {
+                                //                                if(bt==LOWER)
+                                //                                    std::cout << "
+                                //                                    -> ";
+                                //                                else
+                                //                                    std::cout << "
+                                //                                    <- ";
+                                //                                evt = path[evt];
+                                //                                std::cout <<
+                                //                                prettyEvent(evt) ;
+                                //                            } while (evt != v);
+                                std::cout << std::endl;
+                            }
+//                        }
 #endif
                         
                         
@@ -516,8 +547,9 @@ void TemporalNetwork<T>::update(const bool bt, const event s,
                         changed.add(v);
                 }
 #ifdef DBG_BELLMAN
-            else
-                std::cout << " ignore " << prettyEvent(v) << std::endl ;
+            else if(DBG_BELLMAN) {
+                std::cout << " ignore " << bounds.getLabel(v) << std::endl ;
+            }
 #endif
         }
     }
@@ -526,7 +558,16 @@ void TemporalNetwork<T>::update(const bool bt, const event s,
 template <typename T>
 std::ostream &TemporalNetwork<T>::display(std::ostream& os, const bool print_graph) const {
     os << bounds << std::endl;
-    if(print_graph) core.display(os, [](const event e) {return prettyEvent(e);}, [](const StampedLabeledEdge<T,lit>& e) {return prettyEvent(static_cast<int>(e));});
+//    if(print_graph) core.display(os, [](const event e) {return prettyEvent(e);}, [](const StampedLabeledEdge<T,lit>& e) {return prettyEvent(static_cast<int>(e));});
+    
+    if(print_graph) core.display(os, [this](const event e) {return bounds.getLabel(e);}, [this](const StampedLabeledEdge<T,lit>& e) {return bounds.getLabel(static_cast<int>(e));});
+    return os;
+}
+
+template <typename T>
+std::ostream &TemporalNetwork<T>::displayConstraint(std::ostream &os, const DistanceConstraint<T>& c) const {
+    os << bounds.getLabel(c.to) << " - " << bounds.getLabel(c.from)
+       << " <= " << c.distance;
     return os;
 }
 

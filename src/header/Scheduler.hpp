@@ -184,10 +184,12 @@ public:
   //  std::ostream &displayStats(std::ostream &os, const char *msg) const;
   std::ostream &displayVariables(std::ostream &os) const;
   std::ostream &displayConstraints(std::ostream &os) const;
+    std::ostream &displayBound(std::ostream &os, BoundConstraint<T> c) const {return domain.bounds.displayBound(os, c);}
   std::ostream &displayProgress(std::ostream &os) const;
   std::ostream &displayHeader(std::ostream &os, const int width = 59) const;
   std::ostream &displaySummary(std::ostream &os, std::string msg) const;
 
+    std::string prettyEvent(const event e) const;
   std::string prettyLiteral(const genlit el) const;
 
 #ifdef DBG_TRACE
@@ -251,8 +253,8 @@ private:
   Options options;
 
   BacktrackEnvironment env;
-    
-//    Task<T> schedule;
+
+  Task<T> schedule;
 
   /*
   // the current temporal graph (manages its own reversibility), used to
@@ -442,13 +444,16 @@ public:
 ///
 template <typename T>
 Scheduler<T>::Scheduler(Options opt)
-    : ReversibleObject(&env), options(std::move(opt)), 
-//    schedule(*this, 0, INFTY),
-domain(*this),
-      clauses(*this), evt_constraint_network(&env),
+    : ReversibleObject(&env), options(std::move(opt)), schedule(*this),
+      domain(*this), clauses(*this), evt_constraint_network(&env),
       var_constraint_network(&env), propagation_queue(constraints),
       edge_propag_pointer(0, &env), bound_propag_pointer(0, &env) {
   resize(2);
+          domain.bounds.setLabel(0, "src");
+          domain.bounds.setLabel(1, "cmax");
+          
+  //          tasks.push_back(schedule);
+  //          std::cout << *this << std::endl;
 
   if (options.restart_policy == "luby") {
     restart_policy = new Luby(options.restart_base);
@@ -557,6 +562,8 @@ void Scheduler<T>::resize(const size_t n) {
 
 //    assert(env.level() == 0);
 
+//    std::cout << 11 << std::endl;
+
 event2task_map.resize(n, static_cast<size_t>(-1));
 domain.resize(n);
 //    front_propag_pointer = 0;
@@ -572,24 +579,25 @@ template <typename T> void Scheduler<T>::load(ProblemInstance &data) {
     newTask(d, d);
     //        task ti{static_cast<task>(tasks.size())};
     //        tasks.emplace_back(*this, START(ti), END(ti), d, d);
+    addConstraint(tasks.back().start.after(schedule.start));
+    addConstraint(tasks.back().end.before(schedule.end));
   }
-  for (auto [x, y, k] : data.constraints) {
-//      // HACK
-//      auto c{tasks[TASK(x)].end.before(tasks[TASK(y)].start, k)};
-//      
-//      std::cout << c << std::endl;
-//      
-////      addConstraint(c);
-//      
-//      
-//      std::cout << prettyEvent(y) << " " << prettyEvent(x) << " " << -k << std::endl;
-//      
-      
-    newPrecedence(x, y, k);
-  }
-    
-    
-    
+  //  for (auto [x, y, k] : data.constraints) {
+  ////      // HACK
+  ////      auto c{tasks[TASK(x)].end.before(tasks[TASK(y)].start, k)};
+  ////
+  ////      std::cout << c << std::endl;
+  ////
+  //////      addConstraint(c);
+  ////
+  ////
+  ////      std::cout << prettyEvent(y) << " " << prettyEvent(x) << " " << -k <<
+  /// std::endl;
+  ////
+  //
+  //    newPrecedence(x, y, k);
+  //  }
+
   std::vector<var> scope;
   std::vector<var> task_ids;
   std::vector<Task<int> *> the_tasks;
@@ -618,12 +626,15 @@ template <typename T> void Scheduler<T>::load(ProblemInstance &data) {
     task_ids.clear();
     scope.clear();
   }
+
+//    std::cout << *this << std::endl;
+  //    exit(1);
 }
-                        
-                        template<typename T>
-                        void Scheduler<T>::addConstraint(const DistanceConstraint<T>& c) {
-                        domain.newEdge(c.from, c.to, c.distance);
-                        }
+
+template <typename T>
+void Scheduler<T>::addConstraint(const DistanceConstraint<T> &c) {
+  domain.newEdge(c.from, c.to, c.distance);
+}
 
 // [y - x <= d]
 template<typename T>
@@ -689,6 +700,10 @@ task Scheduler<T>::newTask(const T min_dur, const T max_dur) {
 //  }
   task ti{static_cast<task>(numTask())};
     tasks.emplace_back(*this, min_dur, max_dur);
+    
+    domain.bounds.setLabel(tasks.back().start.id(), "s"+std::to_string(tasks.back().id()));
+    if(tasks.back().start.id() != tasks.back().getEnd())
+        domain.bounds.setLabel(tasks.back().getStart(), "e"+std::to_string(tasks.back().id()));
     
 
 //  newMaximumLag(START(ti), END(ti), max_dur);
@@ -2021,7 +2036,7 @@ void Scheduler<T>::printTrace() const {
     //
     //      std::cout << "\n";
     display(std::cout, (DBG_TRACE & DOMAINS), (DBG_TRACE & BRANCH),
-            (DBG_TRACE & CLAUSES), false, false, false);
+            false, (DBG_TRACE & CLAUSES), false, false);
   }
 }
 #endif
@@ -2098,7 +2113,7 @@ template <typename T> lit Scheduler<T>::polarityChoice(const var cp) {
 
 #ifdef DBG_TRACE
   if (DBG_BOUND and (DBG_TRACE & SEARCH)) {
-    std::cout << *this << "\n-- new decision: " << prettyLiteral(EDGE(d))
+    std::cout << "\n-- new decision: " << prettyLiteral(EDGE(d))
               << std::endl;
   }
 #endif
@@ -2515,6 +2530,9 @@ template <typename T> void Scheduler<T>::analyze(Explanation e) {
     for (var x{0}; x < static_cast<var>(numVariable()); ++x) {
       assert(visited_edge[x] == false);
     }
+      for(size_t i{0}; i<domain.bounds.visited.size(); ++i) {
+          assert(domain.bounds.visited[i] == false);
+      }
 
     std::cout << "analyze failure: " << e << "\n";
   }
@@ -2706,15 +2724,26 @@ void Scheduler<T>::resolve(const lit l, Explanation e) {
 }
 
 template<typename T>
+std::string Scheduler<T>::prettyEvent(const event e) const {
+    if(e == ORIGIN)
+        return "src";
+    if(e == HORIZON)
+        return "C_max";
+    return std::string(1,etype(e)) + std::to_string(tasks[event2task_map[e]].id());
+}
+
+template<typename T>
 std::string Scheduler<T>::prettyLiteral(const genlit el) const {
   if (el == NoLit) {
     return "failure";
   } else if (LTYPE(el) == EDGE_LIT) {
     std::stringstream ss;
-    if (edges[FROM_GEN(el)] != Constant::NoEdge<T>)
-      ss << "[" << edges[FROM_GEN(el)]
-         << "]"; // {" << VAR(FROM_GEN(el)) << "}";
-    else
+      if (edges[FROM_GEN(el)] != Constant::NoEdge<T>) {
+          ss << "(" << el << ") [" ;
+          domain.displayConstraint(ss, edges[FROM_GEN(el)]);
+          //<< edges[FROM_GEN(el)]
+          ss << "]"; // {" << VAR(FROM_GEN(el)) << "}";
+      } else
       ss << (SIGN(FROM_GEN(el)) ? "+" : "-") << "x_" << VAR(FROM_GEN(el));
 #ifdef DBG_TRACE
     if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
@@ -2725,7 +2754,9 @@ std::string Scheduler<T>::prettyLiteral(const genlit el) const {
   } else {
     assert(FROM_GEN(el) < static_cast<lit>(numBoundLiteral()));
     std::stringstream ss;
-    ss << "[" << domain.bounds.getConstraint(FROM_GEN(el)) << "]";
+      ss << "(" << el << ") [" ;
+      domain.bounds.displayLiteral(ss,FROM_GEN(el));
+      ss << "]";
 #ifdef DBG_TRACE
     if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
       ss << " (" << stamp(FROM_GEN(el)) << ")";
@@ -2865,8 +2896,12 @@ std::ostream &Scheduler<T>::display(std::ostream &os, const bool dom,
 
   if (bra)
     displayBranch(os);
-  if (dom)
-    os << domain;
+    if (dom) {
+        std::cout << "domains:\n";
+        for(auto t : tasks) {
+            os << t << std::endl;
+        }
+    }
   if (sva)
     displayVariables(os);
   if (cla)

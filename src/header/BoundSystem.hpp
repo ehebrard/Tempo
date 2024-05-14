@@ -98,6 +98,12 @@ public:
     std::ostream &print_reason(std::ostream &os, const hint) const override;// { return os; }
     int getType() const override;// { return BOUNDEXPL; }
     
+    void setLabel(const event e, const std::string& s) ;
+    const std::string& getLabel(const event e) const;
+    
+    
+    std::ostream &displayLiteral(std::ostream& os, const lit l) const;
+    std::ostream &displayBound(std::ostream& os, BoundConstraint<T> c) const;
     std::ostream &display(std::ostream& os) const;
     std::ostream &displayTrail(std::ostream& os) const;
     
@@ -117,6 +123,8 @@ private:
     std::vector<BoundConstraint<T>> trail;
     std::vector<lit> stamp;
     std::vector<lit> prev;
+    
+    std::vector<std::string> label;
     
 public:
     std::vector<bool> visited;
@@ -165,7 +173,7 @@ bool BoundConstraint<T>::contradicts(const BoundConstraint<T> &e) const {
 
 template <typename T>
 std::ostream &BoundConstraint<T>::display(std::ostream &os) const {
-    os << prettyEvent(EVENT(l));
+    os << "z" << (EVENT(l));
     if(SIGN(l) == UPPER) {
         os << " <= " << distance;
     } else {
@@ -210,7 +218,7 @@ void BoundSystem<T>::resize(const size_t n) {
 //    reason.emplace_back(e);
 //    bound[bt][x] = b;
     
-    
+    label.resize(n,"");
     
     bound[LOWER].resize(n, 0);
     bound[UPPER].resize(n, INFTY/2);
@@ -245,6 +253,16 @@ void BoundSystem<T>::resize(const size_t n) {
 
 
 template<typename T>
+void BoundSystem<T>::setLabel(const event e, const std::string& s) {
+    label[e] = s;
+}
+
+template<typename T>
+const std::string& BoundSystem<T>::getLabel(const event e) const {
+    return label[e];
+}
+
+template<typename T>
 bool BoundSystem<T>::falsified(const BoundConstraint<T>& c) const {
     return bound[NOT(SIGN(c.l))][EVENT(c.l)] + c.distance < 0;
 }
@@ -274,9 +292,9 @@ bool BoundSystem<T>::set(const bool bt, const event x, const T b, Explanation e)
         if (DBG_BBOUND and (DBG_TRACE & PROPAGATION)) {
             std::cout << "pruning: ";
             if(bt)
-                std::cout << prettyEvent(x) << " <= " << b ;
+                std::cout << getLabel(x) << " <= " << b ;
             else
-                std::cout << prettyEvent(x) << " >= " << -b ;
+                std::cout << getLabel(x) << " >= " << -b ;
             if (DBG_TRACE & LEARNING) {
               std::cout << " b/c " << e << " (" << e.expl->id() << ")";
             }
@@ -308,6 +326,11 @@ bool BoundSystem<T>::set(const bool bt, const event x, const T b, Explanation e)
         assert(visited.size() == stamp.size());
         assert(trail.size() == stamp.size());
         assert(reason.size() == stamp.size());
+
+        
+        ///DEBUGTRACE
+        if(bound_lit[bt][x] == 525 and b == -535)
+            exit(1);
         
         if(b + bound[NOT(bt)][x] < 0) {
             
@@ -460,10 +483,26 @@ template<typename T>
 int BoundSystem<T>::getType() const { return BOUNDEXPL; }
 
 template <typename T>
+std::ostream &BoundSystem<T>::displayLiteral(std::ostream& os, const lit l) const {
+    return displayBound(os, getConstraint(l));
+}
+
+template <typename T>
+std::ostream &BoundSystem<T>::displayBound(std::ostream& os, BoundConstraint<T> c) const {
+    os << getLabel(EVENT(c.l));
+    if(SIGN(c.l) == UPPER) {
+        os << " <= " << c.distance;
+    } else {
+        os << " >= " << -c.distance;
+    }
+    return os;
+}
+
+template <typename T>
 std::ostream &BoundSystem<T>::display(std::ostream& os) const {
     
     for(size_t x{2}; x<size(); ++x) {
-        os << std::setw(3) << std::left << prettyEvent(x) << ": [" << (lower()[x] ? -lower()[x] : 0) << ".." << upper()[x] << "]\n";
+        os << std::setw(3) << std::left << getLabel(x) << ": [" << (lower()[x] ? -lower()[x] : 0) << ".." << upper()[x] << "]\n";
     }
     os << "makespan: [" << -lower()[1] << ".." << upper()[1] << "]\n";
     

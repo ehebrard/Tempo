@@ -117,6 +117,7 @@ public:
   DirectedGraph(BacktrackEnvironment *e=ReversibleObject::env);
     DirectedGraph(const int n_vertices, BacktrackEnvironment *e=ReversibleObject::env);
   void resize(const int n);
+    void newVertex(const int x);
 
   // add an Arc from origin (reversible)
     template <typename... T>
@@ -443,6 +444,24 @@ void DirectedGraph<Arc>::resize(const int n) {
 #ifdef DEBUG_SG
   // cout << *this << std::endl;
   verify("init");
+#endif
+}
+
+
+template<class Arc>
+void DirectedGraph<Arc>::newVertex(const int x) {
+    assert(static_cast<size_t>(x) >= size());
+    auto n{size()};
+    
+    resize(static_cast<size_t>(x+1));
+    
+    for(auto i{n}; i<size()-1; ++i) {
+        vertices.remove_front(static_cast<int>(i));
+    }
+
+#ifdef DEBUG_SG
+  // cout << *this << std::endl;
+  verify("new vertex");
 #endif
 }
 

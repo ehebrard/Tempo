@@ -63,7 +63,8 @@ public:
 //   static Explanation NoReason;
 // };
 
-std::ostream &operator<<(std::ostream &os, Explanation &x);
+std::ostream &operator<<(std::ostream &os, const Explanation &x);
+//std::ostream &operator<<(std::ostream &os, Explanation &x);
 
 } // namespace schedcl
 

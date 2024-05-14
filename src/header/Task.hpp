@@ -43,31 +43,34 @@ private:
 template<typename T>
 class Task {
 public:
+  Task(Scheduler<T> &sc);
+  Task(Scheduler<T> &sc, const T mindur, const T maxdur);
 
-    Task(Scheduler<T>& sc, const T mindur, const T maxdur);
+  T getEarliestStart() const;
+  T getLatestStart() const;
+  T getEarliestEnd() const;
+  T getLatestEnd() const;
 
-    T getEarliestStart() const;
-    T getLatestStart() const;
-    T getEarliestEnd() const;
-    T getLatestEnd() const;
+  bool mustExist() const;
+  bool cannotExist() const;
+
+  T minDuration() const;
+  T maxDuration() const;
+
+  event getStart() const;
+  event getEnd() const;
+
+  //    BoundConstraint<T> startAfter(const T t) const;
+  //    BoundConstraint<T> endAfter(const T t) const;
+  //    BoundConstraint<T> startBefore(const T t) const;
+  //    BoundConstraint<T> endBefore(const T t) const;
+
+  int id() const;
+  bool operator==(const Task<T> &t) const;
     
-    bool mustExist() const;
-    bool cannotExist() const;
-    
-    T minDuration() const;
-    T maxDuration() const;
- 
-    event getStart() const;
-    event getEnd() const;
-    
-//    BoundConstraint<T> startAfter(const T t) const;
-//    BoundConstraint<T> endAfter(const T t) const;
-//    BoundConstraint<T> startBefore(const T t) const;
-//    BoundConstraint<T> endBefore(const T t) const;
-    
-    int id() const;
-    bool operator==(const Task<T>& t) const;
-    
+    std::ostream &display(std::ostream &os) const;
+//    std::string& print(const event e) const;
+
 private:
     int _id_{-1};
     
@@ -83,21 +86,84 @@ private:
     var optional{NoVar};
 };
 
-template<typename T>
-Task<T>::Task(Scheduler<T>& sc, const T mindur, const T maxdur) 
-    : _id_(static_cast<int>(sc.numTask()))
-    , sched(sc)
-    , start(START(_id_), 0)
-    , end(END(_id_), 0)
-    {
-    min_duration = mindur;
-    max_duration = maxdur;
-        
-        sched.resize(getEnd() + 1);
-        
-        sched.newMaximumLag(getStart(), getEnd(), max_duration);
-        sched.newMaximumLag(getEnd(), getStart(), -min_duration);
+template <typename T>
+Task<T>::Task(Scheduler<T> &sc)
+    : _id_(-1), sched(sc), start(START(_id_), 0), end(END(_id_), 0) {}
+
+template <typename T>
+Task<T>::Task(Scheduler<T> &sc, const T mindur, const T maxdur)
+    : _id_(static_cast<int>(sc.numTask())), sched(sc), 
+start(static_cast<event>(sched.numEvent()), 0),
+end(static_cast<event>(sched.numEvent() + (mindur != maxdur)), mindur)
+//end(static_cast<event>(sched.numEvent() + 1), 0)
+// end((mindur == maxdur ? START(_id_) : END(_id_)), (mindur == maxdur ? mindur : 0))
+{
+
+  //        std::cout << _id_ << std::endl;
+  //
+  //        std::cout << (getEnd() + 1) << std::endl;
+  //
+  //
+  min_duration = mindur;
+  max_duration = maxdur;
+
+  //    std::cout << (getEnd() + 1) << std::endl;
+
+  sched.resize(getEnd() + 1);
+     
+//     std::cout << "resize("<< (getEnd() + 1) << ")\n";
+
+  //        std::cout << sched << std::endl;
+
+  if (start.id() != end.id()) {
+      
+//      std::cout << "variable duration task: " << *this << std::endl;
+      
+//    if (max_duration != INFTY)
+      sched.newMaximumLag(getStart(), getEnd(), max_duration);
+    sched.newMaximumLag(getEnd(), getStart(), -min_duration);
+  } 
+//  else {
+//      std::cout << "fixed duration task: " << *this << std::endl;
+//  }
 }
+
+//
+//template <typename T>
+//Task<T>::Task(Scheduler<T> &sc, const T mindur, const T maxdur)
+//    : _id_(static_cast<int>(sc.numTask())), sched(sc),
+//start(START(_id_), 0),
+////      end(END(_id_), 0)
+// end((mindur == maxdur ? START(_id_) : END(_id_)), (mindur == maxdur ? mindur : 0))
+//{
+//
+//  //        std::cout << _id_ << std::endl;
+//  //
+//  //        std::cout << (getEnd() + 1) << std::endl;
+//  //
+//  //
+//  min_duration = mindur;
+//  max_duration = maxdur;
+//
+//  //    std::cout << (getEnd() + 1) << std::endl;
+//
+//  sched.resize(getEnd() + 1);
+//     
+//     std::cout << "resize("<< (getEnd() + 1) << ")\n";
+//
+//  //        std::cout << sched << std::endl;
+//
+//  if (start.id() != end.id()) {
+//      
+//      std::cout << "variable duration task: " << *this << std::endl;
+//      
+////    if (max_duration != INFTY)
+//      sched.newMaximumLag(getStart(), getEnd(), max_duration);
+//    sched.newMaximumLag(getEnd(), getStart(), -min_duration);
+//  } else {
+//      std::cout << "fixed duration task: " << *this << std::endl;
+//  }
+//}
 
 template<typename T>
 T Event<T>::earliest(Scheduler<T>& sc) const {
@@ -242,8 +308,41 @@ event Task<T>::getEnd() const {
 }
 
 
+template<typename T>
+std::ostream &Task<T>::display(std::ostream &os) const {
+    os << "t" << id() << ": [" << start.earliest(sched) << ".." << end.latest(sched) << "]";
+    return os;
+}
+
+//template<typename T>
+//std::string &Task<T>::to_string() const {
+//    std::stringstream ss;
+//    display(ss);
+//    return ss;
+//}
+
+//template<typename T>
+//std::string& Task<T>::print(const event e) const {
+//    std::stringstream ss;
+//    if(start.id() == e) {
+//        ss << "s" << id();
+//        if(start.offset() != 0) {
+//            ss << " + " << start.offset();
+//        }
+//    } else {
+//        ss << "s" << id();
+//        if(end.offset() != 0) {
+//            ss << " + " << end.offset();
+//        }
+//    }
+//    return ss;
+//}
 
 
+template<typename T>
+std::ostream &operator<<(std::ostream &os, const Task<T> &x) {
+  return x.display(os);
+}
 
 
 

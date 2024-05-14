@@ -8,6 +8,9 @@
 
 namespace tempo {
 
+template <typename T> class BoundSystem;
+
+
 // literals x - y <= k (with x,y pointing to vars and k a constant)
 template <typename T> class DistanceConstraint {
 
