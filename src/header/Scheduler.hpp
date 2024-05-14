@@ -19,6 +19,7 @@
 #include "constraints/EdgeConstraint.hpp"
 #include "constraints/Transitivity.hpp"
 #include "heuristics/HeuristicManager.hpp"
+#include "heuristics/ValueHeuristicsManager.hpp"
 #include "util/Heap.hpp"
 #include "util/KillHandler.hpp"
 #include "util/Options.hpp"
@@ -110,7 +111,7 @@ public:
   T distance(const event x, const event y) const;
   //  T getMakespan() const;
 
-  std::vector<bool> getSolution() const;
+  auto getSolution() const noexcept -> const std::vector<bool> &;
 
   // get edge literal from an edge propagation index
   lit getEdgeLiteral(const lit s) const;
@@ -160,7 +161,6 @@ public:
   void learnConflict(Explanation e);
   bool hasSolution() const;
 
-  lit polarityChoice(const var cp);
   void initializeSearch();
   boolean_state satisfiable();
   template <typename S> void optimize(S &objective);
@@ -325,6 +325,7 @@ private:
   //    T primalBound(const event x) const;
 
   std::optional<heuristics::HeuristicManager<T>> heuristic;
+  std::optional<heuristics::ValueHeuristicsManager> valueHeuristic;
   RestartPolicy *restart_policy = nullptr;
   unsigned int restart_limit{static_cast<unsigned int>(-1)};
 
@@ -935,7 +936,10 @@ T Scheduler<T>::distance(const event x, const event y) const {
 
 // template <typename T> T Scheduler<T>::getMakespan() const { return ub; }
 
-template <typename T> std::vector<bool> Scheduler<T>::getSolution() const { return best_solution; }
+template <typename T>
+auto Scheduler<T>::getSolution() const noexcept -> const std::vector<bool> & {
+  return best_solution;
+}
 
 template<typename T>
 lit Scheduler<T>::getEdgeLiteral(const lit s) const {
@@ -2070,62 +2074,68 @@ template <typename T> void Scheduler<T>::initialize_baseline() {
   //  std::cout << *baseline << std::endl;
 }
 
-template <typename T> lit Scheduler<T>::polarityChoice(const var cp) {
-  lit d{NoLit};
-  if ((random() % 10) == 0) {
-    d = (random() % 2 ? POS(cp) : NEG(cp));
-  } else {
-    auto prec_a{getEdge(POS(cp))};
-    auto prec_b{getEdge(NEG(cp))};
-
-    T gap_a{0};
-    if (prec_a != Constant::NoEdge<T>)
-      gap_a = upper(prec_a.from) - lower(prec_a.to);
-
-    T gap_b{0};
-    if (prec_b != Constant::NoEdge<T>)
-      gap_b = upper(prec_b.from) - lower(prec_b.to);
-
-    //      double g{1};
-    ////          std::cout << static_cast<double>(gap_a) << " <> " <<
-    /// static_cast<double>(gap_b) << ": " << gap_ratio << " -> ";
-    //          if(gap_a < gap_b) {
-    ////              std::cout << "(" <<
-    ///(static_cast<double>(gap_a)/static_cast<double>(gap_b)) << ") ";
-    //
-    //              g = (static_cast<double>(gap_a)/static_cast<double>(gap_b));
-    //          } else {
-    ////              std::cout << "(" <<
-    ///(static_cast<double>(gap_b)/static_cast<double>(gap_a)) << ") ";
-    //
-    //              g = (gap_a > 0 ?
-    //              static_cast<double>(gap_b)/static_cast<double>(gap_a) : 1);
-    //          }
-    ////          std::cout << gap_ratio << "\n";
-    //
-    //      gap_ratio += g;
-    //      if(g == 1) {
-    //          ++num_tight;
-    //      }
-
-    d = (gap_a < gap_b ? NEG(cp) : POS(cp));
-  }
-
-#ifdef DBG_TRACE
-  if (DBG_BOUND and (DBG_TRACE & SEARCH)) {
-    std::cout << "\n-- new decision: " << prettyLiteral(EDGE(d))
-              << std::endl;
-  }
-#endif
-
-  return d;
-}
-
+//<<<<<<< HEAD
+// template <typename T> lit Scheduler<T>::polarityChoice(const var cp) {
+//  lit d{NoLit};
+//  if ((random() % 10) == 0) {
+//    d = (random() % 2 ? POS(cp) : NEG(cp));
+//  } else {
+//    auto prec_a{getEdge(POS(cp))};
+//    auto prec_b{getEdge(NEG(cp))};
+//
+//    T gap_a{0};
+//    if (prec_a != Constant::NoEdge<T>)
+//      gap_a = upper(prec_a.from) - lower(prec_a.to);
+//
+//    T gap_b{0};
+//    if (prec_b != Constant::NoEdge<T>)
+//      gap_b = upper(prec_b.from) - lower(prec_b.to);
+//
+//    //      double g{1};
+//    ////          std::cout << static_cast<double>(gap_a) << " <> " <<
+//    /// static_cast<double>(gap_b) << ": " << gap_ratio << " -> ";
+//    //          if(gap_a < gap_b) {
+//    ////              std::cout << "(" <<
+//    ///(static_cast<double>(gap_a)/static_cast<double>(gap_b)) << ") ";
+//    //
+//    //              g =
+//    (static_cast<double>(gap_a)/static_cast<double>(gap_b));
+//    //          } else {
+//    ////              std::cout << "(" <<
+//    ///(static_cast<double>(gap_b)/static_cast<double>(gap_a)) << ") ";
+//    //
+//    //              g = (gap_a > 0 ?
+//    //              static_cast<double>(gap_b)/static_cast<double>(gap_a) :
+//    1);
+//    //          }
+//    ////          std::cout << gap_ratio << "\n";
+//    //
+//    //      gap_ratio += g;
+//    //      if(g == 1) {
+//    //          ++num_tight;
+//    //      }
+//
+//    d = (gap_a < gap_b ? NEG(cp) : POS(cp));
+//  }
+//
+//#ifdef DBG_TRACE
+//  if (DBG_BOUND and (DBG_TRACE & SEARCH)) {
+//    std::cout << "\n-- new decision: " << prettyLiteral(EDGE(d))
+//              << std::endl;
+//  }
+//#endif
+//
+//  return d;
+//}
+//
+//=======
+//>>>>>>> 953a3b06c78681b75576b6e0f8ddc428e1cbc5e3
 template <typename T> void Scheduler<T>::initializeSearch() {
   if (options.minimization >= 1000)
     initialize_baseline();
 
   heuristic.emplace(*this, options);
+  valueHeuristic.emplace(*this);
 
   restart_policy->initialize(restart_limit);
   start_time = cpu_time();
@@ -2266,7 +2276,7 @@ template <typename T> boolean_state Scheduler<T>::search() {
 #endif
 
         var x = heuristic->nextChoicePoint(*this);
-        lit d{polarityChoice(x)};
+        lit d = valueHeuristic->choosePolarity(x, *this);
         set(d);
       }
     } catch (const Failure &f) {

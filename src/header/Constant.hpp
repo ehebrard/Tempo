@@ -7,9 +7,6 @@
 
 namespace tempo {
 
-using var_t = uint32_t;
-using info_t = uint32_t;
-
 class Constant {
 public:
     

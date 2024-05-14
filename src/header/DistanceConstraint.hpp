@@ -3,8 +3,8 @@
 
 #include <iostream>
 
+#include "Constant.hpp"
 #include "Global.hpp"
-
 
 namespace tempo {
 
@@ -17,6 +17,9 @@ template <typename T> class DistanceConstraint {
 public:
   DistanceConstraint(const event f, const event t, const T d)
       : from(f), to(t), distance(d) {}
+
+  DistanceConstraint(const var_t f, const var_t t, const T d)
+      : from(static_cast<event>(f)), to(static_cast<event>(t)), distance(d) {}
 
   event from;
   event to;
@@ -63,8 +66,9 @@ bool DistanceConstraint<T>::contradicts(const DistanceConstraint<T> &e) const {
 
 template <typename T>
 std::ostream &DistanceConstraint<T>::display(std::ostream &os) const {
-  os << etype(to) << TASK(to) << " - " << etype(from) << TASK(from)
-     << " <= " << distance;
+  //  os << etype(to) << TASK(to) << " - " << etype(from) << TASK(from)
+  //     << " <= " << distance;
+  os << "x" << to << " - x" << from << " <= " << distance;
   return os;
 }
 

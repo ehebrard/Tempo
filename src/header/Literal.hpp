@@ -99,7 +99,15 @@ bool Literal<T>::hasSemantic() const {
 }
 
 template <typename T> Literal<T> operator~(const Literal<T> l) {
-  return Literal<T>(l._id_ ^ 1,  -l._data_ - Gap<T>::epsilon());
+  if (l.isNumeric()) {
+    return Literal<T>(not l.sign(), l.variable(),
+                      -std::get<T>(l._data_) - Gap<T>::epsilon());
+  } else {
+    auto d{std::get<info_t>(l._data_)};
+    if (d != Constant::NoSemantic)
+      return Literal<T>(l._id_ ^ 1, d ^ 1);
+    return Literal<T>(l._id_ ^ 1, d);
+  }
 }
 
 template <typename T> std::ostream& Literal<T>::display(std::ostream &os) const {

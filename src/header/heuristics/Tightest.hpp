@@ -31,7 +31,7 @@ public:
    * @param choicePoint choice point to evaluate
    * @return maximum of the Distances in both directions between the nodes
    */
-  constexpr auto getCost(const var x) const {
+  T getCost(var x) const {
 
     // to - from <= d // e_i - s_j <= 0
 
@@ -48,10 +48,8 @@ public:
     return std::max(gap_a, gap_b);
   }
 
-  constexpr void preEvaluation(const Scheduler<T> &) const noexcept {}
-
 private:
-  Scheduler<T> &distance;
+  const Scheduler<T> &distance;
 };
 }
 

@@ -44,8 +44,6 @@ namespace tempo::heuristics {
         VSIDS &operator=(VSIDS &&) = delete;
         ~VSIDS() = default;
 
-        constexpr void preEvaluation(const Scheduler<T> &) const noexcept {}
-
         /**
          * Cost for a choice point
          * @tparam T type of DistanceConstraint
@@ -53,16 +51,16 @@ namespace tempo::heuristics {
          * @return maximum of the distance between from and to in both directions in the temporal network divided by
          * the choice points activity
          */
-        double getCost(const var x) const {
-            auto prec_a{sched.getEdge(POS(x))};
-            auto prec_b{sched.getEdge(NEG(x))};
-            auto gap_a = sched.upper(prec_a.from) - sched.lower(prec_a.to);
-            auto gap_b = sched.upper(prec_b.from) - sched.lower(prec_b.to);
-            return static_cast<double>(std::max(gap_a, gap_b)) / activity.get(x);
+        [[nodiscard]] double getCost(const var x) const {
+          auto prec_a{sched.getEdge(POS(x))};
+          auto prec_b{sched.getEdge(NEG(x))};
+          auto gap_a = sched.upper(prec_a.from) - sched.lower(prec_a.to);
+          auto gap_b = sched.upper(prec_b.from) - sched.lower(prec_b.to);
+          return static_cast<double>(std::max(gap_a, gap_b)) / activity.get(x);
         }
 
     private:
-        Scheduler<T>& sched;
+      const Scheduler<T> &sched;
       impl::DecayingEventActivityMap<T> activity;
       SubscriberHandle handlerToken;
     };

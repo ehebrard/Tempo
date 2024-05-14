@@ -84,8 +84,11 @@ else ()
     message(SEND_ERROR "Unknown build type ${CMAKE_BUILD_TYPE}")
 endif ()
 
-file(GLOB SOURCES ${CMAKE_SOURCE_DIR}/src/cpp/*.cpp ${CMAKE_SOURCE_DIR}/src/cpp/util/*.cpp ${CMAKE_SOURCE_DIR}/src/cpp/constraints/*.cpp)
+file(GLOB SOURCES ${CMAKE_SOURCE_DIR}/src/cpp/*.cpp ${CMAKE_SOURCE_DIR}/src/cpp/util/*.cpp
+        ${CMAKE_SOURCE_DIR}/src/cpp/constraints/*.cpp ${CMAKE_SOURCE_DIR}/src/cpp/heuristics/*.cpp)
 file(GLOB TORCH_SOURCES ${CMAKE_SOURCE_DIR}/src/cpp/nn/*.cpp)
+
+message("compiler flags: ${CMAKE_CXX_FLAGS}")
 
 message("Source files:")
 foreach(SRC ${SOURCES})
