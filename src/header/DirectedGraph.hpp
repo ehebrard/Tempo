@@ -450,6 +450,9 @@ void DirectedGraph<Arc>::resize(const int n) {
 
 template<class Arc>
 void DirectedGraph<Arc>::newVertex(const int x) {
+    
+//    std::cout << "new vertex " << x << std::endl;
+    
     assert(static_cast<size_t>(x) >= size());
     auto n{size()};
     
@@ -654,7 +657,14 @@ void DirectedGraph<Arc>::verify(const char *msg) {
 
 template<class Arc>
 std::ostream &operator<<(std::ostream &os, const DirectedGraph<Arc> &x) {
-    return x.display(os, [](const int i) {return static_cast<int>(i);}, [](const Arc& e) {return static_cast<int>(e);});
+  return x.display(
+      os, [](const int i) { return static_cast<int>(i); },
+      [](const Arc &e) {
+        std::stringstream ss;
+        ss << e;
+        return ss.str();
+      });
+  //        return static_cast<int>(e);});
 }
 
 
@@ -665,7 +675,10 @@ std::ostream &operator<<(std::ostream &os, const LabeledEdge<T> &x) {
 
 template<typename T, typename S>
 std::ostream &operator<<(std::ostream &os, const StampedLabeledEdge<T,S> &x) {
-    return x.display(os, [](const StampedLabeledEdge<T,S>& e) {return static_cast<int>(e);});
+  return x.display(os, [](const StampedLabeledEdge<T, S> &e) {
+    return std::to_string(static_cast<int>(e)) + " (" +
+           std::to_string(e.label()) + ")";
+  });
 }
 
 

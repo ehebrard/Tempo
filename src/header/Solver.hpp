@@ -10,7 +10,7 @@
 #include "Constant.hpp"
 #include "ConstraintQueue.hpp"
 #include "DistanceConstraint.hpp"
-//#include "Global.hpp"
+#include "Global.hpp"
 //#include "Objective.hpp"
 //#include "Restart.hpp"
 //#include "TemporalNetwork.hpp"
@@ -122,7 +122,7 @@ void BooleanStore<T>::set(Literal<T> l) {
   polarity[l] = true;
   if (l.hasSemantic()) {
     assert(l.constraint() == (edge_index[l.variable()] + l.sign()));
-    solver.add(edges[l.constraint()],
+    solver.set(edges[l.constraint()],
                static_cast<index_t>(solver.numLiteral() - 1));
   }
   assert(l.hasSemantic() or edge_index[l.variable()] == Constant::NoSemantic);
@@ -315,15 +315,15 @@ template <typename T> T NumericStore<T>::lower(const var_t x) const {
 
 template <typename T>
 bool NumericStore<T>::falsified(const Literal<T> l) const {
-  l.value() <= -bound[~l.sign()][l.variable()];
+  return -(l.value()) > bound[~(l.sign())][l.variable()];
 }
 
 template <typename T> bool NumericStore<T>::satisfied(const Literal<T> l) const {
-  return l.value() > bound[l.sign()][l.variable()];
+  return l.value() >= bound[l.sign()][l.variable()];
 }
 
-
-template <typename T> class Solver : public ReversibleObject, public Explainer {
+template <typename T = int>
+class Solver : public ReversibleObject, public Explainer {
 
 public:
   /**
@@ -393,118 +393,120 @@ public:
   void set(Literal<T> l, const Explanation &e = Constant::NoReason);
     bool setNumeric(Literal<T> l, const Explanation &e = Constant::NoReason);
     void setBoolean(Literal<T> l, const Explanation &e = Constant::NoReason);
-  void add(const DistanceConstraint<T> &c, const index_t r = Constant::NoIndex);
-  void boundClosure(const var_t x, const var_t y, const T d, const index_t r);
-  template <typename G>
-  void update(const bool bt, const var_t s, const G &neighbors);
-  //@}
+    void set(const DistanceConstraint<T> &c,
+             const index_t r = Constant::NoIndex);
+    void boundClosure(const var_t x, const var_t y, const T d, const index_t r);
+    template <typename G>
+    void update(const bool bt, const int s, const G &neighbors);
+    //@}
 
-  /**
-   * @name search
-   */
-  //@{
-  int saveState();
-  void restoreState(const int);
-  void undo() override;
-  //@}
-    
-    
-//    void xplain(const lit, const hint, std::vector<lit> &) override;// {}
-//    std::ostream &print_reason(std::ostream &os, const hint) const override;// { return os; }
-//    int getType() const override;// { return CYCLEEXPL; }
+    /**
+     * @name search
+     */
+    //@{
+    int saveState();
+    void restoreState(const int);
+    void undo() override;
+    //@}
 
-  /**
-   * @name printing and trace
-   */
-  //@{
-  std::ostream &display(std::ostream &os) const;
-  //@}
+    void xplain(const lit, const hint, std::vector<lit> &) override; // {}
+    std::ostream &print_reason(std::ostream &os,
+                               const hint) const override; // { return os; }
+    //    int getType() const override;// { return CYCLEEXPL; }
 
-  BooleanStore<T> boolean;
-  BooleanVar<T> newBoolean();
-  DisjunctVar<T> newDisjunct(const DistanceConstraint<T> &,
-                             const DistanceConstraint<T> &);
+    /**
+     * @name printing and trace
+     */
+    //@{
+    std::ostream &display(std::ostream &os) const;
+    //@}
 
-  NumericStore<T> numeric;
-  NumericVar<T> newNumeric();
-  TemporalVar<T> newTemporal();
+    BooleanStore<T> boolean;
+    BooleanVar<T> newBoolean();
+    DisjunctVar<T> newDisjunct(const DistanceConstraint<T> &,
+                               const DistanceConstraint<T> &);
 
-  // graph with all the known edges
-  DirectedGraph<StampedLabeledEdge<T, index_t>> core;
+    NumericStore<T> numeric;
+    NumericVar<T> newNumeric();
+    TemporalVar<T> newTemporal(const T offset = 0);
+    Job<T> newJob(const T mindur = 0, const T maxdur = Constant::Infinity<T>);
 
-  //      DifferenceLogicStore<T> precedences;
+    // graph with all the known edges
+    DirectedGraph<StampedLabeledEdge<T, index_t>> core;
 
-private:
-  Options options;
+    //      DifferenceLogicStore<T> precedences;
 
-  BacktrackEnvironment env;
+  private:
+    Options options;
 
-  // the stack of Literals reprensenting all the changes so far
-  std::vector<Literal<T>> trail;
-  // the reason for each propagation event
-  std::vector<Explanation> reason;
+    BacktrackEnvironment env;
 
-  /**
-   * @name domains
-   */
-  //@{
+    // the stack of Literals reprensenting all the changes so far
+    std::vector<Literal<T>> trail;
+    // the reason for each propagation event
+    std::vector<Explanation> reason;
 
-  // a reversible pointer to the most recent preopagation event that is not yet
-  // propagated
-  Reversible<size_t> propag_pointer;
-  Reversible<size_t> var_pointer;
-  //  Reversible<stamp_t> num_propag_pointer;
-  //@}
+    /**
+     * @name domains
+     */
+    //@{
 
-  /**
-   * @name constraints
-   */
-  //@{
-  // all the clauses (learnt or from the base problem)
-  //    ClauseBase<T> clauses;
-  // data structure used to implement the overall propagation (parameter is the
-  // number of priority classes)
-  ConstraintQueue<3> propagation_queue;
-  // all of the posted constraints
-  std::vector<Constraint *> constraints;
-  // dependency graph variables/constraints
-  DirectedGraph<int> boolean_constraint_network;
-  DirectedGraph<int> numeric_constraint_network;
-  // @}
+    // a reversible pointer to the most recent preopagation event that is not
+    // yet propagated
+    Reversible<size_t> propag_pointer;
+    Reversible<size_t> var_pointer;
+    //  Reversible<stamp_t> num_propag_pointer;
+    //@}
 
-  /**
-   * @name search @TODO: search only on Boolean variables for now
-   */
-  //@{
-  // the set of variables remaining to fix
-  SparseSet<var_t, Reversible<size_t>> search_vars;
-  // current polarity of the Boolean variables
-  //  std::vector<bool> polarity;
-  //  // copy of the best solution so far
-  //  std::vector<bool> best_solution;
-  // level at which a variable has been decided
-  std::vector<stamp_t> var_level;
-  //@}
+    /**
+     * @name constraints
+     */
+    //@{
+    // all the clauses (learnt or from the base problem)
+    //    ClauseBase<T> clauses;
+    // data structure used to implement the overall propagation (parameter is
+    // the number of priority classes)
+    ConstraintQueue<3> propagation_queue;
+    // all of the posted constraints
+    std::vector<Constraint *> constraints;
+    // dependency graph variables/constraints
+    DirectedGraph<int> boolean_constraint_network;
+    DirectedGraph<int> numeric_constraint_network;
+    // @}
 
-  // buffers
-  SparseSet<> changed;
+    /**
+     * @name search @TODO: search only on Boolean variables for now
+     */
+    //@{
+    // the set of variables remaining to fix
+    SparseSet<var_t, Reversible<size_t>> search_vars;
+    // current polarity of the Boolean variables
+    //  std::vector<bool> polarity;
+    //  // copy of the best solution so far
+    //  std::vector<bool> best_solution;
+    // level at which a variable has been decided
+    std::vector<stamp_t> var_level;
+    //@}
 
-public:
-  long unsigned int num_fails{0};
-  long unsigned int num_choicepoints{0};
-  long unsigned int num_backtracks{0};
-  long unsigned int num_Literals{0};
-  long unsigned int num_updates{0};
-  long unsigned int num_clause_propagations{0};
-  long unsigned int num_cons_propagations{0};
-  long unsigned int num_edge_prunings{0};
-  long unsigned int num_cons_prunings{0};
-  long unsigned int learnt_size{0};
+    // buffers
+    SparseSet<> changed;
+
+  public:
+    long unsigned int num_fails{0};
+    long unsigned int num_choicepoints{0};
+    long unsigned int num_backtracks{0};
+    long unsigned int num_Literals{0};
+    long unsigned int num_updates{0};
+    long unsigned int num_clause_propagations{0};
+    long unsigned int num_cons_propagations{0};
+    long unsigned int num_edge_prunings{0};
+    long unsigned int num_cons_prunings{0};
+    long unsigned int learnt_size{0};
 };
 
 template <typename T>
 Solver<T>::Solver(Options opt)
-    : ReversibleObject(&env), boolean(*this), numeric(*this),
+    : ReversibleObject(&env), boolean(*this), numeric(*this), core(&env),
       options(std::move(opt))
       //, clauses(*this)
       ,
@@ -532,17 +534,21 @@ DisjunctVar<T> Solver<T>::newDisjunct(const DistanceConstraint<T> &d1,
 
 template <typename T> NumericVar<T> Solver<T>::newNumeric() {
   auto x{numeric.newVar()};
-  changed.reserve(numeric.size()+1);
+  changed.reserve(numeric.size());
   numeric_constraint_network.resize(std::max(numConstraint(), numeric.size()));
   return x;
 }
 
-template <typename T> TemporalVar<T> Solver<T>::newTemporal() {
-  TemporalVar<T> x{numeric.newVar().id(), 0};
+template <typename T> TemporalVar<T> Solver<T>::newTemporal(const T offset) {
+  TemporalVar<T> x{newNumeric().id(), offset};
   //  auto x{numeric.newVar()};
   core.newVertex(x);
-  numeric_constraint_network.resize(std::max(numConstraint(), numeric.size()));
+//  numeric_constraint_network.resize(std::max(numConstraint(), numeric.size()));
   return x;
+}
+
+template <typename T> Job<T> Solver<T>::newJob(const T mindur, const T maxdur) {
+  return Job<T>(*this, mindur, maxdur);
 }
 
 template <typename T>
@@ -565,7 +571,7 @@ template <typename T> void tempo::Solver<T>::propagate() {
 }
 
 template <typename T>
-void Solver<T>::add(const DistanceConstraint<T> &c, const index_t r) {
+void Solver<T>::set(const DistanceConstraint<T> &c, const index_t r) {
   core.emplace_edge(c.from, c.to, c.distance, r);
   boundClosure(c.from, c.to, c.distance, r);
 }
@@ -579,11 +585,36 @@ template <typename T> void Solver<T>::set(Literal<T> l, const Explanation &e) {
 }
 
 template <typename T> bool Solver<T>::setNumeric(Literal<T> l, const Explanation &e) {
-    if(not numeric.satisfied(l)) {
-        reason.emplace_back(e);
-        trail.push_back(l);
-        numeric.set(l);
-        return true;
+//
+//  //    std::cout << *this ;
+//  std::cout << "set " << l << ": " << numeric.satisfied(l) << std::endl;
+
+  if (not numeric.satisfied(l)) {
+    reason.emplace_back(e);
+    trail.push_back(l);
+    numeric.set(l);
+//
+//    std::cout << "sign: " << l.sign() << "/" << bound::lower << "/"
+//              << bound::upper << std::endl;
+
+    if (l.sign() == bound::upper) {
+//
+//      std::cout << "update w.r.t. ub(x" << l.variable() << ")\n";
+//      std::cout << core << std::endl;
+
+      update(bound::upper, l.variable(), core);
+    } else {
+//
+//      std::cout << "update w.r.t. lb(x" << l.variable() << ")\n";
+//      std::cout << core << std::endl;
+//      std::cout << "here\n";
+
+      update(bound::lower, l.variable(), core.backward());
+
+//      std::cout << "there\n";
+    }
+
+    return true;
     }
     return false;
 }
@@ -604,15 +635,32 @@ void Solver<T>::boundClosure(const var_t x, const var_t y, const T d,
   if (r == Constant::NoIndex)
     e = Constant::NoReason;
 
+  //    std::cout << "lower: " << numeric.lower(y) << std::endl;
+  //    std::cout << "BC: " << geq<T>(x, numeric.lower(y) - d) << std::endl;
+  //
+
   // reduce the lower bound of x and precessor
-  if (setNumeric(geq<T>(x, numeric.lower(y) - d), e)) {
-    update(bound::lower, x, core.backward());
+  if (numeric.lower(y) != -Constant::Infinity<T>) {
+//    std::cout << geq<T>(x, numeric.lower(y) - d).sign() << "/" << bound::lower
+//              << std::endl;
+    setNumeric(geq<T>(x, numeric.lower(y) - d), e);
   }
+  //    {
+  //    update(bound::lower, static_cast<int>(x), core.backward());
+  //  }
+
+  //    std::cout << "upper: "<< numeric.upper(x) << std::endl;
+  //    std::cout << "BC: " << leq<T>(y, numeric.upper(x) + d) << std::endl;
 
   // increase the upper bound of y and successors
-  if (setNumeric(leq<T>(y, numeric.upper(x) - d), e)) {
-    update(bound::upper, y, core);
+  if (numeric.upper(x) != Constant::Infinity<T>) {
+//    std::cout << leq<T>(y, numeric.upper(x) + d) << "/" << bound::upper
+//              << std::endl;
+    setNumeric(leq<T>(y, numeric.upper(x) + d), e);
   }
+  //  {
+  //    update(bound::upper, static_cast<int>(y), core);
+  //  }
 }
 
 template<typename T>
@@ -650,41 +698,39 @@ template <typename T> void Solver<T>::undo() {
 
 template <typename T>
 template <typename G>
-void Solver<T>::update(const bool bounds, const var_t s, const G &neighbors) {
+void Solver<T>::update(const bool bounds, const int s, const G &neighbors) {
 
   const std::vector<T> &shortest_path{numeric.get(bounds)};
 
   //                                    int max_iter{1000};
-    
-    std::cout << s << " / " << changed.capacity() << std::endl;
-    
+
   changed.clear();
+    
+//    std::cout << s << " / " << changed.capacity() << std::endl;
+    
   changed.add(s);
 
-  //       #ifdef DBG_BELLMAN
-  //           if(DBG_BELLMAN) {
-  //               core.display(std::cout, [this](const int e) {return
-  //               bounds.getLabel(e);}, [this](const StampedLabeledEdge<T,lit>&
-  //               e) {return bounds.getLabel(static_cast<int>(e)) + " (" +
-  //               std::to_string(e.label()) + ")";}); std::cout << "\nstart
-  //               explore from " << bounds.getLabel(s) << (bounds==bound::lower
-  //               ? " (backward)" : " (forward)") << std::endl ;
-  //           }
-  //       #endif
+#ifdef DBG_BELLMAN
+  if (DBG_BELLMAN) {
+    std::cout << core << "\nstart explore from " << s
+              << (bounds == bound::lower ? " (backward)" : " (forward)")
+              << std::endl;
+  }
+#endif
 
   while (not changed.empty()) {
 
     auto u{changed.front()};
     changed.pop_front();
 
-    //       #ifdef DBG_BELLMAN
-    //               if(DBG_BELLMAN) {
-    //                   std::cout << "pop " << bounds.getLabel(u) << " q=(";
-    //                   for(auto evt : changed)
-    //                       std::cout << " " << bounds.getLabel(evt);
-    //                   std::cout << " )" << std::endl ;
-    //               }
-    //       #endif
+#ifdef DBG_BELLMAN
+    if (DBG_BELLMAN) {
+      std::cout << "pop " << u << " q=(";
+      for (auto evt : changed)
+        std::cout << " " << evt;
+      std::cout << " )" << std::endl;
+    }
+#endif
 
     for (auto edge : neighbors[u]) {
       int v{edge};
@@ -692,38 +738,21 @@ void Solver<T>::update(const bool bounds, const var_t s, const G &neighbors) {
 
       if (shortest_path[u] + w < shortest_path[v]) {
 
-        //       #ifdef DBG_BELLMAN
-        //                       if(DBG_BELLMAN) {
-        //                           std::cout << " * shorter path " <<
-        //                           (bt==LOWER ? "from " : "to ") <<
-        //                           bounds.getLabel(v) << std::endl ;
-        //                       }
-        //       #endif
+#ifdef DBG_BELLMAN
+        if (DBG_BELLMAN) {
+          std::cout << " * shorter path "
+                    << (bounds == bound::lower ? "from " : "to ") << v
+                    << std::endl;
+        }
+#endif
 
         if (v == s) {
 
-          //       #ifdef DBG_TRACE
-          //       //                        if(DBG_BELLMAN) {
-          //                                   if (DBG_TRACE & PROPAGATION) {
-          //                                       std::cout << "FAIL on
-          //                                       negative cycle!"; event
-          //                                       evt{v}; std::cout << " " <<
-          //                                       bounds.getLabel(evt) ;
-          //                                       // do {
-          //                                       // if(bt==LOWER)
-          //                                       // std::cout << "
-          //                                       // -> ";
-          //                                       // else
-          //                                       // std::cout << "
-          //                                       // <- ";
-          //                                       // evt = path[evt];
-          //                                       // std::cout <<
-          //                                       // prettyEvent(evt) ;
-          //                                       // } while (evt != v);
-          //                                       std::cout << std::endl;
-          //                                   }
-          //       //                        }
-          //       #endif
+#ifdef DBG_BELLMAN
+          if (DBG_BELLMAN) {
+            std::cout << " negative cyle\n";
+          }
+#endif
 
           throw Failure({this, static_cast<hint>(Literal<T>::index(bounds, s))});
         }
@@ -740,25 +769,23 @@ void Solver<T>::update(const bool bounds, const var_t s, const G &neighbors) {
         if (not changed.has(v))
           changed.add(v);
       }
-      //       #ifdef DBG_BELLMAN
-      //                   else if(DBG_BELLMAN) {
-      //                       std::cout << " ignore " << bounds.getLabel(v) <<
-      //                       std::endl ;
-      //                   }
-      //       #endif
+#ifdef DBG_BELLMAN
+      else if (DBG_BELLMAN) {
+        std::cout << " ignore " << v << std::endl;
+      }
+#endif
     }
   }
 }
 
-//template<typename T>
-//void Solver<T>::xplain(const lit l, const hint h, std::vector<lit> &Cl) {
-//    
-//}
-//
-//template<typename T>
-//std::ostream &TemporalNetwork<T>::print_reason(std::ostream &os, const hint h) const {
-//    return os;
-//}
+template <typename T>
+void Solver<T>::xplain(const lit, const hint, std::vector<lit> &) {}
+
+template <typename T>
+std::ostream &Solver<T>::print_reason(std::ostream &os, const hint) const {
+  os << " shortest path";
+  return os;
+}
 
 template <typename T> std::ostream &Solver<T>::display(std::ostream &os) const {
   std::cout << boolean.size() << " boolean vars:\n";

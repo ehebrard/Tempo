@@ -27,7 +27,7 @@ using info_t = uint32_t;
 //#define DBG_EDGEFINDING (m_schedule.num_cons_propagations >= 55553)
 //#define DBG_EXPLEF true      //(m_schedule.num_fails > 236)
 //#define DBG_THETA (m_schedule.num_fails >= 481)
-//#define DBG_BELLMAN (sched.num_choicepoints >= 1045)
+//#define DBG_BELLMAN true //(sched.num_choicepoints >= 1045)
 //#define DBG_BELLMAN_EXPL (sched.num_choicepoints >= 4172)
 //#define DEBUG_HEURISTICS
 //#define DBG_UP
