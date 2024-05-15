@@ -15,7 +15,7 @@
 //#include "Restart.hpp"
 //#include "TemporalNetwork.hpp"
 //#include "constraints/DisjunctiveEdgeFinding.hpp"
-//#include "constraints/EdgeConstraint.hpp"
+#include "constraints/EdgeConstraint.hpp"
 //#include "constraints/Transitivity.hpp"
 //#include "heuristics/HeuristicManager.hpp"
 //#include "util/Heap.hpp"
@@ -58,6 +58,7 @@ public:
 
   Literal<T> getLiteral(const bool s, const var_t x) const;
   const DistanceConstraint<T> &getEdge(const bool s, const var_t x) const;
+  const DistanceConstraint<T> &getEdge(const Literal<T> l) const;
 
   bool hasSemantic(const var_t x) const;
 
@@ -80,6 +81,12 @@ template <typename T>
 const DistanceConstraint<T> &BooleanStore<T>::getEdge(const bool s,
                                                       const var_t x) const {
   return edges[edge_index[x] + s];
+}
+
+template <typename T>
+const DistanceConstraint<T> &
+BooleanStore<T>::getEdge(const Literal<T> l) const {
+  return edges[l.constraint()];
 }
 
 template <typename T> bool BooleanStore<T>::hasSemantic(const var_t x) const {
@@ -186,6 +193,10 @@ public:
   T upper(const var_t x) const;
 
   T lower(const var_t x) const;
+
+  Literal<T> strongestLiteral(const bool s, const var_t x) const;
+
+  index_t litIndex(const bool s, const var_t x) const;
 
   size_t size() const;
 
@@ -314,6 +325,17 @@ template <typename T> T NumericStore<T>::lower(const var_t x) const {
 }
 
 template <typename T>
+Literal<T> NumericStore<T>::strongestLiteral(const bool s,
+                                             const var_t x) const {
+  return solver.getLiteral(bound_index[s][x].back());
+}
+
+template <typename T>
+index_t NumericStore<T>::litIndex(const bool s, const var_t x) const {
+  return bound_index[s][x].back();
+}
+
+template <typename T>
 bool NumericStore<T>::falsified(const Literal<T> l) const {
   return -(l.value()) > bound[~(l.sign())][l.variable()];
 }
@@ -323,7 +345,7 @@ template <typename T> bool NumericStore<T>::satisfied(const Literal<T> l) const 
 }
 
 template <typename T = int>
-class Solver : public ReversibleObject, public Explainer {
+class Solver : public ReversibleObject, public NewExplainer<T> {
 
 public:
   /**
@@ -390,118 +412,124 @@ public:
   stamp_t getPropagationLevel(const var_t x) const;
 
   void propagate();
-  void set(Literal<T> l, const Explanation &e = Constant::NoReason);
-    bool setNumeric(Literal<T> l, const Explanation &e = Constant::NoReason);
-    void setBoolean(Literal<T> l, const Explanation &e = Constant::NoReason);
-    void set(const DistanceConstraint<T> &c,
-             const index_t r = Constant::NoIndex);
-    void boundClosure(const var_t x, const var_t y, const T d, const index_t r);
-    template <typename G>
-    void update(const bool bt, const int s, const G &neighbors);
-    //@}
+  void set(Literal<T> l, const NewExplanation<T> &e = Constant::NewNoReason<T>);
+  bool setNumeric(Literal<T> l,
+                  const NewExplanation<T> &e = Constant::NewNoReason<T>);
+  void setBoolean(Literal<T> l,
+                  const NewExplanation<T> &e = Constant::NewNoReason<T>);
+  void set(const DistanceConstraint<T> &c, const index_t r = Constant::NoIndex);
+  void boundClosure(const var_t x, const var_t y, const T d, const index_t r);
+  template <typename G>
+  void update(const bool bt, const int s, const G &neighbors);
+  //@}
 
-    /**
-     * @name search
-     */
-    //@{
-    int saveState();
-    void restoreState(const int);
-    void undo() override;
-    //@}
+  void post(NewConstraint<T> *);
+  void relax(NewConstraint<T> *);
+  void wake_me_on(const Literal<T>, const int);
 
-    void xplain(const lit, const hint, std::vector<lit> &) override; // {}
-    std::ostream &print_reason(std::ostream &os,
-                               const hint) const override; // { return os; }
-    //    int getType() const override;// { return CYCLEEXPL; }
+  /**
+   * @name search
+   */
+  //@{
+  int saveState();
+  void restoreState(const int);
+  void undo() override;
+  //@}
 
-    /**
-     * @name printing and trace
-     */
-    //@{
-    std::ostream &display(std::ostream &os) const;
-    //@}
+  void xplain(const Literal<T>, const hint,
+              std::vector<Literal<T>> &) override; // {}
+  std::ostream &print_reason(std::ostream &os,
+                             const hint) const override; // { return os; }
+  //    int getType() const override;// { return CYCLEEXPL; }
 
-    BooleanStore<T> boolean;
-    BooleanVar<T> newBoolean();
-    DisjunctVar<T> newDisjunct(const DistanceConstraint<T> &,
-                               const DistanceConstraint<T> &);
+  /**
+   * @name printing and trace
+   */
+  //@{
+  std::ostream &display(std::ostream &os) const;
+  //@}
 
-    NumericStore<T> numeric;
-    NumericVar<T> newNumeric();
-    TemporalVar<T> newTemporal(const T offset = 0);
-    Job<T> newJob(const T mindur = 0, const T maxdur = Constant::Infinity<T>);
+  BooleanStore<T> boolean;
+  BooleanVar<T> newBoolean();
+  DisjunctVar<T> newDisjunct(const DistanceConstraint<T> &,
+                             const DistanceConstraint<T> &);
 
-    // graph with all the known edges
-    DirectedGraph<StampedLabeledEdge<T, index_t>> core;
+  NumericStore<T> numeric;
+  NumericVar<T> newNumeric();
+  TemporalVar<T> newTemporal(const T offset = 0);
+  Job<T> newJob(const T mindur = 0, const T maxdur = Constant::Infinity<T>);
 
-    //      DifferenceLogicStore<T> precedences;
+  // graph with all the known edges
+  DirectedGraph<StampedLabeledEdge<T, index_t>> core;
 
-  private:
-    Options options;
+  //      DifferenceLogicStore<T> precedences;
 
-    BacktrackEnvironment env;
+private:
+  Options options;
 
-    // the stack of Literals reprensenting all the changes so far
-    std::vector<Literal<T>> trail;
-    // the reason for each propagation event
-    std::vector<Explanation> reason;
+  BacktrackEnvironment env;
 
-    /**
-     * @name domains
-     */
-    //@{
+  // the stack of Literals reprensenting all the changes so far
+  std::vector<Literal<T>> trail;
+  // the reason for each propagation event
+  std::vector<NewExplanation<T>> reason;
 
-    // a reversible pointer to the most recent preopagation event that is not
-    // yet propagated
-    Reversible<size_t> propag_pointer;
-    Reversible<size_t> var_pointer;
-    //  Reversible<stamp_t> num_propag_pointer;
-    //@}
+  /**
+   * @name domains
+   */
+  //@{
 
-    /**
-     * @name constraints
-     */
-    //@{
-    // all the clauses (learnt or from the base problem)
-    //    ClauseBase<T> clauses;
-    // data structure used to implement the overall propagation (parameter is
-    // the number of priority classes)
-    ConstraintQueue<3> propagation_queue;
-    // all of the posted constraints
-    std::vector<Constraint *> constraints;
-    // dependency graph variables/constraints
-    DirectedGraph<int> boolean_constraint_network;
-    DirectedGraph<int> numeric_constraint_network;
-    // @}
+  // a reversible pointer to the most recent preopagation event that is not
+  // yet propagated
+  Reversible<size_t> propag_pointer;
+  Reversible<size_t> var_pointer;
+  //  Reversible<stamp_t> num_propag_pointer;
+  //@}
 
-    /**
-     * @name search @TODO: search only on Boolean variables for now
-     */
-    //@{
-    // the set of variables remaining to fix
-    SparseSet<var_t, Reversible<size_t>> search_vars;
-    // current polarity of the Boolean variables
-    //  std::vector<bool> polarity;
-    //  // copy of the best solution so far
-    //  std::vector<bool> best_solution;
-    // level at which a variable has been decided
-    std::vector<stamp_t> var_level;
-    //@}
+  /**
+   * @name constraints
+   */
+  //@{
+  // all the clauses (learnt or from the base problem)
+  //    ClauseBase<T> clauses;
+  // data structure used to implement the overall propagation (parameter is
+  // the number of priority classes)
+  NewConstraintQueue<T, 3> propagation_queue;
+  // all of the posted constraints
+  std::vector<NewConstraint<T> *> constraints;
+  // dependency graph variables/constraints
+  DirectedGraph<int> boolean_constraint_network;
+  DirectedGraph<int> numeric_constraint_network;
+  // @}
 
-    // buffers
-    SparseSet<> changed;
+  /**
+   * @name search @TODO: search only on Boolean variables for now
+   */
+  //@{
+  // the set of variables remaining to fix
+  SparseSet<var_t, Reversible<size_t>> search_vars;
+  // current polarity of the Boolean variables
+  //  std::vector<bool> polarity;
+  //  // copy of the best solution so far
+  //  std::vector<bool> best_solution;
+  // level at which a variable has been decided
+  std::vector<stamp_t> var_level;
+  //@}
 
-  public:
-    long unsigned int num_fails{0};
-    long unsigned int num_choicepoints{0};
-    long unsigned int num_backtracks{0};
-    long unsigned int num_Literals{0};
-    long unsigned int num_updates{0};
-    long unsigned int num_clause_propagations{0};
-    long unsigned int num_cons_propagations{0};
-    long unsigned int num_edge_prunings{0};
-    long unsigned int num_cons_prunings{0};
-    long unsigned int learnt_size{0};
+  // buffers
+  SparseSet<> changed;
+
+public:
+  long unsigned int num_fails{0};
+  long unsigned int num_choicepoints{0};
+  long unsigned int num_backtracks{0};
+  long unsigned int num_Literals{0};
+  long unsigned int num_updates{0};
+  long unsigned int num_clause_propagations{0};
+  long unsigned int num_cons_propagations{0};
+  long unsigned int num_edge_prunings{0};
+  long unsigned int num_cons_prunings{0};
+  long unsigned int learnt_size{0};
 };
 
 template <typename T>
@@ -514,7 +542,7 @@ Solver<T>::Solver(Options opt)
       boolean_constraint_network(&env), numeric_constraint_network(&env),
       search_vars(0, &env) {
   trail.emplace_back(Constant::NoVarx, Constant::Infinity<T>);
-  reason.push_back(Constant::NoReason);
+  reason.push_back(Constant::NewNoReason<T>);
   seed(options.seed);
 }
 
@@ -529,6 +557,10 @@ DisjunctVar<T> Solver<T>::newDisjunct(const DistanceConstraint<T> &d1,
                                       const DistanceConstraint<T> &d2) {
   auto x{boolean.newDisjunct(d1, d2)};
   boolean_constraint_network.resize(std::max(numConstraint(), boolean.size()));
+
+  post(new NewEdgeConstraint<T>(*this, boolean.getLiteral(true, x)));
+  post(new NewEdgeConstraint<T>(*this, boolean.getLiteral(false, x)));
+
   return x;
 }
 
@@ -576,7 +608,8 @@ void Solver<T>::set(const DistanceConstraint<T> &c, const index_t r) {
   boundClosure(c.from, c.to, c.distance, r);
 }
 
-template <typename T> void Solver<T>::set(Literal<T> l, const Explanation &e) {
+template <typename T>
+void Solver<T>::set(Literal<T> l, const NewExplanation<T> &e) {
   if (l.isNumeric()) {
     setNumeric(l,e);
   } else {
@@ -584,10 +617,11 @@ template <typename T> void Solver<T>::set(Literal<T> l, const Explanation &e) {
   }
 }
 
-template <typename T> bool Solver<T>::setNumeric(Literal<T> l, const Explanation &e) {
-//
-//  //    std::cout << *this ;
-//  std::cout << "set " << l << ": " << numeric.satisfied(l) << std::endl;
+template <typename T>
+bool Solver<T>::setNumeric(Literal<T> l, const NewExplanation<T> &e) {
+  //
+  //  //    std::cout << *this ;
+  //  std::cout << "set " << l << ": " << numeric.satisfied(l) << std::endl;
 
   if (not numeric.satisfied(l)) {
     reason.emplace_back(e);
@@ -619,8 +653,9 @@ template <typename T> bool Solver<T>::setNumeric(Literal<T> l, const Explanation
     return false;
 }
 
-template <typename T> void Solver<T>::setBoolean(Literal<T> l, const Explanation &e) {
-    assert(not boolean.satisfied(l));
+template <typename T>
+void Solver<T>::setBoolean(Literal<T> l, const NewExplanation<T> &e) {
+  assert(not boolean.satisfied(l));
   reason.emplace_back(e);
   trail.push_back(l);
     boolean.set(l);
@@ -631,9 +666,9 @@ void Solver<T>::boundClosure(const var_t x, const var_t y, const T d,
                              const index_t r) {
   // closure w.r.t. 0 (0 -> x -(d)-> y -> 0)
 
-  Explanation e{this, static_cast<hint>(r)};
+  NewExplanation<T> e{this, static_cast<hint>(r)};
   if (r == Constant::NoIndex)
-    e = Constant::NoReason;
+    e = Constant::NewNoReason<T>;
 
   //    std::cout << "lower: " << numeric.lower(y) << std::endl;
   //    std::cout << "BC: " << geq<T>(x, numeric.lower(y) - d) << std::endl;
@@ -754,7 +789,8 @@ void Solver<T>::update(const bool bounds, const int s, const G &neighbors) {
           }
 #endif
 
-          throw Failure({this, static_cast<hint>(Literal<T>::index(bounds, s))});
+          throw NewFailure<T>(
+              {this, static_cast<hint>(Literal<T>::index(bounds, s))});
         }
         setNumeric(Literal<T>(bounds, v, shortest_path[u] + w),
                     {this, static_cast<hint>(edge.stamp())});
@@ -778,8 +814,39 @@ void Solver<T>::update(const bool bounds, const int s, const G &neighbors) {
   }
 }
 
+template <typename T> void Solver<T>::post(NewConstraint<T> *con) {
+
+  constraints.push_back(con);
+  propagation_queue.resize(constraints.size());
+
+  boolean_constraint_network.resize(
+      std::max(2 * boolean.size(), numConstraint()));
+  numeric_constraint_network.resize(
+      std::max(2 * numeric.size(), numConstraint()));
+
+  con->post(numConstraint() - 1);
+}
+
+template <typename T> void Solver<T>::relax(NewConstraint<T> *con) {
+
+  if (boolean_constraint_network.indegree(con->id()) > 0)
+    boolean_constraint_network.remove(con->id(), IN);
+  if (numeric_constraint_network.indegree(con->id()) > 0)
+    numeric_constraint_network.remove(con->id(), IN);
+}
+
 template <typename T>
-void Solver<T>::xplain(const lit, const hint, std::vector<lit> &) {}
+void Solver<T>::wake_me_on(const Literal<T> l, const int c) {
+  if (l.isNumeric()) {
+    numeric_constraint_network.add(l, c);
+  } else {
+    boolean_constraint_network.add(l, c);
+  }
+}
+
+template <typename T>
+void Solver<T>::xplain(const Literal<T>, const hint,
+                       std::vector<Literal<T>> &) {}
 
 template <typename T>
 std::ostream &Solver<T>::print_reason(std::ostream &os, const hint) const {
@@ -788,39 +855,89 @@ std::ostream &Solver<T>::print_reason(std::ostream &os, const hint) const {
 }
 
 template <typename T> std::ostream &Solver<T>::display(std::ostream &os) const {
-  std::cout << boolean.size() << " boolean vars:\n";
+  os << boolean.size() << " boolean vars:\n";
   for (var_t x{0}; x < boolean.size(); ++x) {
-    std::cout << "b" << x << ": ";
+    os << "b" << x << ": ";
     if (boolean.hasSemantic(x)) {
       if (boolean.isTrue(x)) {
-        std::cout << boolean.getEdge(true, x) << std::endl;
+        os << boolean.getEdge(true, x) << std::endl;
       } else if (boolean.isFalse(x)) {
-        std::cout << boolean.getEdge(false, x) << std::endl;
+        os << boolean.getEdge(false, x) << std::endl;
       } else {
-        std::cout << boolean.getEdge(true, x) << " or "
-                  << boolean.getEdge(false, x) << std::endl;
+        os << boolean.getEdge(true, x) << " or " << boolean.getEdge(false, x)
+           << std::endl;
       }
     } else {
       if (boolean.isTrue(x)) {
-        std::cout << "true\n";
+        os << "true\n";
       } else if (boolean.isFalse(x)) {
-        std::cout << "false\n";
+        os << "false\n";
       } else {
-        std::cout << "undef\n";
+        os << "undef\n";
       }
     }
   }
-  std::cout << numeric.size() << " numeric vars:\n";
+  os << numeric.size() << " numeric vars:\n";
   for (var_t x{0}; x < numeric.size(); ++x) {
-    std::cout << "x" << x << ": [" << numeric.lower(x) << ".."
-              << numeric.upper(x) << "]\n";
+    os << "x" << x << ": [" << numeric.lower(x) << ".." << numeric.upper(x)
+       << "]\n";
   }
-  std::cout << numLiteral() << " literals:\n";
+  os << numLiteral() << " literals:\n";
   index_t i{0};
   for (auto l : trail) {
-    std::cout << l << " b/c " << reason[i++] << std::endl;
+    os << l << " b/c " << reason[i++] << std::endl;
   }
-  std::cout << " precedence graph:\n" << core << std::endl;
+  os << " precedence graph:\n" << core << std::endl;
+  os << "constraints:\n";
+  for (auto c : constraints) {
+    os << c->id() << ": " << *c << std::endl;
+  }
+  os << "numeric triggers:\n";
+  for (var_t x{0}; x < static_cast<var_t>(numeric.size()); ++x) {
+
+    auto l{Literal<T>::index(bound::lower, x)};
+    if (numeric_constraint_network.has(l) and
+        numeric_constraint_network.outdegree(l) > 0) {
+      os << "lb(x" << x << "):";
+      for (auto c : numeric_constraint_network[l]) {
+        os << " " << c;
+      }
+      os << std::endl;
+    }
+
+    l = Literal<T>::index(bound::upper, x);
+    if (numeric_constraint_network.has(l) and
+        numeric_constraint_network.outdegree(l) > 0) {
+      os << "ub(x" << x << "):";
+      for (auto c : numeric_constraint_network[l]) {
+        os << " " << c;
+      }
+      os << std::endl;
+    }
+  }
+  os << "boolean triggers:\n";
+  for (var_t x{0}; x < static_cast<var_t>(boolean.size()); ++x) {
+
+    auto l{Literal<T>::index(true, x)};
+    if (boolean_constraint_network.has(l) and
+        boolean_constraint_network.outdegree(l) > 0) {
+      os << "x" << x << ":";
+      for (auto c : boolean_constraint_network[l]) {
+        os << " " << c;
+      }
+      os << std::endl;
+    }
+
+    l = Literal<T>::index(false, x);
+    if (boolean_constraint_network.has(l) and
+        boolean_constraint_network.outdegree(l) > 0) {
+      os << "¬x" << x << ":";
+      for (auto c : boolean_constraint_network[l]) {
+        os << " " << c;
+      }
+      os << std::endl;
+    }
+  }
   return os;
 }
 

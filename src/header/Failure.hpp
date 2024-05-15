@@ -28,6 +28,15 @@ public:
   }
 };
 
+template <typename T> class NewFailure : public std::exception {
+public:
+  NewExplanation<T> reason;
+
+  NewFailure(NewExplanation<T> r = Constant::NewNoReason<T>) : reason(r) {}
+
+  virtual const char *what() const throw() { return "Inconsistency (literal)"; }
+};
+
 //class NegativeCycle: public std::exception
 //{
 //public:

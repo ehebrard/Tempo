@@ -8,8 +8,7 @@
 
 namespace tempo {
 
-template <typename T> class BoundSystem;
-
+// template <typename T> class BoundSystem;
 
 // literals x - y <= k (with x,y pointing to vars and k a constant)
 template <typename T> class DistanceConstraint {
@@ -33,6 +32,10 @@ public:
   bool entails(const DistanceConstraint<T> &e) const;
   bool contradicts(const DistanceConstraint<T> &e) const;
 
+  template <typename S> bool satisfied(S &solver) const;
+
+  template <typename S> bool falsified(S &solver) const;
+
   std::ostream &display(std::ostream &os) const;
 };
 
@@ -52,6 +55,18 @@ const DistanceConstraint<T>
 template <typename T>
 DistanceConstraint<T> DistanceConstraint<T>::operator~() const {
   return {to, from, -distance - Gap<T>::epsilon()};
+}
+
+template <typename T>
+template <typename S>
+bool DistanceConstraint<T>::satisfied(S &solver) const {
+  return solver.numeric.upper(to) - solver.numeric.lower(from) <= distance;
+}
+
+template <typename T>
+template <typename S>
+bool DistanceConstraint<T>::falsified(S &solver) const {
+  return solver.numeric.lower(to) - solver.numeric.upper(from) > distance;
 }
 
 template <typename T>

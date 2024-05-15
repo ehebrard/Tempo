@@ -29,7 +29,8 @@ struct Literal {
     bool isBoolean() const;
     bool hasSemantic() const;
     bool isNumeric() const;
-    
+
+    //    operator int() const;
     operator info_t() const;
 
     bool sign() const;
@@ -65,6 +66,8 @@ template <typename T> var_t Literal<T>::index(const bool sign, const var_t x) {
 }
 
 template <typename T> Literal<T>::operator info_t() const { return _id_; }
+// template <typename T> Literal<T>::operator int() const { return
+// static_cast<int>(_id_); }
 
 template <typename T> bool Literal<T>::sign() const { return (_id_ & 1); }
 
@@ -126,6 +129,13 @@ std::ostream &operator<<(std::ostream &os, const Literal<T> &x) {
   return x.display(os);
 }
 
+template <typename T> Literal<T> ub(const var_t x) {
+  return Literal<T>(true, x, Constant::Infinity<T>);
+}
+
+template <typename T> Literal<T> lb(const var_t x) {
+  return Literal<T>(false, x, Constant::Infinity<T>);
+}
 
 template<typename T>
 Literal<T> leq(const var_t x, const T v) {
