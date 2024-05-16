@@ -189,7 +189,7 @@ public:
   NewEdgeConstraint(Solver<T> &, const Literal<T>);
   virtual ~NewEdgeConstraint() = default;
 
-  bool notify_bound(const Literal<T>, const int) override;
+  bool notify(const Literal<T>, const int) override;
   void post(const int idx) override;
   void propagate() override;
 
@@ -236,7 +236,7 @@ template <typename T> void NewEdgeConstraint<T>::post(const int idx) {
 }
 
 template <typename T>
-bool NewEdgeConstraint<T>::notify_bound(const Literal<T>, const int) {
+bool NewEdgeConstraint<T>::notify(const Literal<T>, const int) {
 
 #ifdef DBG_EDGECONS
   if (DBG_EDGECONS) {

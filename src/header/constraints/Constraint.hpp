@@ -57,8 +57,8 @@ public:
   // propagate the constraint
   virtual void propagate() = 0;
   // notify a change (with the literal and it's variable rank in the scope)
-  virtual bool notify_bound(const Literal<T>, const int) { return false; }
-  virtual bool notify_edge(const Literal<T>, const int) { return false; }
+  virtual bool notify(const Literal<T>, const int) { return false; }
+  //  virtual bool notify_edge(const Literal<T>, const int) { return false; }
 
   virtual std::ostream &display(std::ostream &os) const = 0;
 

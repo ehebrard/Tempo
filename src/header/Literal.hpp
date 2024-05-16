@@ -119,7 +119,7 @@ template <typename T> std::ostream& Literal<T>::display(std::ostream &os) const 
     } else if(isNumeric()) {
         os << (sign() ? "x" : "-x") << variable() << " <= " << value();
     } else {
-        os << (sign() ? "x" : "¬x") << variable() << (hasSemantic() ? "*" : "");
+      os << (sign() ? "b" : "¬b") << variable() << (hasSemantic() ? "*" : "");
     }
     return os;
 }

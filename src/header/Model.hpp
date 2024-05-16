@@ -20,10 +20,10 @@ class NumericVar {
 public:
   NumericVar(const var_t i) : _id_(i) {}
 
-  NumericVar(NumericVar<T> &) = default;
-  NumericVar(NumericVar<T> &&) = default;
-  NumericVar<T> &operator=(NumericVar<T> &) = default;
-  NumericVar<T> &operator=(NumericVar<T> &&) = default;
+//  NumericVar(const NumericVar<T> &) = default;
+//  NumericVar(const NumericVar<T> &&) = default;
+//  NumericVar<T> &operator=(NumericVar<T> &) = default;
+//  NumericVar<T> &operator=(NumericVar<T> &&) = default;
 
   T min(Solver<T> &sc) const;
   T max(Solver<T> &sc) const;
@@ -50,10 +50,10 @@ class BooleanVar {
 public:
   BooleanVar(const var_t i) : _id_(i) {}
 
-  BooleanVar(BooleanVar<T> &) = default;
-  BooleanVar(BooleanVar<T> &&) = default;
-  BooleanVar<T> &operator=(BooleanVar<T> &) = default;
-  BooleanVar<T> &operator=(BooleanVar<T> &&) = default;
+//  BooleanVar(BooleanVar<T> &) = default;
+//  BooleanVar(BooleanVar<T> &&) = default;
+//  BooleanVar<T> &operator=(BooleanVar<T> &) = default;
+//  BooleanVar<T> &operator=(BooleanVar<T> &&) = default;
 
   Literal<T> operator==(const bool t) const;
 
@@ -79,10 +79,10 @@ class DisjunctVar : public BooleanVar<T> {
 public:
   DisjunctVar(const var_t i, const info_t d) : BooleanVar<T>(i), _edge_id_(d) {}
 
-  DisjunctVar(DisjunctVar<T> &) = default;
-  DisjunctVar(DisjunctVar<T> &&) = default;
-  DisjunctVar<T> &operator=(DisjunctVar<T> &) = default;
-  DisjunctVar<T> &operator=(DisjunctVar<T> &&) = default;
+//  DisjunctVar(DisjunctVar<T> &) = default;
+//  DisjunctVar(DisjunctVar<T> &&) = default;
+//  DisjunctVar<T> &operator=(DisjunctVar<T> &) = default;
+//  DisjunctVar<T> &operator=(DisjunctVar<T> &&) = default;
 
   Literal<T> operator==(const bool t) const;
 
@@ -103,10 +103,10 @@ class TemporalVar : public NumericVar<T> {
 public:
   TemporalVar(const var_t i, const T o = 0) : NumericVar<T>(i), _offset(o) {}
 
-  TemporalVar(TemporalVar<T> &) = default;
-  TemporalVar(TemporalVar<T> &&) = default;
-  TemporalVar<T> &operator=(TemporalVar<T> &) = default;
-  TemporalVar<T> &operator=(TemporalVar<T> &&) = default;
+//  TemporalVar(TemporalVar<T> &) = default;
+//  TemporalVar(TemporalVar<T> &&) = default;
+//  TemporalVar<T> &operator=(TemporalVar<T> &) = default;
+//  TemporalVar<T> &operator=(TemporalVar<T> &&) = default;
 
   T earliest(Solver<T> &) const;
   T latest(Solver<T> &) const;
@@ -236,11 +236,8 @@ class Job {
 public:
 //  Job(Solver<T> &s);
   Job(Solver<T> &s, const T mindur, const T maxdur);
-
-  Job(Job<T> &) = default;
-  Job(Job<T> &&) = default;
-  Job<T> &operator=(Job<T> &) = default;
-  Job<T> &operator=(Job<T> &&) = default;
+    
+    Job(const Job<T>&) = default;
 
   T getEarliestStart() const;
   T getLatestStart() const;
@@ -264,7 +261,7 @@ public:
 private:
 //    int _id_{-1};
 
-  Solver<T> &solver;
+  std::reference_wrapper<Solver<T>> solver;
 
 public:
   TemporalVar<T> start;
@@ -314,9 +311,9 @@ void DisjunctiveResource<T>::createOrderVariables(C& container) {
 
 template <typename T>
 Job<T>::Job(Solver<T> &s, const T mindur, const T maxdur)
-    : solver(s), start(solver.newTemporal()),
+    : solver(s), start(solver.get().newTemporal()),
       end((mindur == maxdur ? TemporalVar(start.id(), mindur)
-                            : solver.newTemporal())),
+                            : solver.get().newTemporal())),
       // end(solver.newTemporalVar()),
       optional(Constant::NoVarx) {
   min_duration = mindur;
@@ -327,11 +324,11 @@ Job<T>::Job(Solver<T> &s, const T mindur, const T maxdur)
   if (start.id() != end.id()) {
     //      std::cout << "\nmindur: " << start.before(end, min_duration) <<
     //      std::endl;
-    solver.set(start.before(end, min_duration));
+    solver.get().set(start.before(end, min_duration));
 
     //      std::cout << "\nmaxdur: " << end.before(start, -max_duration) <<
     //      std::endl;
-    solver.set(end.before(start, -max_duration));
+    solver.get().set(end.before(start, -max_duration));
   }
 }
 

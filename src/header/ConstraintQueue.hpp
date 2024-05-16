@@ -198,11 +198,11 @@ public:
 
   // notifies constraint 'cons' of the new lit 'change' (of type "event"), @
   // position 'rank' in its scope
-  void bound_triggers(const lit var_id, const int rank, const int cons);
+  void triggers(const Literal<T> l, const int rank, const int cons);
 
-  // notifies constraint 'cons' of the new lit 'change' (of type "edge"), @
-  // position 'rank' in its scope
-  void edge_triggers(const lit var_id, const int rank, const int cons);
+  //  // notifies constraint 'cons' of the new lit 'change' (of type "edge"), @
+  //  // position 'rank' in its scope
+  //  void edge_triggers(const lit var_id, const int rank, const int cons);
 
   // returns the active constraint of highest priority that has been
   // activated first, return NULL if there are no active constraint
@@ -242,62 +242,16 @@ void NewConstraintQueue<T, N>::resize(const size_t n) {
 // notifies that variable 'id' has changed, activate the corresponding
 // triggers
 template <typename T, int N>
-void NewConstraintQueue<T, N>::bound_triggers(const lit var_id, const int rank,
-                                              const int cons_id) {
-
-  //  assert(cons_id >= 0);
-  //  assert(cons_id < static_cast<int>(constraints->size()));
-  //    assert(active[cons->priority].size() == constraints->size());
+void NewConstraintQueue<T, N>::triggers(const Literal<T> l, const int rank,
+                                        const int cons_id) {
 
   auto cons = constraints[cons_id];
 
-  //    if(cons->idempotent)
-  //        std::cout << *responsible << std::endl;
-
-  //  if (responsible == static_cast<Explainer *>(cons))
-  //    std::cout << "it happens!\n";
-  //
-  //  if (responsible->id() == cons->id()) {
-  //    std::cout << "here!\n";
-  //  }
-
-  //  if (not cons->idempotent or responsible != static_cast<Explainer *>(cons))
-  //  {
-  if (cons->notify_bound(var_id, rank) and
+  if (cons->notify(l, rank) and
       not active[to_underlying(cons->priority)].has(cons_id)) {
     active[to_underlying(cons->priority)].add(cons_id);
     ++count;
   }
-  //  }
-}
-
-// notifies that variable 'id' has changed, activate the corresponding
-// triggers
-template <typename T, int N>
-void NewConstraintQueue<T, N>::edge_triggers(const lit var_id, const int rank,
-                                             const int cons_id) {
-
-  assert(cons_id >= 0);
-  assert(cons_id < static_cast<int>(constraints.size()));
-
-  auto cons = constraints[cons_id];
-
-  //  if (responsible == static_cast<Explainer *>(cons))
-  //    std::cout << "it happens!\n";
-  //
-  //  if (responsible->id() == cons->id()) {
-  //    std::cout << "here!\n";
-  //  }
-
-  //  if (not cons->idempotent or responsible != static_cast<Explainer *>(cons))
-  //  {
-
-  if (cons->notify_edge(var_id, rank) and
-      not active[to_underlying(cons->priority)].has(cons_id)) {
-    active[to_underlying(cons->priority)].add(cons_id);
-    ++count;
-  }
-  //  }
 }
 
 template <typename T, int N>

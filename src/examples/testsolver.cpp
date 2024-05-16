@@ -145,24 +145,9 @@ void test2(Options& opt) {
     S.set(j8.end.before(schedule.end));
     
     
-    std::vector<Job<int>> jobsR1;
-    jobsR1.emplace_back(j0);
-    jobsR1.emplace_back(j3);
-    jobsR1.emplace_back(j6);
-    
-    std::vector<Job<int>> jobsR2;
-    jobsR2.emplace_back(j1);
-    jobsR2.emplace_back(j4);
-    jobsR2.emplace_back(j7);
-    
-    std::vector<Job<int>> jobsR3;
-    jobsR3.emplace_back(j2);
-    jobsR3.emplace_back(j5);
-    jobsR3.emplace_back(j8);
-
-    DisjunctiveResource<int> R1(S,jobsR1.begin(), jobsR1.end());
-    DisjunctiveResource<int> R2(S,jobsR2.begin(), jobsR2.end());
-    DisjunctiveResource<int> R3(S,jobsR3.begin(), jobsR3.end());
+    DisjunctiveResource R1(S,{j0,j3,j6});
+    DisjunctiveResource R2(S,{j1,j4,j7});
+    DisjunctiveResource R3(S,{j2,j5,j8});
 
     std::vector<DisjunctVar<int>> X;
     

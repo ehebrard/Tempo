@@ -224,7 +224,7 @@ private:
   std::vector<T> bound[2];
   // [for each numeric signed_var] the current index in the 'propagation_events'
   // stack
-  std::vector<std::vector<stamp_t>> bound_index[2];
+  std::vector<std::vector<index_t>> bound_index[2];
   // [for each Literal] pointer to the previous Literal of the same numeric
   // variable (useful for undoing and for searching implicants)
   //  std::vector<stamp_t> prev_bound;
@@ -276,15 +276,15 @@ template <typename T> NumericVar<T> NumericStore<T>::newVar() {
 template <typename T> void NumericStore<T>::set(Literal<T> l) {
   auto s{l.sign()};
   auto v{l.variable()};
-//  if (bound[s][v] > l.value()) {
-    
-    assert(bound[s][v] > l.value());
-    
-    bound[s][v] = l.value();
-    bound_index[s][v].push_back(static_cast<stamp_t>(solver.numLiteral() - 1));
-//    return true;
-//  }
-//  return false;
+  //  if (bound[s][v] > l.value()) {
+
+  assert(bound[s][v] > l.value());
+
+  bound[s][v] = l.value();
+  bound_index[s][v].push_back(static_cast<stamp_t>(solver.numLiteral() - 1));
+  //    return true;
+  //  }
+  //  return false;
 }
 
 template <typename T>
@@ -411,7 +411,6 @@ public:
   // variable x
   stamp_t getPropagationLevel(const var_t x) const;
 
-  void propagate();
   void set(Literal<T> l, const NewExplanation<T> &e = Constant::NewNoReason<T>);
   bool setNumeric(Literal<T> l,
                   const NewExplanation<T> &e = Constant::NewNoReason<T>);
@@ -431,6 +430,9 @@ public:
    * @name search
    */
   //@{
+  void trigger(const Literal<T> l);
+  void propagate();
+
   int saveState();
   void restoreState(const int);
   void undo() override;
@@ -481,8 +483,8 @@ private:
 
   // a reversible pointer to the most recent preopagation event that is not
   // yet propagated
-  Reversible<size_t> propag_pointer;
-  Reversible<size_t> var_pointer;
+  Reversible<index_t> propag_pointer;
+  Reversible<index_t> var_pointer;
   //  Reversible<stamp_t> num_propag_pointer;
   //@}
 
@@ -523,7 +525,7 @@ public:
   long unsigned int num_fails{0};
   long unsigned int num_choicepoints{0};
   long unsigned int num_backtracks{0};
-  long unsigned int num_Literals{0};
+  long unsigned int num_literals{0};
   long unsigned int num_updates{0};
   long unsigned int num_clause_propagations{0};
   long unsigned int num_cons_propagations{0};
@@ -575,7 +577,8 @@ template <typename T> TemporalVar<T> Solver<T>::newTemporal(const T offset) {
   TemporalVar<T> x{newNumeric().id(), offset};
   //  auto x{numeric.newVar()};
   core.newVertex(x);
-//  numeric_constraint_network.resize(std::max(numConstraint(), numeric.size()));
+  //  numeric_constraint_network.resize(std::max(numConstraint(),
+  //  numeric.size()));
   return x;
 }
 
@@ -598,9 +601,9 @@ Literal<T> Solver<T>::getLiteral(const stamp_t i) const {
   return trail[i];
 }
 
-template <typename T> void tempo::Solver<T>::propagate() {
-  propag_pointer = trail.size();
-}
+// template <typename T> void tempo::Solver<T>::propagate() {
+//   propag_pointer = trail.size();
+// }
 
 template <typename T>
 void Solver<T>::set(const DistanceConstraint<T> &c, const index_t r) {
@@ -611,46 +614,27 @@ void Solver<T>::set(const DistanceConstraint<T> &c, const index_t r) {
 template <typename T>
 void Solver<T>::set(Literal<T> l, const NewExplanation<T> &e) {
   if (l.isNumeric()) {
-    setNumeric(l,e);
+    setNumeric(l, e);
   } else {
-    setBoolean(l,e);
+    setBoolean(l, e);
   }
 }
 
 template <typename T>
 bool Solver<T>::setNumeric(Literal<T> l, const NewExplanation<T> &e) {
-  //
-  //  //    std::cout << *this ;
-  //  std::cout << "set " << l << ": " << numeric.satisfied(l) << std::endl;
-
   if (not numeric.satisfied(l)) {
     reason.emplace_back(e);
     trail.push_back(l);
     numeric.set(l);
-//
-//    std::cout << "sign: " << l.sign() << "/" << bound::lower << "/"
-//              << bound::upper << std::endl;
-
     if (l.sign() == bound::upper) {
-//
-//      std::cout << "update w.r.t. ub(x" << l.variable() << ")\n";
-//      std::cout << core << std::endl;
-
       update(bound::upper, l.variable(), core);
     } else {
-//
-//      std::cout << "update w.r.t. lb(x" << l.variable() << ")\n";
-//      std::cout << core << std::endl;
-//      std::cout << "here\n";
-
       update(bound::lower, l.variable(), core.backward());
-
-//      std::cout << "there\n";
     }
 
     return true;
-    }
-    return false;
+  }
+  return false;
 }
 
 template <typename T>
@@ -658,7 +642,7 @@ void Solver<T>::setBoolean(Literal<T> l, const NewExplanation<T> &e) {
   assert(not boolean.satisfied(l));
   reason.emplace_back(e);
   trail.push_back(l);
-    boolean.set(l);
+  boolean.set(l);
 }
 
 template <typename T>
@@ -670,32 +654,65 @@ void Solver<T>::boundClosure(const var_t x, const var_t y, const T d,
   if (r == Constant::NoIndex)
     e = Constant::NewNoReason<T>;
 
-  //    std::cout << "lower: " << numeric.lower(y) << std::endl;
-  //    std::cout << "BC: " << geq<T>(x, numeric.lower(y) - d) << std::endl;
-  //
-
-  // reduce the lower bound of x and precessor
   if (numeric.lower(y) != -Constant::Infinity<T>) {
-//    std::cout << geq<T>(x, numeric.lower(y) - d).sign() << "/" << bound::lower
-//              << std::endl;
     setNumeric(geq<T>(x, numeric.lower(y) - d), e);
   }
-  //    {
-  //    update(bound::lower, static_cast<int>(x), core.backward());
-  //  }
 
-  //    std::cout << "upper: "<< numeric.upper(x) << std::endl;
-  //    std::cout << "BC: " << leq<T>(y, numeric.upper(x) + d) << std::endl;
-
-  // increase the upper bound of y and successors
   if (numeric.upper(x) != Constant::Infinity<T>) {
-//    std::cout << leq<T>(y, numeric.upper(x) + d) << "/" << bound::upper
-//              << std::endl;
     setNumeric(leq<T>(y, numeric.upper(x) + d), e);
   }
-  //  {
-  //    update(bound::upper, static_cast<int>(y), core);
-  //  }
+}
+
+template <typename T> void tempo::Solver<T>::propagate() {
+
+  index_t p_index{static_cast<index_t>(propag_pointer)};
+
+  while (not propagation_queue.empty() or trail.size() > p_index) {
+
+    while (trail.size() > p_index) {
+      ++num_literals;
+      Literal<T> l{trail[p_index]};
+      auto culprit{reason[p_index].expl};
+
+      const std::vector<int> &cons =
+          (l.isNumeric() ? numeric_constraint_network[l]
+                         : boolean_constraint_network[l]);
+      const std::vector<unsigned> &rank =
+          (l.isNumeric() ? numeric_constraint_network.rank(l)
+                         : boolean_constraint_network.rank(l));
+
+      for (auto i{cons.size()}; i-- > 0;) {
+        auto c{constraints[cons[i]]};
+        if (c->idempotent and culprit == c)
+          continue;
+
+#ifdef DBG_TRACE
+        if (DBG_TRACE & QUEUE) {
+          std::cout << " -" << *c << " (" << c->id() << ")" << std::endl;
+        }
+#endif
+
+        propagation_queue.triggers(l, rank[i], cons[i]);
+      }
+
+      ++p_index;
+    }
+
+    if (not propagation_queue.empty()) {
+      auto cons{propagation_queue.pop_front()};
+
+#ifdef DBG_TRACE
+      if (DBG_TRACE & QUEUE) {
+        std::cout << "propagate " << *cons << std::endl;
+      }
+#endif
+
+      ++num_cons_propagations;
+      cons->propagate();
+    }
+  }
+
+  propag_pointer = p_index;
 }
 
 template<typename T>
@@ -737,12 +754,7 @@ void Solver<T>::update(const bool bounds, const int s, const G &neighbors) {
 
   const std::vector<T> &shortest_path{numeric.get(bounds)};
 
-  //                                    int max_iter{1000};
-
   changed.clear();
-    
-//    std::cout << s << " / " << changed.capacity() << std::endl;
-    
   changed.add(s);
 
 #ifdef DBG_BELLMAN
@@ -793,7 +805,7 @@ void Solver<T>::update(const bool bounds, const int s, const G &neighbors) {
               {this, static_cast<hint>(Literal<T>::index(bounds, s))});
         }
         setNumeric(Literal<T>(bounds, v, shortest_path[u] + w),
-                    {this, static_cast<hint>(edge.stamp())});
+                   {this, static_cast<hint>(edge.stamp())});
 
         //                               bt, v, shortest_path[u] + w,
         //                               {this, (edge.stamp() >= 0
@@ -921,7 +933,7 @@ template <typename T> std::ostream &Solver<T>::display(std::ostream &os) const {
     auto l{Literal<T>::index(true, x)};
     if (boolean_constraint_network.has(l) and
         boolean_constraint_network.outdegree(l) > 0) {
-      os << "x" << x << ":";
+      os << "b" << x << ":";
       for (auto c : boolean_constraint_network[l]) {
         os << " " << c;
       }
@@ -931,7 +943,7 @@ template <typename T> std::ostream &Solver<T>::display(std::ostream &os) const {
     l = Literal<T>::index(false, x);
     if (boolean_constraint_network.has(l) and
         boolean_constraint_network.outdegree(l) > 0) {
-      os << "¬x" << x << ":";
+      os << "¬b" << x << ":";
       for (auto c : boolean_constraint_network[l]) {
         os << " " << c;
       }

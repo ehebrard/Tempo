@@ -70,12 +70,12 @@ public:
     }
     d = (gap_a < gap_b ? NEG(cp) : POS(cp));
 
-#ifdef DBG_TRACE
-    if (DBG_BOUND and (DBG_TRACE & SEARCH)) {
-      std::cout << scheduler << "\n-- new decision: " << prettyLiteral(EDGE(d))
-                << std::endl;
-    }
-#endif
+//#ifdef DBG_TRACE
+//    if (DBG_BOUND and (DBG_TRACE & SEARCH)) {
+//      std::cout << scheduler << "\n-- new decision: " << prettyLiteral(EDGE(d))
+//                << std::endl;
+//    }
+//#endif
 
     return d;
   }
