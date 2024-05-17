@@ -12,6 +12,7 @@
 
 namespace tempo {
 
+template <typename T> class Solver;
 template <typename T> class Scheduler;
 template <typename T> class DistanceConstraint;
 

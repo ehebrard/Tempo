@@ -5,6 +5,7 @@
 
 #include "Literal.hpp"
 
+using namespace std;
 
 namespace tempo {
 
@@ -20,11 +21,6 @@ class NumericVar {
 public:
   NumericVar(const var_t i) : _id_(i) {}
 
-//  NumericVar(const NumericVar<T> &) = default;
-//  NumericVar(const NumericVar<T> &&) = default;
-//  NumericVar<T> &operator=(NumericVar<T> &) = default;
-//  NumericVar<T> &operator=(NumericVar<T> &&) = default;
-
   T min(Solver<T> &sc) const;
   T max(Solver<T> &sc) const;
 
@@ -39,6 +35,8 @@ public:
 
   std::ostream &display(std::ostream &os) const;
 
+  static bool isNumeric() { return true; }
+
 protected:
   const var_t _id_;
 };
@@ -50,11 +48,6 @@ class BooleanVar {
 public:
   BooleanVar(const var_t i) : _id_(i) {}
 
-//  BooleanVar(BooleanVar<T> &) = default;
-//  BooleanVar(BooleanVar<T> &&) = default;
-//  BooleanVar<T> &operator=(BooleanVar<T> &) = default;
-//  BooleanVar<T> &operator=(BooleanVar<T> &&) = default;
-
   Literal<T> operator==(const bool t) const;
 
   var_t id() const { return _id_; }
@@ -62,6 +55,8 @@ public:
   operator var_t() const { return _id_; }
 
   std::ostream &display(std::ostream &os) const;
+
+  static bool isNumeric() { return false; }
 
 protected:
   const var_t _id_;
@@ -79,14 +74,11 @@ class DisjunctVar : public BooleanVar<T> {
 public:
   DisjunctVar(const var_t i, const info_t d) : BooleanVar<T>(i), _edge_id_(d) {}
 
-//  DisjunctVar(DisjunctVar<T> &) = default;
-//  DisjunctVar(DisjunctVar<T> &&) = default;
-//  DisjunctVar<T> &operator=(DisjunctVar<T> &) = default;
-//  DisjunctVar<T> &operator=(DisjunctVar<T> &&) = default;
-
   Literal<T> operator==(const bool t) const;
 
   std::ostream &display(std::ostream &os) const;
+
+  static bool isNumeric() { return false; }
 
 private:
   const info_t _edge_id_;
@@ -103,11 +95,6 @@ class TemporalVar : public NumericVar<T> {
 public:
   TemporalVar(const var_t i, const T o = 0) : NumericVar<T>(i), _offset(o) {}
 
-//  TemporalVar(TemporalVar<T> &) = default;
-//  TemporalVar(TemporalVar<T> &&) = default;
-//  TemporalVar<T> &operator=(TemporalVar<T> &) = default;
-//  TemporalVar<T> &operator=(TemporalVar<T> &&) = default;
-
   T earliest(Solver<T> &) const;
   T latest(Solver<T> &) const;
 
@@ -120,6 +107,8 @@ public:
   T offset() const { return _offset; }
 
   std::ostream &display(std::ostream &os) const;
+
+  static bool isNumeric() { return true; }
 
 private:
   const T _offset;
@@ -176,14 +165,6 @@ Literal<T> TemporalVar<T>::before(const T t) const {
   return leq<T>(NumericVar<T>::_id_, t - _offset);
 }
 
-
-
-
-//{START(job[i]), END(job[j]), -job.getTransitionTime(j, i)},
-// s_i -> e_j
-// e_j - s_i <= - t
-
-
 template<typename T>
 DistanceConstraint<T> TemporalVar<T>::after(const TemporalVar<T>& e, const T t) const {
   return e.before(*this, t);
@@ -193,7 +174,6 @@ template<typename T>
 DistanceConstraint<T> TemporalVar<T>::before(const TemporalVar<T>& e, const T t) const {
   return {e.id(), NumericVar<T>::_id_, e.offset() - _offset - t};
 }
-
 
 template<typename T>
 std::ostream &BooleanVar<T>::display(std::ostream &os) const {
@@ -234,75 +214,54 @@ std::ostream &operator<<(std::ostream &os, const TemporalVar<T> &x) {
 template<typename T>
 class Job {
 public:
-//  Job(Solver<T> &s);
   Job(Solver<T> &s, const T mindur, const T maxdur);
     
     Job(const Job<T>&) = default;
 
-  T getEarliestStart() const;
-  T getLatestStart() const;
-  T getEarliestEnd() const;
-  T getLatestEnd() const;
+    T getEarliestStart(Solver<T> &s) const;
+    T getLatestStart(Solver<T> &s) const;
+    T getEarliestEnd(Solver<T> &s) const;
+    T getLatestEnd(Solver<T> &s) const;
 
-  bool mustExist() const;
-  bool cannotExist() const;
+    bool mustExist(Solver<T> &s) const;
+    bool cannotExist(Solver<T> &s) const;
 
-  T minDuration() const;
-  T maxDuration() const;
+    T minDuration() const;
+    T maxDuration() const;
 
-  event getStart() const;
-  event getEnd() const;
+    event getStart() const;
+    event getEnd() const;
 
-  int id() const;
-  bool operator==(const Job<T> &t) const;
+    int id() const;
+    bool operator==(const Job<T> &t) const;
 
-  std::ostream &display(std::ostream &os) const;
+    std::ostream &display(std::ostream &os) const;
 
-private:
-//    int _id_{-1};
+    TemporalVar<T> start;
+    TemporalVar<T> end;
 
-  std::reference_wrapper<Solver<T>> solver;
-
-public:
-  TemporalVar<T> start;
-  TemporalVar<T> end;
-
-private:
-  T min_duration;
-  T max_duration;
-  BooleanVar<T> optional;
+  private:
+    T min_duration;
+    T max_duration;
+    BooleanVar<T> optional;
 };
 
-
-template<typename T>
-class DisjunctiveResource : public std::vector<Job<T>> {
+template <typename T> class DisjunctiveResource : public vector<Job<T>> {
 public:
-  template <typename Iter>
-  DisjunctiveResource(Solver<T> &s, Iter beg_job, Iter end_job);
-
-  DisjunctiveResource(Solver<T> &s, std::vector<Job<T>> &&container);
-
-  template <typename C> void createOrderVariables(C &container);
-
-private:
-  Solver<T> &solver;
+  using vector<Job<T>>::vector;
+  template <typename C>
+  void createOrderVariables(Solver<T> &solver, C &container);
 };
 
-template<typename T>
-template<typename Iter>
-DisjunctiveResource<T>::DisjunctiveResource(Solver<T> &s, Iter beg_job, Iter end_job) : std::vector<Job<T>>(beg_job, end_job), solver(s) {}
-
-template<typename T>
-DisjunctiveResource<T>::DisjunctiveResource(Solver<T> &s, std::vector<Job<T>>&& container) : std::vector<Job<T>>(container), solver(s) {}
-
-template<typename T>
-template<typename C>
-void DisjunctiveResource<T>::createOrderVariables(C& container) {
+template <typename T>
+template <typename C>
+void DisjunctiveResource<T>::createOrderVariables(Solver<T> &solver,
+                                                  C &container) {
   for (auto a{this->begin()}; a != this->end(); ++a) {
     for (auto b{a + 1}; b != this->end(); ++b) {
-      //            container.insert(container.end(),
-      //            solver.newDisjunct(a->end.before(b->start),
-      //            b->end.before(a->start)));
+      //                  container.insert(container.end(),
+      //                  solver.newDisjunct(a->end.before(b->start),
+      //                  b->end.before(a->start)));
       container.push_back(
           solver.newDisjunct(a->end.before(b->start), b->end.before(a->start)));
     }
@@ -310,25 +269,17 @@ void DisjunctiveResource<T>::createOrderVariables(C& container) {
 }
 
 template <typename T>
-Job<T>::Job(Solver<T> &s, const T mindur, const T maxdur)
-    : solver(s), start(solver.get().newTemporal()),
+Job<T>::Job(Solver<T> &solver, const T mindur, const T maxdur)
+    : start(solver.newTemporal()),
       end((mindur == maxdur ? TemporalVar(start.id(), mindur)
-                            : solver.get().newTemporal())),
-      // end(solver.newTemporalVar()),
+                            : solver.newTemporal())),
       optional(Constant::NoVarx) {
   min_duration = mindur;
   max_duration = maxdur;
 
-  //    std::cout << mindur << ".." << maxdur << std::endl;
-
   if (start.id() != end.id()) {
-    //      std::cout << "\nmindur: " << start.before(end, min_duration) <<
-    //      std::endl;
-    solver.get().set(start.before(end, min_duration));
-
-    //      std::cout << "\nmaxdur: " << end.before(start, -max_duration) <<
-    //      std::endl;
-    solver.get().set(end.before(start, -max_duration));
+    solver.set(start.before(end, min_duration));
+    solver.set(end.before(start, -max_duration));
   }
 }
 
@@ -339,29 +290,27 @@ bool Job<T>::operator==(const Job<T>& t) const {
   return id() == t.id();
 }
 
-template<typename T>
-T Job<T>::getEarliestStart() const {
+template <typename T> T Job<T>::getEarliestStart(Solver<T> &solver) const {
   return start.earliest(solver);
 }
 
-template<typename T>
-T Job<T>::getLatestStart() const {
+template <typename T> T Job<T>::getLatestStart(Solver<T> &solver) const {
   return start.latest(solver);
 }
 
-template<typename T>
-T Job<T>::getEarliestEnd() const {
+template <typename T> T Job<T>::getEarliestEnd(Solver<T> &solver) const {
   return end.earliest(solver);
 }
 
-template<typename T>
-T Job<T>::getLatestEnd() const {
+template <typename T> T Job<T>::getLatestEnd(Solver<T> &solver) const {
   return end.latest(solver);
 }
 
-template <typename T> bool Job<T>::mustExist() const { return true; }
+template <typename T> bool Job<T>::mustExist(Solver<T> &) const { return true; }
 
-template <typename T> bool Job<T>::cannotExist() const { return false; }
+template <typename T> bool Job<T>::cannotExist(Solver<T> &) const {
+  return false;
+}
 
 template <typename T> T Job<T>::minDuration() const { return min_duration; }
 
@@ -371,20 +320,15 @@ template <typename T> event Job<T>::getStart() const { return start.id(); }
 
 template <typename T> event Job<T>::getEnd() const { return end.id(); }
 
-template<typename T>
-std::ostream &Job<T>::display(std::ostream &os) const {
-  os << "t" << id() << ": [" << start.earliest(solver) << ".."
-     << end.latest(solver) << "]";
+template <typename T> ostream &Job<T>::display(ostream &os) const {
+  os << "t" << id(); //<< ": [" << start.earliest(solver) << ".." <<
+                     // end.latest(solver) << "]";
   return os;
 }
 
-template<typename T>
-std::ostream &operator<<(std::ostream &os, const Job<T> &x) {
+template <typename T> ostream &operator<<(ostream &os, const Job<T> &x) {
   return x.display(os);
 }
-
-
-
 }
 
 #endif // __MODEL_HPP

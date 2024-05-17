@@ -111,58 +111,145 @@ void test1(Options& opt) {
 void test2(Options& opt) {
     
     Solver<> S(opt);
-    
-    
-    auto schedule{S.newJob(0,200)};
-    
+
+    auto schedule{S.newJob(0, 100)};
+
     S.set(schedule.start.after(0));
     S.set(schedule.start.before(0));
-    
-    
-    Job<int> j0{S.newJob(15,15)};
-    auto j1{S.newJob(7,10)};
-    auto j2{S.newJob(12,12)};
-    auto j3{S.newJob(1,5)};
-    auto j4{S.newJob(10,10)};
-    auto j5{S.newJob(6,6)};
-    auto j6{S.newJob(10,12)};
-    auto j7{S.newJob(7,7)};
-    auto j8{S.newJob(3,3)};
-    
+
+    Job<int> j0{S.newJob(15, 15)};
+    auto j1{S.newJob(7, 10)};
+    auto j2{S.newJob(12, 12)};
+    auto j3{S.newJob(1, 5)};
+    auto j4{S.newJob(10, 10)};
+    auto j5{S.newJob(6, 6)};
+    auto j6{S.newJob(10, 12)};
+    auto j7{S.newJob(7, 7)};
+    auto j8{S.newJob(3, 3)};
+
     S.set(j0.start.after(schedule.start));
     S.set(j0.end.before(j1.start));
-    S.set(j1.end.before(j2.start,10));
+    S.set(j1.end.before(j2.start, 10));
     S.set(j2.end.before(schedule.end));
-    
+
     S.set(j3.start.after(schedule.start));
     S.set(j3.end.before(j4.start));
     S.set(j4.end.before(j5.start));
     S.set(j5.end.before(schedule.end));
-    
+
     S.set(j6.start.after(schedule.start));
     S.set(j6.end.before(j7.start));
     S.set(j7.end.before(j8.start));
     S.set(j8.end.before(schedule.end));
-    
-    
-    DisjunctiveResource R1(S,{j0,j3,j6});
-    DisjunctiveResource R2(S,{j1,j4,j7});
-    DisjunctiveResource R3(S,{j2,j5,j8});
+
+    DisjunctiveResource<int> R1({j0, j3, j6});
+    DisjunctiveResource<int> R2({j1, j4, j7});
+    DisjunctiveResource<int> R3({j2, j5, j8});
 
     std::vector<DisjunctVar<int>> X;
-    
-    R1.createOrderVariables(X);
-    R2.createOrderVariables(X);
-    R3.createOrderVariables(X);
-    
+
+    R1.createOrderVariables(S, X);
+    R2.createOrderVariables(S, X);
+    R3.createOrderVariables(S, X);
+
+    for (auto x : X)
+      S.addToSearch(x);
+
     std::cout << S << std::endl;
-    
+
+    S.propagate();
+    auto s1{S.saveState()};
+    S.boolean_search_vars.remove_back(X[0]);
+    S.set(X[0] == true);
+
+    std::cout << S << std::endl;
+
+    S.propagate();
+    auto s2{S.saveState()};
+    S.boolean_search_vars.remove_back(X[1]);
+    S.set(X[1] == false);
+
+    std::cout << S << std::endl;
+    int s3;
+
+    try {
+      S.propagate();
+      s3 = S.saveState();
+      S.boolean_search_vars.remove_back(X[2]);
+      S.set(X[2] == true);
+
+      std::cout << S << std::endl;
+    } catch (NewFailure<int> &f) {
+      std::cout << "fail -> backtrack";
+      S.restoreState(s3);
+
+      std::cout << S << std::endl;
+
+      s3 = S.saveState();
+      S.boolean_search_vars.remove_back(X[2]);
+      S.set(X[2] == false);
+
+      std::cout << S << std::endl;
+    }
 }
 
+void test3(Options &opt) {
+
+  Solver<> S(opt);
+
+  auto schedule{S.newJob(0, 100)};
+
+  S.set(schedule.start.after(0));
+  S.set(schedule.start.before(0));
+
+  Job<int> j0{S.newJob(15, 15)};
+  auto j1{S.newJob(7, 10)};
+  auto j2{S.newJob(12, 12)};
+  auto j3{S.newJob(1, 5)};
+  auto j4{S.newJob(10, 10)};
+  auto j5{S.newJob(6, 6)};
+  auto j6{S.newJob(10, 12)};
+  auto j7{S.newJob(7, 7)};
+  auto j8{S.newJob(3, 3)};
+
+  S.set(j0.start.after(schedule.start));
+  S.set(j0.end.before(j1.start));
+  S.set(j1.end.before(j2.start, 10));
+  S.set(j2.end.before(schedule.end));
+
+  S.set(j3.start.after(schedule.start));
+  S.set(j3.end.before(j4.start));
+  S.set(j4.end.before(j5.start));
+  S.set(j5.end.before(schedule.end));
+
+  S.set(j6.start.after(schedule.start));
+  S.set(j6.end.before(j7.start));
+  S.set(j7.end.before(j8.start));
+  S.set(j8.end.before(schedule.end));
+
+  DisjunctiveResource<int> R1({j0, j3, j6});
+  DisjunctiveResource<int> R2({j1, j4, j7});
+  DisjunctiveResource<int> R3({j2, j5, j8});
+
+  std::vector<DisjunctVar<int>> X;
+
+  R1.createOrderVariables(S, X);
+  R2.createOrderVariables(S, X);
+  R3.createOrderVariables(S, X);
+
+  for (auto x : X)
+    S.addToSearch(x);
+
+  std::cout << S << std::endl;
+
+  auto sat{S.search()};
+
+  std::cout << sat << std::endl;
+}
 
 int main(int argc, char *argv[]) {
     
     Options opt = tempo::parse(argc, argv);
-    
-    test2(opt);
+
+    test3(opt);
 }

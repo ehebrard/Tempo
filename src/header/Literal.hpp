@@ -35,7 +35,9 @@ struct Literal {
 
     bool sign() const;
     var_t variable() const;
-    
+
+    bool sameVariable(Literal<T> l) const;
+
     T value() const;
     info_t constraint() const;
     
@@ -59,6 +61,10 @@ Literal<T>::Literal(const bool sign, const var_t x, const T v)
 template <typename T>
 Literal<T>::Literal(const bool sign, const var_t x, const info_t v)
     : _id_(index(sign,x)), _data_(v) {
+}
+
+template <typename T> bool Literal<T>::sameVariable(Literal<T> l) const {
+  return isNumeric() == l.isNumeric() and variable() == l.variable();
 }
 
 template <typename T> var_t Literal<T>::index(const bool sign, const var_t x) {

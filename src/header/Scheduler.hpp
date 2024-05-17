@@ -2907,10 +2907,10 @@ std::ostream &Scheduler<T>::display(std::ostream &os, const bool dom,
   if (bra)
     displayBranch(os);
     if (dom) {
-        std::cout << "domains:\n";
-        for(auto t : tasks) {
-            os << t << std::endl;
-        }
+      os << "domains:\n";
+      for (auto t : tasks) {
+        os << t << std::endl;
+      }
     }
   if (sva)
     displayVariables(os);
