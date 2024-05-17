@@ -209,7 +209,7 @@ private:
   SparseSet<int> free_cl_indices;
   // clauses, watch struct watch[BOUND_LIT] for bound literals,
   // watch[EDGE_LIT] for edges
-  std::vector<std::vector<Clause *>> watch[2];
+  std::vector<std::vector<NewClause<T> *>> watch[2];
   ////////////////////////////////////////
 
   //    /// Literal memory store ///
@@ -1539,6 +1539,7 @@ std::ostream &operator<<(std::ostream &os, const tempo::ClauseBase<T> &x) {
   return x.display(os);
 }
 
+
 ////// NEW CLAUSES
 ///
 
@@ -2802,6 +2803,7 @@ template <typename T>
 std::ostream &operator<<(std::ostream &os, const NewClauseBase<T> &x) {
   return x.display(os);
 }
+
 }
 
 #endif // _TEMPO_CLAUSEBASE_HPP

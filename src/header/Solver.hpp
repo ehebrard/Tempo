@@ -18,6 +18,7 @@
 #include "constraints/EdgeConstraint.hpp"
 //#include "constraints/Transitivity.hpp"
 #include "heuristics/HeuristicManager.hpp"
+#include "heuristics/impl/DecayingEventActivityMap.hpp"
 //#include "util/Heap.hpp"
 //#include "util/KillHandler.hpp"
 #include "util/Options.hpp"
@@ -381,7 +382,7 @@ public:
 };
 
 template <typename T>
-const Literal<T> Solver<T>::Contradiction = Literal<T>(Constant::NoVarx, 0);
+const Literal<T> Solver<T>::Contradiction = Literal<T>(false, Constant::NoVarx, 0);
 
 #ifdef DBG_TRACE
 template <typename T> void Solver<T>::printTrace() const {
@@ -1115,8 +1116,8 @@ template <typename T> double Solver<T>::looseness(const Literal<T> &l) const {
     }
   } else if (l.hasSemantic()) {
     auto c{boolean.getEdge(l)};
-    return static_cast<double>(upper(c.from) - lower(c.to) + c.distance) /
-           static_cast<double>(upper(c.to) - lower(c.from) - c.distance);
+    return static_cast<double>(numeric.upper(c.from) - numeric.lower(c.to) + c.distance) /
+           static_cast<double>(numeric.upper(c.to) - numeric.lower(c.from) - c.distance);
   }
   return .5;
 }

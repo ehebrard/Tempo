@@ -20,6 +20,7 @@
 #include "constraints/Transitivity.hpp"
 #include "heuristics/HeuristicManager.hpp"
 #include "heuristics/ValueHeuristicsManager.hpp"
+#include "heuristics/impl/DecayingEventActivityMap.hpp"
 #include "util/Heap.hpp"
 #include "util/KillHandler.hpp"
 #include "util/Options.hpp"
