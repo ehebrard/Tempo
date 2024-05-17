@@ -15,7 +15,7 @@ template<typename T> class Solver;
  * Job
  **********************************************/
 
-template<typename T>
+template<typename T=int>
 class NumericVar {
 
 public:
@@ -42,7 +42,7 @@ protected:
 };
 
 
-template<typename T>
+template<typename T=int>
 class BooleanVar {
 
 public:
@@ -68,7 +68,7 @@ Literal<T> BooleanVar<T>::operator==(const bool t) const {
 }
 
 
-template<typename T>
+template<typename T=int>
 class DisjunctVar : public BooleanVar<T> {
 
 public:
@@ -89,7 +89,7 @@ Literal<T> DisjunctVar<T>::operator==(const bool t) const {
   return Literal<T>(t, BooleanVar<T>::_id_, _edge_id_ + t);
 }
 
-template<typename T>
+template<typename T=int>
 class TemporalVar : public NumericVar<T> {
 
 public:
@@ -211,7 +211,7 @@ std::ostream &operator<<(std::ostream &os, const TemporalVar<T> &x) {
 
 
 
-template<typename T>
+template<typename T=int>
 class Job {
 public:
   Job(Solver<T> &s, const T mindur, const T maxdur);
@@ -246,7 +246,7 @@ public:
     BooleanVar<T> optional;
 };
 
-template <typename T> class DisjunctiveResource : public vector<Job<T>> {
+template <typename T=int> class DisjunctiveResource : public vector<Job<T>> {
 public:
   using vector<Job<T>>::vector;
   template <typename C>

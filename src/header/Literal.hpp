@@ -89,7 +89,7 @@ T Literal<T>::value() const {
 
 template<typename T>
 info_t Literal<T>::constraint() const {
-    return std::get<info_t>(_data_);
+    return std::get<info_t>(_data_) + sign();
 }
 
 template<typename T>
@@ -112,10 +112,10 @@ template <typename T> Literal<T> operator~(const Literal<T> l) {
     return Literal<T>(not l.sign(), l.variable(),
                       -std::get<T>(l._data_) - Gap<T>::epsilon());
   } else {
-    auto d{std::get<info_t>(l._data_)};
-    if (d != Constant::NoSemantic)
-      return Literal<T>(l._id_ ^ 1, d ^ 1);
-    return Literal<T>(l._id_ ^ 1, d);
+//    auto d{std::get<info_t>(l._data_)};
+//    if (d != Constant::NoSemantic)
+//      return Literal<T>(l._id_ ^ 1, d ^ 1);
+    return Literal<T>(l._id_ ^ 1, std::get<info_t>(l._data_));
   }
 }
 

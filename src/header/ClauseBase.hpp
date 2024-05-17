@@ -13,7 +13,7 @@
 #include "util/SparseSet.hpp"
 #include "util/SubscribableEvent.hpp"
 
-//#define DBG_WATCHERS
+#define DBG_WATCHERS
 
 namespace tempo {
 
@@ -136,7 +136,9 @@ public:
   NewClauseBase(Solver<T> &);
   ~NewClauseBase() = default;
 
-  void resize(const size_t n, const size_t m);
+  //  void resize(const size_t n, const size_t m);
+  void newBooleanVar(const var_t x);
+  void newNumericVar(const var_t x);
   size_t size() const;
   size_t volume() const;
 
@@ -158,7 +160,7 @@ public:
 
   std::ostream &display(std::ostream &os) const;
 
-  std::ostream &displayClause(std::ostream &os, const NewClause<T> *c) const;
+//  std::ostream &displayClause(std::ostream &os, const NewClause<T> *c) const;
 
   bool satisfied(const Literal<T>) const;
   bool falsified(const Literal<T>) const;
@@ -1550,7 +1552,7 @@ NewClauseBase<T>::NewClauseBase(Solver<T> &c)
 
 template <typename T> size_t NewClauseBase<T>::size() const {
 
-  if ((base.size() - free_cl_indices.size()) != free_cl_indices.backsize()) {
+  if ((base.size() - free_cl_indices.size()) != (free_cl_indices.backsize() + free_cl_indices.frontsize())) {
     std::cout << "what ?\n";
     exit(1);
   }
@@ -1562,10 +1564,18 @@ template <typename T> size_t NewClauseBase<T>::volume() const {
   return total_size;
 }
 
-template <typename T>
-void NewClauseBase<T>::resize(const size_t n, const size_t m) {
-  watch[BOOLEAN].resize(2 * m);
-  watch[NUMERIC].resize(2 * n);
+// template <typename T>
+// void NewClauseBase<T>::resize(const size_t n, const size_t m) {
+//   watch[BOOLEAN].resize(2 * n);
+//   watch[NUMERIC].resize(2 * m);
+// }
+
+template <typename T> void NewClauseBase<T>::newBooleanVar(const var_t x) {
+  watch[BOOLEAN].resize(static_cast<size_t>(2 * x + 2));
+}
+
+template <typename T> void NewClauseBase<T>::newNumericVar(const var_t x) {
+  watch[NUMERIC].resize(static_cast<size_t>(2 * x + 2));
 }
 
 template <typename T>
@@ -1614,14 +1624,12 @@ void NewClauseBase<T>::unit_propagate(const Literal<T> l) {
 
 #ifdef DBG_TRACE
     if (DBG_TRACE & UNITPROPAGATION) {
-      std::cout << " watched by ";
-      displayClause(std::cout, cl);
-      std::cout << std::endl;
+      std::cout << " watched by " << *cl << std::endl;
     }
 #endif
 
     bool watch_rank{cl->watch_rank(l)};
-    index_t idx{cl->watcher_index[watch_rank]};
+    index_t idx{cl->watched_index[watch_rank]};
     Literal<T> other{cl->watched(1 - watch_rank)};
     Literal<T> c_lit{(*cl)[idx]};
 
@@ -1686,7 +1694,7 @@ void NewClauseBase<T>::unit_propagate(const Literal<T> l) {
 
 #ifdef DBG_TRACE
       if (DBG_TRACE & UNITPROPAGATION) {
-        std::cout << ": satisfied by " << prettyLiteral(other) << std::endl;
+        std::cout << ": satisfied by " << other << std::endl;
       }
 #endif
 
@@ -1708,7 +1716,7 @@ void NewClauseBase<T>::unit_propagate(const Literal<T> l) {
 
 #ifdef DBG_TRACE
       if (DBG_TRACE & UNITPROPAGATION) {
-        std::cout << "  " << prettyLiteral(p);
+        std::cout << "  " << p;
       }
 #endif
 
@@ -1748,7 +1756,7 @@ void NewClauseBase<T>::unit_propagate(const Literal<T> l) {
 
 #ifdef DBG_TRACE
       if (DBG_TRACE & UNITPROPAGATION) {
-        std::cout << ": new unit " << prettyLiteral(other) << std::endl;
+        std::cout << ": new unit " << other << std::endl;
       }
 #endif
 
@@ -1773,13 +1781,11 @@ void NewClauseBase<T>::unit_propagate(const Literal<T> l) {
       //   cout << x << ": " << model[x] << endl;
       // }
     }
-#ifdef DBG_TRACE
-    else if (DBG_TRACE & UNITPROPAGATION) {
-      std::cout << " new watchers: ";
-      displayClause(std::cout, cl);
-      std::cout << std::endl;
-    }
-#endif
+//#ifdef DBG_TRACE
+//    else if (DBG_TRACE & UNITPROPAGATION) {
+//      std::cout << " new watchers: " << *cl << std::endl;
+//    }
+//#endif
 
     // cout << "remaining: " << distance(c, watch[EDGE_LIT][l].rend()) << endl;
   }
@@ -1796,7 +1802,7 @@ void NewClauseBase<T>::set_watcher(const int r, const index_t i,
   //    verifyWatchers("before set watcher");
   //#endif
 
-  cl->watcher_index[r] = i;
+  cl->watched_index[r] = i;
 
   //    std::cout << "watcher[" << r << "] = " << cl->watcher(r) << std::endl;
   // add it to p's watch list
@@ -2328,7 +2334,7 @@ template <typename T>
 double NewClauseBase<T>::loosenessOverActivity(const Literal<T> l) {
   //  if (LTYPE(l) == EDGE_LIT) {
   //    auto c{caller.getEdge(FROM_GEN(l))};
-  return caller.looseness(l) / caller.getActivityMap()->get(l);
+  return caller.looseness(l); // / caller.getActivityMap()->get(l);
   //  } else {
   ////    auto c{constraint[FROM_GEN(l)]};
   //    return caller.looseness(l) / caller.getActivityMap()->get(l);
@@ -2339,7 +2345,7 @@ template <typename T>
 double NewClauseBase<T>::inverseActivity(const Literal<T> l) {
   //  if (LTYPE(l) == EDGE_LIT) {
   ////    auto c{caller.getEdge(FROM_GEN(l))};
-  return 1.0 / caller.getActivityMap()->get(l);
+  return 1.0; // / caller.getActivityMap()->get(l);
   //  } else {
   ////    auto c{constraint[FROM_GEN(l)]};
   //    return 1.0 / caller.getActivityMap()->get(l);
@@ -2372,8 +2378,8 @@ template <typename T> void NewClauseBase<T>::forget() {
 #endif
 
   if (caller.getOptions().forget_strategy == Options::LiteralScore::Looseness or
-      (caller.getActivityMap() == NULL and
-       caller.getOptions().forget_strategy != Options::LiteralScore::Size)) {
+      ( // caller.getActivityMap() == NULL and
+          caller.getOptions().forget_strategy != Options::LiteralScore::Size)) {
     for (auto idx{free_cl_indices.bbegin()}; idx != free_cl_indices.bend();
          ++idx) {
       score[*idx] = 0;
@@ -2435,12 +2441,19 @@ NewClause<T> *NewClauseBase<T>::add(const iter first, const iter last,
 #ifdef DBG_WATCHERS
   verifyWatchers("before learn");
 #endif
+
+  std::cout << "add clause (" << (learnt ? "learnt" : "base" ) << ")";
+  for (auto l{first}; l != last; ++l) {
+    std::cout << " " << *l;
+  }
+  std::cout << std::endl;
+
   NewClause<T> *c{NULL};
 
   assert(first != last);
 
   if (first + 1 == last) {
-    assign(*first, Constant::NoReason);
+    assign(*first, Constant::NewNoReason<T>);
   } else {
     if (not free_cl_indices.empty()) {
       int id{free_cl_indices.back()};
@@ -2452,28 +2465,39 @@ NewClause<T> *NewClauseBase<T>::add(const iter first, const iter last,
       assert(c->empty());
     } else {
       int id{static_cast<int>(base.size())};
-      c = new Clause(id);
+      c = new NewClause<T>(id);
       base.push_back(c);
       score.push_back(0);
       free_cl_indices.reserve(base.size());
+        
+//    std::cout << free_cl_indices << std::endl;
+        
       if (not learnt) {
         free_cl_indices.add(id);
         free_cl_indices.remove_front(id);
-      }
+      } 
+        
+//    std::cout << free_cl_indices << std::endl;
+        
+//      else {
+//          free_cl_indices.add(id);
+//          free_cl_indices.remove_back(id);
+//      }
     }
 
     for (auto l{first}; l != last; ++l) {
       c->push_back(*l);
     }
-
+      
     set_watcher(0, 0, c);
     set_watcher(1, 1, c);
 
-    Literal<T> l{(*c)[0]};
-
     total_size += c->size();
 
-    assign(l, {this, c->id});
+      if(learnt) {
+          Literal<T> l{(*c)[0]};
+          assign(l, {this, c->id});
+      }
   }
 
   return c;
@@ -2482,62 +2506,62 @@ NewClause<T> *NewClauseBase<T>::add(const iter first, const iter last,
 #endif
 }
 
-template <typename T>
-std::ostream &NewClauseBase<T>::displayClause(std::ostream &os,
-                                              const NewClause<T> *cl) const {
-  //    os << "[" << cl->watch_index(0) << "|" << cl->watch_index(1) << "]";
-
-  //    assert(not cl->empty());
-
-  //    if (cl->empty()) {
-  //        os << "(" << cl->id <<":)";
-  //    } else {
-  //
-  //        os << "(";
-  //        os << cl->id <<":";
-  ////        os << "[" << prettyLiteral((*cl)[0]) << "]";
-  ////        if (0 == cl->watch_index(0) or 0 == cl->watch_index(1))
-  ////            os << "*";
-  ////        for (size_t i{1}; i < cl->size(); ++i) {
-  ////            os << " or [" << prettyLiteral((*cl)[i]) << "]";
-  ////            if (i == cl->watch_index(0) or i == cl->watch_index(1))
-  ////                os << "*";
-  ////        }
-  //        if(LTYPE((*cl)[0]) == BOUND_LIT)
-  //            os << FROM_GEN((*cl)[0]);
-  //        else
-  //            os << ".";
-  //        for (size_t i{1}; i < cl->size(); ++i) {
-  //            if(LTYPE((*cl)[i]) == BOUND_LIT)
-  //                os << " " << FROM_GEN((*cl)[i]);
-  //            else
-  //                os << " .";
-  //        }
-  //        os << ")";
-  //    }
-
-  if (cl->empty()) {
-    os << "()";
-  } else {
-    os << "(";
-    os << "[" << (*cl)[0] << "]";
-    if (0 == cl->watch_index(0) or 0 == cl->watch_index(1))
-      os << "*";
-    for (size_t i{1}; i < cl->size(); ++i) {
-      os << " or [" << (*cl)[i] << "]";
-      if (i == cl->watch_index(0) or i == cl->watch_index(1))
-        os << "*";
-    }
-    os << ")";
-  }
-  return os;
-}
+//template <typename T>
+//std::ostream &NewClauseBase<T>::displayClause(std::ostream &os,
+//                                              const NewClause<T> *cl) const {
+//  //    os << "[" << cl->watch_index(0) << "|" << cl->watch_index(1) << "]";
+//
+//  //    assert(not cl->empty());
+//
+//  //    if (cl->empty()) {
+//  //        os << "(" << cl->id <<":)";
+//  //    } else {
+//  //
+//  //        os << "(";
+//  //        os << cl->id <<":";
+//  ////        os << "[" << prettyLiteral((*cl)[0]) << "]";
+//  ////        if (0 == cl->watch_index(0) or 0 == cl->watch_index(1))
+//  ////            os << "*";
+//  ////        for (size_t i{1}; i < cl->size(); ++i) {
+//  ////            os << " or [" << prettyLiteral((*cl)[i]) << "]";
+//  ////            if (i == cl->watch_index(0) or i == cl->watch_index(1))
+//  ////                os << "*";
+//  ////        }
+//  //        if(LTYPE((*cl)[0]) == BOUND_LIT)
+//  //            os << FROM_GEN((*cl)[0]);
+//  //        else
+//  //            os << ".";
+//  //        for (size_t i{1}; i < cl->size(); ++i) {
+//  //            if(LTYPE((*cl)[i]) == BOUND_LIT)
+//  //                os << " " << FROM_GEN((*cl)[i]);
+//  //            else
+//  //                os << " .";
+//  //        }
+//  //        os << ")";
+//  //    }
+//
+//  if (cl->empty()) {
+//    os << "()";
+//  } else {
+//    os << "(";
+//    os << "[" << (*cl)[0] << "]";
+//    if (0 == cl->watch_index(0) or 0 == cl->watch_index(1))
+//      os << "*";
+//    for (size_t i{1}; i < cl->size(); ++i) {
+//      os << " or [" << (*cl)[i] << "]";
+//      if (i == cl->watch_index(0) or i == cl->watch_index(1))
+//        os << "*";
+//    }
+//    os << ")";
+//  }
+//  return os;
+//}
 
 template <typename T>
 void NewClauseBase<T>::xplain(const Literal<T> l, const hint h,
                               std::vector<Literal<T>> &Cl) {
 
-  Clause &reason(*(base[h]));
+  NewClause<T> &reason(*(base[h]));
 
   if (l == Solver<T>::Contradiction) {
     for (auto p : reason)
@@ -2554,7 +2578,9 @@ void NewClauseBase<T>::xplain(const Literal<T> l, const hint h,
 template <typename T>
 std::ostream &NewClauseBase<T>::print_reason(std::ostream &os,
                                              const hint h) const {
-  return displayClause(os, base[h]);
+//  return displayClause(os, base[h]);
+    os << *(base[h]);
+    return os;
 }
 
 template <typename T> int NewClauseBase<T>::getType() const {
@@ -2574,228 +2600,154 @@ std::ostream &NewClauseBase<T>::display(
   //        else
   //            os << "(deleted clause " << cl->id << ")\n";
 
-  for (size_t x{0}; x < caller.numVariable(); ++x) {
-    if (not watch[EDGE_LIT][POS(x)].empty()) {
-      os << caller.prettyLiteral(EDGE(POS(x))) << " is watched in";
-      for (auto cl : watch[EDGE_LIT][POS(x)]) {
-        //                os << *cl;
-        os << " ";
-        displayClause(os, cl);
+  for (size_t x{0}; x < caller.boolean.size(); ++x) {
+    auto l{caller.boolean.getLiteral(true, x)};
+    if (not watch[BOOLEAN][l].empty()) {
+      os << l << " is watched in";
+      for (auto cl : watch[BOOLEAN][l]) {
+        os << " " << *cl;
       }
       os << std::endl;
     }
-    if (not watch[EDGE_LIT][NEG(x)].empty()) {
-      os << caller.prettyLiteral(EDGE(NEG(x))) << " is watched in";
-      for (auto cl : watch[EDGE_LIT][NEG(x)]) {
-        //                os << *cl;
-        os << " ";
-        displayClause(os, cl);
-      }
-      os << std::endl;
-    }
-  }
-  for (size_t x{0}; x < caller.numEvent(); ++x) {
-    if (not watch[BOUND_LIT][LOWERBOUND(x)].empty()) {
-      os << prettyEventLit(LOWERBOUND(x)) << " is watched in";
-      for (auto cl : watch[BOUND_LIT][LOWERBOUND(x)]) {
-        //                os << *cl;
-        os << " ";
-        displayClause(os, cl);
-      }
-      os << std::endl;
-    }
-    if (not watch[BOUND_LIT][UPPERBOUND(x)].empty()) {
-      os << prettyEventLit(UPPERBOUND(x)) << " is watched in";
-      for (auto cl : watch[BOUND_LIT][UPPERBOUND(x)]) {
-        //                os << *cl;
-        os << " ";
-        displayClause(os, cl);
+    if (not watch[BOOLEAN][~l].empty()) {
+      os << ~l << " is watched in";
+      for (auto cl : watch[BOOLEAN][~l]) {
+        os << " " << *cl;
       }
       os << std::endl;
     }
   }
+  for (size_t x{0}; x < caller.numeric.size(); ++x) {
+    auto l = lb<T>(x);
+    if (not watch[NUMERIC][l].empty()) {
+      os << l << " is watched in";
+      for (auto cl : watch[NUMERIC][l]) {
+        os << " " << *cl;
+      }
+      os << std::endl;
+    }
+    if (not watch[NUMERIC][~l].empty()) {
+      os << ~l << " is watched in";
+      for (auto cl : watch[NUMERIC][~l]) {
+        os << " " << *cl;
+      }
+      os << std::endl;
+    }
+  }
+
   return os;
 }
 
 #ifdef DBG_WATCHERS
 template <typename T>
 void NewClauseBase<T>::verifyWatchers(const char *msg) const {
-
-  //    std::vector<>
-
-  int i{0};
-  for (auto cl : base) {
-    if (cl->id != i) {
-      std::cout << msg << "indexing error" << std::endl;
-      exit(1);
-    }
-    if (not free_cl_indices.has(cl->id)) {
-      for (auto l : *cl) {
-        if (LTYPE(l) == BOUND_LIT) {
-          if (free_lit_indices.has(FROM_GEN(l))) {
-            std::cout << msg << ": error on free index (" << FROM_GEN(l)
-                      << ") for " << prettyLiteral(l) << " in clause " << cl->id
-                      << std::endl;
-            displayClause(std::cout, cl);
-            displayClause(std::cout, base[cl->id]);
-            std::cout << std::endl;
+    
+    //    std::vector<>
+    
+    int i{0};
+    for (auto cl : base) {
+        if (cl->id != i) {
+            std::cout << msg << "indexing error" << std::endl;
             exit(1);
-          }
         }
-      }
+        ++i;
     }
-    ++i;
-  }
-
-  size_t num_watchers{0};
-  for (size_t x{0}; x < caller.numVariable(); ++x) {
-    num_watchers += watch[EDGE_LIT][POS(x)].size();
-    if (not watch[EDGE_LIT][POS(x)].empty()) {
-      for (auto cl : watch[EDGE_LIT][POS(x)]) {
-
-        if (cl->size() < 2) {
-          std::cout << msg << ": error empty clause watching "
-                    << caller.prettyLiteral(EDGE(POS(x))) << std::endl;
-          exit(1);
+    
+    size_t num_watchers{0};
+    for (size_t x{0}; x < caller.boolean.size(); ++x) {
+        Literal<T> l{caller.boolean.getLiteral(true,x)};
+        num_watchers += watch[BOOLEAN][l].size();
+        if (not watch[BOOLEAN][l].empty()) {
+            for (auto cl : watch[BOOLEAN][l]) {
+                
+                if (cl->size() < 2) {
+                    std::cout << msg << ": error empty clause watching "
+                    << l << std::endl;
+                    exit(1);
+                }
+                
+                if (free_cl_indices.has(cl->id)) {
+                    std::cout << *cl << "'s id is free " << std::endl;
+                    exit(1);
+                }
+                
+                if (cl->watcher(0) != ~l and cl->watcher(1) != ~l) {
+                    std::cout << msg << ": error on clause " << cl->id << " -- " << *cl << " watching " << l << std::endl;
+                    exit(1);
+                }
+            }
         }
-
-        if (free_cl_indices.has(cl->id)) {
-          displayClause(std::cout, cl);
-          std::cout << "'s id is free " << std::endl;
-          exit(1);
+        if (not watch[BOOLEAN][~l].empty()) {
+            num_watchers += watch[BOOLEAN][~l].size();
+            for (auto cl : watch[BOOLEAN][~l]) {
+                if (cl->size() < 2) {
+                    std::cout << msg << ": error empty clause watching "
+                    << l << std::endl;
+                    exit(1);
+                }
+                
+                if (free_cl_indices.has(cl->id)) {
+                    std::cout << *cl << "'s id is free " << std::endl;
+                    exit(1);
+                }
+                
+                if (cl->watcher(0) != ~l and cl->watcher(1) != ~l) {
+                    std::cout << msg << ": error on clause " << cl->id << " -- " << *cl << " watching " << l << std::endl;
+                    exit(1);
+                }
+            }
         }
-
-        if (cl->watcher(0) != EDGE(POS(x)) and cl->watcher(1) != EDGE(POS(x))) {
-          std::cout << msg << ": error on clause " << cl->id << " -- ";
-          displayClause(std::cout, cl);
-          std::cout << " watching " << caller.prettyLiteral(EDGE(POS(x)))
-                    << std::endl;
-          exit(1);
-        }
-      }
     }
-    if (not watch[EDGE_LIT][NEG(x)].empty()) {
-      num_watchers += watch[EDGE_LIT][NEG(x)].size();
-      for (auto cl : watch[EDGE_LIT][NEG(x)]) {
-        if (cl->size() < 2) {
-          std::cout << msg << ": error empty clause watching "
-                    << caller.prettyLiteral(EDGE(NEG(x))) << std::endl;
-          exit(1);
+    for (size_t x{0}; x < caller.numeric(); ++x) {
+        Literal<T> l{lb<T>(x)};
+        num_watchers += watch[NUMERIC][l].size();
+        if (not watch[NUMERIC][l].empty()) {
+            for (auto cl : watch[NUMERIC][l]) {
+                if (cl->size() < 2) {
+                    std::cout << msg << ": error empty clause watching "
+                    << l << std::endl;
+                    exit(1);
+                }
+                
+                if (free_cl_indices.has(cl->id)) {
+                    std::cout << *cl << "'s id is free " << std::endl;
+                    exit(1);
+                }
+                
+                if (not (cl->watcher(0).sameVariable(l) or cl->watcher(1).sameVariable(l))) {
+                    std::cout << msg << ": error on clause " << cl->id << " -- " << *cl << " watching " << l << std::endl;
+                    exit(1);
+                }
+                
+            }
         }
-
-        if (free_cl_indices.has(cl->id)) {
-          displayClause(std::cout, cl);
-          std::cout << "'s id is free " << std::endl;
-          exit(1);
+        if (not watch[NUMERIC][~l].empty()) {
+            num_watchers += watch[NUMERIC][~l].size();
+            for (auto cl : watch[NUMERIC][~l]) {
+                if (cl->size() < 2) {
+                    std::cout << msg << ": error empty clause watching "
+                    << ~l << std::endl;
+                    exit(1);
+                }
+                
+                if (free_cl_indices.has(cl->id)) {
+                    std::cout << *cl << "'s id is free " << std::endl;
+                    exit(1);
+                }
+                
+                if (not (cl->watcher(0).sameVariable(l) or cl->watcher(1).sameVariable(l))) {
+                    std::cout << msg << ": error on clause " << cl->id << " -- " << *cl << " watching " << l << std::endl;
+                    exit(1);
+                }
+            }
         }
-
-        if (cl->watcher(0) != EDGE(NEG(x)) and cl->watcher(1) != EDGE(NEG(x))) {
-          std::cout << msg << ": error on clause " << cl->id << " -- ";
-          displayClause(std::cout, cl);
-          std::cout << " watching " << caller.prettyLiteral(EDGE(NEG(x)))
-                    << std::endl;
-          exit(1);
-        }
-      }
     }
-  }
-  for (size_t x{0}; x < caller.numEvent(); ++x) {
-    num_watchers += watch[BOUND_LIT][LOWERBOUND(x)].size();
-    if (not watch[BOUND_LIT][LOWERBOUND(x)].empty()) {
-      for (auto cl : watch[BOUND_LIT][LOWERBOUND(x)]) {
-        if (cl->size() < 2) {
-          std::cout << msg << ": error empty clause watching "
-                    << prettyEventLit(LOWERBOUND(x)) << std::endl;
-          exit(1);
-        }
-
-        if (free_cl_indices.has(cl->id)) {
-          displayClause(std::cout, cl);
-          std::cout << "'s id is free " << std::endl;
-          exit(1);
-        }
-
-        auto w0{(LTYPE(cl->watcher(0)) == BOUND_LIT
-                     ? constraint[FROM_GEN(cl->watcher(0))].l
-                     : NoLit)};
-        auto w1{(LTYPE(cl->watcher(1)) == BOUND_LIT
-                     ? constraint[FROM_GEN(cl->watcher(1))].l
-                     : NoLit)};
-
-        //                auto w0{constraint[FROM_GEN(cl->watcher(0))].l};
-        //                auto w1{constraint[FROM_GEN(cl->watcher(1))].l};
-        if (w0 != LOWERBOUND(x) and w1 != LOWERBOUND(x)) {
-          std::cout << msg << ": error on clause " << cl->id << " -- ";
-          displayClause(std::cout, cl);
-          std::cout << " watching " << prettyEventLit(LOWERBOUND(x))
-                    << std::endl;
-          std::cout << (LTYPE(cl->watcher(0)) == BOUND_LIT
-                            ? FROM_GEN(cl->watcher(0))
-                            : NoLit)
-                    << " / "
-                    << (LTYPE(cl->watcher(1)) == BOUND_LIT
-                            ? FROM_GEN(cl->watcher(1))
-                            : NoLit)
-                    << " / " << LOWERBOUND(x) << std::endl;
-          exit(1);
-        }
-      }
+    
+    if (num_watchers != 2 * size()) {
+        std::cout << msg << ": wrong number of watchers !\n";
+        exit(1);
     }
-    if (not watch[BOUND_LIT][UPPERBOUND(x)].empty()) {
-      num_watchers += watch[BOUND_LIT][UPPERBOUND(x)].size();
-      for (auto cl : watch[BOUND_LIT][UPPERBOUND(x)]) {
-        if (cl->size() < 2) {
-          std::cout << msg << ": error empty clause watching "
-                    << prettyEventLit(LOWERBOUND(x)) << std::endl;
-          exit(1);
-        }
-
-        if (free_cl_indices.has(cl->id)) {
-          displayClause(std::cout, cl);
-          std::cout << "'s id is free " << std::endl;
-          exit(1);
-        }
-
-        //                displayClause(std::cout, cl);
-        //                std::cout << " watching " <<
-        //                prettyEventLit(UPPERBOUND(x)) << std::endl;
-
-        //                if(free_lit_inidices.has(FROM_GEN(cl->watcher(0)))) {
-        //                    std::cout << prettyLiteral(cl->watcher(0)) << "'s
-        //                    id is free " << std::endl;
-        //                }
-
-        auto w0{(LTYPE(cl->watcher(0)) == BOUND_LIT
-                     ? constraint[FROM_GEN(cl->watcher(0))].l
-                     : NoLit)};
-        auto w1{(LTYPE(cl->watcher(1)) == BOUND_LIT
-                     ? constraint[FROM_GEN(cl->watcher(1))].l
-                     : NoLit)};
-
-        if (w0 != UPPERBOUND(x) and w1 != UPPERBOUND(x)) {
-          std::cout << msg << ": error on clause " << cl->id << " -- ";
-          displayClause(std::cout, cl);
-          std::cout << " watching " << prettyEventLit(UPPERBOUND(x))
-                    << std::endl;
-          std::cout << (LTYPE(cl->watcher(0)) == BOUND_LIT
-                            ? FROM_GEN(cl->watcher(0))
-                            : NoLit)
-                    << " / "
-                    << (LTYPE(cl->watcher(1)) == BOUND_LIT
-                            ? FROM_GEN(cl->watcher(1))
-                            : NoLit)
-                    << " / " << UPPERBOUND(x) << std::endl;
-          exit(1);
-        }
-      }
-    }
-  }
-
-  if (num_watchers != 2 * size()) {
-    std::cout << msg << ": wrong number of watchers !\n";
-    exit(1);
-  }
-  //    std::cout << msg << ": ok\n";
+    //    std::cout << msg << ": ok\n";
 }
 #endif
 

@@ -17,8 +17,8 @@
 //#include "constraints/DisjunctiveEdgeFinding.hpp"
 #include "constraints/EdgeConstraint.hpp"
 //#include "constraints/Transitivity.hpp"
-#include "heuristics/HeuristicManager.hpp"
-#include "heuristics/impl/DecayingEventActivityMap.hpp"
+//#include "heuristics/HeuristicManager.hpp"
+//#include "heuristics/impl/DecayingEventActivityMap.hpp"
 //#include "util/Heap.hpp"
 //#include "util/KillHandler.hpp"
 #include "util/Options.hpp"
@@ -281,6 +281,9 @@ public:
   TemporalVar<T> newTemporal(const T offset = 0);
   Job<T> newJob(const T mindur = 0, const T maxdur = Constant::Infinity<T>);
 
+  // all the clauses (learnt or from the base problem)
+  NewClauseBase<T> clauses;
+
   // graph with all the known edges
   DirectedGraph<StampedLabeledEdge<T, index_t>> core;
 
@@ -314,8 +317,6 @@ private:
    * @name constraints
    */
   //@{
-  // all the clauses (learnt or from the base problem)
-  NewClauseBase<T> clauses;
   // data structure used to implement the overall propagation (parameter is
   // the number of priority classes)
   NewConstraintQueue<T, 3> propagation_queue;
@@ -351,18 +352,17 @@ private:
 #ifdef DBG_TRACE
   void printTrace() const;
 #endif
-    
-    heuristics::impl::EventActivityMap<T> *activityMap{NULL};
+
+  //    heuristics::impl::EventActivityMap<T> *activityMap{NULL};
 
 public:
-    
-    void setActivityMap(heuristics::impl::EventActivityMap<T> *map) {
-      activityMap = map;
-    }
-    heuristics::impl::EventActivityMap<T> *getActivityMap() {
-      return activityMap;
-    }
-    
+  //    void setActivityMap(heuristics::impl::EventActivityMap<T> *map) {
+  //      activityMap = map;
+  //    }
+  //    heuristics::impl::EventActivityMap<T> *getActivityMap() {
+  //      return activityMap;
+  //    }
+
   long unsigned int num_fails{0};
   long unsigned int num_choicepoints{0};
   long unsigned int num_backtracks{0};
@@ -382,7 +382,8 @@ public:
 };
 
 template <typename T>
-const Literal<T> Solver<T>::Contradiction = Literal<T>(false, Constant::NoVarx, 0);
+const Literal<T> Solver<T>::Contradiction = Literal<T>(false, Constant::NoVarx,
+                                                       info_t(0));
 
 #ifdef DBG_TRACE
 template <typename T> void Solver<T>::printTrace() const {
@@ -395,7 +396,7 @@ template <typename T> void Solver<T>::printTrace() const {
 
 template <typename T>
 Literal<T> BooleanStore<T>::getLiteral(const bool s, const var_t x) const {
-  return Literal<T>(s, x, edge_index[x] + s);
+  return Literal<T>(s, x, edge_index[x]);
 }
 
 template <typename T>
@@ -597,7 +598,7 @@ index_t NumericStore<T>::litIndex(const bool s, const var_t x) const {
 
 template <typename T>
 bool NumericStore<T>::falsified(const Literal<T> l) const {
-  return -(l.value()) > bound[~(l.sign())][l.variable()];
+  return -(l.value()) > bound[not l.sign()][l.variable()];
 }
 
 template <typename T>
@@ -607,8 +608,8 @@ bool NumericStore<T>::satisfied(const Literal<T> l) const {
 
 template <typename T>
 Solver<T>::Solver(Options opt)
-    : ReversibleObject(&env), boolean(*this), numeric(*this), core(&env),
-      options(std::move(opt)), propag_pointer(1, &env), clauses(*this),
+    : ReversibleObject(&env), boolean(*this), numeric(*this), clauses(*this),
+      core(&env), options(std::move(opt)), propag_pointer(1, &env),
       propagation_queue(constraints), boolean_constraints(&env),
       numeric_constraints(&env), boolean_search_vars(0, &env),
       numeric_search_vars(0, &env) {
@@ -619,6 +620,7 @@ Solver<T>::Solver(Options opt)
 
 template <typename T> BooleanVar<T> Solver<T>::newBoolean() {
   auto x{boolean.newVar()};
+  clauses.newBooleanVar(x.id());
   boolean_constraints.resize(std::max(numConstraint(), boolean.size()));
   return x;
 }
@@ -638,6 +640,7 @@ DisjunctVar<T> Solver<T>::newDisjunct(const DistanceConstraint<T> &d1,
 template <typename T> NumericVar<T> Solver<T>::newNumeric() {
   auto x{numeric.newVar()};
   changed.reserve(numeric.size());
+  clauses.newNumericVar(x.id());
   numeric_constraints.resize(std::max(numConstraint(), numeric.size()));
   return x;
 }
@@ -883,7 +886,7 @@ template <typename T> void tempo::Solver<T>::propagate() {
       }
 #endif
 
-      //        clauses.unit_propagate(l);
+        clauses.unit_propagate(l);
 
       //        std::cout << "propagate " << l << std::endl;
 

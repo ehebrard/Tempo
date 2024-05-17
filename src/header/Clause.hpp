@@ -104,7 +104,7 @@ template <typename T> bool NewClause<T>::watch_rank(const Literal<T> l) const {
   //    auto p{this->operator[](watched_index[1])};
   //    return (p.isNumeric() == l.isNumeric()) and (p.variable() ==
   //    l.variable());
-  l.sameVariable(this->operator[](watched_index[1]));
+  return l.sameVariable(this->operator[](watched_index[1]));
 }
 
 template <typename T> size_t NewClause<T>::watch_index(const bool r) const {

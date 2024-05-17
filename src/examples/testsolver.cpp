@@ -24,7 +24,7 @@ along with minicsp.  If not, see <http://www.gnu.org/licenses/>.
 
 
 #include "Solver.hpp"
-
+#include "util/parsing/dimacs.hpp"
 
 using namespace tempo;
 
@@ -247,9 +247,31 @@ void test3(Options &opt) {
   std::cout << sat << std::endl;
 }
 
+void test4(Options &opt) {
+
+  Solver<> S(opt);
+
+    std::vector<BooleanVar<>> X;
+    
+  dimacs::parse(opt.instance_file, S, X);
+    
+    for (auto x : X)
+      S.addToSearch(x);
+
+  std::cout << S.clauses << std::endl;
+    
+    
+    auto sat{S.search()};
+
+    std::cout << sat << std::endl;
+    
+
+    
+}
+
 int main(int argc, char *argv[]) {
     
     Options opt = tempo::parse(argc, argv);
 
-    test3(opt);
+    test4(opt);
 }
