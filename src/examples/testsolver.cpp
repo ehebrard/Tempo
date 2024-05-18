@@ -263,10 +263,7 @@ void test4(Options &opt) {
     
     auto sat{S.search()};
 
-    std::cout << sat << std::endl;
-    
-
-    
+    std::cout << "result = " << sat << std::endl;
 }
 
 int main(int argc, char *argv[]) {

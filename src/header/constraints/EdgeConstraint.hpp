@@ -258,8 +258,8 @@ bool NewEdgeConstraint<T>::notify(const Literal<T>, const int) {
       //          r_lb = m_solver.numeric.strongestLiteral(bound::lower,
       //          edge.from); r_ub =
       //          m_solver.numeric.strongestLiteral(bound::upper, edge.to);
-      r_lb = m_solver.numeric.litIndex(bound::lower, edge.from);
-      r_ub = m_solver.numeric.litIndex(bound::upper, edge.to);
+      r_lb = m_solver.numeric.lastLitIndex(bound::lower, edge.from);
+      r_ub = m_solver.numeric.lastLitIndex(bound::upper, edge.to);
 
 #ifdef DBG_EDGECONS
       if (DBG_EDGECONS) {

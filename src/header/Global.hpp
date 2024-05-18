@@ -13,7 +13,7 @@ using info_t = uint32_t;
 
 #define DBG_BOUND (num_choicepoints >= 0)
 #define DBG_BBOUND (sched.num_choicepoints >= 1045) //(sched.num_fails >= 236)
-#define DBG_TRACE 215                                // 183 //1+2+4+32+128
+#define DBG_TRACE 53                                // 183 //1+2+4+32+128
 #define SEARCH 1
 #define DOMAINS 2
 #define BRANCH 4
@@ -55,7 +55,8 @@ constexpr auto to_underlying(E e) noexcept {
     return static_cast<std::underlying_type_t<E>>(e);
 }
 
-using index_t = size_t;
+// using index_t = size_t;
+using index_t = uint32_t;
 
 using event = int;
 #define NOEVENT -1
