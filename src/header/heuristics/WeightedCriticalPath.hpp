@@ -51,8 +51,6 @@ public:
       return static_cast<double>(std::max(gap_a, gap_b)) / activity.get(x);
   }
 
-  constexpr void preEvaluation(const Scheduler<T> &) const noexcept {}
-
   WeightedCriticalPath(const WeightedCriticalPath &) = delete;
   WeightedCriticalPath(WeightedCriticalPath &&) = delete;
   WeightedCriticalPath &operator=(const WeightedCriticalPath &) = delete;

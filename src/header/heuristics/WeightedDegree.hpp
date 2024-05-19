@@ -27,53 +27,46 @@ public:
   /**
    * @copydoc VSIDS::VSIDS
    */
-  explicit WeightedDegree( Scheduler<T> &scheduler, const bool critpath)
+  explicit WeightedDegree(Scheduler<T> &scheduler, const bool critpath)
       : sched(scheduler), activity(scheduler, sched.getOptions().vsids_decay),
-        handlerToken((critpath ?
-                     scheduler.ConflictEncountered.subscribe_handled(
-                                                                 [this](auto &expl) {
-                                                                     this->clause.clear();
-                                                                     if(expl.getType() == CYCLEEXPL)
-                                                                         expl.explain(NoLit,this->clause);
-                                                                     else
-                                                                         sched.getCriticalPath(this->clause);
-                                                                   this->activity.update(this->clause);
-                                                                 })
-                     :
-                     scheduler.ConflictEncountered.subscribe_handled(
-                                                                [this](auto &expl) {
-                                                                                     this->clause.clear();
-                                                                                     expl.explain(NoLit,this->clause);
-                                                                                   this->activity.update(this->clause);
-                                                                                 })
-            )
-                     )
-//                                                                     :
-//                                [this](auto &expl) {
-//                this->clause.clear();
-//                expl.explain(NoLit,this->clause);
-//              this->activity.update(this->clause);
-//            })
-//                     )
-//                   
-//    
-//                     ) 
-    {
-            
-        }
+        handlerToken((critpath
+                          ? scheduler.ConflictEncountered.subscribe_handled(
+                                [this](auto &expl) {
+                                  this->clause.clear();
+                                  if (expl.getType() == CYCLEEXPL)
+                                    expl.explain(NoLit, this->clause);
+                                  else
+                                    sched.getCriticalPath(this->clause);
+                                  this->activity.update(this->clause);
+                                })
+                          : scheduler.ConflictEncountered.subscribe_handled(
+                                [this](auto &expl) {
+                                  this->clause.clear();
+                                  expl.explain(NoLit, this->clause);
+                                  this->activity.update(this->clause);
+                                })))
+  //                                                                     :
+  //                                [this](auto &expl) {
+  //                this->clause.clear();
+  //                expl.explain(NoLit,this->clause);
+  //              this->activity.update(this->clause);
+  //            })
+  //                     )
+  //
+  //
+  //                     )
+  {}
 
   /**
    * @copydoc VSIDS::getCost
    */
-  double getCost(const var x) const {
-      auto prec_a{sched.getEdge(POS(x))};
-      auto prec_b{sched.getEdge(NEG(x))};
-      auto gap_a = sched.upper(prec_a.from) - sched.lower(prec_a.to);
-      auto gap_b = sched.upper(prec_b.from) - sched.lower(prec_b.to);
-      return static_cast<double>(std::max(gap_a, gap_b)) / activity.get(x);
+  [[nodiscard]] double getCost(const var x) const {
+    auto prec_a{sched.getEdge(POS(x))};
+    auto prec_b{sched.getEdge(NEG(x))};
+    auto gap_a = sched.upper(prec_a.from) - sched.lower(prec_a.to);
+    auto gap_b = sched.upper(prec_b.from) - sched.lower(prec_b.to);
+    return static_cast<double>(std::max(gap_a, gap_b)) / activity.get(x);
   }
-
-  constexpr void preEvaluation(const Scheduler<T> &) const noexcept {}
 
   WeightedDegree(const WeightedDegree &) = delete;
   WeightedDegree(WeightedDegree &&) = delete;
@@ -82,11 +75,11 @@ public:
   ~WeightedDegree() = default;
 
 private:
-    Scheduler<T>& sched;
+  Scheduler<T> &sched;
   impl::DecayingEventActivityMap<T> activity;
   SubscriberHandle handlerToken;
-    std::vector<genlit> clause;
-//  int polarity{-1};
+  std::vector<genlit> clause;
+  //  int polarity{-1};
 };
 }
 

@@ -2,8 +2,9 @@
 // Created by tim on 16.11.22.
 //
 
-#ifndef TEMPO_HEURISTICMANAGER_HPP
-#define TEMPO_HEURISTICMANAGER_HPP
+#ifndef _TEMPO_HEURISTICMANAGER_HPP
+#define _TEMPO_HEURISTICMANAGER_HPP
+
 #include <variant>
 #include <optional>
 #include <exception>

@@ -22,14 +22,12 @@
 #ifndef TCLAP_VISITOR_H
 #define TCLAP_VISITOR_H
 
-namespace TCLAP
-{
+namespace TCLAP {
 
 /**
  * A base class that defines the interface for visitors.
  */
-class Visitor
-{
+class Visitor {
 public:
     /**
      * Constructor. Does nothing.
@@ -46,6 +44,6 @@ public:
      */
     virtual void visit() {}
 };
-}
+} // namespace TCLAP
 
 #endif

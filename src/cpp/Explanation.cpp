@@ -40,6 +40,10 @@ Explanation::Explanation(Explainer *e, hint h) : expl(e), the_hint(h) {}
 
 int Explanation::getType() const { return expl->getType(); }
 
-std::ostream &tempo::operator<<(std::ostream &os, Explanation &x) {
+std::ostream &tempo::operator<<(std::ostream &os, const Explanation &x) {
   return x.display(os);
 }
+
+//std::ostream &tempo::operator<<(std::ostream &os, Explanation &x) {
+//  return x.display(os);
+//}

@@ -8,9 +8,12 @@
 
 namespace tempo {
 
-//#define DBG_BOUND true  //(num_fails >= 236)
-//#define DBG_BBOUND true //(sched.num_fails >= 236)
-//#define DBG_TRACE 23     // 183 //1+2+4+32+128
+using var_t = uint32_t;
+using info_t = uint32_t;
+
+//#define DBG_BOUND (num_choicepoints >= 0)
+//#define DBG_BBOUND (sched.num_choicepoints >= 1045) //(sched.num_fails >= 236)
+//#define DBG_TRACE 53                                // 183 //1+2+4+32+128
 #define SEARCH 1
 #define DOMAINS 2
 #define BRANCH 4
@@ -24,21 +27,36 @@ namespace tempo {
 //#define DBG_EDGEFINDING (m_schedule.num_cons_propagations >= 55553)
 //#define DBG_EXPLEF true      //(m_schedule.num_fails > 236)
 //#define DBG_THETA (m_schedule.num_fails >= 481)
-//#define DBG_BELLMAN
+//#define DBG_BELLMAN true //(sched.num_choicepoints >= 1045)
 //#define DBG_BELLMAN_EXPL (sched.num_choicepoints >= 4172)
 //#define DEBUG_HEURISTICS
 //#define DBG_UP
 //#define DBG_CL 10000000
 //#define DBG_CLPLUS
 //#define DBG_TRANSITIVITY true //(m_schedule.num_choicepoints >= 4064)
+//#define DBG_EXPL_TRANS true
 //#define DBG_SOL
 
-using priority_t = unsigned;
-#define LOW 0
-#define MEDIUM 1
-#define HIGH 2
+enum class Priority {
+    Low = 0,
+    Medium,
+    High
+};
 
-using index_t = size_t;
+/**
+ * Converts enum to underlying type
+ * @tparam E enum type
+ * @param e enum to convert
+ * @return value of underlying type
+ * @note replace with std impl in c++23: https://en.cppreference.com/w/cpp/utility/to_underlying
+ */
+template<typename E>
+constexpr auto to_underlying(E e) noexcept {
+    return static_cast<std::underlying_type_t<E>>(e);
+}
+
+// using index_t = size_t;
+using index_t = uint32_t;
 
 using event = int;
 #define NOEVENT -1
@@ -175,21 +193,21 @@ public:
 template <> class Gap<float> {
 public:
   static constexpr float epsilon() noexcept {
-    return 10e-6; // std::numeric_limits<float>::epsilon();
+    return 1e-3; // std::numeric_limits<float>::epsilon();
   }
 };
 
 template <> class Gap<double> {
 public:
   static constexpr double epsilon() noexcept {
-    return 10e-9; // std::numeric_limits<double>::epsilon();
+    return 1e-6; // std::numeric_limits<double>::epsilon();
   }
 };
 
 template <> class Gap<long double> {
 public:
   static constexpr double epsilon() noexcept {
-    return 10e-12; // std::numeric_limits<long double>::epsilon();
+    return 1e-9; // std::numeric_limits<long double>::epsilon();
   }
 };
 

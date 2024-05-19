@@ -117,6 +117,7 @@ public:
   DirectedGraph(BacktrackEnvironment *e=ReversibleObject::env);
     DirectedGraph(const int n_vertices, BacktrackEnvironment *e=ReversibleObject::env);
   void resize(const int n);
+    void newVertex(const int x);
 
   // add an Arc from origin (reversible)
     template <typename... T>
@@ -446,6 +447,27 @@ void DirectedGraph<Arc>::resize(const int n) {
 #endif
 }
 
+
+template<class Arc>
+void DirectedGraph<Arc>::newVertex(const int x) {
+    
+//    std::cout << "new vertex " << x << std::endl;
+    
+    assert(static_cast<size_t>(x) >= size());
+    auto n{size()};
+    
+    resize(static_cast<size_t>(x+1));
+    
+    for(auto i{n}; i<size()-1; ++i) {
+        vertices.remove_front(static_cast<int>(i));
+    }
+
+#ifdef DEBUG_SG
+  // cout << *this << std::endl;
+  verify("new vertex");
+#endif
+}
+
 template<class Arc>
 size_t DirectedGraph<Arc>::arcCount() const { return numArc; }
 
@@ -635,7 +657,14 @@ void DirectedGraph<Arc>::verify(const char *msg) {
 
 template<class Arc>
 std::ostream &operator<<(std::ostream &os, const DirectedGraph<Arc> &x) {
-    return x.display(os, [](const int i) {return static_cast<int>(i);}, [](const Arc& e) {return static_cast<int>(e);});
+  return x.display(
+      os, [](const int i) { return static_cast<int>(i); },
+      [](const Arc &e) {
+        std::stringstream ss;
+        ss << e;
+        return ss.str();
+      });
+  //        return static_cast<int>(e);});
 }
 
 
@@ -646,7 +675,10 @@ std::ostream &operator<<(std::ostream &os, const LabeledEdge<T> &x) {
 
 template<typename T, typename S>
 std::ostream &operator<<(std::ostream &os, const StampedLabeledEdge<T,S> &x) {
-    return x.display(os, [](const StampedLabeledEdge<T,S>& e) {return static_cast<int>(e);});
+  return x.display(os, [](const StampedLabeledEdge<T, S> &e) {
+    return std::to_string(static_cast<int>(e)) + " (" +
+           std::to_string(e.label()) + ")";
+  });
 }
 
 

@@ -18,7 +18,8 @@ namespace tempo {
 template <typename T> class DisjunctiveEdgeFinding : public Constraint {
 private:
   Scheduler<T> &m_schedule;
-  std::vector<task> m_tasks;
+  //  std::vector<task> m_tasks;
+  std::vector<Task<T> *> the_tasks;
   std::vector<std::vector<lit>> disjunct;
 
   // helpers
@@ -27,7 +28,8 @@ private:
   std::vector<unsigned> theta_rank;
   ThetaTree TT;
 
-  std::vector<std::vector<task>> explanation_tasks;
+  //  std::vector<std::vector<task>> explanation_tasks;
+  std::vector<std::vector<Task<T> *>> the_explanation_tasks;
   std::vector<T> explanation_lb;
   std::vector<T> explanation_ub;
 
@@ -52,10 +54,14 @@ private:
     
 
 public:
-  template <typename ItTask, typename ItVar>
+  template <typename ItTask/*, typename ItTaskI*/, typename ItVar>
   DisjunctiveEdgeFinding(Scheduler<T> &scheduler, const ItTask beg_task,
-                         const ItTask end_task, const ItVar beg_var,
-                         const ItVar end_var);
+                         const ItTask end_task, 
+//                         const ItTaskI beg_taski,
+//                         const ItTaskI end_taski, 
+                         const ItVar beg_var
+//,                         const ItVar end_var
+    );
   virtual ~DisjunctiveEdgeFinding();
 
   // helpers
@@ -83,7 +89,7 @@ public:
   void printUBExplanation(const hint ph);
     void printTrivialExplanation(const lit l);
 
-  static std::vector<int> task_map;
+//  static std::vector<int> task_map;
   //#ifdef DBG_EDGEFINDING
   //  int debug_flag{0};
   //#endif
@@ -98,7 +104,9 @@ public:
 template <typename T>
 std::string DisjunctiveEdgeFinding<T>::prettyTask(const int i) const {
   std::stringstream ss;
-  ss << "t" << m_tasks[i] << ": [" << est(i) << ".." << lct(i) << "] ("
+  //  ss << "t" << m_tasks[i] << ": [" << est(i) << ".." << lct(i) << "] ("
+  //     << minduration(i) << ")";
+  ss << "t" << the_tasks[i]->id() << ": [" << est(i) << ".." << lct(i) << "] ("
      << minduration(i) << ")";
   return ss.str();
 }
@@ -110,34 +118,59 @@ template <typename Iter>
 hint DisjunctiveEdgeFinding<T>::lowerBoundExplanation(Iter b, Iter e,
                                                       const T lb) {
   auto e_idx{num_explanations};
-  if (explanation_tasks.size() <= e_idx) {
-    explanation_tasks.resize(e_idx + 1);
+  //  if (explanation_tasks.size() <= e_idx) {
+  //    explanation_tasks.resize(e_idx + 1);
+  //    explanation_lb.resize(e_idx + 1);
+  //    explanation_ub.resize(e_idx + 1);
+  //  } else {
+  //    explanation_tasks[e_idx].clear();
+  //  }
+  if (the_explanation_tasks.size() <= e_idx) {
+    //    explanation_tasks.resize(e_idx + 1);
+    the_explanation_tasks.resize(e_idx + 1);
     explanation_lb.resize(e_idx + 1);
     explanation_ub.resize(e_idx + 1);
   } else {
-    explanation_tasks[e_idx].clear();
+    //    explanation_tasks[e_idx].clear();
+    the_explanation_tasks[e_idx].clear();
   }
   explanation_lb[e_idx] = lb;
 
-  T ub{m_schedule.upper(END(m_tasks[*b]))};
+  //  assert(m_schedule.upper(END(m_tasks[*b])) ==
+  //  the_tasks[*b]->getLatestEnd());
+
+  T ub{the_tasks[*b]->getLatestEnd()};
   for (auto x{b}; x != e; ++x) {
 
-    auto i{m_tasks[*x]};
+    //    auto i{m_tasks[*x]};
 
-    if (m_schedule.lower(START(i)) >= lb) {
+    //    assert(the_tasks[*x]->getEarliestStart() ==
+    //    m_schedule.lower(START(i)));
+
+    //    if (m_schedule.lower(START(i)) >= lb) {
+    if (the_tasks[*x]->getEarliestStart() >= lb) {
 
 #ifdef DBG_EXPLEF
-      std::cout << " expl: "
-                << m_schedule.prettyLiteral(
-                       BOUND(m_schedule.getBoundIndex(LOWERBOUND(START(i)))))
-                << " and "
-                << m_schedule.prettyLiteral(
-                       BOUND(m_schedule.getBoundIndex(UPPERBOUND(END(i)))))
-                << std::endl;
+      std::cout
+          << " expl: "
+          //                << m_schedule.prettyLiteral(
+          //                       BOUND(m_schedule.getBoundIndex(LOWERBOUND(START(i)))))
+          << m_schedule.prettyLiteral(BOUND(m_schedule.getBoundIndex(
+                 LOWERBOUND(the_tasks[*x]->getStart()))))
+          << " and "
+          //                << m_schedule.prettyLiteral(
+          //                       BOUND(m_schedule.getBoundIndex(UPPERBOUND(END(i)))))
+          << m_schedule.prettyLiteral(BOUND(
+                 m_schedule.getBoundIndex(UPPERBOUND(the_tasks[*x]->getEnd()))))
+          << std::endl;
 #endif
 
-      explanation_tasks[e_idx].push_back(i);
-      ub = std::max(ub, m_schedule.upper(END(i)));
+      //      explanation_tasks[e_idx].push_back(i);
+      the_explanation_tasks[e_idx].push_back(the_tasks[*x]);
+
+      ub = std::max(ub, the_tasks[*x]->getLatestEnd());
+
+      //      assert(ub == std::max(ub, m_schedule.upper(END(i))));
     }
 #ifdef DBG_EXPLEF
     else {
@@ -146,7 +179,9 @@ hint DisjunctiveEdgeFinding<T>::lowerBoundExplanation(Iter b, Iter e,
     }
 #endif
   }
-  assert(ub >= m_schedule.upper(END(m_tasks[*b])));
+  //  assert(ub >= m_schedule.upper(END(m_tasks[*b])));
+  assert(ub >=
+         the_tasks[*b]->getLatestEnd()); // m_schedule.upper(END(m_tasks[*b])));
   explanation_ub[e_idx] = ub;
 
   ++num_explanations;
@@ -160,37 +195,53 @@ template <typename Iter>
 hint DisjunctiveEdgeFinding<T>::upperBoundExplanation(Iter b, Iter e,
                                                       const T ub) {
   auto e_idx{num_explanations};
-  if (explanation_tasks.size() <= e_idx) {
-    explanation_tasks.resize(e_idx + 1);
+  if (the_explanation_tasks.size() <= e_idx) {
+    //    explanation_tasks.resize(e_idx + 1);
+    the_explanation_tasks.resize(e_idx + 1);
     explanation_lb.resize(e_idx + 1);
     explanation_ub.resize(e_idx + 1);
   } else {
-    explanation_tasks[e_idx].clear();
+    //    explanation_tasks[e_idx].clear();
+    the_explanation_tasks[e_idx].clear();
   }
   explanation_ub[e_idx] = ub;
 
-  T lb{m_schedule.lower(START(m_tasks[*b]))};
+  //  T lb{m_schedule.lower(START(m_tasks[*b]))};
+  T lb{the_tasks[*b]->getEarliestStart()};
+  //  assert(lb == m_schedule.lower(START(m_tasks[*b])));
   for (auto x{b}; x != e; ++x) {
 
-    auto i{m_tasks[*x]};
+    //    auto i{m_tasks[*x]};
 
-    if (m_schedule.upper(END(i)) <= ub) {
+    //    assert(m_schedule.upper(END(i)) == the_tasks[*x]->getLatestEnd());
+    //    if (m_schedule.upper(END(i)) <= ub) {
+    if (the_tasks[*x]->getLatestEnd() <= ub) {
 
 #ifdef DBG_EXPLEF
-      std::cout << " expl: "
-                << m_schedule.prettyLiteral(
-                       BOUND(m_schedule.getBoundIndex(LOWERBOUND(START(i)))))
-                << " and "
-                << m_schedule.prettyLiteral(
-                       BOUND(m_schedule.getBoundIndex(UPPERBOUND(END(i)))))
-                << std::endl;
+      std::cout
+          << " expl: "
+          //                << m_schedule.prettyLiteral(
+          //                       BOUND(m_schedule.getBoundIndex(LOWERBOUND(START(i)))))
+          << m_schedule.prettyLiteral(BOUND(m_schedule.getBoundIndex(
+                 LOWERBOUND(the_tasks[*x]->getStart()))))
+          << " and "
+          //                << m_schedule.prettyLiteral(
+          //                       BOUND(m_schedule.getBoundIndex(UPPERBOUND(END(i)))))
+          << m_schedule.prettyLiteral(BOUND(
+                 m_schedule.getBoundIndex(UPPERBOUND(the_tasks[*x]->getEnd()))))
+          << std::endl;
 #endif
-      explanation_tasks[e_idx].push_back(i);
-      lb = std::min(lb, m_schedule.lower(START(i)));
+      //      explanation_tasks[e_idx].push_back(i);
+      the_explanation_tasks[e_idx].push_back(the_tasks[*x]);
+      //      lb = std::min(lb, m_schedule.lower(START(i)));
+      lb = std::min(lb, the_tasks[*x]->getEarliestStart());
+
+      //      assert(lb == std::min(lb, m_schedule.lower(START(i))));
     }
   }
 
-  assert(lb <= m_schedule.lower(START(m_tasks[*b])));
+  //  assert(lb <= m_schedule.lower(START(m_tasks[*b])));
+  assert(lb <= the_tasks[*b]->getEarliestStart());
   explanation_lb[e_idx] = lb;
 
   ++num_explanations; // = explanation_tasks.size();
@@ -199,78 +250,120 @@ hint DisjunctiveEdgeFinding<T>::upperBoundExplanation(Iter b, Iter e,
 }
 
 template <typename T> T DisjunctiveEdgeFinding<T>::est(const unsigned i) const {
-  return m_schedule.lower(START(m_tasks[i]));
+
+  //  assert(m_schedule.lower(START(m_tasks[i])) ==
+  //  the_tasks[i]->getEarliestStart());
+
+  //  return m_schedule.lower(START(m_tasks[i]));
+  return the_tasks[i]->getEarliestStart();
 }
 
 template <typename T> T DisjunctiveEdgeFinding<T>::lst(const unsigned i) const {
-  return m_schedule.upper(START(m_tasks[i]));
+
+  //  assert(m_schedule.upper(START(m_tasks[i])) ==
+  //  the_tasks[i]->getLatestStart());
+
+  //  return m_schedule.upper(START(m_tasks[i]));
+  return the_tasks[i]->getLatestStart();
 }
 
 template <typename T> T DisjunctiveEdgeFinding<T>::ect(const unsigned i) const {
-  return m_schedule.lower(END(m_tasks[i]));
+
+  //  assert(m_schedule.lower(END(m_tasks[i])) ==
+  //  the_tasks[i]->getEarliestEnd());
+
+  //  return m_schedule.lower(END(m_tasks[i]));
+  return the_tasks[i]->getEarliestEnd();
 }
 
 template <typename T> T DisjunctiveEdgeFinding<T>::lct(const unsigned i) const {
-  return m_schedule.upper(END(m_tasks[i]));
+
+  //  assert(m_schedule.upper(END(m_tasks[i])) == the_tasks[i]->getLatestEnd());
+
+  //  return m_schedule.upper(END(m_tasks[i]));
+  return the_tasks[i]->getLatestEnd();
 }
 
 template <typename T>
 T DisjunctiveEdgeFinding<T>::minduration(const unsigned i) const {
-  return m_schedule.minDuration(m_tasks[i]);
+  //  assert(m_schedule.minDuration(m_tasks[i]) == the_tasks[i]->minDuration());
+
+  //  return m_schedule.minDuration(m_tasks[i]);
+  return the_tasks[i]->minDuration();
 }
 
 template <typename T>
 T DisjunctiveEdgeFinding<T>::maxduration(const unsigned i) const {
-  return m_schedule.maxDuration(m_tasks[i]);
+  //  assert(m_schedule.maxDuration(m_tasks[i]) == the_tasks[i]->maxDuration());
+
+  //  return m_schedule.maxDuration(m_tasks[i]);
+  return the_tasks[i]->maxDuration();
 }
 
 template <typename T>
-template <typename ItTask, typename ItVar>
-DisjunctiveEdgeFinding<T>::DisjunctiveEdgeFinding(Scheduler<T> &scheduler,
-                                                  const ItTask beg_task,
-                                                  const ItTask end_task,
-                                                  const ItVar beg_var,
-                                                  const ItVar end_var)
+template <typename ItTask/*, typename ItTaskI*/, typename ItVar>
+DisjunctiveEdgeFinding<T>::DisjunctiveEdgeFinding(
+    Scheduler<T> &scheduler, const ItTask beg_task, const ItTask end_task,
+//    const ItTaskI beg_taski, const ItTaskI end_taski, 
+                                                  const ItVar beg_var
+// ,   const ItVar end_var
+                                                  )
     : m_schedule(scheduler), TT(std::distance(beg_task, end_task)),
       num_explanations(0, &(m_schedule.getEnv())) {
 
-  priority = MEDIUM;
+  priority = Priority::Medium;
 
-  task_map.resize(m_schedule.numTask());
+//  task_map.resize(m_schedule.numTask());
 
   // get all tasks with non-zero duration
-  auto i{0};
+////  auto i{0};
+//  for (auto j{beg_task}; j != end_task; ++j) {
+//
+//    task t{*j};
+////    task_map[t] = i++;
+//    //    m_tasks.push_back(t);
+//  }
+
   for (auto j{beg_task}; j != end_task; ++j) {
-
-    task t{*j};
-    task_map[t] = i++;
-    m_tasks.push_back(t);
-
+    the_tasks.push_back(*j);
   }
 
-  disjunct.resize(m_tasks.size());
+  disjunct.resize(the_tasks.size());
 
-  for (unsigned i = 0; i < m_tasks.size(); ++i) {
+  for (unsigned i = 0; i < the_tasks.size(); ++i) {
     lct_order.push_back(i);
     est_order.push_back(i);
-    disjunct[i].resize(m_tasks.size());
+    disjunct[i].resize(the_tasks.size());
   }
+          
+          auto ep{beg_var};
+          for (auto ip{beg_task}; ip != end_task; ++ip) {
+            for (auto jp{ip + 1}; jp != end_task; ++jp) {
+              auto x{*ep};
 
-  for (auto v{beg_var}; v != end_var; ++v) {
-    auto ep{m_schedule.getEdge(POS(*v))};
-    auto pf{TASK(ep.from)};
-    auto pt{TASK(ep.to)};
+              auto i{std::distance(beg_task, ip)};
+              auto j{std::distance(beg_task, jp)};
+              disjunct[i][j] = NEG(x);
+              disjunct[j][i] = POS(x);
 
-    auto en{m_schedule.getEdge(NEG(*v))};
-    auto nf{TASK(en.from)};
-    auto nt{TASK(en.to)};
+              ++ep;
+            }
+          }
 
-    disjunct[task_map[pf]][task_map[pt]] = POS(*v);
-    disjunct[task_map[nf]][task_map[nt]] = NEG(*v);
-  }
+//  for (auto v{beg_var}; v != end_var; ++v) {
+//    auto ep{m_schedule.getEdge(POS(*v))};
+//    auto pf{TASK(ep.from)};
+//    auto pt{TASK(ep.to)};
+//
+//    auto en{m_schedule.getEdge(NEG(*v))};
+//    auto nf{TASK(en.from)};
+//    auto nt{TASK(en.to)};
+//
+//    assert(disjunct[task_map[pf]][task_map[pt]] == POS(*v));
+//    assert(disjunct[task_map[nf]][task_map[nt]] == NEG(*v));
+//  }
 
-  theta_rank.resize(m_tasks.size(), 0);
-
+  theta_rank.resize(the_tasks.size(), 0);
 }
 
 template <typename T> DisjunctiveEdgeFinding<T>::~DisjunctiveEdgeFinding() {}
@@ -286,9 +379,14 @@ template <typename T> void DisjunctiveEdgeFinding<T>::post(const int idx) {
   }
 #endif
 
-  for (unsigned i{0}; i < m_tasks.size(); ++i) {
-    m_schedule.wake_me_on_event(LOWERBOUND(START(m_tasks[i])), cons_id);
-    m_schedule.wake_me_on_event(UPPERBOUND(END(m_tasks[i])), cons_id);
+  for (unsigned i{0}; i < the_tasks.size(); ++i) {
+    m_schedule.wake_me_on_event(LOWERBOUND(the_tasks[i]->getStart()), cons_id);
+    m_schedule.wake_me_on_event(UPPERBOUND(the_tasks[i]->getEnd()), cons_id);
+
+    //      m_scheduler.wake_me_on_task(the_tasks[i], cons_id);
+
+    //    m_schedule.wake_me_on_event(LOWERBOUND(START(m_tasks[i])), cons_id);
+    //    m_schedule.wake_me_on_event(UPPERBOUND(END(m_tasks[i])), cons_id);
   }
 }
 
@@ -376,22 +474,25 @@ template <typename T> bool DisjunctiveEdgeFinding<T>::falsified(const lit e) {
 
   auto exy{m_schedule.getEdge(e)};
   // to - from <= d
+
   return m_schedule.lower(exy.to) - m_schedule.upper(exy.from) > exy.distance;
 }
 
 template <typename T>
 void DisjunctiveEdgeFinding<T>::printLBExplanation(const hint ph) {
-  auto l{explanation_tasks[ph].back()};
-  std::cout << "because t" << l << " starts after " << explanation_lb[ph]
+  auto l{the_explanation_tasks[ph].back()};
+  std::cout << "because t" << l->id() << " starts after " << explanation_lb[ph]
             << " and";
-  T dur{m_schedule.minDuration(l)};
-  for (auto ti : explanation_tasks[ph]) {
+  T dur{l->minDuration()};
+  for (auto ti : the_explanation_tasks[ph]) {
     if (ti != l) {
-      std::cout << " t" << ti;
+      std::cout << " t" << ti->id();
       std::cout.flush();
-      dur += m_schedule.minDuration(ti);
-      assert(m_schedule.lower(START(ti)) >= explanation_lb[ph]);
-      assert(m_schedule.upper(END(ti)) <= explanation_ub[ph]);
+      dur += ti->minDuration();
+      assert(ti->getEarliestStart() >= explanation_lb[ph]);
+      assert(ti->getLatestEnd() <= explanation_ub[ph]);
+      //        assert(m_schedule.lower(START(ti)) >= explanation_lb[ph]);
+      //        assert(m_schedule.upper(END(ti)) <= explanation_ub[ph]);
     }
   }
   std::cout << " are all in [" << explanation_lb[ph] << ".."
@@ -399,25 +500,52 @@ void DisjunctiveEdgeFinding<T>::printLBExplanation(const hint ph) {
             << dur << " which is larger than " << explanation_ub[ph] << " - "
             << explanation_lb[ph] << " = "
             << (explanation_ub[ph] - explanation_lb[ph]) << std::endl;
-  assert(m_schedule.lower(START(l)) >= explanation_lb[ph]);
+  //    assert(m_schedule.lower(START(l)) >= explanation_lb[ph]);
+  //    assert(dur > (explanation_ub[ph] - explanation_lb[ph]));
+  assert(l->getEarliestStart() >= explanation_lb[ph]);
   assert(dur > (explanation_ub[ph] - explanation_lb[ph]));
+
+  //
+  //  auto l{explanation_tasks[ph].back()};
+  //  std::cout << "because t" << l << " starts after " << explanation_lb[ph]
+  //            << " and";
+  //  T dur{m_schedule.minDuration(l)};
+  //  for (auto ti : explanation_tasks[ph]) {
+  //    if (ti != l) {
+  //      std::cout << " t" << ti;
+  //      std::cout.flush();
+  //      dur += m_schedule.minDuration(ti);
+  //      assert(m_schedule.lower(START(ti)) >= explanation_lb[ph]);
+  //      assert(m_schedule.upper(END(ti)) <= explanation_ub[ph]);
+  //    }
+  //  }
+  //  std::cout << " are all in [" << explanation_lb[ph] << ".."
+  //            << explanation_ub[ph] << "] and together they have a duration of
+  //            "
+  //            << dur << " which is larger than " << explanation_ub[ph] << " -
+  //            "
+  //            << explanation_lb[ph] << " = "
+  //            << (explanation_ub[ph] - explanation_lb[ph]) << std::endl;
+  //  assert(m_schedule.lower(START(l)) >= explanation_lb[ph]);
+  //  assert(dur > (explanation_ub[ph] - explanation_lb[ph]));
 }
 
 template <typename T>
 void DisjunctiveEdgeFinding<T>::printUBExplanation(const hint ph) {
-  auto l{explanation_tasks[ph].back()};
-  std::cout << " [" << explanation_lb[ph] << ".."
-            << explanation_ub[ph] << "] because t"
-            << l << " ends before " << explanation_ub[ph]
+  auto l{the_explanation_tasks[ph].back()};
+  std::cout << " [" << explanation_lb[ph] << ".." << explanation_ub[ph]
+            << "] because t" << l->id() << " ends before " << explanation_ub[ph]
             << " and";
-  T dur{m_schedule.minDuration(l)};
-  for (auto ti : explanation_tasks[ph]) {
+  T dur{l->minDuration()};
+  for (auto ti : the_explanation_tasks[ph]) {
     if (ti != l) {
-      std::cout << " t" << ti;
+      std::cout << " t" << ti->id();
       std::cout.flush();
-      dur += m_schedule.minDuration(ti);
-      assert(m_schedule.lower(START(ti)) >= explanation_lb[ph]);
-      assert(m_schedule.upper(END(ti)) <= explanation_ub[ph]);
+      dur += ti->minDuration();
+      //        assert(m_schedule.lower(START(ti)) >= explanation_lb[ph]);
+      //        assert(m_schedule.upper(END(ti)) <= explanation_ub[ph]);
+      assert(ti->getEarliestStart() >= explanation_lb[ph]);
+      assert(ti->getLatestEnd() <= explanation_ub[ph]);
     }
   }
   std::cout << " are all in [" << explanation_lb[ph] << ".."
@@ -425,17 +553,59 @@ void DisjunctiveEdgeFinding<T>::printUBExplanation(const hint ph) {
             << dur << " which is larger than " << explanation_ub[ph] << " - "
             << explanation_lb[ph] << " = "
             << (explanation_ub[ph] - explanation_lb[ph]) << std::endl;
-  assert(m_schedule.upper(END(l)) <= explanation_ub[ph]);
+  assert(l->getLatestEnd() <= explanation_ub[ph]);
   assert(dur > (explanation_ub[ph] - explanation_lb[ph]));
+
+  //  auto l{explanation_tasks[ph].back()};
+  //  std::cout << " [" << explanation_lb[ph] << ".."
+  //            << explanation_ub[ph] << "] because t"
+  //            << l << " ends before " << explanation_ub[ph]
+  //            << " and";
+  //  T dur{m_schedule.minDuration(l)};
+  //  for (auto ti : explanation_tasks[ph]) {
+  //    if (ti != l) {
+  //      std::cout << " t" << ti;
+  //      std::cout.flush();
+  //      dur += m_schedule.minDuration(ti);
+  //      assert(m_schedule.lower(START(ti)) >= explanation_lb[ph]);
+  //      assert(m_schedule.upper(END(ti)) <= explanation_ub[ph]);
+  //    }
+  //  }
+  //  std::cout << " are all in [" << explanation_lb[ph] << ".."
+  //            << explanation_ub[ph] << "] and together they have a duration of
+  //            "
+  //            << dur << " which is larger than " << explanation_ub[ph] << " -
+  //            "
+  //            << explanation_lb[ph] << " = "
+  //            << (explanation_ub[ph] - explanation_lb[ph]) << std::endl;
+  //  assert(m_schedule.upper(END(l)) <= explanation_ub[ph]);
+  //  assert(dur > (explanation_ub[ph] - explanation_lb[ph]));
 }
 
 template <typename T>
 void DisjunctiveEdgeFinding<T>::printTrivialExplanation(const lit l) {
+  //  auto eij{m_schedule.getEdge(l)};
+  //  std::cout << " because " << prettyEvent(eij.from) << " = "
+  //            << m_schedule.lower(eij.from) << " + "
+  //            << m_schedule.minDuration(TASK(eij.from)) << " + "
+  //            << m_schedule.minDuration(TASK(eij.to)) << " > "
+  //            << m_schedule.upper(eij.to) << " = " << prettyEvent(eij.to)
+  //            << std::endl;
+  //
+  //  assert(m_schedule.lower(eij.from) + m_schedule.minDuration(TASK(eij.from))
+  //  +
+  //             m_schedule.minDuration(TASK(eij.to)) >
+  //         m_schedule.upper(eij.to));
+
   auto eij{m_schedule.getEdge(l)};
   std::cout << " because " << prettyEvent(eij.from) << " = "
             << m_schedule.lower(eij.from) << " + "
-            << m_schedule.minDuration(TASK(eij.from)) << " + "
-            << m_schedule.minDuration(TASK(eij.to)) << " > "
+            << m_schedule.getTask(eij.from).minDuration()
+            << " + "
+            //            << m_schedule.minDuration(TASK(eij.from)) << " + "
+            << m_schedule.getTask(eij.to).minDuration()
+            << " > "
+            //              << m_schedule.minDuration(TASK(eij.to)) << " > "
             << m_schedule.upper(eij.to) << " = " << prettyEvent(eij.to)
             << std::endl;
 
@@ -455,8 +625,8 @@ template <typename T> void DisjunctiveEdgeFinding<T>::propagateForward() {
     if (DBG_EDGEFINDING) {
         std::cout << std::endl << "propagate edge-finding forward(";
         std::cout << prettyTask(0);
-        for (size_t i{}; i < m_tasks.size(); ++i) {
-            std::cout << " " << prettyTask(i);
+        for (size_t i{}; i < the_tasks.size(); ++i) {
+          std::cout << " " << prettyTask(i);
         }
         std::cout << ") (i=" << m_schedule.num_cons_propagations << ")\n";
     }
@@ -556,8 +726,9 @@ template <typename T> void DisjunctiveEdgeFinding<T>::propagateForward() {
         //          std::endl;
         //        }
         //#endif
-        
-        auto l{m_tasks[r]};
+
+        //        auto l{m_tasks[r]};
+        auto tl{the_tasks[r]};
         ph = NoHint;
         for (auto j{ai}; j != lct_order.rend(); ++j) {
             
@@ -587,7 +758,8 @@ template <typename T> void DisjunctiveEdgeFinding<T>::propagateForward() {
                     assert(checklbpruning(r, s, ai, lct_order.rend()));
                     if (ph == NoHint) {
                         ph = lowerBoundExplanation(ai, lct_order.rend(), s);
-                        explanation_tasks[ph].push_back(l);
+                        //                        explanation_tasks[ph].push_back(l);
+                        the_explanation_tasks[ph].push_back(tl);
 #ifdef DBG_EDGEFINDING
                         if (DBG_EDGEFINDING) {
                             printLBExplanation(ph);
@@ -600,9 +772,14 @@ template <typename T> void DisjunctiveEdgeFinding<T>::propagateForward() {
         }
         
         if (ect(r) < ect_omega) {
-            
-            BoundConstraint<T> bc{LOWERBOUND(END(l)), -ect_omega};
-            
+
+          BoundConstraint<T> bc = tl->end.after(ect_omega);
+
+          //          BoundConstraint<T> bc_verif{LOWERBOUND(END(l)),
+          //          -ect_omega};
+
+          //          assert(bc == bc_verif);
+
 #ifdef DBG_EDGEFINDING
             if (DBG_EDGEFINDING) {
                 std::cout << "update bound " << bc << std::endl;
@@ -611,8 +788,9 @@ template <typename T> void DisjunctiveEdgeFinding<T>::propagateForward() {
             
             if (ph == NoHint) {
                 ph = lowerBoundExplanation(ai, lct_order.rend(), s);
-                explanation_tasks[ph].push_back(l);
-                
+                //                explanation_tasks[ph].push_back(l);
+                the_explanation_tasks[ph].push_back(tl);
+
 #ifdef DBG_EDGEFINDING
                 if (DBG_EDGEFINDING) {
                     printLBExplanation(ph);
@@ -633,8 +811,8 @@ template <typename T> void DisjunctiveEdgeFinding<T>::propagateBackward() {
     if (DBG_EDGEFINDING) {
         std::cout << std::endl << "propagate edge-finding backward(";
         std::cout << prettyTask(0);
-        for (size_t i{}; i < m_tasks.size(); ++i) {
-            std::cout << " " << prettyTask(i);
+        for (size_t i{}; i < the_tasks.size(); ++i) {
+          std::cout << " " << prettyTask(i);
         }
         std::cout << ") (i=" << m_schedule.num_cons_propagations << ")\n";
     }
@@ -740,11 +918,12 @@ template <typename T> void DisjunctiveEdgeFinding<T>::propagateBackward() {
                   std::endl;
                 }
         #endif
-        
-        auto f{m_tasks[r]};
-        ph = NoHint;
-        for (auto j{est_order.rbegin()}; *j != *ai; ++j) {
-            if (not m_schedule.satisfied(disjunct[*j][r])) {
+
+                //        auto f{m_tasks[r]};
+                auto fl{the_tasks[r]};
+                ph = NoHint;
+                for (auto j{est_order.rbegin()}; *j != *ai; ++j) {
+                  if (not m_schedule.satisfied(disjunct[*j][r])) {
 #ifdef DBG_EDGEFINDING
                 if (DBG_EDGEFINDING) {
                     std::cout << "add precedence "
@@ -768,7 +947,8 @@ template <typename T> void DisjunctiveEdgeFinding<T>::propagateBackward() {
                     assert(checkubpruning(r, u, ai + 1, est_order.end()));
                     if (ph == NoHint) {
                         ph = upperBoundExplanation(ai + 1, est_order.end(), u);
-                        explanation_tasks[ph].push_back(f);
+                        //                        explanation_tasks[ph].push_back(f);
+                        the_explanation_tasks[ph].push_back(fl);
 #ifdef DBG_EDGEFINDING
                         if (DBG_EDGEFINDING) {
                             printUBExplanation(ph);
@@ -781,9 +961,14 @@ template <typename T> void DisjunctiveEdgeFinding<T>::propagateBackward() {
         }
        
         if (lst(r) < lst_omega) {
-            
-            BoundConstraint<T> bc{UPPERBOUND(START(f)), lst_omega};
-            
+
+          BoundConstraint<T> bc = fl->start.before(lst_omega);
+
+          //          BoundConstraint<T> bc_verif{UPPERBOUND(START(f)),
+          //          lst_omega};
+
+          //          assert(bc == bc_verif);
+
 #ifdef DBG_EDGEFINDING
             if (DBG_EDGEFINDING) {
                 std::cout << "update bound " << bc << std::endl;
@@ -792,8 +977,9 @@ template <typename T> void DisjunctiveEdgeFinding<T>::propagateBackward() {
             
             if (ph == NoHint) {
                 ph = upperBoundExplanation(ai + 1, est_order.end(), u);
-                explanation_tasks[ph].push_back(f);
-                
+                //                explanation_tasks[ph].push_back(f);
+                the_explanation_tasks[ph].push_back(fl);
+
 #ifdef DBG_EDGEFINDING
                 if (DBG_EDGEFINDING) {
                     printUBExplanation(ph);
@@ -804,832 +990,6 @@ template <typename T> void DisjunctiveEdgeFinding<T>::propagateBackward() {
         }
     }
 }
-
-  //
-
-  //      auto l{m_tasks[r]};
-  //        ph = NoHint;
-  //    for (auto j{lct_order.begin()}; *j != a; ++j) {
-  //
-  //        if (not m_schedule.satisfied(disjunct[r][*j])) {
-  //            // check if the binary disjunctive reasoning is sufficient
-  //            auto exy{m_schedule.getEdge(disjunct[r][*j])};
-  //
-  //            if(m_schedule.lower(exy.from) +
-  //            m_schedule.minDuration(TASK(exy.from)) +
-  //            m_schedule.minDuration(TASK(exy.to)) > m_schedule.upper(exy.to))
-  //            {
-  //                m_schedule.set(disjunct[r][*j], {this,
-  //                -1-static_cast<hint>(m_schedule.getBoundIndex(LOWERBOUND(exy.from)))});
-  //            } else {
-  //                if (ph == NoHint) {
-  //                    ph = lowerBoundExplanation(ai + 1, lct_order.rend(),
-  //                    TT.grayEst()); explanation_tasks[ph].push_back(l);
-  //                }
-  //                m_schedule.set(disjunct[r][*j], {this, ph});
-  //            }
-  //        }
-  //    }
-  //
-  //    if (ect(r) < ect_) {
-  //
-  //        BoundConstraint<T> bc{LOWERBOUND(END(l)), -ect_};
-  //        if (ph == NoHint) {
-  //            ph = lowerBoundExplanation(ai + 1, lct_order.rend(),
-  //            TT.grayEst()); explanation_tasks[ph].push_back(l);
-  //        }
-  //        m_schedule.set(bc, {this, ph});
-  //    }
-  //
-  //
-  //
-  //  std::sort(est_order.begin(), est_order.end(),
-  //            [&](const unsigned a, const unsigned b) -> bool {
-  //              return est(a) < est(b);
-  //            });
-  //
-  //  std::sort(lct_order.begin(), lct_order.end(),
-  //            [&](const unsigned a, const unsigned b) -> bool {
-  //              return lct(a) < lct(b);
-  //            });
-  //
-  //#ifdef DBG_EDGEFINDING
-  //  if (DBG_EDGEFINDING) {
-  //    std::cout << std::endl << "ST\n";
-  //    for (auto i : est_order) {
-  //      std::cout << prettyEvent(START(m_tasks[i])) << ": [" << est(i) << ".."
-  //                << lst(i) << "] (" << minduration(i) << ")\n";
-  //    }
-  //
-  //    std::cout << "\nCT\n";
-  //    for (auto i : lct_order) {
-  //      std::cout << prettyEvent(END(m_tasks[i])) << ": [" << ect(i) << ".."
-  //                << lct(i) << "] (" << minduration(i) << ")\n";
-  //    }
-  //
-  //    std::cout << "backward:\n";
-  //  }
-  //#endif
-  //
-  //  TT.clear();
-  //  for (unsigned i{0}; i < lct_order.size(); ++i) {
-  //    theta_rank[lct_order[lct_order.size() - i - 1]] = i;
-  //  }
-  //
-  //  for (auto ai{est_order.rbegin()}; ai != est_order.rend(); ++ai) {
-  //    auto a{*ai};
-  //
-  //    TT.insert(theta_rank[a], horizon - lct(a), minduration(a));
-  //
-  //#ifdef DBG_EDGEFINDING
-  //    if (DBG_EDGEFINDING) {
-  //      std::cout << "add t" << m_tasks[a] << ": [" << (horizon - lct(a)) <<
-  //      ".."
-  //                << minduration(a) << ".." << (horizon - est(a))
-  //                << "] : " << TT.getBound() << " (" << (horizon - lst(a)) <<
-  //                ")"
-  //                << std::endl;
-  //#ifdef DBG_THETA
-  //      if (DBG_THETA)
-  //        std::cout << TT << std::endl;
-  //#endif
-  //    }
-  //#endif
-  //
-  //      if (TT.getBound() > (horizon - est(a))) {
-  //  #ifdef DBG_EDGEFINDING
-  //        if (DBG_EDGEFINDING)
-  //          std::cout << "[efpruning] failure b/c overload check\n";
-  //  #endif
-  //        auto h{upperBoundExplanation(est_order.rbegin(), ai + 1,
-  //                                     horizon - TT.getEst())};
-  //        throw Failure({this, h});
-  //      }
-  //
-  //  }
-  //
-  //#ifdef DBG_EDGEFINDING
-  //  if (DBG_EDGEFINDING) {
-  //    std::cout << std::endl << m_schedule << "\nST\n";
-  //    for (auto i : est_order) {
-  //      std::cout << prettyEvent(START(m_tasks[i])) << ": [" << est(i) << ".."
-  //                << lst(i) << "] (" << minduration(i) << ")\n";
-  //    }
-  //
-  //    std::cout << "\nCT\n";
-  //    for (auto i : lct_order) {
-  //      std::cout << prettyEvent(END(m_tasks[i])) << ": [" << ect(i) << ".."
-  //                << lct(i) << "] (" << minduration(i) << ")\n";
-  //    }
-  //
-  //    std::cout << " backward edges:\n";
-  //  }
-  //#endif
-  //
-  //  for (auto ai{est_order.begin()}; ai != est_order.end() - 1; ++ai) {
-  //    auto a{*ai};
-  //
-  //    auto deadline_omega{horizon - est(*(ai + 1))};
-  //
-  //    TT.paint_gray(theta_rank[a], a);
-  //
-  //#ifdef DBG_EDGEFINDING
-  //    if (DBG_EDGEFINDING) {
-  //      std::cout << "rm t" << m_tasks[a] << ": [" << (horizon - lct(a)) <<
-  //      ".."
-  //                << minduration(a) << ".." << (horizon - est(a))
-  //                << "] : " << TT.getBound() << " (" << (horizon - lst(a)) <<
-  //                ")"
-  //                << std::endl;
-  //#ifdef DBG_THETA
-  //      if (DBG_THETA)
-  //        std::cout << TT << std::endl;
-  //#endif
-  //    }
-  //#endif
-  //
-  //    auto ect_{TT.grayBound()};
-  //
-  //    if (deadline_omega < TT.getBound()) {
-  //
-  //#ifdef DBG_EDGEFINDING
-  //      if (DBG_EDGEFINDING)
-  //        std::cout << "[efpruning] failure b/c overload check\n";
-  //#endif
-  //
-  //      auto h{upperBoundExplanation(ai, est_order.end(), horizon -
-  //      TT.getEst())}; throw Failure({this, h});
-  //    }
-  //
-  //#ifdef DBG_THETA
-  //    debug_limit = m_tasks.size();
-  //#endif
-  //
-  //    while (ect_ > deadline_omega) {
-  //
-  //#ifdef DBG_EDGEFINDING
-  //      if (DBG_EDGEFINDING) {
-  //        std::cout << "[efpruning] tasks";
-  //        for (auto j{est_order.rbegin()}; *j != a; ++j)
-  //          std::cout << " t" << m_tasks[*j];
-  //        std::cout << " + t" << m_tasks[TT.getResponsible()];
-  //      }
-  //#endif
-  //
-  //      auto r{TT.getResponsible()};
-  //
-  //#ifdef DBG_EDGEFINDING
-  //      if (DBG_EDGEFINDING) {
-  //        std::cout << " can't start after " << (horizon - ect_) << ", but
-  //        only t"
-  //                  << m_tasks[r] << " can start at that time\n ==> t"
-  //                  << m_tasks[r] << " in [" << est(r) << ".." << lct(r)
-  //                  << "] <= " << (horizon - ect_) << std::endl;
-  //      }
-  //#endif
-  //
-  //      auto f{m_tasks[r]};
-  //
-  ////      hint ph{NoHint};
-  ////      pruning = false;
-  //        ph = NoHint;
-  //      for (auto j{est_order.rbegin()}; *j != a; ++j) {
-  //
-  //        if (not m_schedule.satisfied(disjunct[*j][r])) {
-  //          ++m_schedule.num_cons_prunings;
-  //
-  //            auto exy{m_schedule.getEdge(disjunct[*j][r])};
-  //
-  //            // f - t <= k
-  //            if(m_schedule.lower(exy.from) +
-  //            m_schedule.minDuration(TASK(exy.from)) +
-  //            m_schedule.minDuration(TASK(exy.to)) > m_schedule.upper(exy.to))
-  //            {
-  //                m_schedule.set(disjunct[*j][r], {this,
-  //                -1-static_cast<hint>(m_schedule.getBoundIndex(LOWERBOUND(exy.from)))});
-  //
-  ////                std::cout <<
-  /// m_schedule.prettyLiteral(EDGE(disjunct[r][*j])) << " -> " << exy << " -->
-  /// "
-  ///<< m_schedule.getBoundIndex(LOWERBOUND(exy.from)) << std::endl;
-  //            } else {
-  //
-  //                if (ph == NoHint) { //not pruning) {
-  //                    ph = upperBoundExplanation(ai + 1, est_order.end(),
-  //                                               horizon - TT.grayEst());
-  //                    explanation_tasks[ph].push_back(f);
-  //                    //            pruning = true;
-  //                }
-  //#ifdef DBG_EDGEFINDING
-  //                if (DBG_EDGEFINDING) {
-  //                    std::cout << "edge prec "
-  //                    << m_schedule.prettyLiteral(EDGE(disjunct[r][*j]))
-  //                    << std::endl;
-  //                }
-  //#endif
-  //
-  //                m_schedule.set(disjunct[*j][r], {this, ph});
-  //            }
-  //        }
-  //      }
-  //
-  //      if (lst(r) > (horizon - ect_)) {
-  //
-  //          if (ph == NoHint) { //not pruning) {
-  //            ph = upperBoundExplanation(ai + 1, est_order.end(),
-  //                                       horizon - TT.grayEst());
-  //            explanation_tasks[ph].push_back(f);
-  //            //            pruning = true;
-  //          }
-  //
-  //        BoundConstraint<T> bc{UPPERBOUND(START(f)), (horizon - ect_)};
-  //#ifdef DBG_EDGEFINDING
-  //        if (DBG_EDGEFINDING) {
-  //          std::cout << "upper bound " << bc << std::endl;
-  //        }
-  //#endif
-  //
-  //        m_schedule.set({UPPERBOUND(START(f)), (horizon - ect_)}, {this,
-  //        ph});
-  //      }
-  //
-  //#ifdef DBG_EDGEFINDING
-  //      if (DBG_EDGEFINDING and ph != NoHint) {
-  //        std::cout << " because";
-  //        for (auto l : explanation_tasks.back()) {
-  //          std::cout << " t" << l;
-  //        }
-  //        std::cout << std::endl;
-  //      }
-  //#endif
-  //
-  //      TT.remove(theta_rank[r]);
-  //
-  //      ect_ = TT.grayBound();
-  //
-  //#ifdef DBG_THETA
-  //      if (DBG_THETA) {
-  //        std::cout << TT << std::endl;
-  //        if (--debug_limit <= 0)
-  //          exit(1);
-  //        std::cout << debug_limit << std::endl;
-  //      }
-  //#endif
-  //    }
-  //  }
-  //
-  //#ifdef DBG_EDGEFINDING
-  //  if (DBG_EDGEFINDING) {
-  //    std::cout << std::endl << "ST\n";
-  //    for (auto i : est_order) {
-  //      std::cout << prettyEvent(START(m_tasks[i])) << ": [" << est(i) << ".."
-  //                << lst(i) << "] (" << minduration(i) << ")\n";
-  //    }
-  //
-  //    std::cout << "\nCT\n";
-  //    for (auto i : lct_order) {
-  //      std::cout << prettyEvent(END(m_tasks[i])) << ": [" << ect(i) << ".."
-  //                << lct(i) << "] (" << minduration(i) << ")\n";
-  //    }
-  //  }
-  //#endif
-
-
-// template <typename T> void DisjunctiveEdgeFinding<T>::propagate() {
-//
-////  bool pruning{false};
-//    hint ph{NoHint};
-//
-//#ifdef DBG_EDGEFINDING
-//  if (DBG_EDGEFINDING) {
-//    std::cout << std::endl << "propagate edge-finding(";
-//    for (size_t i{0}; i < m_tasks.size(); ++i) {
-//      std::cout << " t" << m_tasks[i] << " [" << est(i) << ".." << lct(i)
-//                << "]";
-//    }
-//    std::cout << ") (i=" << m_schedule.num_cons_propagations << ")\n";
-//  }
-//#ifdef DBG_THETA
-//  size_t debug_limit{0};
-//#endif
-//#endif
-//
-//  std::sort(est_order.begin(), est_order.end(),
-//            [&](const unsigned a, const unsigned b) -> bool {
-//              return est(a) < est(b);
-//            });
-//
-//  std::sort(lct_order.begin(), lct_order.end(),
-//            [&](const unsigned a, const unsigned b) -> bool {
-//              return lct(a) < lct(b);
-//            });
-//
-//  auto horizon(m_schedule.upper(HORIZON));
-//
-//#ifdef DBG_EDGEFINDING
-//  if (DBG_EDGEFINDING) {
-//
-//    for (auto i : est_order)
-//      std::cout << i << " ";
-//    std::cout << std::endl;
-//
-//    for (auto i : lct_order)
-//      std::cout << i << " ";
-//    std::cout << std::endl;
-//
-//    for (auto i : lct_order)
-//      std::cout << m_tasks[i] << " ";
-//    std::cout << std::endl;
-//
-//    std::cout << std::endl << "ST\n";
-//    for (auto i : est_order) {
-//      std::cout << prettyEvent(START(m_tasks[i])) << ": [" << est(i) << ".."
-//                << lst(i) << "] (" << minduration(i) << ")\n";
-//    }
-//    std::cout << "\nCT\n";
-//    for (auto i : lct_order) {
-//      std::cout << prettyEvent(END(m_tasks[i])) << ": [" << ect(i) << ".."
-//                << lct(i) << "] (" << minduration(i) << ")\n";
-//    }
-//    std::cout << std::endl << "forward:\n";
-//  }
-//#endif
-//
-//  TT.clear();
-//
-//  for (unsigned i{0}; i < est_order.size(); ++i) {
-//    theta_rank[est_order[i]] = i;
-//  }
-//
-//  for (auto ai{lct_order.begin()}; ai != lct_order.end(); ++ai) {
-//    auto a{*ai};
-//
-//    TT.insert(theta_rank[a], est(a), minduration(a));
-//
-//#ifdef DBG_EDGEFINDING
-//    if (DBG_EDGEFINDING) {
-//      std::cout << "add t" << m_tasks[a] << ": [" << est(a) << ".."
-//                << minduration(a) << ".." << lct(a) << "] : " << TT.getBound()
-//                << std::endl;
-//#ifdef DBG_THETA
-//      if (DBG_THETA)
-//        std::cout << TT << std::endl;
-//#endif
-//    }
-//#endif
-//
-//    if (TT.getBound() > lct(a)) {
-//#ifdef DBG_EDGEFINDING
-//      if (DBG_EDGEFINDING)
-//        std::cout << "[efpruning] failure b/c overload check\n";
-//#endif
-//      auto h{lowerBoundExplanation(lct_order.begin(), ai + 1, TT.getEst())};
-//      throw Failure({this, h});
-//    }
-//  }
-//
-//  if (TT.getBound() > m_schedule.lower(HORIZON)) {
-//
-//#ifdef DBG_EDGEFINDING
-//    if (DBG_EDGEFINDING)
-//      std::cout << "[efpruning] Cmax lower bound (" << -TT.getBound()
-//                << ") b/c overload check\n";
-//#endif
-//
-//    auto h{
-//        lowerBoundExplanation(lct_order.begin(), lct_order.end(),
-//        TT.getEst())};
-//    m_schedule.set({LOWERBOUND(HORIZON), -TT.getBound()}, {this, h});
-//  }
-//
-//#ifdef DBG_EDGEFINDING
-//  if (DBG_EDGEFINDING) {
-//    std::cout << std::endl << "ST\n";
-//    for (auto i : est_order) {
-//      std::cout << prettyEvent(START(m_tasks[i])) << ": [" << est(i) << ".."
-//                << lst(i) << "] (" << minduration(i) << ")\n";
-//    }
-//    std::cout << "\nCT\n";
-//    for (auto i : lct_order) {
-//      std::cout << prettyEvent(END(m_tasks[i])) << ": [" << ect(i) << ".."
-//                << lct(i) << "] (" << minduration(i) << ")\n";
-//    }
-//    std::cout << " forward edges:\n";
-//  }
-//#endif
-//
-//  for (auto ai{lct_order.rbegin()}; ai != (lct_order.rend() - 1); ++ai) {
-//    auto a{*ai};
-//    auto deadline_omega{lct(*(ai + 1))};
-//    TT.paint_gray(theta_rank[a], a);
-//
-//#ifdef DBG_EDGEFINDING
-//    if (DBG_EDGEFINDING) {
-//      std::cout << "rm t" << m_tasks[a] << ": [" << est(a) << ".."
-//                << minduration(a) << ".." << lct(a) << "] : " << TT.getBound()
-//                << " (" << ect(a) << ")" << std::endl;
-//#ifdef DBG_THETA
-//      if (DBG_THETA)
-//        std::cout << TT << std::endl;
-//#endif
-//    }
-//#endif
-//
-//    auto ect_{TT.grayBound()};
-//
-//    if (TT.getBound() > deadline_omega) {
-//
-//#ifdef DBG_EDGEFINDING
-//      if (DBG_EDGEFINDING)
-//        std::cout << "[efpruning] failure b/c overload check\n";
-//#endif
-//
-//      auto h{lowerBoundExplanation(ai, lct_order.rend(), TT.getEst())};
-//      throw Failure({this, h});
-//    }
-//
-//#ifdef DBG_THETA
-//    debug_limit = m_tasks.size();
-//#endif
-//
-//    while (ect_ > deadline_omega) {
-//
-//#ifdef DBG_EDGEFINDING
-//      if (DBG_EDGEFINDING) {
-//        std::cout << "[efpruning] tasks";
-//        for (auto j{lct_order.begin()}; *j != a; ++j)
-//          std::cout << " t" << m_tasks[*j];
-//        std::cout << " + t" << m_tasks[TT.getResponsible()];
-//      }
-//#endif
-//
-//      auto r{TT.getResponsible()};
-//
-//#ifdef DBG_EDGEFINDING
-//      if (DBG_EDGEFINDING) {
-//        std::cout << " can't end before " << ect_ << ", but only t"
-//                  << m_tasks[r] << " can go past that time\n ==> t"
-//                  << m_tasks[r] << " in [" << est(r) << ".." << lct(r) << "]
-//                  ("
-//                  << minduration(r) << ") >= " << ect_ << " (" << TT.getEst()
-//                  << "/" << TT.grayEst() << ")" << std::endl;
-//      }
-//#endif
-//
-//      auto l{m_tasks[r]};
-//
-////      hint ph{NoHint};
-////      pruning = false;
-//        ph = NoHint;
-//      for (auto j{lct_order.begin()}; *j != a; ++j) {
-//
-//        if (not m_schedule.satisfied(disjunct[r][*j])) {
-//            // check if the binary disjunctive reasoning is sufficient
-//            auto exy{m_schedule.getEdge(disjunct[r][*j])};
-//
-//            // f - t <= k
-//            if(m_schedule.lower(exy.from) +
-//            m_schedule.minDuration(TASK(exy.from)) +
-//            m_schedule.minDuration(TASK(exy.to)) > m_schedule.upper(exy.to)) {
-//                m_schedule.set(disjunct[r][*j], {this,
-//                -1-static_cast<hint>(m_schedule.getBoundIndex(LOWERBOUND(exy.from)))});
-//
-////                std::cout << m_schedule.prettyLiteral(EDGE(disjunct[r][*j]))
-///<< " -> " << exy << " --> " << m_schedule.getBoundIndex(LOWERBOUND(exy.from))
-///<< std::endl;
-//            } else {
-//
-//                if (ph == NoHint) {
-//                    ph = lowerBoundExplanation(ai + 1, lct_order.rend(),
-//                    TT.grayEst()); explanation_tasks[ph].push_back(l);
-//
-//                    //            pruning = true;
-//                }
-//
-//#ifdef DBG_EDGEFINDING
-//                if (DBG_EDGEFINDING) {
-//                    std::cout << "edge prec "
-//                    << m_schedule.prettyLiteral(EDGE(disjunct[r][*j]))
-//                    << std::endl;
-//                    auto exy{m_schedule.getEdge(disjunct[r][*j])};
-//                    std::cout << prettyEvent(exy.to) << ": ["
-//                    << m_schedule.lower(exy.to) << ".."
-//                    << m_schedule.upper(exy.to) << "] ("
-//                    << m_schedule.minDuration(TASK(exy.to))
-//                    << ") <= " << prettyEvent(exy.from) << ": ["
-//                    << m_schedule.lower(exy.from) << ".."
-//                    << m_schedule.upper(exy.from) << "] ("
-//                    << m_schedule.minDuration(TASK(exy.from)) << ")\n";
-//
-//
-//                    for(auto it{ai + 1}; it!=lct_order.rend(); ++it) {
-//                        std::cout << "t" << m_tasks[*it] << ": [" << est(*it)
-//                        << ".." << lct(*it) << "] (" << minduration(*it) <<
-//                        ")\n";
-//                    }
-//                }
-//#endif
-//
-//                m_schedule.set(disjunct[r][*j], {this, ph});
-//            }
-//        }
-//      }
-//
-//      if (ect(r) < ect_) {
-//
-//        BoundConstraint<T> bc{LOWERBOUND(END(l)), -ect_};
-//#ifdef DBG_EDGEFINDING
-//        if (DBG_EDGEFINDING) {
-//          std::cout << "lower bound " << bc << std::endl;
-//        }
-//#endif
-//
-//          if (ph == NoHint) {//} pruning) {
-//            ph = lowerBoundExplanation(ai + 1, lct_order.rend(),
-//            TT.grayEst()); explanation_tasks[ph].push_back(l);
-//            //            pruning = true;
-//          }
-//
-//          m_schedule.set(bc, {this, ph});
-//      }
-//
-//        assert((TT.grayEst() < est(r)) or ph == NoHint);
-////      if ((TT.grayEst() >= est(r)) and ph != NoHint) {
-////        exit(1);
-////      }
-//
-//#ifdef DBG_EDGEFINDING
-//      if (DBG_EDGEFINDING and ph != NoHint) {
-//        std::cout << " because";
-//        for (auto l : explanation_tasks.back()) {
-//          std::cout << " t" << l;
-//        }
-//        std::cout << std::endl;
-//      }
-//#endif
-//
-//      TT.remove(theta_rank[r]);
-//
-//      ect_ = TT.grayBound();
-//
-//#ifdef DBG_THETA
-//      if (DBG_THETA) {
-//        std::cout << TT << std::endl;
-//        if (--debug_limit <= 0)
-//          exit(1);
-//        std::cout << debug_limit << std::endl;
-//      }
-//#endif
-//    }
-//  }
-//
-//  std::sort(est_order.begin(), est_order.end(),
-//            [&](const unsigned a, const unsigned b) -> bool {
-//              return est(a) < est(b);
-//            });
-//
-//  std::sort(lct_order.begin(), lct_order.end(),
-//            [&](const unsigned a, const unsigned b) -> bool {
-//              return lct(a) < lct(b);
-//            });
-//
-//#ifdef DBG_EDGEFINDING
-//  if (DBG_EDGEFINDING) {
-//    std::cout << std::endl << "ST\n";
-//    for (auto i : est_order) {
-//      std::cout << prettyEvent(START(m_tasks[i])) << ": [" << est(i) << ".."
-//                << lst(i) << "] (" << minduration(i) << ")\n";
-//    }
-//
-//    std::cout << "\nCT\n";
-//    for (auto i : lct_order) {
-//      std::cout << prettyEvent(END(m_tasks[i])) << ": [" << ect(i) << ".."
-//                << lct(i) << "] (" << minduration(i) << ")\n";
-//    }
-//
-//    std::cout << "backward:\n";
-//  }
-//#endif
-//
-//  TT.clear();
-//  for (unsigned i{0}; i < lct_order.size(); ++i) {
-//    theta_rank[lct_order[lct_order.size() - i - 1]] = i;
-//  }
-//
-//  for (auto ai{est_order.rbegin()}; ai != est_order.rend(); ++ai) {
-//    auto a{*ai};
-//
-//    TT.insert(theta_rank[a], horizon - lct(a), minduration(a));
-//
-//#ifdef DBG_EDGEFINDING
-//    if (DBG_EDGEFINDING) {
-//      std::cout << "add t" << m_tasks[a] << ": [" << (horizon - lct(a)) <<
-//      ".."
-//                << minduration(a) << ".." << (horizon - est(a))
-//                << "] : " << TT.getBound() << " (" << (horizon - lst(a)) <<
-//                ")"
-//                << std::endl;
-//#ifdef DBG_THETA
-//      if (DBG_THETA)
-//        std::cout << TT << std::endl;
-//#endif
-//    }
-//#endif
-//
-//      if (TT.getBound() > (horizon - est(a))) {
-//  #ifdef DBG_EDGEFINDING
-//        if (DBG_EDGEFINDING)
-//          std::cout << "[efpruning] failure b/c overload check\n";
-//  #endif
-//        auto h{upperBoundExplanation(est_order.rbegin(), ai + 1,
-//                                     horizon - TT.getEst())};
-//        throw Failure({this, h});
-//      }
-//
-//  }
-//
-//#ifdef DBG_EDGEFINDING
-//  if (DBG_EDGEFINDING) {
-//    std::cout << std::endl << m_schedule << "\nST\n";
-//    for (auto i : est_order) {
-//      std::cout << prettyEvent(START(m_tasks[i])) << ": [" << est(i) << ".."
-//                << lst(i) << "] (" << minduration(i) << ")\n";
-//    }
-//
-//    std::cout << "\nCT\n";
-//    for (auto i : lct_order) {
-//      std::cout << prettyEvent(END(m_tasks[i])) << ": [" << ect(i) << ".."
-//                << lct(i) << "] (" << minduration(i) << ")\n";
-//    }
-//
-//    std::cout << " backward edges:\n";
-//  }
-//#endif
-//
-//  for (auto ai{est_order.begin()}; ai != est_order.end() - 1; ++ai) {
-//    auto a{*ai};
-//
-//    auto deadline_omega{horizon - est(*(ai + 1))};
-//
-//    TT.paint_gray(theta_rank[a], a);
-//
-//#ifdef DBG_EDGEFINDING
-//    if (DBG_EDGEFINDING) {
-//      std::cout << "rm t" << m_tasks[a] << ": [" << (horizon - lct(a)) << ".."
-//                << minduration(a) << ".." << (horizon - est(a))
-//                << "] : " << TT.getBound() << " (" << (horizon - lst(a)) <<
-//                ")"
-//                << std::endl;
-//#ifdef DBG_THETA
-//      if (DBG_THETA)
-//        std::cout << TT << std::endl;
-//#endif
-//    }
-//#endif
-//
-//    auto ect_{TT.grayBound()};
-//
-//    if (deadline_omega < TT.getBound()) {
-//
-//#ifdef DBG_EDGEFINDING
-//      if (DBG_EDGEFINDING)
-//        std::cout << "[efpruning] failure b/c overload check\n";
-//#endif
-//
-//      auto h{upperBoundExplanation(ai, est_order.end(), horizon -
-//      TT.getEst())}; throw Failure({this, h});
-//    }
-//
-//#ifdef DBG_THETA
-//    debug_limit = m_tasks.size();
-//#endif
-//
-//    while (ect_ > deadline_omega) {
-//
-//#ifdef DBG_EDGEFINDING
-//      if (DBG_EDGEFINDING) {
-//        std::cout << "[efpruning] tasks";
-//        for (auto j{est_order.rbegin()}; *j != a; ++j)
-//          std::cout << " t" << m_tasks[*j];
-//        std::cout << " + t" << m_tasks[TT.getResponsible()];
-//      }
-//#endif
-//
-//      auto r{TT.getResponsible()};
-//
-//#ifdef DBG_EDGEFINDING
-//      if (DBG_EDGEFINDING) {
-//        std::cout << " can't start after " << (horizon - ect_) << ", but only
-//        t"
-//                  << m_tasks[r] << " can start at that time\n ==> t"
-//                  << m_tasks[r] << " in [" << est(r) << ".." << lct(r)
-//                  << "] <= " << (horizon - ect_) << std::endl;
-//      }
-//#endif
-//
-//      auto f{m_tasks[r]};
-//
-////      hint ph{NoHint};
-////      pruning = false;
-//        ph = NoHint;
-//      for (auto j{est_order.rbegin()}; *j != a; ++j) {
-//
-//        if (not m_schedule.satisfied(disjunct[*j][r])) {
-//          ++m_schedule.num_cons_prunings;
-//
-//            auto exy{m_schedule.getEdge(disjunct[*j][r])};
-//
-//            // f - t <= k
-//            if(m_schedule.lower(exy.from) +
-//            m_schedule.minDuration(TASK(exy.from)) +
-//            m_schedule.minDuration(TASK(exy.to)) > m_schedule.upper(exy.to)) {
-//                m_schedule.set(disjunct[*j][r], {this,
-//                -1-static_cast<hint>(m_schedule.getBoundIndex(LOWERBOUND(exy.from)))});
-//
-////                std::cout << m_schedule.prettyLiteral(EDGE(disjunct[r][*j]))
-///<< " -> " << exy << " --> " << m_schedule.getBoundIndex(LOWERBOUND(exy.from))
-///<< std::endl;
-//            } else {
-//
-//                if (ph == NoHint) { //not pruning) {
-//                    ph = upperBoundExplanation(ai + 1, est_order.end(),
-//                                               horizon - TT.grayEst());
-//                    explanation_tasks[ph].push_back(f);
-//                    //            pruning = true;
-//                }
-//#ifdef DBG_EDGEFINDING
-//                if (DBG_EDGEFINDING) {
-//                    std::cout << "edge prec "
-//                    << m_schedule.prettyLiteral(EDGE(disjunct[r][*j]))
-//                    << std::endl;
-//                }
-//#endif
-//
-//                m_schedule.set(disjunct[*j][r], {this, ph});
-//            }
-//        }
-//      }
-//
-//      if (lst(r) > (horizon - ect_)) {
-//
-//          if (ph == NoHint) { //not pruning) {
-//            ph = upperBoundExplanation(ai + 1, est_order.end(),
-//                                       horizon - TT.grayEst());
-//            explanation_tasks[ph].push_back(f);
-//            //            pruning = true;
-//          }
-//
-//        BoundConstraint<T> bc{UPPERBOUND(START(f)), (horizon - ect_)};
-//#ifdef DBG_EDGEFINDING
-//        if (DBG_EDGEFINDING) {
-//          std::cout << "upper bound " << bc << std::endl;
-//        }
-//#endif
-//
-//        m_schedule.set({UPPERBOUND(START(f)), (horizon - ect_)}, {this, ph});
-//      }
-//
-//#ifdef DBG_EDGEFINDING
-//      if (DBG_EDGEFINDING and ph != NoHint) {
-//        std::cout << " because";
-//        for (auto l : explanation_tasks.back()) {
-//          std::cout << " t" << l;
-//        }
-//        std::cout << std::endl;
-//      }
-//#endif
-//
-//      TT.remove(theta_rank[r]);
-//
-//      ect_ = TT.grayBound();
-//
-//#ifdef DBG_THETA
-//      if (DBG_THETA) {
-//        std::cout << TT << std::endl;
-//        if (--debug_limit <= 0)
-//          exit(1);
-//        std::cout << debug_limit << std::endl;
-//      }
-//#endif
-//    }
-//  }
-//
-//#ifdef DBG_EDGEFINDING
-//  if (DBG_EDGEFINDING) {
-//    std::cout << std::endl << "ST\n";
-//    for (auto i : est_order) {
-//      std::cout << prettyEvent(START(m_tasks[i])) << ": [" << est(i) << ".."
-//                << lst(i) << "] (" << minduration(i) << ")\n";
-//    }
-//
-//    std::cout << "\nCT\n";
-//    for (auto i : lct_order) {
-//      std::cout << prettyEvent(END(m_tasks[i])) << ": [" << ect(i) << ".."
-//                << lct(i) << "] (" << minduration(i) << ")\n";
-//    }
-//  }
-//#endif
-//}
 
 template <typename T> int DisjunctiveEdgeFinding<T>::getType() const {
   return EDGEFINDINGEXPL;
@@ -1651,20 +1011,40 @@ void DisjunctiveEdgeFinding<T>::xplain(const lit l, const hint h,
     T duration{0};
 #endif
 
-    for (auto i : explanation_tasks[h]) {
-      BoundConstraint<T> lb{LOWERBOUND(START(i)), -explanation_lb[h]};
+    //    for (auto i : explanation_tasks[h]) {
+    //      BoundConstraint<T> lb{LOWERBOUND(START(i)), -explanation_lb[h]};
+    //      auto ll{m_schedule.getImplicant(lb)};
+    //      Cl.push_back(BOUND(ll));
+    //
+    //      BoundConstraint<T> ub{UPPERBOUND(END(i)), explanation_ub[h]};
+    //      auto ul{m_schedule.getImplicant(ub)};
+    //      Cl.push_back(BOUND(ul));
+    //
+    //#ifdef DBG_EXPLEF
+    //      duration += m_schedule.minDuration(i);
+    //      std::cout << m_schedule.prettyLiteral(BOUND(ll)) << " & "
+    //                << m_schedule.prettyLiteral(BOUND(ul)) << " ("
+    //                << m_schedule.minDuration(i) << ")\n";
+    //#endif
+    //    }
+    for (auto ti : the_explanation_tasks[h]) {
+      BoundConstraint<T> lb{ti->start.after(
+          explanation_lb[h])}; // LOWERBOUND(START(i)), -explanation_lb[h]};
       auto ll{m_schedule.getImplicant(lb)};
       Cl.push_back(BOUND(ll));
 
-      BoundConstraint<T> ub{UPPERBOUND(END(i)), explanation_ub[h]};
+      BoundConstraint<T> ub{ti->end.before(
+          explanation_ub[h])}; // UPPERBOUND(END(i)), explanation_ub[h]};
       auto ul{m_schedule.getImplicant(ub)};
       Cl.push_back(BOUND(ul));
 
 #ifdef DBG_EXPLEF
-      duration += m_schedule.minDuration(i);
+      duration += ti->minDuration(); // m_schedule.minDuration(i);
       std::cout << m_schedule.prettyLiteral(BOUND(ll)) << " & "
                 << m_schedule.prettyLiteral(BOUND(ul)) << " ("
-                << m_schedule.minDuration(i) << ")\n";
+                << ti->minDuration()
+                // m_schedule.minDuration(i)
+                << ")\n";
 #endif
     }
 
@@ -1691,9 +1071,18 @@ void DisjunctiveEdgeFinding<T>::xplain(const lit l, const hint h,
     //        m_schedule.minDuration(TASK(exy.to)) << " + " <<
     //        m_schedule.minDuration(TASK(exy.from)) << std::endl;
 
+    //    BoundConstraint<T> ubc{UPPERBOUND(exy.to),
+    //                           m_schedule.minDuration(TASK(exy.to)) +
+    //                               m_schedule.minDuration(TASK(exy.from)) -
+    //                               lbc.distance - Gap<T>::epsilon()};
+
     BoundConstraint<T> ubc{UPPERBOUND(exy.to),
-                           m_schedule.minDuration(TASK(exy.to)) +
-                               m_schedule.minDuration(TASK(exy.from)) -
+                           m_schedule.getTask(exy.to).minDuration() +
+                               //                             m_schedule.minDuration(TASK(exy.to))
+                               //                             +
+                               m_schedule.getTask(exy.from).minDuration() -
+                               //                                 m_schedule.minDuration(TASK(exy.from))
+                               //                                 -
                                lbc.distance - Gap<T>::epsilon()};
 
     auto ubl{m_schedule.getImplicant(ubc)};
@@ -1717,57 +1106,89 @@ void DisjunctiveEdgeFinding<T>::xplain(const lit l, const hint h,
               << ".." << explanation_ub[h] << "])\n";
     T duration{0};
 #endif
-        
-        // failure case, everything is in "tasks"
-        auto n{explanation_tasks[h].size() - 1};
-        for (size_t i{0}; i < n; ++i) {
-          task t{explanation_tasks[h][i]};
 
-          BoundConstraint<T> lb{LOWERBOUND(START(t)), -explanation_lb[h]};
-          auto ll{m_schedule.getImplicant(lb)};
-          Cl.push_back(BOUND(ll));
+    //        // failure case, everything is in "tasks"
+    //        auto n{explanation_tasks[h].size() - 1};
+    //        for (size_t i{0}; i < n; ++i) {
+    //          task t{explanation_tasks[h][i]};
+    //
+    //          BoundConstraint<T> lb{LOWERBOUND(START(t)), -explanation_lb[h]};
+    //          auto ll{m_schedule.getImplicant(lb)};
+    //          Cl.push_back(BOUND(ll));
+    //
+    //          BoundConstraint<T> ub{UPPERBOUND(END(t)), explanation_ub[h]};
+    //          auto ul{m_schedule.getImplicant(ub)};
+    //          Cl.push_back(BOUND(ul));
+    //
+    //#ifdef DBG_EXPLEF
+    //            duration += m_schedule.minDuration(t);
+    //            std::cout << m_schedule.prettyLiteral(BOUND(ll)) << " & "
+    //            << m_schedule.prettyLiteral(BOUND(ul)) << " ("
+    //            << m_schedule.minDuration(t) << ")\n";
+    //#endif
+    //        }
 
-          BoundConstraint<T> ub{UPPERBOUND(END(t)), explanation_ub[h]};
-          auto ul{m_schedule.getImplicant(ub)};
-          Cl.push_back(BOUND(ul));
+    // failure case, everything is in "tasks"
+    auto n{the_explanation_tasks[h].size() - 1};
+    for (size_t i{0}; i < n; ++i) {
+      auto ti{the_explanation_tasks[h][i]};
+
+      BoundConstraint<T> lb{ti->start.after(
+          explanation_lb[h])}; // LOWERBOUND(START(t)), -explanation_lb[h]};
+      auto ll{m_schedule.getImplicant(lb)};
+      Cl.push_back(BOUND(ll));
+
+      BoundConstraint<T> ub{ti->end.before(
+          explanation_ub[h])}; // UPPERBOUND(END(t)), explanation_ub[h]};
+      auto ul{m_schedule.getImplicant(ub)};
+      Cl.push_back(BOUND(ul));
 
 #ifdef DBG_EXPLEF
-            duration += m_schedule.minDuration(t);
-            std::cout << m_schedule.prettyLiteral(BOUND(ll)) << " & "
-            << m_schedule.prettyLiteral(BOUND(ul)) << " ("
-            << m_schedule.minDuration(t) << ")\n";
+      //          duration += m_schedule.minDuration(t);
+      duration += ti->minDuration();
+      std::cout << m_schedule.prettyLiteral(BOUND(ll)) << " & "
+                << m_schedule.prettyLiteral(BOUND(ul)) << " ("
+                << ti->minDuration();
+      //          m_schedule.minDuration(t)
+      << ")\n";
 #endif
-        }
-        
+    }
+
         //      bool bug{false};
-        auto i{explanation_tasks[h].back()};
-        lit p;
-        if (LTYPE(l) == BOUND_LIT) {
-            auto lc{m_schedule.getBound(FROM_GEN(l))};
-            BoundConstraint<T> pc;
-            if (SIGN(lc.l) == LOWER) {
-              pc = {LOWERBOUND(START(i)), -explanation_lb[h]};
-            } else {
-              pc = {UPPERBOUND(END(i)), explanation_ub[h]};
-            }
-            p = m_schedule.getImplicant(pc);
-            Cl.push_back(BOUND(p));
+    auto t{the_explanation_tasks[h].back()};
+    lit p;
+    if (LTYPE(l) == BOUND_LIT) {
+      auto lc{m_schedule.getBound(FROM_GEN(l))};
+      BoundConstraint<T> pc;
+      if (SIGN(lc.l) == LOWER) {
+        pc = {t->start.after(
+            explanation_lb[h])}; // LOWERBOUND(START(i)), -explanation_lb[h]};
+      } else {
+        pc = {t->end.before(
+            explanation_ub[h])}; // UPPERBOUND(END(i)), explanation_ub[h]};
+      }
+      p = m_schedule.getImplicant(pc);
+      Cl.push_back(BOUND(p));
         } else {
             auto lc{m_schedule.getEdge(FROM_GEN(l))};
             BoundConstraint<T> pc;
-            if (TASK(lc.from) == i) {
-              pc = {LOWERBOUND(START(i)), -explanation_lb[h]};
+            if (m_schedule.getTask(lc.from) == *t) {
+              pc = {t->start.after(explanation_lb[h])}; // LOWERBOUND(START(i)),
+                                                       // -explanation_lb[h]};
             } else {
-              pc = {UPPERBOUND(END(i)), explanation_ub[h]};
+              pc = {t->end.before(explanation_ub[h])}; // UPPERBOUND(END(i)),
+                                                      // explanation_ub[h]};
             }
             p = m_schedule.getImplicant(pc);
             Cl.push_back(BOUND(p));
         }
         
 #ifdef DBG_EXPLEF
-        duration += m_schedule.minDuration(i);
-        std::cout << m_schedule.prettyLiteral(BOUND(p)) << " ("
-        << m_schedule.minDuration(i) << ")\n";
+        duration += t->minDuration(); // m_schedule.minDuration(i);
+        std::cout << m_schedule.prettyLiteral(BOUND(p))
+                  << " ("
+                  //        << m_schedule.minDuration(i)
+                  << t->minDuration() << ")\n";
 
         std::cout << duration << " > " << explanation_ub[h] << " - "
                   << explanation_lb[h] << std::endl;
@@ -1785,8 +1206,8 @@ std::ostream &DisjunctiveEdgeFinding<T>::display(std::ostream &os) const {
 #endif
 
   os << "(";
-  for (auto t : m_tasks) {
-    std::cout << " t" << t;
+  for (auto t : the_tasks) {
+    std::cout << " t" << t->id();
   }
   std::cout << " )";
   return os;
@@ -1814,7 +1235,7 @@ std::ostream &DisjunctiveEdgeFinding<T>::print_reason(std::ostream &os,
   return os;
 }
 
-template <typename T> std::vector<int> DisjunctiveEdgeFinding<T>::task_map;
+//template <typename T> std::vector<int> DisjunctiveEdgeFinding<T>::task_map;
 
 } // namespace tempo
 

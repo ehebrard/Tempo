@@ -43,7 +43,9 @@ public:
   };
   ChoicePointHeuristics choice_point_heuristics;
 
-  enum class PolarityHeuristic { Identity, LocalExploration, Tightest };
+  enum class PolarityHeuristic { Tightest, SolutionGuided, Random };
+
+  double polarity_epsilon;
 
   PolarityHeuristic polarity_heuristic;
 

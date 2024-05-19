@@ -29,14 +29,12 @@
 #include <string>
 #include <vector>
 
-namespace TCLAP
-{
+namespace TCLAP {
 
 /**
  * The interface that defines the interaction between the Arg and Constraint.
  */
-template <class T> class Constraint
-{
+template <class T> class Constraint {
 
 public:
     /**
@@ -54,7 +52,7 @@ public:
      * line meets the constraint.
      * \param value - The value that will be checked.
      */
-    virtual bool check(const T& value) const = 0;
+    virtual bool check(const T &value) const = 0;
 
     /**
      * Destructor.

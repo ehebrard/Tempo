@@ -1,0 +1,85 @@
+image: ubuntu:latest
+
+workflow:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+
+stages:
+  - gtest
+  - torch
+  - all
+
+gtest-job:
+  stage: gtest
+  cache:
+    paths:
+      - googletest
+  artifacts:
+    paths:
+      - googletest
+    expire_in: 1 hour
+  script:
+    - echo "----- installing gtest -----"
+    - |
+      apt update && apt install -y cmake make git g++
+      if [ ! -d "googletest" ] ; then
+      git clone https://github.com/google/googletest.git
+      fi
+    - cd googletest
+    - git pull
+    - mkdir -p build && cd build
+    - cmake -DBUILD_SHARED_LIBS=ON -DINSTALL_GTEST=ON -DCMAKE_INSTALL_PREFIX:PATH=/usr ..
+    - make -j$(nproc)
+
+torch-job:
+  stage: torch
+  cache:
+    paths:
+      - deps
+  artifacts:
+    paths:
+      - deps
+    expire_in: 1 hour
+  script:
+    - apt update && apt install -y cmake curl git g++ cmake make unzip python3-dev
+    - mkdir -p deps && cd deps
+    - |
+      if [ ! -d "libtorch" ] ; then
+      ../install_torch.sh
+      fi
+
+
+unittest-job:
+  stage: all
+  parallel:
+      matrix:
+        - COMPILER: [g++, clang]
+      
+  script:
+    - echo "----- installing build tools -----"
+    - apt update && apt install -y git cmake make libboost-all-dev $COMPILER
+    - echo "----- installing gtest -----"
+    - cd googletest/build
+    - make install
+    - ldconfig
+    - cd ../..
+    - echo "----- building tests -----"
+    - mkdir build && cd build
+    - |
+      if [ $COMPILER = clang ] ; then
+      ENABLED=OFF
+      else
+      ENABLED=ON
+      fi
+    - cmake .. -DCMAKE_BUILD_TYPE=Debug -DCMAKE_PREFIX_PATH="$(pwd)/../deps/libtorch;$(pwd)/../deps/pytorch_sparse/install;$(pwd)/../deps/pytorch_scatter/install" -DENABLE_TORCH=$ENABLED
+    - make -j$(nproc) Tests
+    - echo "----- running tests -----"
+    - ./Tests/Tests --gtest_color=yes
+    - echo "----- build examples -----"
+    - |
+      targets=()
+      for file in ../src/examples/*.cpp; do
+      targets+=($(basename "$file" .cpp))
+      done
+      echo "building the following targets ${targets[*]}"
+      make -j $(nproc) ${targets[*]}

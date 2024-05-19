@@ -1,0 +1,18 @@
+{
+  "edgeFeatureExtractor": {
+    "arguments": null,
+    "extractorName": "TimingEdgeExtractor"
+  },
+  "resourceFeatureExtractor": {
+    "arguments": null,
+    "extractorName": "ResourceEnergyExtractor"
+  },
+  "taskFeatureExtractor": {
+    "arguments": null,
+    "extractorName": "TaskTimingFeatureExtractor"
+  },
+  "topologyExtractor": {
+    "arguments": null,
+    "extractorName": "MinimalTopologyBuilder"
+  }
+}

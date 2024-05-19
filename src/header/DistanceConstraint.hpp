@@ -3,10 +3,12 @@
 
 #include <iostream>
 
+#include "Constant.hpp"
 #include "Global.hpp"
 
-
 namespace tempo {
+
+// template <typename T> class BoundSystem;
 
 // literals x - y <= k (with x,y pointing to vars and k a constant)
 template <typename T> class DistanceConstraint {
@@ -14,6 +16,9 @@ template <typename T> class DistanceConstraint {
 public:
   DistanceConstraint(const event f, const event t, const T d)
       : from(f), to(t), distance(d) {}
+
+  DistanceConstraint(const var_t f, const var_t t, const T d)
+      : from(static_cast<event>(f)), to(static_cast<event>(t)), distance(d) {}
 
   event from;
   event to;
@@ -26,6 +31,10 @@ public:
 
   bool entails(const DistanceConstraint<T> &e) const;
   bool contradicts(const DistanceConstraint<T> &e) const;
+
+  template <typename S> bool satisfied(S &solver) const;
+
+  template <typename S> bool falsified(S &solver) const;
 
   std::ostream &display(std::ostream &os) const;
 };
@@ -49,6 +58,18 @@ DistanceConstraint<T> DistanceConstraint<T>::operator~() const {
 }
 
 template <typename T>
+template <typename S>
+bool DistanceConstraint<T>::satisfied(S &solver) const {
+  return solver.numeric.upper(to) - solver.numeric.lower(from) <= distance;
+}
+
+template <typename T>
+template <typename S>
+bool DistanceConstraint<T>::falsified(S &solver) const {
+  return solver.numeric.lower(to) - solver.numeric.upper(from) > distance;
+}
+
+template <typename T>
 bool DistanceConstraint<T>::entails(const DistanceConstraint<T> &e) const {
   return e.from == from and e.to == to and distance <= e.distance;
 }
@@ -60,8 +81,9 @@ bool DistanceConstraint<T>::contradicts(const DistanceConstraint<T> &e) const {
 
 template <typename T>
 std::ostream &DistanceConstraint<T>::display(std::ostream &os) const {
-  os << etype(to) << TASK(to) << " - " << etype(from) << TASK(from)
-     << " <= " << distance;
+  //  os << etype(to) << TASK(to) << " - " << etype(from) << TASK(from)
+  //     << " <= " << distance;
+  os << "x" << to << " - x" << from << " <= " << distance;
   return os;
 }
 

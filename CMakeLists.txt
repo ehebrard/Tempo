@@ -8,6 +8,9 @@ FetchContent_Declare(backward
         GIT_TAG v1.6)
 FetchContent_MakeAvailable(backward)
 
+# Json lib
+FetchContent_Declare(json URL https://github.com/nlohmann/json/releases/download/v3.11.2/json.tar.xz)
+FetchContent_MakeAvailable(json)
 
 # iterator library for zip and enumerate
 string(COMPARE EQUAL ${CMAKE_CXX_COMPILER_ID} "Clang" IS_CLANG)
@@ -28,6 +31,37 @@ FetchContent_Declare(iterators
 FetchContent_MakeAvailable(iterators)
 include_directories(${iterators_SOURCE_DIR})
 
+
+find_package(TorchScatter QUIET)
+find_package(TorchSparse QUIET)
+
+option(ENABLE_TORCH "Build with torch. If set to off (default), you are unable to use features that depend on torch")
+option(PRETTY_JSON "Save json files in a more human readable format at the cost of higher memory usage (default on)" ON)
+set(TORCH_ENABLED FALSE)
+
+if (${ENABLE_TORCH})
+    if (NOT TorchScatter_FOUND OR NOT TorchSparse_FOUND)
+        message(SEND_ERROR "You requested the use of torch but the library was not found on the system")
+    elseif (${ENABLE_TORCH})
+        set(TORCH_ENABLED TRUE)
+    endif ()
+endif ()
+
+if (${PRETTY_JSON})
+    add_compile_definitions(__JSON_INDENT__=2)
+else ()
+    add_compile_definitions(__JSON_INDENT__=)
+endif ()
+
+add_compile_definitions(__TEST_DATA_DIR__="${CMAKE_SOURCE_DIR}/Tests/data")
+
+if (${TORCH_ENABLED})
+    add_compile_definitions(__TORCH_ENABLED__=1)
+    set(TORCH_LIB TorchScatter::TorchScatter TorchSparse::TorchSparse)
+    set(CMAKE_CXX_FLAGS ${TORCH_CXX_FLAGS})
+else ()
+    add_compile_definitions(__TORCH_ENABLED__=0)
+endif ()
 
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
@@ -53,7 +87,11 @@ else ()
     message(SEND_ERROR "Unknown build type ${CMAKE_BUILD_TYPE}")
 endif ()
 
-file(GLOB SOURCES ${CMAKE_SOURCE_DIR}/src/cpp/*.cpp ${CMAKE_SOURCE_DIR}/src/cpp/util/*.cpp ${CMAKE_SOURCE_DIR}/src/cpp/constraints/*.cpp)
+file(GLOB SOURCES ${CMAKE_SOURCE_DIR}/src/cpp/*.cpp ${CMAKE_SOURCE_DIR}/src/cpp/util/*.cpp
+        ${CMAKE_SOURCE_DIR}/src/cpp/constraints/*.cpp ${CMAKE_SOURCE_DIR}/src/cpp/heuristics/*.cpp)
+file(GLOB TORCH_SOURCES ${CMAKE_SOURCE_DIR}/src/cpp/nn/*.cpp)
+
+message("compiler flags: ${CMAKE_CXX_FLAGS}")
 
 message("Source files:")
 foreach(SRC ${SOURCES})
@@ -64,11 +102,19 @@ include_directories(${CMAKE_SOURCE_DIR}/src/header/)
 include_directories(${CMAKE_SOURCE_DIR}/tools/)
 
 # Examples
-file(GLOB_RECURSE EXECUTABLES ${CMAKE_SOURCE_DIR}/src/examples/*.cpp)
+file(GLOB_RECURSE EXECUTABLES ${CMAKE_SOURCE_DIR}/src/examples/*.cpp ${CMAKE_SOURCE_DIR}/src/examples/torch/*.cpp)
 message("Generating targets for the following cpp files:")
 foreach(EXEC ${EXECUTABLES})
     get_filename_component(NAME ${EXEC} NAME_WLE)
     set(ALL_SOURCES ${SOURCES})
+    string(FIND ${EXEC} "torch" TORCH_EXEC)
+    if (NOT ${TORCH_EXEC} EQUAL -1 AND NOT ${TORCH_ENABLED})
+        message("--- Info: Torch features disabled. Skipping executable " ${EXEC} " ---")
+        continue()
+    endif ()
+    if (${TORCH_ENABLED})
+        set(ALL_SOURCES ${SOURCES} ${TORCH_SOURCES})
+    endif ()
     message(\t${EXEC}\ ->\ target:\ ${NAME})
     if (BUILD_TYPE STREQUAL "debug")
         add_executable(${NAME} ${EXEC} ${ALL_SOURCES} ${BACKWARD_ENABLE})
@@ -76,6 +122,13 @@ foreach(EXEC ${EXECUTABLES})
     else()
         add_executable(${NAME} ${EXEC} ${ALL_SOURCES})
     endif()
+
+    if (${TORCH_ENABLED})
+        target_include_directories(${NAME} PRIVATE ${TorchScatter_INCLUDE_DIR})
+        target_include_directories(${NAME} PRIVATE ${TorchSparse_INCLUDE_DIR})
+        target_link_libraries(${NAME} PRIVATE ${TORCH_LIB})
+    endif ()
+    target_link_libraries(${NAME} PRIVATE nlohmann_json::nlohmann_json)
 endforeach()
 
 
@@ -86,3 +139,5 @@ include(GNUInstallDirs)
 install(TARGETS tempo
     LIBRARY DESTINATION ${CMAKE_INSTALL_TEMPO}
     PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+
+add_subdirectory(Tests)
