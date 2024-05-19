@@ -1075,18 +1075,18 @@ template <typename T> void Solver<T>::learnConflict(NewExplanation<T> &e) {
 
   restoreState(env.level() - jump);
 
-//#ifdef DBG_TRACE
+#ifdef DBG_TRACE
   auto cl =
-//#endif
+#endif
       clauses.add(conflict.begin(), conflict.end(), true);
 
-//#ifdef DBG_TRACE
-//  if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+#ifdef DBG_TRACE
+  if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
     if (clauses.size() > 0 and cl != NULL) {
       std::cout << "learn conflict" << *cl << std::endl;
     }
-//  }
-//#endif
+  }
+#endif
 
 #ifdef DBG_CL
   if (++num_clauses > DBG_CL)
