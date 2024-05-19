@@ -1622,11 +1622,11 @@ NewClause<T> *NewClauseBase<T>::add(const iter first, const iter last,
   verifyWatchers("before add");
 #endif
 
-  std::cout << "add clause (" << (learnt ? "learnt" : "base" ) << ")";
-  for (auto l{first}; l != last; ++l) {
-    std::cout << " " << *l;
-  }
-  std::cout << std::endl;
+  //  std::cout << "add clause (" << (learnt ? "learnt" : "base" ) << ")";
+  //  for (auto l{first}; l != last; ++l) {
+  //    std::cout << " " << *l;
+  //  }
+  //  std::cout << std::endl;
 
   NewClause<T> *c{NULL};
 
@@ -1743,17 +1743,17 @@ NewClause<T> *NewClauseBase<T>::add(const iter first, const iter last,
 template <typename T>
 void NewClauseBase<T>::xplain(const Literal<T> l, const hint h,
                               std::vector<Literal<T>> &Cl) {
-        
-    int i{0};
-    for(auto cl : base) {
-        assert(cl->id == i);
-        ++i;
-    }
+
+  //    int i{0};
+  //    for(auto cl : base) {
+  //        assert(cl->id == i);
+  //        ++i;
+  //    }
 
   NewClause<T> &reason(*(base[h]));
 
-    assert(reason.id == h);
-    
+  //    assert(reason.id == h);
+
   if (l == Solver<T>::Contradiction) {
 
     //      std::cout << "explain contradiction\n";

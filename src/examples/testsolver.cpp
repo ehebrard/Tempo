@@ -258,12 +258,11 @@ void test4(Options &opt) {
     for (auto x : X)
       S.addToSearch(x);
 
-  std::cout << S.clauses << std::endl;
-    
-    
+    //  std::cout << S.clauses << std::endl;
+
     auto sat{S.search()};
 
-    std::cout << "result = " << sat << std::endl;
+    std::cout << "result = " << sat << " #fails = " << S.num_fails << std::endl;
 }
 
 int main(int argc, char *argv[]) {
