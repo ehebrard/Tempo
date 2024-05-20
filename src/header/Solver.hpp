@@ -12,7 +12,7 @@
 #include "Literal.hpp"
 #include "Model.hpp"
 //#include "Objective.hpp"
-//#include "Restart.hpp"
+#include "Restart.hpp"
 //#include "TemporalNetwork.hpp"
 //#include "constraints/DisjunctiveEdgeFinding.hpp"
 #include "constraints/EdgeConstraint.hpp"
@@ -242,6 +242,7 @@ public:
   void trigger(const Literal<T> l);
   void propagate();
   boolean_state search();
+  void restart(const bool on_solution = false);
   void backtrack(NewExplanation<T> &e);
   void branchRight();
   void learnConflict(NewExplanation<T> &e);
@@ -275,6 +276,10 @@ public:
   std::ostream &displayBranches(std::ostream &os) const;
   std::ostream &displayVariables(std::ostream &os) const;
   std::ostream &displayConstraints(std::ostream &os) const;
+    
+    std::ostream &displayProgress(std::ostream &os) const;
+    std::ostream &displayHeader(std::ostream &os, const int width = 59) const;
+    std::ostream &displaySummary(std::ostream &os, std::string msg) const;
   //@}
 
   BooleanStore<T> boolean;
@@ -339,10 +344,11 @@ private:
   //@{
   // the set of variables remaining to fix
 
-  std::optional<heuristics::HeuristicManager<T>> heuristic;
-  std::optional<heuristics::ValueHeuristicsManager> valueHeuristic;
-  RestartPolicy *restart_policy = nullptr;
-  unsigned int restart_limit{static_cast<unsigned int>(-1)};
+//  std::optional<heuristics::HeuristicManager<T>> heuristic;
+//  std::optional<heuristics::ValueHeuristicsManager> valueHeuristic;
+//  RestartPolicy *restart_policy = nullptr;
+//  unsigned int restart_limit{static_cast<unsigned int>(-1)};
+    RestartManager<Solver<T>> restartPolicy;
 
 public:
   SparseSet<var_t, Reversible<size_t>> boolean_search_vars;
@@ -377,6 +383,8 @@ public:
   //      return activityMap;
   //    }
 
+    double start_time;
+    
   long unsigned int num_fails{0};
   long unsigned int num_choicepoints{0};
   long unsigned int num_backtracks{0};
@@ -641,7 +649,7 @@ Solver<T>::Solver(Options opt)
     : ReversibleObject(&env), boolean(*this), numeric(*this), clauses(*this),
       core(&env), options(std::move(opt)), propag_pointer(1, &env),
       propagation_queue(constraints), boolean_constraints(&env),
-      numeric_constraints(&env), boolean_search_vars(0, &env),
+      numeric_constraints(&env), restartPolicy(*this), boolean_search_vars(0, &env),
       numeric_search_vars(0, &env) {
   trail.emplace_back(Constant::NoVarx, Constant::Infinity<T>);
   reason.push_back(Constant::NewNoReason<T>);
@@ -786,19 +794,31 @@ void Solver<T>::boundClosure(const var_t x, const var_t y, const T d,
 
 template <typename T> void Solver<T>::restart(const bool on_solution) {
   env.restore(init_level);
-  undo();
+    
+//    std::cout << "restart\n" ;
+//    displayBranches(std::cout);
+    
+    undo();
+//    displayBranches(std::cout);
+    
+//    exit(1);
 
   if (on_solution) {
-    restart_policy->initialize(restart_limit);
-    restart_limit += num_fails;
-    //      std::cout << num_fails << " / " << restart_limit << std::endl;
+      restartPolicy.initialize();
+//    restart_policy->initialize(restart_limit);
+//    restart_limit += num_fails;
+//    //      std::cout << num_fails << " / " << restart_limit << std::endl;
   } else {
-    restart_policy->reset(restart_limit);
-    //      std::cout << num_fails << " / " << restart_limit << std::endl;
-    //    displayStats(std::cout, "             ");
+      restartPolicy.reset();
+//    restart_policy->reset(restart_limit);
+//    //      std::cout << num_fails << " / " << restart_limit << std::endl;
+//    //    displayStats(std::cout, "             ");
   }
 
   SearchRestarted.trigger();
+    
+    std::cout << std::setw(13) << "restart ";
+    displayProgress(std::cout);
 }
 
 template <typename T> void Solver<T>::backtrack(NewExplanation<T> &e) {
@@ -1170,6 +1190,11 @@ template <typename T> void Solver<T>::branchRight() {
 }
 
 template <typename T> boolean_state Solver<T>::search() {
+    
+//    restart_policy->initialize(restart_limit);
+    displayHeader(std::cout);
+    restartPolicy.initialize();
+    start_time = cpu_time();
 
   init_level = env.level();
   boolean_state satisfiability{Unknown};
@@ -1187,7 +1212,7 @@ template <typename T> boolean_state Solver<T>::search() {
       if (boolean_search_vars.empty()) {
         satisfiability = True;
       } else {
-        ++num_choicepoints;
+//        ++num_choicepoints;
 
         var_t x = *(
             boolean_search_vars.begin()); // heuristic->nextChoicePoint(*this);
@@ -1209,7 +1234,8 @@ template <typename T> boolean_state Solver<T>::search() {
     } catch (NewFailure<T> &f) {
       try {
         backtrack(f.reason);
-        if (num_fails > restart_limit) {
+//        if (num_fails > restart_limit) {
+          if(restartPolicy.limit()) {
           restart();
         }
       } catch (const SearchExhausted &f) {
@@ -1217,6 +1243,8 @@ template <typename T> boolean_state Solver<T>::search() {
       }
     }
   }
+    
+    displaySummary(std::cout, (satisfiability == True ? "SAT " : "UNSAT "));
 
   return satisfiability;
 }
@@ -1481,6 +1509,57 @@ template <typename T> double Solver<T>::looseness(const Literal<T> &l) const {
                                c.distance);
   }
   return .5;
+}
+
+template <typename T>
+std::ostream &Solver<T>::displayHeader(std::ostream &os,
+                                          const int width) const {
+  os << std::right << std::setw(width)
+     << " objective | failures | branches | clauses |  size | cpu" << std::endl
+     << std::left;
+  os << std::setfill('=') << std::setw(width) << "=" << std::setfill(' ')
+     << std::endl << std::right;
+  return os;
+}
+
+template <typename T>
+std::ostream &Solver<T>::displaySummary(std::ostream &os,
+                                           std::string msg) const {
+
+  os << std::setfill('=') << std::setw(59) << "\n" << std::setfill(' ');
+  //    auto offset{msg.size()/2};
+  //    os << std::setfill('=') << std::setw(36 + offset) << msg << std::setw(36
+  //    - offset)<< "\n" << std::setfill(' ');
+  os << std::setw(13) << msg;
+  displayProgress(os);
+  os << std::setfill('=') << std::setw(59) << "\n" << std::setfill(' ');
+  return os;
+}
+
+template <typename T>
+std::ostream &Solver<T>::displayProgress(std::ostream &os) const {
+
+  os << "  " << std::setw(9) << num_fails << "  " << std::setw(9)
+     << num_choicepoints
+     << "  "
+     //<< std::setw(12) << num_literals << "  "
+     << std::setw(8) << clauses.size();
+  if (clauses.size() == 0)
+    os << "    n/a ";
+  else
+    os << "  " << std::setw(6) << std::setprecision(4)
+       << static_cast<double>(clauses.volume()) /
+              static_cast<double>(clauses.size());
+  //      << clauses.volume() << " " << clauses.size();
+
+  //    os << "  " << std::setw(6) << std::setprecision(4) << (gap_ratio /
+  //    static_cast<double>(num_choicepoints)) ; os << "  " << std::setw(6) <<
+  //    std::setprecision(4) << (static_cast<double>(num_tight) /
+  //    static_cast<double>(num_choicepoints)) ;
+  os << "   " << std::left << (cpu_time() - start_time) << std::right
+     << std::endl;
+
+  return os;
 }
 
 template <typename T>
