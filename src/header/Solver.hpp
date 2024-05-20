@@ -339,6 +339,11 @@ private:
   //@{
   // the set of variables remaining to fix
 
+  std::optional<heuristics::HeuristicManager<T>> heuristic;
+  std::optional<heuristics::ValueHeuristicsManager> valueHeuristic;
+  RestartPolicy *restart_policy = nullptr;
+  unsigned int restart_limit{static_cast<unsigned int>(-1)};
+
 public:
   SparseSet<var_t, Reversible<size_t>> boolean_search_vars;
   SparseSet<var_t, Reversible<size_t>> numeric_search_vars;
@@ -779,23 +784,22 @@ void Solver<T>::boundClosure(const var_t x, const var_t y, const T d,
   }
 }
 
-// template<typename T>
-// void Solver<T>::restart(const bool on_solution) {
-//   env.restore(init_level);
-//   undo();
-//
-//   if (on_solution) {
-//     restart_policy->initialize(restart_limit);
-//     restart_limit += num_fails;
-//     //      std::cout << num_fails << " / " << restart_limit << std::endl;
-//   } else {
-//     restart_policy->reset(restart_limit);
-//     //      std::cout << num_fails << " / " << restart_limit << std::endl;
-//     //    displayStats(std::cout, "             ");
-//   }
-//
-////  SearchRestarted.trigger();
-//}
+template <typename T> void Solver<T>::restart(const bool on_solution) {
+  env.restore(init_level);
+  undo();
+
+  if (on_solution) {
+    restart_policy->initialize(restart_limit);
+    restart_limit += num_fails;
+    //      std::cout << num_fails << " / " << restart_limit << std::endl;
+  } else {
+    restart_policy->reset(restart_limit);
+    //      std::cout << num_fails << " / " << restart_limit << std::endl;
+    //    displayStats(std::cout, "             ");
+  }
+
+  SearchRestarted.trigger();
+}
 
 template <typename T> void Solver<T>::backtrack(NewExplanation<T> &e) {
 
@@ -898,38 +902,48 @@ template <typename T> void Solver<T>::analyze(NewExplanation<T> &e) {
       auto p_lvl{propagationLevel(p)};
 
 #ifdef DBG_TRACE
-      if (DBG_BOUND and (DBG_TRACE & SEARCH)) {
-        std::cout << " ** " << p << " (" << p_lvl << "/" << decision_lvl << ")";
-      }
-#endif
-
-      if (not explored[p_lvl]) {
-        if (p_lvl < decision_lvl) {
-
-#ifdef DBG_TRACE
           if (DBG_BOUND and (DBG_TRACE & SEARCH)) {
-            std::cout << " => keep in conflict!\n";
+            std::cout << " ** " << p << " (" << p_lvl << "/" << decision_lvl
+                      << ")";
           }
 #endif
 
-          std::swap(conflict[csize], conflict[i]);
-          ++csize;
-          //              conflict.push_back(p);
-        } else {
+          if (explored[p_lvl]) {
 
 #ifdef DBG_TRACE
-          if (DBG_BOUND and (DBG_TRACE & SEARCH)) {
-            std::cout << " => to explore\n";
-          }
+            if (DBG_BOUND and (DBG_TRACE & SEARCH)) {
+              std::cout << " => already explored\n";
+            }
 #endif
 
-          ++num_lit;
-          --i;
-        }
-      } else
-        --i;
+            --i;
 
-      explored[p_lvl] = true;
+          } else {
+            if (p_lvl < decision_lvl) {
+
+#ifdef DBG_TRACE
+              if (DBG_BOUND and (DBG_TRACE & SEARCH)) {
+                std::cout << " => keep in conflict!\n";
+              }
+#endif
+
+              std::swap(conflict[csize], conflict[i]);
+              ++csize;
+              //              conflict.push_back(p);
+            } else {
+
+#ifdef DBG_TRACE
+              if (DBG_BOUND and (DBG_TRACE & SEARCH)) {
+                std::cout << " => to explore\n";
+              }
+#endif
+
+              ++num_lit;
+              --i;
+            }
+          }
+
+          explored[p_lvl] = true;
     }
     conflict.resize(csize);
 
@@ -1022,21 +1036,57 @@ template <typename T> void Solver<T>::learnConflict(NewExplanation<T> &e) {
   //    return decisionLevel(a) > decisionLevel(b);
   //  });
 
+  //////    if(conflict.size() < 2) {
+  //        std::cout << "lvl=" << env.level() << std::endl;
+  //        for(auto l : conflict) {
+  //            std::cout << " " << l << " (" << propagationLevel(l) << ")";
+  //        }
+  //        std::cout << std::endl;
+  //////    }
+
   ClauseAdded.trigger(conflict);
 
   assert(propagationLevel(conflict[0]) >= propagationLevel(decisions.back()));
 
-  auto uip_lvl{propagationLevel(conflict[1])};
   int jump{1};
-  while (propagationLevel(decisions[decisions.size() - 1 - jump]) > uip_lvl) {
-    //        std::cout << decisions[decisions.size() - 1 - jump] << " ("
-    //        << propagationLevel(decisions[decisions.size() - 1 - jump]) <<
-    //        ") > "
-    //        << uip_lvl << std::endl;
-    ++jump;
-    decisions.pop_back();
+
+  //    displayBranches(std::cout);
+  //    std::cout << std::endl;
+
+  if (conflict.size() == 1 or decisions.size() == 1) {
+    jump = static_cast<int>(decisions.size());
+  } else {
+    auto uip_lvl{propagationLevel(conflict[1])};
+
+    //                std::cout << " lvl " << (decisions.size() - 1 - jump) << "
+    //                ("
+    //                << propagationLevel(decisions[decisions.size() - 1 -
+    //                jump])
+    //            << " > " << uip_lvl << ")\n";
+
+    for (auto d{decisions.rbegin() + jump};
+         d != decisions.rend() and propagationLevel(*d) > uip_lvl; ++d) {
+      ++jump;
+    }
+    //
+    //            while (propagationLevel(decisions[decisions.size() - 1 -
+    //            jump]) > uip_lvl) {
+    ////                        std::cout << decisions[decisions.size() - 1 -
+    ///jump] << " (" /                        <<
+    ///propagationLevel(decisions[decisions.size() - 1 - jump]) << / ") > " / <<
+    ///uip_lvl << std::endl;
+    //                ++jump;
+    //
+    ////                      std::cout << " lvl " << (decisions.size() - 1 -
+    ///jump) << " (" /                      <<
+    ///propagationLevel(decisions[decisions.size() - 1 - jump]) / << " > " <<
+    ///uip_lvl << ")\n";
+    //                //
+    //
+    //            }
   }
-  decisions.pop_back();
+
+  decisions.resize(decisions.size() - jump);
 
 #ifdef DBG_TRACE
   if (DBG_BOUND and (DBG_TRACE & SEARCH)) {
@@ -1074,6 +1124,13 @@ template <typename T> void Solver<T>::learnConflict(NewExplanation<T> &e) {
   //#endif
 
   restoreState(env.level() - jump);
+
+  assert(not boolean.falsified(conflict[0]));
+  assert(not boolean.satisfied(conflict[0]));
+
+  for (size_t i{1}; i < conflict.size(); ++i) {
+    assert(boolean.falsified(conflict[i]));
+  }
 
 #ifdef DBG_TRACE
   auto cl =
@@ -1152,9 +1209,9 @@ template <typename T> boolean_state Solver<T>::search() {
     } catch (NewFailure<T> &f) {
       try {
         backtrack(f.reason);
-        //        if (num_fails > restart_limit) {
-        //          restart();
-        //        }
+        if (num_fails > restart_limit) {
+          restart();
+        }
       } catch (const SearchExhausted &f) {
         satisfiability = False;
       }
