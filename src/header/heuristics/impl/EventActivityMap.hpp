@@ -12,6 +12,9 @@
 namespace tempo {
     template<typename T>
     class Scheduler;
+
+template<typename T>
+class Solver;
 }
 
 namespace tempo::heuristics::impl {
@@ -27,10 +30,21 @@ template<typename T>
          * @param scheduler scheduler for which to construct the ActivityMap
          */
         
-        explicit EventActivityMap(Scheduler<T> &scheduler) : sched(scheduler) {
+        explicit EventActivityMap(Scheduler<T> &scheduler) 
+//        : sched(scheduler)
+        {
 //            numNodes = scheduler.numEvent();
-            activity.resize(sched.numEvent(), 1);
-            sched.setActivityMap(this);
+            numeric_activity.resize(scheduler.numEvent(), 1);
+            scheduler.setActivityMap(this);
+        }
+        
+        explicit EventActivityMap(Solver<T> &solver)
+//        : sched(scheduler)
+        {
+//            numNodes = scheduler.numEvent();
+            numeric_activity.resize(solver.numeric.size(), 1);
+            boolean_activity.resize(solver.boolean.size(), 1);
+            solver.setActivityMap(this);
         }
 
         
@@ -41,7 +55,7 @@ template<typename T>
          * @return
          */
         constexpr double get(const BoundConstraint<T>& c) const noexcept {
-            return activity[EVENT(c.l)];
+            return numeric_activity[EVENT(c.l)];
         }
         
         /**
@@ -51,7 +65,7 @@ template<typename T>
          * @return
          */
         constexpr double get(const DistanceConstraint<T>& c) const noexcept {
-            return activity[c.from] + activity[c.to];
+            return numeric_activity[c.from] + numeric_activity[c.to];
         }
         
         /**
@@ -60,11 +74,21 @@ template<typename T>
          * @param variable
          * @return
          */
-        constexpr double get(const var x) const noexcept {
+        constexpr double get(const var x, const Scheduler<T>& sched) const noexcept {
             return get(sched.getEdge(POS(x))) + get(sched.getEdge(NEG(x)));
 //            DistanceConstraint<T> left{sched.getEdge(POS(x))};
 //            DistanceConstraint<T> right{sched.getEdge(NEG(x))};
 //            return activity[left.from] + activity[left.to] + activity[right.from] + activity[right.to];
+        }
+        
+        
+        constexpr double get(const var_t x, const Solver<T>& solver) const noexcept {
+            auto a{boolean_activity[x]};
+            if(solver.boolean.hasSemantic(x)) {
+                a += get(solver.boolean.getEdge(true,x));
+                a += get(solver.boolean.getEdge(false,x));
+            }
+            return a;
         }
 
 //        /**
@@ -84,7 +108,10 @@ template<typename T>
          * @param functor
          */
         void for_each(const std::invocable<double &> auto &functor) {
-            for (auto &val : activity) {
+            for (auto &val : numeric_activity) {
+                functor(val);
+            }
+            for (auto &val : boolean_activity) {
                 functor(val);
             }
         }
@@ -94,17 +121,18 @@ template<typename T>
          */
 //        template<typename T>
         std::ostream& display(std::ostream& os) {
-            for(auto i{0}; i<sched.numEvent(); ++i) {
-                if(activity[i] > 1)
-                    os << " " << prettyEvent(i) << ":" << activity[i];
+            for(auto i{0}; i<numeric_activity.size(); ++i) {
+                if(numeric_activity[i] > 1)
+                    os << " " << i << ":" << numeric_activity[i];
             }
             return os;
         }
 
     protected:
 
-        Scheduler<T>& sched;
-        std::vector<double> activity{};
+//        Scheduler<T>& sched;
+        std::vector<double> numeric_activity{};
+        std::vector<double> boolean_activity{};
     };
 }
 

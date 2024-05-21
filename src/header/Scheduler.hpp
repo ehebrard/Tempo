@@ -328,7 +328,7 @@ private:
   std::optional<heuristics::HeuristicManager<T>> heuristic;
   std::optional<heuristics::ValueHeuristicsManager> valueHeuristic;
   RestartPolicy *restart_policy = nullptr;
-//  unsigned int restart_limit{static_cast<unsigned int>(-1)};
+  unsigned int restart_limit{static_cast<unsigned int>(-1)};
 
   // parameters
   double weight_unit{1};

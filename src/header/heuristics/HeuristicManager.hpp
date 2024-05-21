@@ -21,6 +21,9 @@
 namespace tempo {
     template<typename T>
     class Scheduler;
+
+template<typename T>
+class Solver;
 }
 
 /**
@@ -54,22 +57,20 @@ namespace tempo::heuristics {
        HeuristicManager(Scheduler<T> &scheduler, const Options &options) {
          switch (options.choice_point_heuristics) {
          case Options::ChoicePointHeuristics::Tightest:
-           impl.emplace(std::in_place_type<Tightest<T>>, scheduler);
+           impl.emplace(std::in_place_type<Tightest<T>>);
            break;
          case Options::ChoicePointHeuristics::VSIDS:
            if (options.learning) {
              impl.emplace(std::in_place_type<VSIDS<T>>, scheduler);
            } else // closest thing if not learning
-             impl.emplace(std::in_place_type<WeightedDegree<T>>, scheduler,
-                          false);
+             impl.emplace(std::in_place_type<WeightedDegree<T>>, scheduler);
            break;
          case Options::ChoicePointHeuristics::WeightedDegree:
-           impl.emplace(std::in_place_type<WeightedDegree<T>>, scheduler,
-                        false);
+           impl.emplace(std::in_place_type<WeightedDegree<T>>, scheduler);
            break;
-         case Options::ChoicePointHeuristics::WeightedCriticalPath:
-           impl.emplace(std::in_place_type<WeightedDegree<T>>, scheduler, true);
-           break;
+//         case Options::ChoicePointHeuristics::WeightedCriticalPath:
+//           impl.emplace(std::in_place_type<WeightedDegree<T>>, scheduler, true);
+//           break;
            //                case Options::ChoicePointHeuristics::EG_VSIDS:
            //                  impl.emplace(std::in_place_type<EpsilonGreedyVSIDS>,
            //                               options.vsids_epsilon, scheduler,
@@ -88,6 +89,43 @@ namespace tempo::heuristics {
            throw std::runtime_error("unknown heuristic type");
          }
        }
+        
+        
+        HeuristicManager(Solver<T> &solver, const Options &options) {
+          switch (options.choice_point_heuristics) {
+          case Options::ChoicePointHeuristics::Tightest:
+            impl.emplace(std::in_place_type<Tightest<T>>);
+            break;
+          case Options::ChoicePointHeuristics::VSIDS:
+            if (options.learning) {
+              impl.emplace(std::in_place_type<VSIDS<T>>, solver);
+            } else // closest thing if not learning
+              impl.emplace(std::in_place_type<WeightedDegree<T>>, solver);
+            break;
+          case Options::ChoicePointHeuristics::WeightedDegree:
+            impl.emplace(std::in_place_type<WeightedDegree<T>>, solver);
+            break;
+//          case Options::ChoicePointHeuristics::WeightedCriticalPath:
+//            impl.emplace(std::in_place_type<WeightedDegree<T>>, solver, true);
+//            break;
+            //                case Options::ChoicePointHeuristics::EG_VSIDS:
+            //                  impl.emplace(std::in_place_type<EpsilonGreedyVSIDS>,
+            //                               options.vsids_epsilon, scheduler,
+            //                               options, scheduler);
+            //                  break;
+            //
+            //#if __TORCH_ENABLED__
+            //                case Options::ChoicePointHeuristics::GNN_HeatMap:
+            //                    impl.emplace(std::in_place_type<HeatMap>,
+            //                    options.gnn_model_location,
+            //                    options.feature_extractor_conf,
+            //                                 scheduler);
+            //                    break;
+            //#endif
+          default:
+            throw std::runtime_error("unknown heuristic type");
+          }
+        }
 
         /**
          * Calls the internally stored heuristic with the given arguments
@@ -97,6 +135,10 @@ namespace tempo::heuristics {
          */
         auto nextChoicePoint(Scheduler<T> &scheduler) {
             return std::visit([&scheduler](auto &heuristic) { return heuristic.nextChoicePoint(scheduler); }, *impl);
+        }
+        
+        auto nextChoicePoint(Solver<T> &solver) {
+            return std::visit([&solver](auto &heuristic) { return heuristic.nextChoicePoint(solver); }, *impl);
         }
 
     private:
