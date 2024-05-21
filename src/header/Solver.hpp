@@ -17,7 +17,7 @@
 //#include "constraints/DisjunctiveEdgeFinding.hpp"
 #include "constraints/EdgeConstraint.hpp"
 //#include "constraints/Transitivity.hpp"
-//#include "heuristics/HeuristicManager.hpp"
+#include "heuristics/HeuristicManager.hpp"
 //#include "heuristics/impl/DecayingEventActivityMap.hpp"
 //#include "util/Heap.hpp"
 //#include "util/KillHandler.hpp"
@@ -27,10 +27,7 @@
 
 namespace tempo {
 
-// using index_t = uint32_t;
-
 template<typename T> class Solver;
-
 
 template<typename T>
 class BooleanStore {
@@ -344,8 +341,8 @@ private:
   //@{
   // the set of variables remaining to fix
 
-//  std::optional<heuristics::HeuristicManager<T>> heuristic;
-//  std::optional<heuristics::ValueHeuristicsManager> valueHeuristic;
+  std::optional<heuristics::HeuristicManager<T>> heuristic;
+  std::optional<heuristics::ValueHeuristicsManager> valueHeuristic;
 //  RestartPolicy *restart_policy = nullptr;
 //  unsigned int restart_limit{static_cast<unsigned int>(-1)};
     RestartManager<Solver<T>> restartPolicy;
