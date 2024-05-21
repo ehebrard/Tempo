@@ -93,18 +93,21 @@ namespace tempo::heuristics {
         
         HeuristicManager(Solver<T> &solver, const Options &options) {
           switch (options.choice_point_heuristics) {
-          case Options::ChoicePointHeuristics::Tightest:
-            impl.emplace(std::in_place_type<Tightest<T>>);
-            break;
-          case Options::ChoicePointHeuristics::VSIDS:
-            if (options.learning) {
-              impl.emplace(std::in_place_type<VSIDS<T>>, solver);
-            } else // closest thing if not learning
-              impl.emplace(std::in_place_type<WeightedDegree<T>>, solver);
-            break;
-          case Options::ChoicePointHeuristics::WeightedDegree:
-            impl.emplace(std::in_place_type<WeightedDegree<T>>, solver);
-            break;
+              case Options::ChoicePointHeuristics::Tightest: {
+                  impl.emplace(std::in_place_type<Tightest<T>>);
+                  break;
+              }
+              case Options::ChoicePointHeuristics::VSIDS: {
+                  if (options.learning) {
+                      impl.emplace(std::in_place_type<VSIDS<T>>, solver);
+                  } else // closest thing if not learning
+                      impl.emplace(std::in_place_type<WeightedDegree<T>>, solver);
+                  break;
+              }
+              case Options::ChoicePointHeuristics::WeightedDegree: {
+                  impl.emplace(std::in_place_type<WeightedDegree<T>>, solver);
+                  break;
+              }
 //          case Options::ChoicePointHeuristics::WeightedCriticalPath:
 //            impl.emplace(std::in_place_type<WeightedDegree<T>>, solver, true);
 //            break;

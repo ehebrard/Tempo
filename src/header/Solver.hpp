@@ -11,16 +11,17 @@
 #include "Global.hpp"
 #include "Literal.hpp"
 #include "Model.hpp"
-//#include "Objective.hpp"
+#include "Objective.hpp"
 #include "Restart.hpp"
 //#include "TemporalNetwork.hpp"
 //#include "constraints/DisjunctiveEdgeFinding.hpp"
 #include "constraints/EdgeConstraint.hpp"
 //#include "constraints/Transitivity.hpp"
 #include "heuristics/HeuristicManager.hpp"
-//#include "heuristics/impl/DecayingEventActivityMap.hpp"
+#include "heuristics/ValueHeuristicsManager.hpp"
+#include "heuristics/impl/DecayingEventActivityMap.hpp"
 //#include "util/Heap.hpp"
-//#include "util/KillHandler.hpp"
+#include "util/KillHandler.hpp"
 #include "util/Options.hpp"
 #include "util/SubscribableEvent.hpp"
 
@@ -166,7 +167,7 @@ public:
   ///@{
   mutable SubscribableEvent<const std::vector<Literal<T>> &>
       ClauseAdded; ///< triggered when a new clause is learned
-  mutable SubscribableEvent<Explanation &>
+  mutable SubscribableEvent<NewExplanation<T> &>
       ConflictEncountered; ///< triggered when a conflict is encountered
   mutable SubscribableEvent<> SearchRestarted; ///< triggered on restart
   //    mutable SubscribableEvent<T, T, std::function<T(event, event)>,
@@ -239,6 +240,11 @@ public:
   void trigger(const Literal<T> l);
   void propagate();
   boolean_state search();
+    void initializeSearch();
+    
+    boolean_state satisfiable();
+//    template <typename S> void optimize(S &objective);
+    
   void restart(const bool on_solution = false);
   void backtrack(NewExplanation<T> &e);
   void branchRight();
@@ -246,6 +252,8 @@ public:
   void analyze(NewExplanation<T> &e);
   //    int takeDecision(const Literal<T> l);
 
+    const SparseSet<var_t, Reversible<size_t>> &getBranch() const {return boolean_search_vars;}
+    
   int saveState();
   void restoreState(const int);
   void undo() override;
@@ -341,8 +349,8 @@ private:
   //@{
   // the set of variables remaining to fix
 
-//  std::optional<heuristics::HeuristicManager<T>> heuristic;
-//  std::optional<heuristics::ValueHeuristicsManager> valueHeuristic;
+  std::optional<heuristics::HeuristicManager<T>> heuristic;
+  std::optional<heuristics::ValueHeuristicsManager> valueHeuristic;
 //  RestartPolicy *restart_policy = nullptr;
 //  unsigned int restart_limit{static_cast<unsigned int>(-1)};
     RestartManager<Solver<T>> restartPolicy;
@@ -370,15 +378,15 @@ private:
   void printTrace() const;
 #endif
 
-  //    heuristics::impl::EventActivityMap<T> *activityMap{NULL};
+      heuristics::impl::EventActivityMap<T> *activityMap{NULL};
 
 public:
-  //    void setActivityMap(heuristics::impl::EventActivityMap<T> *map) {
-  //      activityMap = map;
-  //    }
-  //    heuristics::impl::EventActivityMap<T> *getActivityMap() {
-  //      return activityMap;
-  //    }
+      void setActivityMap(heuristics::impl::EventActivityMap<T> *map) {
+        activityMap = map;
+      }
+      heuristics::impl::EventActivityMap<T> *getActivityMap() {
+        return activityMap;
+      }
 
     double start_time;
     
@@ -814,8 +822,10 @@ template <typename T> void Solver<T>::restart(const bool on_solution) {
 
   SearchRestarted.trigger();
     
-    std::cout << std::setw(13) << "restart ";
-    displayProgress(std::cout);
+    if(options.verbosity > Options::NORMAL) {
+        std::cout << std::setw(13) << "restart ";
+        displayProgress(std::cout);
+    }
 }
 
 template <typename T> void Solver<T>::backtrack(NewExplanation<T> &e) {
@@ -835,7 +845,7 @@ template <typename T> void Solver<T>::backtrack(NewExplanation<T> &e) {
   }
 #endif
 
-  //  ConflictEncountered.trigger(e);
+    ConflictEncountered.trigger(e);
   propagation_queue.clear();
 
   ++num_backtracks;
@@ -1186,17 +1196,27 @@ template <typename T> void Solver<T>::branchRight() {
   set(deduction);
 }
 
-template <typename T> boolean_state Solver<T>::search() {
-    
-//    restart_policy->initialize(restart_limit);
-    displayHeader(std::cout);
+template <typename T> void Solver<T>::initializeSearch() {
+    heuristic.emplace(*this, options);
     restartPolicy.initialize();
     start_time = cpu_time();
+}
+
+template <typename T> boolean_state Solver<T>::satisfiable() {
+    if(options.verbosity >= Options::QUIET)
+        displayHeader(std::cout);
+    initializeSearch();
+    auto satisfiability{search()};
+    if(options.verbosity >= Options::QUIET)
+        displaySummary(std::cout, (satisfiability == True ? "sat " : (satisfiability == False ? "unsat " : "unknown ")));
+    return satisfiability;
+}
+
+template <typename T> boolean_state Solver<T>::search() {
 
   init_level = env.level();
   boolean_state satisfiability{Unknown};
-  while (satisfiability == Unknown) {
-    //        and not KillHandler::instance().signalReceived()) {
+  while (satisfiability == Unknown and not KillHandler::instance().signalReceived()) {
 
     ++num_choicepoints;
     try {
@@ -1211,9 +1231,9 @@ template <typename T> boolean_state Solver<T>::search() {
       } else {
 //        ++num_choicepoints;
 
-        var_t x = *(
-            boolean_search_vars.begin()); // heuristic->nextChoicePoint(*this);
-        //        lit d = valueHeuristic->choosePolarity(x, *this);
+          var_t x = heuristic->nextChoicePoint(*this);
+//        var_t x = *(boolean_search_vars.begin());
+//        //        lit d = valueHeuristic->choosePolarity(x, *this);
         Literal<T> d{boolean.getLiteral((random() % 2), x)};
         decisions.push_back(d);
 
@@ -1240,8 +1260,6 @@ template <typename T> boolean_state Solver<T>::search() {
       }
     }
   }
-    
-    displaySummary(std::cout, (satisfiability == True ? "SAT " : "UNSAT "));
 
   return satisfiability;
 }
@@ -1512,10 +1530,10 @@ template <typename T>
 std::ostream &Solver<T>::displayHeader(std::ostream &os,
                                           const int width) const {
   os << std::right << std::setw(width)
-     << " objective | failures | branches | clauses |  size | cpu" << std::endl
-     << std::left;
-  os << std::setfill('=') << std::setw(width) << "=" << std::setfill(' ')
-     << std::endl << std::right;
+    << " objective   failures   branches   clauses    size   cpu" << std::endl;
+//     << std::left;
+//  os << std::setfill('=') << std::setw(width) << "=" << std::setfill(' ')
+//     << std::endl << std::right;
   return os;
 }
 
@@ -1523,13 +1541,13 @@ template <typename T>
 std::ostream &Solver<T>::displaySummary(std::ostream &os,
                                            std::string msg) const {
 
-  os << std::setfill('=') << std::setw(59) << "\n" << std::setfill(' ');
+//  os << std::setfill('=') << std::setw(60) << "\n" << std::setfill(' ');
   //    auto offset{msg.size()/2};
   //    os << std::setfill('=') << std::setw(36 + offset) << msg << std::setw(36
   //    - offset)<< "\n" << std::setfill(' ');
   os << std::setw(13) << msg;
   displayProgress(os);
-  os << std::setfill('=') << std::setw(59) << "\n" << std::setfill(' ');
+//  os << std::setfill('=') << std::setw(60) << "\n" << std::setfill(' ');
   return os;
 }
 

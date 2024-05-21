@@ -67,16 +67,32 @@ namespace tempo::heuristics {
         }
         
         [[nodiscard]] double getCost(const var_t x, const Solver<T>& solver) const {
-            auto p{solver.boolean.getLiteral(true,x)};
-            auto n{solver.boolean.getLiteral(false,x)};
             
-            auto prec_a{solver.boolean.getEdge(p)};
-            auto prec_b{solver.boolean.getEdge(n)};
+//                std::cout << "var = " << x << "\n";
             
-            auto gap_a = solver.numeric.upper(prec_a.from) - solver.numeric.lower(prec_a.to);
-            auto gap_b = solver.numeric.upper(prec_b.from) - solver.numeric.lower(prec_b.to);
+            double dom{1};
             
-          return static_cast<double>(std::max(gap_a, gap_b)) / activity.get(x, solver);
+            if(solver.boolean.hasSemantic(x)) {
+                auto p{solver.boolean.getLiteral(true,x)};
+                auto n{solver.boolean.getLiteral(false,x)};
+                
+                //            std::cout << p << " <> " << n << std::endl;
+                
+                auto prec_a{solver.boolean.getEdge(p)};
+                auto prec_b{solver.boolean.getEdge(n)};
+                
+                
+                //            std::cout << prec_a << " <> " << prec_b << std::endl;
+                
+                auto gap_a = solver.numeric.upper(prec_a.from) - solver.numeric.lower(prec_a.to);
+                auto gap_b = solver.numeric.upper(prec_b.from) - solver.numeric.lower(prec_b.to);
+                
+                dom = static_cast<double>(std::max(gap_a, gap_b));
+            }
+            
+//            std::cout << "var = " << x << " act = " << activity.get(x, solver) << "\n";
+            
+          return dom / activity.get(x, solver);
         }
 
     private:

@@ -6,7 +6,7 @@
 #define TEMPO_TIGHTEST_HPP
 
 #include "BaseHeuristic.hpp"
-#include "Scheduler.hpp"
+//#include "Scheduler.hpp"
 
 namespace tempo::heuristics {
 

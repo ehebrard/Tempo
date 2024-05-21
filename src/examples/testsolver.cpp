@@ -242,7 +242,7 @@ void test3(Options &opt) {
 
   std::cout << S << std::endl;
 
-  auto sat{S.search()};
+  auto sat{S.satisfiable()};
 
   std::cout << sat << std::endl;
 }
@@ -260,10 +260,30 @@ void test4(Options &opt) {
 
     //  std::cout << S.clauses << std::endl;
 
-    auto sat{S.search()};
+    auto sat{S.satisfiable()};
 
     std::cout << "result = " << sat << " #fails = " << S.num_fails << std::endl;
 }
+
+//
+//void test5(Options &opt) {
+//
+//  Solver<> S(opt);
+//
+//    std::vector<BooleanVar<>> X;
+//    
+//  osp::parse(opt.instance_file, S, X);
+//    
+//    for (auto x : X)
+//      S.addToSearch(x);
+//
+//
+//    Makespan<int> makespan(S);
+//    auto opt{S.optimize(makespan)};
+//
+//    std::cout << "result = " << opt << " #fails = " << S.num_fails << std::endl;
+//}
+
 
 int main(int argc, char *argv[]) {
     

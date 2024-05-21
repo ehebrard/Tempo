@@ -45,6 +45,9 @@ template<typename T>
         }
         
         bool incrementActivity(const Literal<T> l, const Solver<T>& solver) noexcept {
+            
+//            std::cout << "increment activity of " << l << std::endl;
+            
             bool need_rescaling{false};
             if(l.isNumeric()) {
                 EventActivityMap<T>::numeric_activity[l.variable()] += increment;
@@ -129,6 +132,80 @@ template<typename T>
         
         template<class Iterable>
         void update(Iterable &clause, const Solver<T>& solver) noexcept {
+         
+//            if(solver.num_fails >= 20901)
+//                std::cout << "beg update " << (solver.num_fails) << "\n";
+//            
+            
+            bool normalize = false;
+
+            
+            for (const auto l : clause) {
+                
+//                if(solver.num_fails >= 20901)
+//                    std::cout << " " << l ;
+//                
+#ifdef DEBUG_HEURISTICS
+                std::cout << " increment activity because of " << l << std::endl;
+#endif
+                
+                normalize |= incrementActivity(l, solver);
+                
+            }
+            
+//            if(solver.num_fails >= 20901)
+//                std::cout << "\n--\n" ;
+//            
+#ifdef DEBUG_HEURISTICS
+            for(event x{0}; x<static_cast<event>(EventActivityMap<T>::numeric_activity.size()); ++x) {
+                std::cout << std::setw(6) << x;
+            }
+            std::cout << std::endl;
+            for(event x{0}; x<static_cast<event>(EventActivityMap<T>::numeric_activity.size()); ++x) {
+                std::cout << std::setw(6) << EventActivityMap<T>::numeric_activity[x];
+            }
+            std::cout << std::endl;
+ #endif
+
+            // protect against overflow
+            if (normalize) {
+                
+//                if(solver.num_fails >= 20901)
+//                std::cout << "\nnormalize (" << increment << ")\n" ;
+                
+#ifdef DEBUG_HEURISTICS
+                std::cout << "\nnormalize (" << increment << ")\n" ;
+#endif
+
+                auto [nl, nu] = std::ranges::minmax_element(this->numeric_activity);
+                auto [bl, bu] = std::ranges::minmax_element(this->boolean_activity);
+                double l{std::numeric_limits<double>::max()};
+                if(nl != this->numeric_activity.end())
+                    l = *nl;
+                if(bl != this->boolean_activity.end() and *bl < l)
+                    l = *bl;
+                
+                double u{-std::numeric_limits<double>::max()};
+                if(nu != this->numeric_activity.end())
+                    u = *nu;
+                if(bu != this->boolean_activity.end() and *bu > u)
+                    u = *bu;
+                
+//                auto l{std::min(*nl,*bl)};
+//                auto u{std::max(*nu,*bu)};
+                this->for_each([lb = l, gap = u - l](auto &val) {
+                  val = (val - lb) / gap * baseGap + baseIncrement;
+                });
+                
+                increment = baseIncrement;
+                
+            }
+
+            increment /= decay;
+            
+            
+//            if(solver.num_fails >= 20901)
+//                std::cout << "end update (" << solver.num_fails <<")\n";
             
         }
 

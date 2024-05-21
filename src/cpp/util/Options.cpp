@@ -82,7 +82,7 @@ tempo::Options tempo::parse(int argc, char *argv[]) {
   cmd.add<ValueArg<int>>(
       opt.verbosity, "", "verbosity",
       "verbosity level (0:silent,1:quiet,2:improvements only,3:verbose", false,
-      3, "int");
+      2, "int");
 
   cmd.add<ValueArg<int>>(opt.seed, "", "seed", "random seed", false, 12345,
                          "int");

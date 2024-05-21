@@ -86,7 +86,7 @@ public:
     template <typename T>
     requires(HeuristicImplementation<Impl,T>) auto nextChoicePoint(
         const Solver<T> &solver) {
-      var best_var{NoVar};
+      var_t best_var{Constant::NoVarx};
       auto &indexSequence = solver.getBranch();
       double minCost = std::numeric_limits<double>::infinity();
 
@@ -101,7 +101,7 @@ public:
                   }
       }
 
-              assert(best_var != NoVar);
+              assert(best_var != Constant::NoVarx);
               return best_var;
     }
 
