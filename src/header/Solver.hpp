@@ -341,8 +341,8 @@ private:
   //@{
   // the set of variables remaining to fix
 
-  std::optional<heuristics::HeuristicManager<T>> heuristic;
-  std::optional<heuristics::ValueHeuristicsManager> valueHeuristic;
+//  std::optional<heuristics::HeuristicManager<T>> heuristic;
+//  std::optional<heuristics::ValueHeuristicsManager> valueHeuristic;
 //  RestartPolicy *restart_policy = nullptr;
 //  unsigned int restart_limit{static_cast<unsigned int>(-1)};
     RestartManager<Solver<T>> restartPolicy;
