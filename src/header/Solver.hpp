@@ -62,11 +62,14 @@ public:
   const DistanceConstraint<T> &getEdge(const Literal<T> l) const;
 
   bool hasSemantic(const var_t x) const;
+    
+    void saveBestSolution() { best_solution = polarity; }
 
 protected:
   Solver<T> &solver;
 
   std::vector<bool> polarity;
+    std::vector<bool> best_solution;
 
   std::vector<info_t> edge_index;
 
@@ -243,7 +246,7 @@ public:
     void initializeSearch();
     
     boolean_state satisfiable();
-//    template <typename S> void optimize(S &objective);
+    template <typename S> void optimize(S &objective);
     
   void restart(const bool on_solution = false);
   void backtrack(NewExplanation<T> &e);
@@ -911,17 +914,7 @@ template <typename T> void Solver<T>::analyze(NewExplanation<T> &e) {
     }
 #endif
 
-    //      while(not lit_buffer.empty()) {
-    //          auto p{lit_buffer.back()};
-    //          auto p_lvl{propagationLevel(p)};
-    //
-    //          if(p_lvl < decision_lvl) {
-    //              conflict.push_back(p);
-    //          } else {
-    //              explored[p_lvl] = true;
-    //              ++num_lit;
-    //          }
-    //      }
+ 
 
     for (int i{static_cast<int>(conflict.size()) - 1}; i >= csize;) {
 
@@ -956,7 +949,6 @@ template <typename T> void Solver<T>::analyze(NewExplanation<T> &e) {
 
               std::swap(conflict[csize], conflict[i]);
               ++csize;
-              //              conflict.push_back(p);
             } else {
 
 #ifdef DBG_TRACE
@@ -979,73 +971,21 @@ template <typename T> void Solver<T>::analyze(NewExplanation<T> &e) {
     l = trail[li + 1];
     exp = reason[li + 1];
 
-    //#ifdef DBG_LEARNING
-    //      std::cout << " #=" << (num_lit) << std::endl ;
-    //#endif
-
-    // explored.reset(VAR(l));
     explored[li + 1] = false;
     --num_lit;
 
   } while (num_lit > 0);
 
-  index_t lvl{0};
-
   for (auto l : conflict) {
     explored[propagationLevel(l)] = false;
   }
-
-  //  if (not conflict.empty())
-  //    lvl = var_level[VAR(
-  //        *std::max_element(conflict_clause.begin(), conflict_clause.end(),
-  //                          [&](const lit p, const lit q) {
-  //                            return var_level[VAR(p)] < var_level[VAR(q)];
-  //                          }))];
-
-  // cout << "UIP is " << TODIMACS(l) << endl;
-
-  //  compute_level_count();
-
-  //  // minimization happens here
-  //  if (options.minimization > 0)
-  //    minimize_conflict();
-
-  //  clear_explored();
 
   conflict.push_back(~l);
   std::sort(conflict.begin(), conflict.end(),
             [&](const Literal<T> a, const Literal<T> b) {
               return propagationLevel(a) > propagationLevel(b);
             });
-  //  sort(conflict_clause.begin(), conflict_clause.end());
-
-  //    for(auto p : conflict) {
-  //        std::cout << p << ": " << propagationLevel(p) << std::endl;
-  //    }
-  //    exit(1);
-
-  //  update_activity();
-
-  // ++level_count[level()];
-
-  //  return lvl;
-
-//  for (auto l : conflict) {
-//    std::cout << " " << l;
-//  }
-//  std::cout << std::endl;
-//
-//  for (size_t i{0}; i < explored.size(); ++i) {
-//    assert(not explored[i]);
-//  }
-//
-//  std::vector<bool> duplicate(2 * boolean.size(), false);
-//  for (auto l : conflict) {
-//    if (not l.isNumeric()) {
-//      assert(not duplicate[l]);
-//      duplicate[l] = true;
-//    }
-//  }
+ 
 }
 
 template <typename T> void Solver<T>::learnConflict(NewExplanation<T> &e) {
@@ -1210,6 +1150,38 @@ template <typename T> boolean_state Solver<T>::satisfiable() {
     if(options.verbosity >= Options::QUIET)
         displaySummary(std::cout, (satisfiability == True ? "sat " : (satisfiability == False ? "unsat " : "unknown ")));
     return satisfiability;
+}
+
+template <typename T>
+template <typename S>
+void Solver<T>::optimize(S &objective) {
+
+  initializeSearch();
+    if(options.verbosity >= Options::QUIET)
+    displayHeader(std::cout);
+
+  while (objective.gap() and not KillHandler::instance().signalReceived()) {
+    auto satisfiability = search();
+    if (satisfiability == True) {
+      auto best{objective.value()};
+      if (options.verbosity >= Options::NORMAL) {
+        std::cout << std::setw(10) << best;
+        displayProgress(std::cout);
+      }
+        boolean.saveBestSolution();
+      restart(true);
+      try {
+        objective.setPrimal(best);
+      } catch (Failure &f) {
+        objective.setDual(objective.primalBound());
+      }
+    } else if (satisfiability == False) {
+      objective.setDual(objective.primalBound());
+    }
+  }
+
+    if(options.verbosity >= Options::QUIET)
+  displaySummary(std::cout, (objective.gap() > 0 ? "killed" : "optimal"));
 }
 
 template <typename T> boolean_state Solver<T>::search() {

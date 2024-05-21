@@ -49,8 +49,23 @@ public:
     return std::max(gap_a, gap_b);
   }
     
-    T getCost(var x, const Solver<T>& solver) const {
-         return 1.0;
+    T getCost(var_t x, const Solver<T>& solver) const {
+        double dom{1};
+        
+        if(solver.boolean.hasSemantic(x)) {
+            auto p{solver.boolean.getLiteral(true,x)};
+            auto n{solver.boolean.getLiteral(false,x)};
+            
+            auto prec_a{solver.boolean.getEdge(p)};
+            auto prec_b{solver.boolean.getEdge(n)};
+            
+            auto gap_a = solver.numeric.upper(prec_a.from) - solver.numeric.lower(prec_a.to);
+            auto gap_b = solver.numeric.upper(prec_b.from) - solver.numeric.lower(prec_b.to);
+            
+            dom = static_cast<double>(std::max(gap_a, gap_b));
+        }
+        
+      return dom;
     }
 
 //private:

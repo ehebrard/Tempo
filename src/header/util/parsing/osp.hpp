@@ -72,6 +72,88 @@ template <class DT> DT getUb(const ProblemInstance &data) {
   return ub;
 }
 
+template <typename M, typename J, typename R> void parse(const std::string &fn, M &model, J& schedule, std::vector<J>& jobs,  std::vector<R>& resources) {
+    using std::cerr;
+    try {
+        std::ifstream ifs(fn);
+        if (!ifs)
+            throw std::runtime_error("Could not open file for reading");
+        
+        bool gothints{false};
+        bool gotheader{false};
+        
+        int lowerBound;
+        int optimalSolution;
+        
+        std::string lt;
+        int ln{1};
+        size_t nj{0}, nm{0};
+        int dur;
+        
+        //        auto schedule{model.newJob()};
+        schedule = model.newJob();
+        model.set(schedule.start.after(0));
+        model.set(schedule.start.before(0));
+        
+//        int job{0};
+        for (std::string line; getline(ifs, line); ++ln) {
+            if (line[0] == '#')
+                continue;
+            
+            std::istringstream iss(line);
+            
+            if (!gothints) {
+                gothints = true;
+                char _;
+                iss >> lowerBound  >> _ >> optimalSolution;
+                continue;
+            } else if (!gotheader) {
+                iss >> nj;
+                iss >> nm;
+                
+                if (!iss) {
+                    cerr << "ERROR: could not parse header at line " << ln << "\n";
+                    exit(1);
+                }
+                                
+                resources.resize(nm);
+                
+                gotheader = true;
+            } else if (jobs.size() < nj) {
+                J prev;
+                
+                for (size_t mach{0}; mach < nm; ++mach) {
+                    iss >> dur;
+                    
+                    if (!iss) {
+                        cerr << "ERROR: line count at line " << ln << "\n";
+                        exit(1);
+                    }
+                    
+                    auto j{model.newJob(dur,dur)};
+                    
+                    if(mach == 0) {
+                        model.set(j.start.after(schedule.start));
+                    } else if(mach == nm-1) {
+                        model.set(j.end.before(schedule.end));
+                    } else {
+                        model.set(prev.end.before(j.start));
+                    }
+                    
+                    prev = j;
+                    
+                    jobs.push_back(j);
+                    resources[mach].push_back(j);
+                }
+            }
+        }
+    } catch (std::exception &e) {
+        std::cout.flush();
+        cerr << "ERROR: " << e.what() << std::endl;
+        exit(1);
+    }
+}
+
 const ProblemInstance read_instance(const std::string &fn) {
   using std::cerr;
   ProblemInstance ret;

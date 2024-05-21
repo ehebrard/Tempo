@@ -24,6 +24,7 @@ along with minicsp.  If not, see <http://www.gnu.org/licenses/>.
 
 
 #include "Solver.hpp"
+#include "util/parsing/osp.hpp"
 #include "util/parsing/dimacs.hpp"
 
 using namespace tempo;
@@ -64,6 +65,8 @@ void test1(Options& opt) {
     S.set(x1 >= float(100));
     
     S.set(b2 == true);
+    
+    S.set(x3 > float(-9999999.99));
     
     std::cout << S << std::endl;
     S.propagate();
@@ -190,12 +193,20 @@ void test2(Options& opt) {
       S.set(X[2] == false);
 
       std::cout << S << std::endl;
+        
+        S.restoreState(s2);
+
+        std::cout << S << std::endl;
+        
+        S.restoreState(s1);
+
+        std::cout << S << std::endl;
     }
 }
 
-void test3(Options &opt) {
+void test3(Options &options) {
 
-  Solver<> S(opt);
+  Solver<> S(options);
 
   auto schedule{S.newJob(0, 100)};
 
@@ -241,10 +252,12 @@ void test3(Options &opt) {
     S.addToSearch(x);
 
   std::cout << S << std::endl;
+    
+    MakespanObjective<int> duration(schedule, S);
+    
+    S.optimize(duration);
 
-  auto sat{S.satisfiable()};
-
-  std::cout << sat << std::endl;
+  std::cout << duration.value() << std::endl;
 }
 
 void test4(Options &opt) {
@@ -265,24 +278,30 @@ void test4(Options &opt) {
     std::cout << "result = " << sat << " #fails = " << S.num_fails << std::endl;
 }
 
-//
-//void test5(Options &opt) {
-//
-//  Solver<> S(opt);
-//
-//    std::vector<BooleanVar<>> X;
-//    
-//  osp::parse(opt.instance_file, S, X);
-//    
-//    for (auto x : X)
-//      S.addToSearch(x);
-//
-//
-//    Makespan<int> makespan(S);
-//    auto opt{S.optimize(makespan)};
-//
-//    std::cout << "result = " << opt << " #fails = " << S.num_fails << std::endl;
-//}
+
+void test5(Options &opt) {
+
+  Solver<> S(opt);
+
+    auto schedule{S.newJob()};
+    std::vector<DisjunctiveResource<>> resources;
+    std::vector<Job<>> jobs;
+    
+    osp::parse(opt.instance_file, S, schedule, jobs, resources);
+    
+    std::vector<BooleanVar<>> X;
+    for(auto &R : resources) {
+        R.createOrderVariables(S, X);
+    }
+        
+    for (auto x : X)
+      S.addToSearch(x);
+
+    MakespanObjective<int> duration(schedule, S);
+    
+    S.optimize(duration);
+    
+}
 
 
 int main(int argc, char *argv[]) {

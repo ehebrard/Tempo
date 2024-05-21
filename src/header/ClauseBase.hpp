@@ -1550,12 +1550,12 @@ template <typename T> void NewClauseBase<T>::forget_worst() {
 
 template <typename T>
 double NewClauseBase<T>::loosenessOverActivity(const Literal<T> l) {
-  return caller.looseness(l); // / caller.getActivityMap()->get(l);
+  return caller.looseness(l) / caller.getActivityMap()->get(l, caller);
 }
 
 template <typename T>
 double NewClauseBase<T>::inverseActivity(const Literal<T> l) {
-  return 1.0; // / caller.getActivityMap()->get(l);
+  return 1.0 / caller.getActivityMap()->get(l, caller);
 }
 
 template <typename T> double NewClauseBase<T>::looseness(const Literal<T> l) {

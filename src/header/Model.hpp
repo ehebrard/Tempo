@@ -19,6 +19,7 @@ template<typename T=int>
 class NumericVar {
 
 public:
+    NumericVar() {};
   NumericVar(const var_t i) : _id_(i) {}
 
   T min(Solver<T> &sc) const;
@@ -38,7 +39,7 @@ public:
   static bool isNumeric() { return true; }
 
 protected:
-  const var_t _id_;
+    var_t _id_{Constant::NoIndex};
 };
 
 
@@ -46,6 +47,7 @@ template<typename T=int>
 class BooleanVar {
 
 public:
+    BooleanVar() {}
   BooleanVar(const var_t i) : _id_(i) {}
 
   Literal<T> operator==(const bool t) const;
@@ -59,7 +61,7 @@ public:
   static bool isNumeric() { return false; }
 
 protected:
-  const var_t _id_;
+    var_t _id_{Constant::NoIndex};
 };
 
 template<typename T>
@@ -72,6 +74,7 @@ template<typename T=int>
 class DisjunctVar : public BooleanVar<T> {
 
 public:
+    DisjunctVar() {}
   DisjunctVar(const var_t i, const info_t d) : BooleanVar<T>(i), _edge_id_(d) {}
 
   Literal<T> operator==(const bool t) const;
@@ -81,7 +84,7 @@ public:
   static bool isNumeric() { return false; }
 
 private:
-  const info_t _edge_id_;
+    info_t _edge_id_{Constant::NoIndex};
 };
 
 template<typename T>
@@ -93,6 +96,7 @@ template<typename T=int>
 class TemporalVar : public NumericVar<T> {
 
 public:
+    TemporalVar() {}
   TemporalVar(const var_t i, const T o = 0) : NumericVar<T>(i), _offset(o) {}
 
   T earliest(Solver<T> &) const;
@@ -111,7 +115,7 @@ public:
   static bool isNumeric() { return true; }
 
 private:
-  const T _offset;
+    T _offset{0};
 };
 
 template<typename T>
@@ -214,9 +218,11 @@ std::ostream &operator<<(std::ostream &os, const TemporalVar<T> &x) {
 template<typename T=int>
 class Job {
 public:
-  Job(Solver<T> &s, const T mindur, const T maxdur);
     
-    Job(const Job<T>&) = default;
+    Job() {}
+  Job(Solver<T> &s, const T mindur=0, const T maxdur=Constant::Infinity<T>);
+    
+//    Job(const Job<T>&) = default;
 
     T getEarliestStart(Solver<T> &s) const;
     T getLatestStart(Solver<T> &s) const;
@@ -241,8 +247,8 @@ public:
     TemporalVar<T> end;
 
   private:
-    T min_duration;
-    T max_duration;
+    T min_duration{0};
+    T max_duration{Constant::Infinity<T>};
     BooleanVar<T> optional;
 };
 

@@ -1,5 +1,5 @@
-#ifndef __OSPREADER_HH
-#define __OSPREADER_HH
+#ifndef __DIMACSREADER_HH
+#define __DIMACSREADER_HH
 
 #include <fstream>
 #include <iostream>
