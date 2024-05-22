@@ -166,9 +166,9 @@ void GraphExplainer<T>::xplain(const Literal<T> l, const hint h,
   if (l == Solver<T>::Contradiction) {
     auto s{Literal<T>::sign(h)};
     auto x{Literal<T>::var(h)};
-    //        auto lcycle{solver.getLiteral(static_cast<index_t>(h))};
-    std::cout << "explain contradiction: negative cycle "
-              << (s == bound::lower ? "lb(x" : "ub(x") << x << ")" << std::endl;
+//    //        auto lcycle{solver.getLiteral(static_cast<index_t>(h))};
+//    std::cout << "explain contradiction: negative cycle "
+//              << (s == bound::lower ? "lb(x" : "ub(x") << x << ")" << std::endl;
 
     auto end_cycle{x};
 
@@ -302,8 +302,8 @@ void BoundExplainer<T>::xplain(const Literal<T> l, const hint h,
 
     var_t x{static_cast<var_t>(h)};
 
-    std::cout << "explain contradiction: wipe out on numeric var x" << x
-              << std::endl;
+//    std::cout << "explain contradiction: wipe out on numeric var x" << x
+//              << std::endl;
 
     Cl.push_back(solver.numeric.strongestLiteral(bound::lower, x));
     Cl.push_back(solver.numeric.strongestLiteral(bound::upper, x));

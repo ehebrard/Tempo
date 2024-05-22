@@ -311,6 +311,6 @@ int main(int argc, char *argv[]) {
     Options opt = tempo::parse(argc, argv);
 
     //    test3(opt);
-        test4(opt);
-//    test5(opt);
+//        test4(opt);
+    test5(opt);
 }
