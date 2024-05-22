@@ -1780,7 +1780,7 @@ void NewClauseBase<T>::xplain(const Literal<T> l, const hint h,
 
     for (auto p : reason) {
       //          std::cout << " > " << p << std::endl;
-      Cl.push_back(p);
+      Cl.push_back(~p);
     }
   } else {
 
@@ -1788,7 +1788,7 @@ void NewClauseBase<T>::xplain(const Literal<T> l, const hint h,
 
     for (auto p : reason)
       if (not l.sameVariable(p)) {
-        Cl.push_back(p);
+        Cl.push_back(~p);
       }
   }
 }

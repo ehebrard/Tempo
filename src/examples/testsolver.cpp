@@ -297,6 +297,8 @@ void test5(Options &opt) {
     for (auto x : X)
       S.addToSearch(x);
 
+    std::cout << S << std::endl;
+
     MakespanObjective<int> duration(schedule, S);
     
     S.optimize(duration);
@@ -308,5 +310,7 @@ int main(int argc, char *argv[]) {
     
     Options opt = tempo::parse(argc, argv);
 
-    test4(opt);
+    //    test3(opt);
+        test4(opt);
+//    test5(opt);
 }

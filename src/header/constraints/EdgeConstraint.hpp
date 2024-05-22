@@ -304,7 +304,7 @@ std::ostream &NewEdgeConstraint<T>::display(std::ostream &os) const {
 template <typename T>
 std::ostream &NewEdgeConstraint<T>::print_reason(std::ostream &os,
                                                  const hint) const {
-  os << "not[" << edge << "]";
+  os << "[" << edge << "]";
   return os;
 }
 
