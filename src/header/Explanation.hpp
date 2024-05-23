@@ -106,13 +106,13 @@ std::ostream &NewExplainer<T>::print_reason(std::ostream &os,
   return os;
 }
 
+template <typename T> int NewExplainer<T>::getType() const { return NOEXPL; }
+
 template <typename T>
 void NewExplanation<T>::explain(const Literal<T> l,
                                 std::vector<Literal<T>> &Cl) {
   expl->xplain(l, the_hint, Cl);
 }
-
-template <typename T> int NewExplainer<T>::getType() const { return NOEXPL; }
 
 template <typename T>
 std::ostream &NewExplanation<T>::display(std::ostream &os) const {

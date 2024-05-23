@@ -37,6 +37,7 @@ struct Literal {
     var_t variable() const;
 
     bool sameVariable(Literal<T> l) const;
+    bool operator==(const Literal<T> &l) const;
 
     T value() const;
     info_t constraint() const;
@@ -44,9 +45,11 @@ struct Literal {
     std::ostream& display(std::ostream &os) const;
     
     static var_t index(const bool sign, const var_t x) ;
-    
+    static var_t var(const var_t s);
+    static bool sign(const var_t s);
+
     var_t _id_{0};
-    std::variant<info_t,T> _data_{0};
+    std::variant<info_t,T> _data_;
 };
 
 template <typename T> Literal<T>::Literal(const var_t i, const std::variant<info_t,T> d) : _id_(i), _data_(d) {}
@@ -67,9 +70,23 @@ template <typename T> bool Literal<T>::sameVariable(Literal<T> l) const {
   return isNumeric() == l.isNumeric() and variable() == l.variable();
 }
 
+template <typename T> bool Literal<T>::operator==(const Literal<T> &l) const {
+  if (isNumeric()) {
+    if (not l.isNumeric())
+      return false;
+    return _id_ == l._id_ and value() == l.value();
+  } else if (l.isNumeric())
+    return false;
+  return _id_ == l._id_;
+}
+
 template <typename T> var_t Literal<T>::index(const bool sign, const var_t x) {
     return 2 * x + sign;
 }
+
+template <typename T> var_t Literal<T>::var(const var_t x) { return x / 2; }
+
+template <typename T> bool Literal<T>::sign(const var_t x) { return x & 1; }
 
 template <typename T> Literal<T>::operator info_t() const { return _id_; }
 // template <typename T> Literal<T>::operator int() const { return

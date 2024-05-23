@@ -14,6 +14,9 @@
 namespace tempo {
     template<typename T>
     class Scheduler;
+
+template<typename T>
+class Solver;
 }
 
 namespace tempo::heuristics {
@@ -23,9 +26,9 @@ namespace tempo::heuristics {
  * Requires a member function named getCost with valid signature
  * @tparam Impl
  */
-template <typename Impl>
-concept HeuristicImplementation = requires(Impl instance, var x) {
-  { instance.getCost(x) } -> std::convertible_to<double>;
+template <typename Impl, typename T>
+concept HeuristicImplementation = requires(Impl instance, var x, const Scheduler<T>& s) {
+  { instance.getCost(x,s) } -> std::convertible_to<double>;
 };
 
     /**
@@ -46,8 +49,8 @@ public:
    * choices can be made
    */
   template <typename T>
-  requires(HeuristicImplementation<Impl>) auto nextChoicePoint(
-      Scheduler<T> &scheduler) {
+  requires(HeuristicImplementation<Impl,T>) auto nextChoicePoint(
+      const Scheduler<T> &scheduler) {
     var best_var{NoVar};
     auto &indexSequence = scheduler.getBranch();
     double minCost = std::numeric_limits<double>::infinity();
@@ -55,7 +58,7 @@ public:
     assert(not indexSequence.empty());
 
     for (auto x : indexSequence) {
-      const auto cost = this->getImpl().getCost(x);
+      const auto cost = this->getImpl().getCost(x, scheduler);
 
 #ifdef DEBUG_HEURISTICS_CHOICE
                 std::cout << scheduler.getEdge(POS(x)) << "<>" << scheduler.getEdge(NEG(x)) << ": " << cost;
@@ -78,6 +81,29 @@ public:
             assert(best_var != NoVar);
             return best_var;
   }
+    
+    
+    template <typename T>
+    requires(HeuristicImplementation<Impl,T>) auto nextChoicePoint(
+        const Solver<T> &solver) {
+      var_t best_var{Constant::NoVarx};
+      auto &indexSequence = solver.getBranch();
+      double minCost = std::numeric_limits<double>::infinity();
+
+      assert(not indexSequence.empty());
+
+      for (auto x : indexSequence) {
+        const auto cost = this->getImpl().getCost(x,solver);
+                  
+                  if (cost < minCost) {
+                      minCost = cost;
+                      best_var = x;
+                  }
+      }
+
+              assert(best_var != Constant::NoVarx);
+              return best_var;
+    }
 
 private:
   BaseHeuristic() = default;

@@ -225,7 +225,7 @@ template <typename T> bool Transitivity<T>::notify_bound(const lit, const int) {
 }
 
 template <typename T>
-bool Transitivity<T>::notify_edge(const lit l, const int r) {
+bool Transitivity<T>::notify_edge(const lit, const int r) {
 
   auto x{scopex[r]};
   auto y{scopey[r]};

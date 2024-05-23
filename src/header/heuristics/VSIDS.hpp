@@ -32,10 +32,17 @@ namespace tempo::heuristics {
          * @param options command line options
          */
         explicit VSIDS(Scheduler<T> &scheduler) :
-                sched(scheduler),
-                activity(scheduler, sched.getOptions().vsids_decay),
+//                sched(scheduler),
+                activity(scheduler, scheduler.getOptions().vsids_decay),
                 handlerToken(scheduler.ClauseAdded.subscribe_handled(
-                        [this](const auto &arg) { this->activity.update(arg); })) {}
+                        [this,&scheduler](const auto &arg) { this->activity.update(arg, scheduler); })) {}
+        
+        
+        explicit VSIDS(Solver<T> &solver) :
+//                solver(s),
+                activity(solver, solver.getOptions().vsids_decay),
+                handlerToken(solver.ClauseAdded.subscribe_handled(
+                        [this,&solver](const auto &arg) { this->activity.update(arg, solver); })) {}
 
         // Copy and move are disabled. Otherwise, a call to the subscribed event handler will cause undefined behavior
         VSIDS(const VSIDS &) = delete;
@@ -51,16 +58,37 @@ namespace tempo::heuristics {
          * @return maximum of the distance between from and to in both directions in the temporal network divided by
          * the choice points activity
          */
-        [[nodiscard]] double getCost(const var x) const {
+        [[nodiscard]] double getCost(const var x, const Scheduler<T>& sched) const {
           auto prec_a{sched.getEdge(POS(x))};
           auto prec_b{sched.getEdge(NEG(x))};
           auto gap_a = sched.upper(prec_a.from) - sched.lower(prec_a.to);
           auto gap_b = sched.upper(prec_b.from) - sched.lower(prec_b.to);
-          return static_cast<double>(std::max(gap_a, gap_b)) / activity.get(x);
+          return static_cast<double>(std::max(gap_a, gap_b)) / activity.get(x, sched);
+        }
+        
+        [[nodiscard]] double getCost(const var_t x, const Solver<T>& solver) const {
+
+            //@TODO: there shoud be a normalization thingy and Boolean variables without semantic should get the highest value
+            double dom{1};
+            
+            if(solver.boolean.hasSemantic(x)) {
+                auto p{solver.boolean.getLiteral(true,x)};
+                auto n{solver.boolean.getLiteral(false,x)};
+                
+                auto prec_a{solver.boolean.getEdge(p)};
+                auto prec_b{solver.boolean.getEdge(n)};
+                
+                auto gap_a = solver.numeric.upper(prec_a.from) - solver.numeric.lower(prec_a.to);
+                auto gap_b = solver.numeric.upper(prec_b.from) - solver.numeric.lower(prec_b.to);
+                
+                dom = static_cast<double>(std::max(gap_a, gap_b));
+            }
+            
+          return dom / activity.get(x, solver);
         }
 
     private:
-      const Scheduler<T> &sched;
+//      const Scheduler<T> &sched;
       impl::DecayingEventActivityMap<T> activity;
       SubscriberHandle handlerToken;
     };

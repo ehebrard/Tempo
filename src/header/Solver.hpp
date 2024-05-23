@@ -11,26 +11,24 @@
 #include "Global.hpp"
 #include "Literal.hpp"
 #include "Model.hpp"
-//#include "Objective.hpp"
-//#include "Restart.hpp"
+#include "Objective.hpp"
+#include "Restart.hpp"
 //#include "TemporalNetwork.hpp"
 //#include "constraints/DisjunctiveEdgeFinding.hpp"
 #include "constraints/EdgeConstraint.hpp"
 //#include "constraints/Transitivity.hpp"
-//#include "heuristics/HeuristicManager.hpp"
-//#include "heuristics/impl/DecayingEventActivityMap.hpp"
+#include "heuristics/HeuristicManager.hpp"
+#include "heuristics/ValueHeuristicsManager.hpp"
+#include "heuristics/impl/DecayingEventActivityMap.hpp"
 //#include "util/Heap.hpp"
-//#include "util/KillHandler.hpp"
+#include "util/KillHandler.hpp"
 #include "util/Options.hpp"
 #include "util/SubscribableEvent.hpp"
 
 
 namespace tempo {
 
-// using index_t = uint32_t;
-
 template<typename T> class Solver;
-
 
 template<typename T>
 class BooleanStore {
@@ -62,13 +60,17 @@ public:
 
   const DistanceConstraint<T> &getEdge(const bool s, const var_t x) const;
   const DistanceConstraint<T> &getEdge(const Literal<T> l) const;
+  const DistanceConstraint<T> &getEdge(const index_t l) const;
 
   bool hasSemantic(const var_t x) const;
+    
+    void saveBestSolution() { best_solution = polarity; }
 
 protected:
   Solver<T> &solver;
 
   std::vector<bool> polarity;
+    std::vector<bool> best_solution;
 
   std::vector<info_t> edge_index;
 
@@ -133,8 +135,204 @@ private:
   //  std::vector<bool> visited;
 };
 
-template <typename T = int>
-class Solver : public ReversibleObject, public NewExplainer<T> {
+template <typename T = int> class GraphExplainer : public NewExplainer<T> {
+
+public:
+  GraphExplainer(Solver<T> &s);
+  void xplain(const Literal<T>, const hint, std::vector<Literal<T>> &) override;
+  std::ostream &print_reason(std::ostream &os, const hint) const override;
+  int getType() const override;
+
+private:
+  Solver<T> &solver;
+};
+
+template <typename T = int> class BoundExplainer : public NewExplainer<T> {
+
+public:
+  BoundExplainer(Solver<T> &s);
+  void xplain(const Literal<T>, const hint, std::vector<Literal<T>> &) override;
+  std::ostream &print_reason(std::ostream &os, const hint) const override;
+  int getType() const override;
+
+private:
+  Solver<T> &solver;
+};
+
+template <typename T>
+void GraphExplainer<T>::xplain(const Literal<T> l, const hint h,
+                               std::vector<Literal<T>> &Cl) {
+
+  if (l == Solver<T>::Contradiction) {
+    auto s{Literal<T>::sign(h)};
+    auto x{Literal<T>::var(h)};
+//    //        auto lcycle{solver.getLiteral(static_cast<index_t>(h))};
+//    std::cout << "explain contradiction: negative cycle "
+//              << (s == bound::lower ? "lb(x" : "ub(x") << x << ")" << std::endl;
+
+    auto end_cycle{x};
+
+    //        do {
+    //
+    //
+    //        }
+
+    //        exit(1);
+
+    do {
+      auto r_idx{solver.numeric.lastLitIndex(s, x)};
+      //            auto e{solver.getReason(r_idx)};
+      //
+      ////            std::cout << e << std::endl;
+      //
+      //            auto l_idx{e.the_hint};
+      auto le{solver.getLiteral(
+          solver.getReason(solver.numeric.lastLitIndex(s, x)).the_hint)};
+
+      //      std::cout << " ** " << le << std::endl;
+
+      if (le.isNumeric()) {
+        x = le.variable();
+        assert(s == le.sign());
+      } else {
+
+        Cl.push_back(le);
+        //            Cl.push_back(le);
+
+        auto c{solver.boolean.getEdge(le)};
+
+        //                    std::cout << c << std::endl;
+
+        if (s == bound::lower) {
+          assert(c.from == x);
+        } else {
+          assert(c.to == x);
+        }
+
+        x = (s == bound::lower ? c.to : c.from);
+      }
+
+      //        std::cout << " x <- " << x << std::endl;
+
+      //            exit(1);
+      //
+      ////            auto p{bounds.reason[bounds.getIndex(LIT(x,s))].the_hint};
+      ////
+      ////            if(LTYPE(p) == EDGE_LIT) {
+      ////                auto el{sched.getEdgeLiteral(FROM_GEN(p))};
+      ////                Cl.push_back(EDGE(el));
+      ////                x = (s == LOWER ? sched.getEdge(el).to
+      ////                                : sched.getEdge(el).from);
+      ////            } else {
+      ////                x = EVENT(bounds.getConstraint(FROM_GEN(p)).l);
+      ////            }
+      //
+    } while (x != end_cycle);
+    ////        while (EVENT(h) != x);
+
+    //    exit(1);
+
+  } else {
+
+    auto r_idx{static_cast<index_t>(h)};
+    auto le{solver.getLiteral(r_idx)};
+
+    Cl.push_back(le);
+
+    //      std::cout << " ** " << le << std::endl;
+
+    //      std::cout << "explain lit " << l << " due to lit " << le ;
+
+    if (not le.isNumeric()) {
+      auto c{solver.boolean.getEdge(le)};
+      //          std::cout << " <-> " << c << " and " << Literal<T>(l.sign(),
+      //          (l.sign() == bound::lower ? c.to : c.from), l.value() -
+      //          c.distance) << ": " ; if(l.sign() == bound::lower) {
+      //              std::cout << "-x" << c.to << " <= " << l.value() -
+      //              c.distance << std::endl;
+      //          } else {
+      //              std::cout << "x" << c.from << " <= " << l.value() -
+      //              c.distance << std::endl;
+      //          }
+      //
+      //          std::cout << solver.numeric.strongestLiteral(l.sign(),
+      //          (l.sign() == bound::lower ? c.to : c.from)) << std::endl;
+
+      Cl.push_back(Literal<T>(l.sign(),
+                              (l.sign() == bound::lower ? c.to : c.from),
+                              l.value() - c.distance));
+    }
+
+    //      std::cout << std::endl;
+    //
+    //      exit(1);
+
+    //      assert(false);
+  }
+}
+
+template <typename T>
+std::ostream &GraphExplainer<T>::print_reason(std::ostream &os,
+                                              const hint) const {
+  os << "precedence graph";
+  return os;
+}
+
+template <typename T> int GraphExplainer<T>::getType() const {
+  return CYCLEEXPL;
+}
+
+template <typename T>
+GraphExplainer<T>::GraphExplainer(Solver<T> &s) : solver(s) {}
+
+template <typename T>
+void BoundExplainer<T>::xplain(const Literal<T> l, const hint h,
+                               std::vector<Literal<T>> &Cl) {
+
+  if (l == Solver<T>::Contradiction) {
+
+    //      auto bt{SIGN(h)};
+    //      auto x{EVENT(h)};
+
+    //      auto r_idx{static_cast<index_t>(h)};
+    //      auto le{solver.getLiteral(r_idx)};
+    //
+    //
+    //      Cl.push_back(le);
+
+    var_t x{static_cast<var_t>(h)};
+
+//    std::cout << "explain contradiction: wipe out on numeric var x" << x
+//              << std::endl;
+
+    Cl.push_back(solver.numeric.strongestLiteral(bound::lower, x));
+    Cl.push_back(solver.numeric.strongestLiteral(bound::upper, x));
+
+    //      exit(1);
+
+  } else {
+    std::cout << "explain lit " << l << " due to constraint "
+              << solver.boolean.getEdge(static_cast<index_t>(h)) << std::endl;
+
+    exit(1);
+  }
+}
+
+template <typename T>
+std::ostream &BoundExplainer<T>::print_reason(std::ostream &os,
+                                              const hint) const {
+  os << "bounds";
+  return os;
+}
+
+template <typename T> int BoundExplainer<T>::getType() const {
+  return BOUNDEXPL;
+}
+
+template <typename T>
+BoundExplainer<T>::BoundExplainer(Solver<T> &s) : solver(s) {}
+
+template <typename T = int> class Solver : public ReversibleObject {
 
 public:
   /**
@@ -169,7 +367,7 @@ public:
   ///@{
   mutable SubscribableEvent<const std::vector<Literal<T>> &>
       ClauseAdded; ///< triggered when a new clause is learned
-  mutable SubscribableEvent<Explanation &>
+  mutable SubscribableEvent<NewExplanation<T> &>
       ConflictEncountered; ///< triggered when a conflict is encountered
   mutable SubscribableEvent<> SearchRestarted; ///< triggered on restart
   //    mutable SubscribableEvent<T, T, std::function<T(event, event)>,
@@ -212,6 +410,12 @@ public:
   // get the most recent Literal that entails l
   Literal<T> getImplicant(const Literal<T> l) const;
 
+  // get the explanation for the i-th literal
+  NewExplanation<T> getReason(const index_t i) const;
+
+  // get the explanation for the i-th literal
+  NewExplanation<T> getReason(const Literal<T> l) const;
+
   // get the index in the propagation queue of the last Literal involving
   // variable x
   index_t propagationLevel(const Literal<T> l) const;
@@ -242,22 +446,30 @@ public:
   void trigger(const Literal<T> l);
   void propagate();
   boolean_state search();
+    void initializeSearch();
+    
+    boolean_state satisfiable();
+    template <typename S> void optimize(S &objective);
+    
+  void restart(const bool on_solution = false);
   void backtrack(NewExplanation<T> &e);
   void branchRight();
   void learnConflict(NewExplanation<T> &e);
   void analyze(NewExplanation<T> &e);
   //    int takeDecision(const Literal<T> l);
 
+    const SparseSet<var_t, Reversible<size_t>> &getBranch() const {return boolean_search_vars;}
+    
   int saveState();
   void restoreState(const int);
   void undo() override;
   //@}
 
-  void xplain(const Literal<T>, const hint,
-              std::vector<Literal<T>> &) override; // {}
-  std::ostream &print_reason(std::ostream &os,
-                             const hint) const override; // { return os; }
-  //    int getType() const override;// { return CYCLEEXPL; }
+  //  void xplain(const Literal<T>, const hint,
+  //              std::vector<Literal<T>> &) override; // {}
+  //  std::ostream &print_reason(std::ostream &os,
+  //                             const hint) const override; // { return os; }
+  //  //    int getType() const override;// { return CYCLEEXPL; }
 
   BacktrackEnvironment &getEnv() { return env; }
   const Options &getOptions() const { return options; }
@@ -275,6 +487,12 @@ public:
   std::ostream &displayBranches(std::ostream &os) const;
   std::ostream &displayVariables(std::ostream &os) const;
   std::ostream &displayConstraints(std::ostream &os) const;
+    
+    std::ostream &displayProgress(std::ostream &os) const;
+    std::ostream &displayHeader(std::ostream &os, const int width = 59) const;
+    std::ostream &displaySummary(std::ostream &os, std::string msg) const;
+    
+    std::string pretty(const Literal<T> l) const;
   //@}
 
   BooleanStore<T> boolean;
@@ -339,11 +557,20 @@ private:
   //@{
   // the set of variables remaining to fix
 
+  std::optional<heuristics::HeuristicManager<T>> heuristic;
+  std::optional<heuristics::ValueHeuristicsManager> valueHeuristic;
+//  RestartPolicy *restart_policy = nullptr;
+//  unsigned int restart_limit{static_cast<unsigned int>(-1)};
+    RestartManager<Solver<T>> restartPolicy;
+
 public:
   SparseSet<var_t, Reversible<size_t>> boolean_search_vars;
   SparseSet<var_t, Reversible<size_t>> numeric_search_vars;
 
 private:
+  GraphExplainer<T> graph_exp;
+  BoundExplainer<T> bound_exp;
+
   // current polarity of the Boolean variables
   //  std::vector<bool> polarity;
   //  // copy of the best solution so far
@@ -362,16 +589,18 @@ private:
   void printTrace() const;
 #endif
 
-  //    heuristics::impl::EventActivityMap<T> *activityMap{NULL};
+      heuristics::impl::EventActivityMap<T> *activityMap{NULL};
 
 public:
-  //    void setActivityMap(heuristics::impl::EventActivityMap<T> *map) {
-  //      activityMap = map;
-  //    }
-  //    heuristics::impl::EventActivityMap<T> *getActivityMap() {
-  //      return activityMap;
-  //    }
+      void setActivityMap(heuristics::impl::EventActivityMap<T> *map) {
+        activityMap = map;
+      }
+      heuristics::impl::EventActivityMap<T> *getActivityMap() {
+        return activityMap;
+      }
 
+    double start_time;
+    
   long unsigned int num_fails{0};
   long unsigned int num_choicepoints{0};
   long unsigned int num_backtracks{0};
@@ -425,6 +654,11 @@ BooleanStore<T>::getEdge(const Literal<T> l) const {
   return edges[l.constraint()];
 }
 
+template <typename T>
+const DistanceConstraint<T> &BooleanStore<T>::getEdge(const index_t i) const {
+  return edges[i];
+}
+
 template <typename T> bool BooleanStore<T>::hasSemantic(const var_t x) const {
   return edge_index[x] != Constant::NoSemantic;
 }
@@ -462,12 +696,12 @@ DisjunctVar<T> BooleanStore<T>::newDisjunct(const DistanceConstraint<T> &d1,
 }
 
 template <typename T> void BooleanStore<T>::set(Literal<T> l) {
-  propagation_level[l.variable()] = solver.numLiteral();
+  propagation_level[l.variable()] = (solver.numLiteral() - 1);
   polarity[l] = true;
   if (l.hasSemantic()) {
     assert(l.constraint() == (edge_index[l.variable()] + l.sign()));
     solver.set(edges[l.constraint()],
-               static_cast<index_t>(solver.numLiteral()));
+               static_cast<index_t>(solver.numLiteral() - 1));
   }
   assert(l.hasSemantic() or edge_index[l.variable()] == Constant::NoSemantic);
 }
@@ -560,7 +794,7 @@ template <typename T> void NumericStore<T>::set(Literal<T> l) {
   assert(bound[s][v] > l.value());
 
   bound[s][v] = l.value();
-  bound_index[s][v].push_back(static_cast<index_t>(solver.numLiteral()));
+  bound_index[s][v].push_back(static_cast<index_t>(solver.numLiteral() - 1));
   //    return true;
   //  }
   //  return false;
@@ -636,8 +870,9 @@ Solver<T>::Solver(Options opt)
     : ReversibleObject(&env), boolean(*this), numeric(*this), clauses(*this),
       core(&env), options(std::move(opt)), propag_pointer(1, &env),
       propagation_queue(constraints), boolean_constraints(&env),
-      numeric_constraints(&env), boolean_search_vars(0, &env),
-      numeric_search_vars(0, &env) {
+      numeric_constraints(&env), restartPolicy(*this),
+      boolean_search_vars(0, &env), numeric_search_vars(0, &env),
+      graph_exp(*this), bound_exp(*this) {
   trail.emplace_back(Constant::NoVarx, Constant::Infinity<T>);
   reason.push_back(Constant::NewNoReason<T>);
   seed(options.seed);
@@ -655,6 +890,7 @@ template <typename T>
 DisjunctVar<T> Solver<T>::newDisjunct(const DistanceConstraint<T> &d1,
                                       const DistanceConstraint<T> &d2) {
   auto x{boolean.newDisjunct(d1, d2)};
+  clauses.newBooleanVar(x.id());
   boolean_constraints.resize(std::max(numConstraint(), 2 * boolean.size()));
 
   post(new NewEdgeConstraint<T>(*this, boolean.getLiteral(true, x)));
@@ -691,6 +927,16 @@ size_t Solver<T>::numLiteral() const {
   return trail.size();
 }
 
+template <typename T>
+NewExplanation<T> Solver<T>::getReason(const index_t i) const {
+  return reason[i];
+}
+
+template <typename T>
+NewExplanation<T> Solver<T>::getReason(const Literal<T> l) const {
+  return reason[getReason(propagationLevel(l))];
+}
+
 template <typename T> Literal<T> Solver<T>::getLiteral(const index_t i) const {
   return trail[i];
 }
@@ -711,12 +957,6 @@ void Solver<T>::set(const DistanceConstraint<T> &c, const index_t r) {
 template <typename T>
 void Solver<T>::set(Literal<T> l, const NewExplanation<T> &e) {
 
-#ifdef DBG_TRACE
-  if (DBG_BOUND and (DBG_TRACE & PROPAGATION)) {
-    std::cout << "set literal " << l << " b/c " << e << std::endl;
-  }
-#endif
-
   if (l.isNumeric()) {
     setNumeric(l, e);
   } else {
@@ -728,13 +968,34 @@ template <typename T>
 void Solver<T>::setNumeric(Literal<T> l, const NewExplanation<T> &e,
                            const bool do_update) {
 
-  if (not numeric.satisfied(l)) {
-    if (numeric.falsified(l))
-      throw NewFailure<T>(e);
+//#ifdef DBG_TRACE
+//  if (DBG_BOUND and (DBG_TRACE & PROPAGATION)) {
+//    std::cout << "set num literal " << l << " b/c " << e << "?" << std::endl;
+//  }
+//#endif
 
-    numeric.set(l);
+  if (not numeric.satisfied(l)) {
+
+#ifdef DBG_TRACE
+    if (DBG_BOUND and (DBG_TRACE & PROPAGATION)) {
+      std::cout << "set " << pretty(l) << " b/c " << e << std::endl;
+    }
+#endif
+
     reason.emplace_back(e);
     trail.push_back(l);
+    numeric.set(l);
+
+    if (numeric.falsified(l)) {
+
+#ifdef DBG_TRACE
+      if (DBG_BOUND and (DBG_TRACE & PROPAGATION)) {
+        std::cout << "failure* on " << pretty(l) << " b/c " << e << std::endl;
+      }
+#endif
+
+      throw NewFailure<T>({&bound_exp, static_cast<hint>(l.variable())});
+    }
 
     if (do_update) {
       if (l.sign() == bound::upper) {
@@ -744,18 +1005,41 @@ void Solver<T>::setNumeric(Literal<T> l, const NewExplanation<T> &e,
       }
     }
   }
+
+  //    std::cout << "here\n";
 }
 
 template <typename T>
 void Solver<T>::setBoolean(Literal<T> l, const NewExplanation<T> &e) {
+
+//#ifdef DBG_TRACE
+//  if (DBG_BOUND and (DBG_TRACE & PROPAGATION)) {
+//    std::cout << "set bool literal " << l << " b/c " << e << "?" << std::endl;
+//  }
+//#endif
+
   assert(not boolean.satisfied(l));
 
-  if (boolean.falsified(l))
-    throw NewFailure<T>(e);
+  if (boolean.falsified(l)) {
 
-  boolean.set(l);
+#ifdef DBG_TRACE
+    if (DBG_BOUND and (DBG_TRACE & PROPAGATION)) {
+      std::cout << "failure on " << pretty(l) << " b/c " << e << std::endl;
+    }
+#endif
+
+    throw NewFailure<T>(e);
+  }
+
+#ifdef DBG_TRACE
+  if (DBG_BOUND and (DBG_TRACE & PROPAGATION)) {
+    std::cout << "set " << pretty(l) << " b/c " << e << std::endl;
+  }
+#endif
+
   reason.emplace_back(e);
   trail.push_back(l);
+  boolean.set(l);
 
   if (boolean_search_vars.has(l.variable()))
     boolean_search_vars.remove_back(l.variable());
@@ -766,7 +1050,7 @@ void Solver<T>::boundClosure(const var_t x, const var_t y, const T d,
                              const index_t r) {
   // closure w.r.t. 0 (0 -> x -(d)-> y -> 0)
 
-  NewExplanation<T> e{this, static_cast<hint>(r)};
+  NewExplanation<T> e{&graph_exp, static_cast<hint>(r)};
   if (r == Constant::NoIndex)
     e = Constant::NewNoReason<T>;
 
@@ -779,23 +1063,37 @@ void Solver<T>::boundClosure(const var_t x, const var_t y, const T d,
   }
 }
 
-// template<typename T>
-// void Solver<T>::restart(const bool on_solution) {
-//   env.restore(init_level);
-//   undo();
-//
-//   if (on_solution) {
-//     restart_policy->initialize(restart_limit);
-//     restart_limit += num_fails;
-//     //      std::cout << num_fails << " / " << restart_limit << std::endl;
-//   } else {
-//     restart_policy->reset(restart_limit);
-//     //      std::cout << num_fails << " / " << restart_limit << std::endl;
-//     //    displayStats(std::cout, "             ");
-//   }
-//
-////  SearchRestarted.trigger();
-//}
+template <typename T> void Solver<T>::restart(const bool on_solution) {
+  env.restore(init_level);
+    decisions.clear();
+    
+//    std::cout << "restart\n" ;
+//    displayBranches(std::cout);
+    
+  undo();
+//    displayBranches(std::cout);
+    
+//    exit(1);
+
+  if (on_solution) {
+      restartPolicy.initialize();
+//    restart_policy->initialize(restart_limit);
+//    restart_limit += num_fails;
+//    //      std::cout << num_fails << " / " << restart_limit << std::endl;
+  } else {
+      restartPolicy.reset();
+//    restart_policy->reset(restart_limit);
+//    //      std::cout << num_fails << " / " << restart_limit << std::endl;
+//    //    displayStats(std::cout, "             ");
+  }
+
+  SearchRestarted.trigger();
+    
+    if(options.verbosity > Options::NORMAL) {
+        std::cout << std::setw(13) << "restart ";
+        displayProgress(std::cout);
+    }
+}
 
 template <typename T> void Solver<T>::backtrack(NewExplanation<T> &e) {
 
@@ -804,7 +1102,7 @@ template <typename T> void Solver<T>::backtrack(NewExplanation<T> &e) {
 #ifdef DBG_TRACE
   if (DBG_BOUND and (DBG_TRACE & SEARCH)) {
     //    conflict_set.clear();
-    std::cout << "failure @level " << env.level() << "/" << init_level
+    std::cout << "failure @level " << env.level() //<< "/" << init_level
               << " b/c " << e << ":\n";
     //    e.explain(NoLit, conflict_set);
     //    for (auto gl : conflict_set) {
@@ -814,7 +1112,7 @@ template <typename T> void Solver<T>::backtrack(NewExplanation<T> &e) {
   }
 #endif
 
-  //  ConflictEncountered.trigger(e);
+    ConflictEncountered.trigger(e);
   propagation_queue.clear();
 
   ++num_backtracks;
@@ -851,6 +1149,7 @@ template <typename T> void Solver<T>::analyze(NewExplanation<T> &e) {
   explored.resize(trail.size(), false);
   conflict.clear();
   auto decision_lvl{propagationLevel(decisions.back())};
+    auto fact_lvl{propagationLevel(decisions[0])};
 
   int num_lit{0};
   index_t li{static_cast<index_t>(trail.size() - 1)};
@@ -866,31 +1165,20 @@ template <typename T> void Solver<T>::analyze(NewExplanation<T> &e) {
   NewExplanation<T> &exp = e;
   do {
     int csize{static_cast<int>(conflict.size())};
-    exp.explain(l, conflict);
 
 #ifdef DBG_TRACE
-    if (DBG_BOUND and (DBG_TRACE & SEARCH)) {
+    if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
       std::cout << "resolve ";
       if (l == Contradiction) {
         std::cout << "contradiction";
       } else {
-        std::cout << l;
+        std::cout << pretty(l);
       }
       std::cout << " by " << exp << std::endl;
     }
 #endif
 
-    //      while(not lit_buffer.empty()) {
-    //          auto p{lit_buffer.back()};
-    //          auto p_lvl{propagationLevel(p)};
-    //
-    //          if(p_lvl < decision_lvl) {
-    //              conflict.push_back(p);
-    //          } else {
-    //              explored[p_lvl] = true;
-    //              ++num_lit;
-    //          }
-    //      }
+    exp.explain(l, conflict);
 
     for (int i{static_cast<int>(conflict.size()) - 1}; i >= csize;) {
 
@@ -898,38 +1186,54 @@ template <typename T> void Solver<T>::analyze(NewExplanation<T> &e) {
       auto p_lvl{propagationLevel(p)};
 
 #ifdef DBG_TRACE
-      if (DBG_BOUND and (DBG_TRACE & SEARCH)) {
-        std::cout << " ** " << p << " (" << p_lvl << "/" << decision_lvl << ")";
+      if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+        std::cout << " ** " << pretty(p) << " (" << p_lvl << "/" << decision_lvl << ")";
       }
 #endif
-
-      if (not explored[p_lvl]) {
-        if (p_lvl < decision_lvl) {
+        if(p_lvl < fact_lvl) {
+            
+#ifdef DBG_TRACE
+            if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+              std::cout << " => ground fact\n";
+            }
+#endif
+            --i;
+            
+        } else if (explored[p_lvl]) {
 
 #ifdef DBG_TRACE
-          if (DBG_BOUND and (DBG_TRACE & SEARCH)) {
-            std::cout << " => keep in conflict!\n";
-          }
+            if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+              std::cout << " => already explored\n";
+            }
 #endif
 
-          std::swap(conflict[csize], conflict[i]);
-          ++csize;
-          //              conflict.push_back(p);
-        } else {
+            --i;
+
+          } else {
+            if (p_lvl < decision_lvl) {
 
 #ifdef DBG_TRACE
-          if (DBG_BOUND and (DBG_TRACE & SEARCH)) {
-            std::cout << " => to explore\n";
-          }
+              if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+                std::cout << " => keep in conflict!\n";
+              }
 #endif
 
-          ++num_lit;
-          --i;
-        }
-      } else
-        --i;
+              std::swap(conflict[csize], conflict[i]);
+              ++csize;
+            } else {
 
-      explored[p_lvl] = true;
+#ifdef DBG_TRACE
+              if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+                std::cout << " => to explore\n";
+              }
+#endif
+
+              ++num_lit;
+              --i;
+            }
+          }
+
+          explored[p_lvl] = true;
     }
     conflict.resize(csize);
 
@@ -938,73 +1242,26 @@ template <typename T> void Solver<T>::analyze(NewExplanation<T> &e) {
     l = trail[li + 1];
     exp = reason[li + 1];
 
-    //#ifdef DBG_LEARNING
-    //      std::cout << " #=" << (num_lit) << std::endl ;
-    //#endif
-
-    // explored.reset(VAR(l));
     explored[li + 1] = false;
     --num_lit;
 
   } while (num_lit > 0);
 
-  index_t lvl{0};
-
-  for (auto l : conflict) {
-    explored[propagationLevel(l)] = false;
+  for (auto &p : conflict) {
+    explored[propagationLevel(p)] = false;
   }
 
-  //  if (not conflict.empty())
-  //    lvl = var_level[VAR(
-  //        *std::max_element(conflict_clause.begin(), conflict_clause.end(),
-  //                          [&](const lit p, const lit q) {
-  //                            return var_level[VAR(p)] < var_level[VAR(q)];
-  //                          }))];
+  conflict.push_back(l);
 
-  // cout << "UIP is " << TODIMACS(l) << endl;
-
-  //  compute_level_count();
-
-  //  // minimization happens here
-  //  if (options.minimization > 0)
-  //    minimize_conflict();
-
-  //  clear_explored();
-
-  conflict.push_back(~l);
   std::sort(conflict.begin(), conflict.end(),
             [&](const Literal<T> a, const Literal<T> b) {
               return propagationLevel(a) > propagationLevel(b);
             });
-  //  sort(conflict_clause.begin(), conflict_clause.end());
-
-  //    for(auto p : conflict) {
-  //        std::cout << p << ": " << propagationLevel(p) << std::endl;
-  //    }
-  //    exit(1);
-
-  //  update_activity();
-
-  // ++level_count[level()];
-
-  //  return lvl;
-
-//  for (auto l : conflict) {
-//    std::cout << " " << l;
-//  }
-//  std::cout << std::endl;
-//
-//  for (size_t i{0}; i < explored.size(); ++i) {
-//    assert(not explored[i]);
-//  }
-//
-//  std::vector<bool> duplicate(2 * boolean.size(), false);
-//  for (auto l : conflict) {
-//    if (not l.isNumeric()) {
-//      assert(not duplicate[l]);
-//      duplicate[l] = true;
-//    }
-//  }
+    
+    for (auto &p : conflict) {
+      p = ~p;
+    }
+ 
 }
 
 template <typename T> void Solver<T>::learnConflict(NewExplanation<T> &e) {
@@ -1022,25 +1279,45 @@ template <typename T> void Solver<T>::learnConflict(NewExplanation<T> &e) {
   //    return decisionLevel(a) > decisionLevel(b);
   //  });
 
+  //////    if(conflict.size() < 2) {
+  //        std::cout << "lvl=" << env.level() << std::endl;
+  //        for(auto l : conflict) {
+  //            std::cout << " " << l << " (" << propagationLevel(l) << ")";
+  //        }
+  //        std::cout << std::endl;
+  //////    }
+
   ClauseAdded.trigger(conflict);
 
   assert(propagationLevel(conflict[0]) >= propagationLevel(decisions.back()));
 
-  auto uip_lvl{propagationLevel(conflict[1])};
   int jump{1};
-  while (propagationLevel(decisions[decisions.size() - 1 - jump]) > uip_lvl) {
-    //        std::cout << decisions[decisions.size() - 1 - jump] << " ("
-    //        << propagationLevel(decisions[decisions.size() - 1 - jump]) <<
-    //        ") > "
-    //        << uip_lvl << std::endl;
-    ++jump;
-    decisions.pop_back();
+
+    
+//    std::cout << "conflict.size(): " << conflict.size() << std::endl;
+//    std::cout << "decisions.size(): " << decisions.size() << std::endl;
+//    
+  if (conflict.size() == 1 or decisions.size() == 1) {
+    jump = static_cast<int>(decisions.size());
+  } else {
+    auto uip_lvl{propagationLevel(conflict[1])};
+    for (auto d{decisions.rbegin() + jump};
+         d != decisions.rend() and propagationLevel(*d) > uip_lvl; ++d) {
+      ++jump;
+    }
   }
-  decisions.pop_back();
+    
+//    std::cout << "lvl=" << env.level() << " jump: " << jump << " (|decisions|=" << decisions.size() << ")"<< std::endl;
+//    if(jump == 15)
+//        exit(1);
+
+//  decisions.resize(decisions.size() - jump);
+    
+    restoreState(env.level() - jump);
 
 #ifdef DBG_TRACE
   if (DBG_BOUND and (DBG_TRACE & SEARCH)) {
-    std::cout << "backjump " << jump << " levels\n";
+    std::cout << "backjump " << jump << " levels (|decisions|=" << decisions.size() << ")\n";
   }
 #endif
 
@@ -1073,7 +1350,24 @@ template <typename T> void Solver<T>::learnConflict(NewExplanation<T> &e) {
   //    *cl_file << std::endl;
   //#endif
 
-  restoreState(env.level() - jump);
+  
+    
+//            std::cout << "learn" ;
+//            for(auto l : conflict) {
+//                std::cout << " " << pretty(l) ;
+//            }
+//    std::cout << std::endl << *this << std::endl;
+    
+
+  assert(not conflict[0].isNumeric() or not numeric.falsified(conflict[0]));
+  assert(not conflict[0].isNumeric() or not numeric.satisfied(conflict[0]));
+  assert(conflict[0].isNumeric() or not boolean.falsified(conflict[0]));
+  assert(conflict[0].isNumeric() or not boolean.satisfied(conflict[0]));
+
+  for (size_t i{1}; i < conflict.size(); ++i) {
+    assert(conflict[0].isNumeric() or boolean.falsified(conflict[i]));
+    assert(not conflict[0].isNumeric() or numeric.falsified(conflict[i]));
+  }
 
 #ifdef DBG_TRACE
   auto cl =
@@ -1112,12 +1406,59 @@ template <typename T> void Solver<T>::branchRight() {
   set(deduction);
 }
 
+template <typename T> void Solver<T>::initializeSearch() {
+    heuristic.emplace(*this, options);
+    restartPolicy.initialize();
+    start_time = cpu_time();
+}
+
+template <typename T> boolean_state Solver<T>::satisfiable() {
+    if(options.verbosity >= Options::QUIET)
+        displayHeader(std::cout);
+    initializeSearch();
+    auto satisfiability{search()};
+    if(options.verbosity >= Options::QUIET)
+        displaySummary(std::cout, (satisfiability == True ? "sat " : (satisfiability == False ? "unsat " : "unknown ")));
+    return satisfiability;
+}
+
+template <typename T>
+template <typename S>
+void Solver<T>::optimize(S &objective) {
+
+  initializeSearch();
+    if(options.verbosity >= Options::QUIET)
+    displayHeader(std::cout);
+
+  while (objective.gap() and not KillHandler::instance().signalReceived()) {
+    auto satisfiability = search();
+    if (satisfiability == True) {
+      auto best{objective.value()};
+      if (options.verbosity >= Options::NORMAL) {
+        std::cout << std::setw(10) << best;
+        displayProgress(std::cout);
+      }
+        boolean.saveBestSolution();
+      restart(true);
+      try {
+        objective.setPrimal(best);
+      } catch (Failure &f) {
+        objective.setDual(objective.primalBound());
+      }
+    } else if (satisfiability == False) {
+      objective.setDual(objective.primalBound());
+    }
+  }
+
+    if(options.verbosity >= Options::QUIET)
+  displaySummary(std::cout, (objective.gap() > 0 ? "killed" : "optimal"));
+}
+
 template <typename T> boolean_state Solver<T>::search() {
 
   init_level = env.level();
   boolean_state satisfiability{Unknown};
-  while (satisfiability == Unknown) {
-    //        and not KillHandler::instance().signalReceived()) {
+  while (satisfiability == Unknown and not KillHandler::instance().signalReceived()) {
 
     ++num_choicepoints;
     try {
@@ -1129,12 +1470,20 @@ template <typename T> boolean_state Solver<T>::search() {
       // all resource constraints are accounted for => a solution has been found
       if (boolean_search_vars.empty()) {
         satisfiability = True;
+          
+#ifdef DBG_TRACE
+        if (DBG_BOUND) {
+          std::cout << "--- new solution [i=" << num_choicepoints << "] ---\n";
+          printTrace();
+        }
+#endif
+          
       } else {
-        ++num_choicepoints;
+//        ++num_choicepoints;
 
-        var_t x = *(
-            boolean_search_vars.begin()); // heuristic->nextChoicePoint(*this);
-        //        lit d = valueHeuristic->choosePolarity(x, *this);
+          var_t x = heuristic->nextChoicePoint(*this);
+//        var_t x = *(boolean_search_vars.begin());
+//        //        lit d = valueHeuristic->choosePolarity(x, *this);
         Literal<T> d{boolean.getLiteral((random() % 2), x)};
         decisions.push_back(d);
 
@@ -1142,7 +1491,7 @@ template <typename T> boolean_state Solver<T>::search() {
         if (DBG_BOUND) {
           std::cout << "--- search node (lvl=" << env.level()
                     << ") [i=" << num_choicepoints << "] ---\n";
-          std::cout << " ** take decision " << d << " **\n";
+          std::cout << " ** take decision " << pretty(d) << " **\n";
           printTrace();
         }
 #endif
@@ -1152,9 +1501,10 @@ template <typename T> boolean_state Solver<T>::search() {
     } catch (NewFailure<T> &f) {
       try {
         backtrack(f.reason);
-        //        if (num_fails > restart_limit) {
-        //          restart();
-        //        }
+//        if (num_fails > restart_limit) {
+          if(restartPolicy.limit()) {
+          restart();
+        }
       } catch (const SearchExhausted &f) {
         satisfiability = False;
       }
@@ -1247,6 +1597,7 @@ return lvl;
 
 template<typename T>
 void Solver<T>::restoreState(const int l) {
+    decisions.resize(decisions.size() + l - env.level());
   env.restore(l);
 }
 
@@ -1322,18 +1673,19 @@ void Solver<T>::update(const bool bounds, const int s, const G &neighbors) {
           }
 #endif
 
+          //            std::cout << " negative cycle on edge " << u << "-(" <<
+          //            edge.label() << ")-> " << v << "\n"; std::cout << "i.e.,
+          //            " << getLiteral(edge.stamp()) << std::endl;
+
           throw NewFailure<T>(
-              {this, static_cast<hint>(Literal<T>::index(bounds, s))});
+              {&graph_exp, static_cast<hint>(Literal<T>::index(bounds, s))});
         }
         setNumeric(Literal<T>(bounds, v, shortest_path[u] + w),
-                   {this, static_cast<hint>(edge.stamp())}, false);
-
-        //                               bt, v, shortest_path[u] + w,
-        //                               {this, (edge.stamp() >= 0
-        //                                           ? EDGE(edge.stamp())
-        //                                           :
-        //                                           BOUND(bounds.getIndex(LIT(u,
-        //                                           bt))))});
+                   {&graph_exp,
+                    static_cast<hint>((edge.stamp() != Constant::NoIndex
+                                           ? edge.stamp()
+                                           : numeric.lastLitIndex(bounds, u)))},
+                   false);
 
         if (not changed.has(v))
           changed.add(v);
@@ -1390,15 +1742,18 @@ void Solver<T>::wake_me_on(const Literal<T> l, const int c) {
   }
 }
 
-template <typename T>
-void Solver<T>::xplain(const Literal<T>, const hint,
-                       std::vector<Literal<T>> &) {}
+// template <typename T>
+// void Solver<T>::xplain(const Literal<T>, const hint,
+//                        std::vector<Literal<T>> &) {
+//
+//
+// }
 
-template <typename T>
-std::ostream &Solver<T>::print_reason(std::ostream &os, const hint) const {
-  os << "shortest-path";
-  return os;
-}
+// template <typename T>
+// std::ostream &Solver<T>::print_reason(std::ostream &os, const hint) const {
+//   os << "shortest-path";
+//   return os;
+// }
 
 template <typename T> double Solver<T>::looseness(const Literal<T> &l) const {
   if (l.isNumeric()) {
@@ -1427,6 +1782,57 @@ template <typename T> double Solver<T>::looseness(const Literal<T> &l) const {
 }
 
 template <typename T>
+std::ostream &Solver<T>::displayHeader(std::ostream &os,
+                                          const int width) const {
+  os << std::right << std::setw(width)
+    << " objective   failures   branches   clauses    size   cpu" << std::endl;
+//     << std::left;
+//  os << std::setfill('=') << std::setw(width) << "=" << std::setfill(' ')
+//     << std::endl << std::right;
+  return os;
+}
+
+template <typename T>
+std::ostream &Solver<T>::displaySummary(std::ostream &os,
+                                           std::string msg) const {
+
+//  os << std::setfill('=') << std::setw(60) << "\n" << std::setfill(' ');
+  //    auto offset{msg.size()/2};
+  //    os << std::setfill('=') << std::setw(36 + offset) << msg << std::setw(36
+  //    - offset)<< "\n" << std::setfill(' ');
+  os << std::setw(13) << msg;
+  displayProgress(os);
+//  os << std::setfill('=') << std::setw(60) << "\n" << std::setfill(' ');
+  return os;
+}
+
+template <typename T>
+std::ostream &Solver<T>::displayProgress(std::ostream &os) const {
+
+  os << "  " << std::setw(9) << num_fails << "  " << std::setw(9)
+     << num_choicepoints
+     << "  "
+     //<< std::setw(12) << num_literals << "  "
+     << std::setw(8) << clauses.size();
+  if (clauses.size() == 0)
+    os << "    n/a ";
+  else
+    os << "  " << std::setw(6) << std::setprecision(4)
+       << static_cast<double>(clauses.volume()) /
+              static_cast<double>(clauses.size());
+  //      << clauses.volume() << " " << clauses.size();
+
+  //    os << "  " << std::setw(6) << std::setprecision(4) << (gap_ratio /
+  //    static_cast<double>(num_choicepoints)) ; os << "  " << std::setw(6) <<
+  //    std::setprecision(4) << (static_cast<double>(num_tight) /
+  //    static_cast<double>(num_choicepoints)) ;
+  os << "   " << std::left << (cpu_time() - start_time) << std::right
+     << std::endl;
+
+  return os;
+}
+
+template <typename T>
 std::ostream &Solver<T>::displayDomains(std::ostream &os) const {
   for (var_t x{0}; x < numeric.size(); ++x) {
     os << "x" << x << ": [" << numeric.lower(x) << ".." << numeric.upper(x)
@@ -1450,10 +1856,10 @@ size_t j{1};
 while (j < numLiteral()) {
   auto l{getLiteral(j)};
   if (i < decisions.size() and decisions[i] == l) {
-    os << " [" << l << "]";
+    os << "\nd" << (i+1) << "=[" << pretty(l) << "]";
     ++i;
   } else {
-    os << " " << l;
+    os << (j > 1 ? ", " : " ") << pretty(l);
   }
   ++j;
 }
@@ -1473,6 +1879,9 @@ template <typename T>
 std::ostream &Solver<T>::displayVariables(std::ostream &os) const {
   for (auto x : boolean_search_vars) {
     os << " b" << x;
+    if (boolean.hasSemantic(x))
+      os << ":[" << boolean.getEdge(true, x) << " or "
+         << boolean.getEdge(false, x) << "]";
   }
   os << std::endl;
   return os;
@@ -1481,6 +1890,17 @@ std::ostream &Solver<T>::displayVariables(std::ostream &os) const {
 template <typename T>
 std::ostream &Solver<T>::displayConstraints(std::ostream &os) const {
   return os;
+}
+
+template <typename T>
+std::string Solver<T>::pretty(const Literal<T> l) const {
+    std::stringstream ss;
+    if(not l.isNumeric() and l.hasSemantic()) {
+        ss << boolean.getEdge(l);
+    } else {
+        ss << l;
+    }
+    return ss.str();
 }
 
 template <typename T>

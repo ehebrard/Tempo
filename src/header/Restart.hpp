@@ -1,8 +1,10 @@
 #ifndef TEMPO_RESTART
 #define TEMPO_RESTART
 
-namespace tempo {
+#include <iostream>
 
+
+namespace tempo {
 
 
  /*! \class RestartPolicy
@@ -74,6 +76,55 @@ namespace tempo {
     void initialize(unsigned int& limit) override ;
     
   };
+
+
+template<typename S>
+class RestartManager {
+  
+public:
+
+  
+    RestartManager(S& s) : caller(s) {
+        
+//        std::cout << caller.getOptions().restart_policy << std::endl;
+        
+        if (caller.getOptions().restart_policy == "luby") {
+          impl = new Luby(caller.getOptions().restart_base);
+        } else if (caller.getOptions().restart_policy == "geom") {
+          impl =
+              new Geometric(caller.getOptions().restart_base, caller.getOptions().restart_factor);
+        } else {
+          impl = new NoRestart();
+        }
+    }
+   ~RestartManager() {
+       delete impl;
+  }
+
+    void reset() {
+        impl->reset(restart_limit);
+    }
+    
+    void initialize() {
+        impl->initialize(restart_limit);
+        restart_limit += caller.num_fails;
+    }
+    
+    bool limit() {
+//        
+//        std::cout << caller.num_fails << " >? " << restart_limit << std::endl;
+        
+        return caller.num_fails > restart_limit;
+    }
+    
+    
+
+private:
+    unsigned int restart_limit{static_cast<unsigned int>(-1)};
+    RestartPolicy *impl;
+    S& caller;
+    
+};
 
 } // namespace
   

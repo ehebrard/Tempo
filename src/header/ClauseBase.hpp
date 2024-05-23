@@ -140,6 +140,8 @@ public:
   void newBooleanVar(const var_t x);
   void newNumericVar(const var_t x);
   size_t size() const;
+    size_t numLearnt() const;
+
   size_t volume() const;
 
   //    void unit_propagate(const var l);
@@ -269,6 +271,8 @@ template <typename T>
 ClauseBase<T>::ClauseBase(Scheduler<T> &c)
     : caller(c), handlerToken(caller.SearchRestarted.subscribe_handled(
                      [this]() { this->forget(); })) {}
+
+
 
 template<typename T>
 size_t ClauseBase<T>::size() const {
@@ -1309,6 +1313,12 @@ NewClauseBase<T>::NewClauseBase(Solver<T> &c)
     : caller(c), handlerToken(caller.SearchRestarted.subscribe_handled(
                      [this]() { this->forget(); })) {}
 
+
+template<typename T>
+size_t NewClauseBase<T>::numLearnt() const {
+    return free_cl_indices.backsize();
+}
+
 template <typename T> size_t NewClauseBase<T>::size() const {
 
   if ((base.size() - free_cl_indices.size()) != (free_cl_indices.backsize() + free_cl_indices.frontsize())) {
@@ -1504,7 +1514,7 @@ void NewClauseBase<T>::set_watcher(const int r, const index_t i,
 
 template <typename T> void NewClauseBase<T>::forget(NewClause<T> *cl) {
   for (auto r{0}; r < 2; ++r) {
-    auto wl{cl->watched(r)};
+    auto wl{~(cl->watched(r))};
     auto wt{litType(wl)};
 
     for (auto c{watch[wt][wl].begin()}; c != watch[wt][wl].end(); ++c)
@@ -1525,17 +1535,27 @@ template <typename T> void NewClauseBase<T>::forget(NewClause<T> *cl) {
 /// | |  1 2  6 5 3 4
 
 template <typename T> void NewClauseBase<T>::forget_worst() {
+    
+//    std::cout << free_cl_indices << std::endl;
+//    
+//    std::cout << (*(free_cl_indices.bbegin())) << std::endl;
+//    
+//    std::cout << base.size() << std::endl;
+//    
+//    std::cout << *(base[*(free_cl_indices.bbegin())]) << std::endl;
+////    exit(1);
+    
   forget(base[*(free_cl_indices.bbegin())]);
 }
 
 template <typename T>
 double NewClauseBase<T>::loosenessOverActivity(const Literal<T> l) {
-  return caller.looseness(l); // / caller.getActivityMap()->get(l);
+  return caller.looseness(l) / caller.getActivityMap()->get(l, caller);
 }
 
 template <typename T>
 double NewClauseBase<T>::inverseActivity(const Literal<T> l) {
-  return 1.0; // / caller.getActivityMap()->get(l);
+  return 1.0 / caller.getActivityMap()->get(l, caller);
 }
 
 template <typename T> double NewClauseBase<T>::looseness(const Literal<T> l) {
@@ -1602,9 +1622,9 @@ template <typename T> void NewClauseBase<T>::forget() {
   free_cl_indices.re_index(free_cl_indices.bbegin(), free_cl_indices.bend());
 
   auto target_size = static_cast<size_t>(
-      static_cast<double>(size()) * (1.0 - caller.getOptions().forgetfulness));
+      static_cast<double>(numLearnt()) * (1.0 - caller.getOptions().forgetfulness));
 
-  while (size() > target_size) {
+  while (numLearnt() > target_size) {
     forget_worst();
   }
 
@@ -1760,7 +1780,7 @@ void NewClauseBase<T>::xplain(const Literal<T> l, const hint h,
 
     for (auto p : reason) {
       //          std::cout << " > " << p << std::endl;
-      Cl.push_back(p);
+      Cl.push_back(~p);
     }
   } else {
 
@@ -1768,7 +1788,7 @@ void NewClauseBase<T>::xplain(const Literal<T> l, const hint h,
 
     for (auto p : reason)
       if (not l.sameVariable(p)) {
-        Cl.push_back(p);
+        Cl.push_back(~p);
       }
   }
 }
