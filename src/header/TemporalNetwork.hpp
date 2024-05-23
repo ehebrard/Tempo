@@ -340,15 +340,13 @@ void TemporalNetwork<T>::findExplanationPath(const event x, const event y, std::
                 path[v] = u;
                 elit[v] = s;
                 length[v] = length[u]+1;
-                
-                if(length[v] > size()) {
-//                    std::cout << "negative cycle detected!\n";
-//                    exit(1);
-                    critical_path_root = v;
-                    changed.setStart(changed.end_idx());
-                    break;
+
+                if (length[v] > size()) {
+                  critical_path_root = v;
+                  changed.setStart(changed.end_idx());
+                  break;
                 }
-                
+
                 assert (v != x);
                 
                 distance[v] = distance[u] + w;
@@ -360,31 +358,7 @@ void TemporalNetwork<T>::findExplanationPath(const event x, const event y, std::
                 std::cout << " does not push " << bounds.getLabel(v) << std::endl ;
             }
 #endif
-                
 
-                
-//#ifdef DBG_BELLMAN_EXPL
-//                if(DBG_BELLMAN_EXPL) {
-//                    auto z{v};
-//                    visited.clear();
-//                    visited.add(z);
-////                    std::cout << "d[" << prettyEvent(v) << "]=" << distance[v] << " / d[" << prettyEvent(181) << "]=" << distance[181] << std::endl;
-//                    std::cout << prettyEvent(z) ;
-//                    while(z != x) {
-//                        z = path[z];
-//                        if(visited.has(z)) {
-//                            //                        break;
-//                            std::cout << std::endl;
-//                            exit(1);
-//                        }
-//                        std::cout << " <-|- " << prettyEvent(z);
-//                        visited.add(z);
-//                    };
-//                    std::cout << std::endl;
-//                }
-//#endif
-
-                
             }
 #ifdef DBG_BELLMAN_EXPL
             else if(DBG_BELLMAN_EXPL) {
@@ -457,11 +431,6 @@ void TemporalNetwork<T>::findExplanationPath(const event x, const event y, std::
         std::cout << std::endl;
     }
 #endif
-    //                        exit(1);
-    
-    
-
-  
 }
 
 template <typename T>

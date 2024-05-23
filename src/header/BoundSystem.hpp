@@ -308,16 +308,7 @@ bool BoundSystem<T>::set(const bool bt, const event x, const T b, Explanation e)
         bound_lit[bt][x] = static_cast<lit>(numLiteral());
         
         visited.push_back(false);
-        
-//        assert(sched.getIndex(e.the_hint) == (sched.numEdgeLiteral()-1));
 
-//
-//        if(e.the_hint >= 0 and sched.getIndex(VAR(e.the_hint)) != (sched.numEdgeLiteral()-1)) {
-//            std::cout << "there " << e.the_hint << std::endl;
-//            std::cout << "here!!! (" << sched.getIndex(VAR(e.the_hint)) << "/" << (sched.numEdgeLiteral()-1) << ")\n";
-//            exit(1);
-//        }
-        
         stamp.emplace_back(static_cast<lit>(sched.numEdgeLiteral()-1));
         trail.emplace_back(LIT(x,bt), b); //bound[bt][x]);
         reason.emplace_back(e);
@@ -327,11 +318,6 @@ bool BoundSystem<T>::set(const bool bt, const event x, const T b, Explanation e)
         assert(trail.size() == stamp.size());
         assert(reason.size() == stamp.size());
 
-        
-        ///DEBUGTRACE
-        if(bound_lit[bt][x] == 525 and b == -535)
-            exit(1);
-        
         if(b + bound[NOT(bt)][x] < 0) {
             
 #ifdef DBG_TRACE

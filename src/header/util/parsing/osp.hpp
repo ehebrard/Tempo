@@ -135,7 +135,7 @@ template <typename M, typename J, typename R> void parse(const std::string &fn, 
                   exit(1);
                 }
 
-                std::cout << "new task (" << dur << ")\n";
+                //                std::cout << "new task (" << dur << ")\n";
                 auto t{model.newJob(dur, dur)};
                   
                   model.set(t.start.after(schedule.start));
