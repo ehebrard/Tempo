@@ -1641,8 +1641,13 @@ void Scheduler<T>::learnConflict(Explanation e) {
     std::cout << "learn conflict";
     if (clauses.size() > 0 and cl != NULL)
       clauses.displayClause(std::cout, cl);
-    //      else
-    //          std::cout << "(" << << ")";
+    else {
+        std::cout << "(";
+        for(auto l : conflict) {
+            std::cout << " " << clauses.prettyLiteral(l);
+        }
+        std::cout << ")";
+    }
     std::cout << std::endl;
   }
 #endif
@@ -1953,7 +1958,8 @@ template <typename T> boolean_state Scheduler<T>::search() {
         }
 #endif
         var x = heuristic->nextChoicePoint(*this);
-        lit d = valueHeuristic->choosePolarity(x, *this);
+//        lit d = valueHeuristic->choosePolarity(x, *this);
+          lit d = (random()%2 ? POS(x) : NEG(x));
         set(d);
       }
     } catch (const Failure &f) {

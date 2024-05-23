@@ -104,7 +104,8 @@ template <typename T> bool NewClause<T>::watch_rank(const Literal<T> l) const {
   //    auto p{this->operator[](watched_index[1])};
   //    return (p.isNumeric() == l.isNumeric()) and (p.variable() ==
   //    l.variable());
-  return l.sameVariable(this->operator[](watched_index[1]));
+    auto p{this->operator[](watched_index[1])};
+  return l.sameVariable(p) and l.sign() != p.sign();
 }
 
 template <typename T> size_t NewClause<T>::watch_index(const bool r) const {
@@ -113,6 +114,7 @@ template <typename T> size_t NewClause<T>::watch_index(const bool r) const {
 
 template <typename T>
 std::ostream &NewClause<T>::display(std::ostream &os) const {
+//    os << id << ":";
   if (this->size() == 0)
     os << "()";
   else {
@@ -120,7 +122,8 @@ std::ostream &NewClause<T>::display(std::ostream &os) const {
     for (size_t i{1}; i < this->size(); ++i) {
       os << ", " << this->operator[](i);
     }
-    os << ")";
+      os << ")";
+//      os << ") w=" << watched(0) << " & " << watched(1) << "]";
   }
   return os;
 }

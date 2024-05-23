@@ -315,21 +315,25 @@ void BoundExplainer<T>::xplain(const Literal<T> l, const hint h,
 
     auto lidx{solver.numeric.lastLitIndex(bound::lower, x)};
     auto uidx{solver.numeric.lastLitIndex(bound::upper, x)};
+      
+      Literal<T> le;
+      NewExplanation<T> exp;
+      
+      if(lidx < uidx) {
+          le = solver.getLiteral(lidx);
+          exp = solver.getReason(uidx);
+      } else {
+          le = solver.getLiteral(uidx);
+          exp = solver.getReason(lidx);
+      }
+      Cl.push_back(le);
+      exp.explain(~le, Cl);
 
-    auto le{solver.getLiteral(std::min(lidx, uidx))};
-    Cl.push_back(le);
-    Cl.push_back(Literal<T>(not le.sign(), x, -le.value() - Gap<T>::epsilon()));
+//    auto le{solver.getLiteral(std::min(lidx, uidx))};
+//    Cl.push_back(le);
+//    Cl.push_back(~le);
 
-    std::cout << "explain contradiction: wipe out on numeric var x" << x
-              << " with " << Cl[Cl.size() - 2] << " and " << Cl.back()
-              << std::endl;
-    ;
-
-    //    Cl.push_back(solver.numeric.strongestLiteral(bound::lower, x));
-    //    Cl.push_back(solver.numeric.strongestLiteral(bound::upper, x));
-
-    //      exit(1);
-
+      
   } else {
     std::cout << "explain lit " << l << " due to constraint "
               << solver.boolean.getEdge(static_cast<index_t>(h)) << std::endl;
@@ -638,6 +642,8 @@ public:
 
   double looseness(const Literal<T> &l) const;
 
+    bool isAssertive(std::vector<Literal<T>> &conf) const;
+    
 #ifdef DBG_CL
 private:
   //  TemporalNetwork<T> cut;
@@ -897,13 +903,16 @@ index_t NumericStore<T>::lastLitIndex(const bool s, const var_t x) const {
 template <typename T>
 index_t NumericStore<T>::litIndex(const Literal<T> l) const {
 
-  //    std::cout << "compute lit index of " << l << std::endl;
-  //    displayLiteralTrail(std::cout, l.sign(), l.variable());
-  //    std::cout << std::endl;
+//      std::cout << "\ncompute lit index of " << l << std::endl;
+//      displayLiteralTrail(std::cout, l.sign(), l.variable());
+//      std::cout << std::endl;
 
   auto i{bound_index[l.sign()][l.variable()].rbegin()};
-  while (solver.getLiteral(*(i + 1)).value() < l.value())
+  while (solver.getLiteral(*(i + 1)).value() <= l.value())
     ++i;
+    
+//    std::cout << " --> " << *i << std::endl;
+    
   return *i;
 }
 
@@ -1229,7 +1238,7 @@ template <typename T> void Solver<T>::analyze(NewExplanation<T> &e) {
       if (l == Contradiction) {
         std::cout << "contradiction";
       } else {
-        std::cout << pretty(l);
+        std::cout << pretty(l) << " @" << propagationLevel(l);
       }
       std::cout << " by " << exp << std::endl;
     }
@@ -1272,12 +1281,22 @@ template <typename T> void Solver<T>::analyze(NewExplanation<T> &e) {
 
 #ifdef DBG_TRACE
           if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
-            std::cout << " => keep in conflict!\n";
+            std::cout << " => keep in conflict: [";
           }
 #endif
 
           std::swap(conflict[csize], conflict[i]);
           ++csize;
+            
+#ifdef DBG_TRACE
+            if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+                for(int z{0}; z<csize; ++z) {
+                    std::cout << " " << conflict[z];
+                }
+                std::cout << " ]\n";
+            }
+#endif
+            
         } else {
 
 #ifdef DBG_TRACE
@@ -1295,15 +1314,19 @@ template <typename T> void Solver<T>::analyze(NewExplanation<T> &e) {
     }
     conflict.resize(csize);
 
-    while (not explored[li--])
-      ;
+      while (not explored[li--]);
+      
+//      std::cout << "p level = " << (li+1)  << " #lits = " << num_lit << std::endl;
+      
+      assert(li + 1 >= decision_lvl);
+      
     l = trail[li + 1];
     exp = reason[li + 1];
 
     explored[li + 1] = false;
     --num_lit;
 
-  } while (num_lit > 0);
+  } while (num_lit > 0); // or l.isNumeric());
 
   for (auto &p : conflict) {
     explored[propagationLevel(p)] = false;
@@ -1345,6 +1368,31 @@ template <typename T> void Solver<T>::analyze(NewExplanation<T> &e) {
     *cl_file << std::endl;
   }
 #endif
+}
+
+template <typename T> bool Solver<T>::isAssertive(std::vector<Literal<T>> &conf) const {
+    if(conf[0].isNumeric() and numeric.falsified(conf[0])) {
+        return false;
+    }
+    if(conf[0].isNumeric() and numeric.satisfied(conf[0])) {
+        return false;
+    }
+    if(not conf[0].isNumeric() and boolean.falsified(conf[0])) {
+        return false;
+    }
+    if(not conf[0].isNumeric() and boolean.satisfied(conf[0])) {
+        return false;
+    }
+    
+    for (size_t i{1}; i < conf.size(); ++i) {
+        if(not conf[i].isNumeric() and not boolean.falsified(conf[i])) {
+            return false;
+        }
+        if(conf[i].isNumeric() and not numeric.falsified(conf[i])) {
+            return false;
+        }
+    }
+    return true;
 }
 
 template <typename T> void Solver<T>::learnConflict(NewExplanation<T> &e) {
@@ -1463,21 +1511,31 @@ template <typename T> void Solver<T>::learnConflict(NewExplanation<T> &e) {
               << numeric.upper(conflict[0].variable()) << "]\n";
   }
 
-  assert(not conflict[0].isNumeric() or not numeric.falsified(conflict[0]));
-  assert(not conflict[0].isNumeric() or not numeric.satisfied(conflict[0]));
-  assert(conflict[0].isNumeric() or not boolean.falsified(conflict[0]));
-  assert(conflict[0].isNumeric() or not boolean.satisfied(conflict[0]));
-
-  for (size_t i{1}; i < conflict.size(); ++i) {
-    //      if(conflict[i].isNumeric() and not numeric.falsified(conflict[i])) {
-    //          std::cout << conflict[i] << ": [" <<
-    //          numeric.lower(conflict[i].variable()) << ".." <<
-    //          numeric.upper(conflict[i].variable()) << "]\n";
-    //      }
-
-    assert(conflict[i].isNumeric() or boolean.falsified(conflict[i]));
-    assert(not conflict[i].isNumeric() or numeric.falsified(conflict[i]));
-  }
+    assert(isAssertive(conflict));
+    assert(isAssertive(conflict));
+//  assert(not conflict[0].isNumeric() or not numeric.falsified(conflict[0]));
+//  assert(not conflict[0].isNumeric() or not numeric.satisfied(conflict[0]));
+//  assert(conflict[0].isNumeric() or not boolean.falsified(conflict[0]));
+//  assert(conflict[0].isNumeric() or not boolean.satisfied(conflict[0]));
+//
+//  for (size_t i{1}; i < conflict.size(); ++i) {
+//    //      if(conflict[i].isNumeric() and not numeric.falsified(conflict[i])) {
+//    //          std::cout << conflict[i] << ": [" <<
+//    //          numeric.lower(conflict[i].variable()) << ".." <<
+//    //          numeric.upper(conflict[i].variable()) << "]\n";
+//    //      }
+//
+//    assert(conflict[i].isNumeric() or boolean.falsified(conflict[i]));
+//    assert(not conflict[i].isNumeric() or numeric.falsified(conflict[i]));
+//  }
+    
+//    //@TODO: replace
+//    if(conflict[0].isNumeric()) {
+//        if(numeric.satisfied(conflict[0]))
+//            
+//    } else {
+//        
+//    }
 
 #ifdef DBG_TRACE
   auto cl =
