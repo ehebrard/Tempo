@@ -1,0 +1,182 @@
+\begin{frame}
+  \frametitle{Propagation: The \emph{Edge-Finding} Rule}
+
+\vfill  
+
+\begin{itemize}
+  \item Make deductions w.r.t. \nooverlap  and project them on the variables' bounds
+\end{itemize}
+
+\vfill
+
+\begin{columns}
+
+\column{.35\textwidth}
+
+\vbox to .5\textheight{%
+
+\uncover<2->{
+\begin{itemize}
+  \item Suppose that a task in $\Omega$ is not last
+
+\vfill
+\begin{itemize}
+  \item Make a hypothetical overload test
+  \end{itemize}
+
+\vfill\uncover<3->{
+  \item Proof by contradiction
+  \vfill
+  \begin{itemize}
+    \item That task \myemph{must be last} in $\Omega$
+  \end{itemize}
+  }
+
+\vfill\uncover<4->{
+  \item Symmetrical backward pass
+  }
+
+  \vfill\uncover<4->{
+  \item Algorithm in $O(n \log n)$ \citation{Vil\`{i}m 04}
+  }
+  \end{itemize}
+}
+}%
+
+\column{.65\textwidth}
+
+
+\begin{center}
+\begin{colorschedfigure}{.7}
+\PrintGrid{11}{4}
+\node[] (es) at (2.3, 2) {{\scriptsize \begin{tabular}{c}\textcolor{blue!50!black}{earliest}\\\textcolor{blue!50!black}{start}\end{tabular}}};
+\node[] (ls) at (7.7, 2) {{\scriptsize \begin{tabular}{c}\textcolor{blue!50!black}{latest}\\\textcolor{blue!50!black}{start}\end{tabular}}};
+\node[] (ee) at (5.3, 2) {{\scriptsize \begin{tabular}{c}\textcolor{red!50!black}{earliest}\\\textcolor{red!50!black}{end}\end{tabular}}};
+\node[] (le) at (10.7, 2) {{\scriptsize \begin{tabular}{c}\textcolor{red!50!black}{latest}\\\textcolor{red!50!black}{end}\end{tabular}}};
+\draw[->, shorten >=3pt,color=blue!50!black] (ls) -- (7.5,0);
+\Pruning{10}{11}{1}{0}
+\Pruning{6}{11}{2}{1}
+\Pruning{8}{11}{1}{3}
+\Pruning{0}{2}{1}{0}
+\Pruning{0}{3}{1}{1}
+\Pruning{0}{2}{1}{2}
+
+
+\only<1-2>{
+\draw[->, shorten >=3pt,color=red!50!black] (ee) -- (5.5,0);
+\draw[->, shorten >=3pt,color=blue!50!black] (es) -- (2.5,0);
+}
+
+\only<3->{
+\draw[->, shorten >=3pt, color=red!50!black] (ee.south east) to[bend left=10] (9.5,0);
+\draw[->, shorten >=3pt,color=blue!50!black] (es.south east) to[bend left=10] (6.5,0);
+}
+
+
+
+\draw[->, shorten >=3pt,color=red!50!black] (le) -- (10.5,0);
+
+\uncover<1-2>{
+\PreemptiveVariableTask{2}{8}{5}{11}{3}{1}{0}{A}{}
+}
+\uncover<1-3>{
+\PreemptiveVariableTask{0}{7}{2}{9}{2}{1}{3}{A}{}
+}
+\PreemptiveVariableTask{2}{5}{4}{7}{2}{1}{2}{A}{}
+\PreemptiveVariableTask{3}{5}{5}{7}{2}{1}{1}{A}{}
+
+\uncover<2>{
+\draw[color=black, thick, rounded corners] (-\tasksep,\tasksep) rectangle (11+\tasksep,-1-\tasksep);
+  % \PruningUnder{8}{10}{4}{0}
+  \Pruning{8}{10}{1}{0}
+}
+
+\uncover<3->{
+\PreemptiveVariableTask{6}{8}{9}{11}{3}{1}{0}{A}{}
+\PruningOver{2}{6}{1}{0}
+}
+
+\uncover<4->{
+% \GroundTask[]{0}{3}{1}{3}{A}{}
+\PreemptiveVariableTask{0}{3}{1}{4}{2}{1}{3}{A}{}
+\PruningUnder{4}{8}{1}{3}
+}
+
+
+\end{colorschedfigure}
+
+\end{center}
+
+\end{columns}
+
+\vfill  
+      
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Overload Checking -- Theta Tree}
+\begin{itemize}
+  \item Order the tasks by non-decreasing \memph{due date} to compute \memph{$\leftcut{{\cal T}}{j}$} for all \memph{$j \in {\cal T}$}
+  \item Order the tasks by non-decreasing \memph{release date} to compute \memph{$\ect{\leftcut{{\cal T}}{j}}$}
+\end{itemize}
+
+\begin{myblock}{Solutions}
+  \begin{itemize}
+    \item Theta tree \citation{Vil\'{i}m et al. 04}
+    \begin{itemize}
+      \item Explore nested sets of tasks in any order (here non-decreasing due dates)
+      \item Incrementally compute a property (here \memph{$\ect{\leftcut{{\cal T}}{j}}$}) requiring another order
+    \end{itemize}
+  \end{itemize}
+\end{myblock}
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Theta Tree}
+\begin{columns}
+
+\column{.5\textwidth}
+  \begin{colorschedfigure}{.3}
+    \input{ex/theta_sched.tex}
+  \end{colorschedfigure}
+
+\uncover<10->{
+\begin{itemize}
+  \item Explanation $s_A \geq 0 \land s_B \geq 0 \land \ldots \land s_F \geq 0$ and $e_A \leq 25 \land e_B \leq 25 \land \ldots \land e_F \leq 25$
+  \vfill
+  \uncover<11->{
+  \item The can be ``holes''
+  }
+\end{itemize}
+}
+
+\uncover<11->{
+   \begin{colorschedfigure}{.3}
+    \input{ex/theta_sched_hole.tex}
+  \end{colorschedfigure}
+  }
+
+\column{.5\textwidth}
+  \uncover<2->{
+  \begin{downthreelvltree}
+    \input{ex/theta_tree.tex}
+  \end{downthreelvltree}
+  }
+
+\end{columns}
+\end{frame}
+
+
+
+\begin{frame}
+  \frametitle{Propagation: The \emph{Edge-Finding} Rule}
+
+\vfill 
+
+
+\vfill  
+      
+\end{frame}
+

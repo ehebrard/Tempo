@@ -1,0 +1,345 @@
+\begin{frame}
+  \frametitle{Propagation: Precedences \& Disjunctive Resource}
+
+\vfill 
+
+\begin{itemize}
+  \item Precedences are added during search (by decisions, propagation of edge-finding, learnt clauses and binary disjunctions). \uncover<2->{\memph{How can we take advantage of those?}}
+\end{itemize}
+
+\vfill
+
+\begin{columns}
+
+\column{.6\textwidth}
+
+\begin{center}
+
+\begin{tikzpicture}
+
+\node[shape=circle, thick, draw=coolblack] (a) {{\scriptsize $a$}};
+\node[shape=circle, thick, draw=coolblack, above right=1cm and 1.5cm of a] (b) {{\scriptsize $b$}};
+\node[shape=circle, thick, draw=coolblack, right=1.5cm of a] (c) {{\scriptsize $c$}};
+\node[shape=circle, thick, draw=coolblack, below right=1cm and 1.5cm of a] (d) {{\scriptsize $d$}};
+\node[shape=circle, thick, draw=coolblack, above left=.5cm and 1.5cm of a] (e) {{\scriptsize $e$}};
+\node[shape=circle, thick, draw=coolblack, above left=.5cm and 1.5cm of e] (f) {{\scriptsize $f$}};
+\node[shape=circle, thick, draw=coolblack, below left=.5cm and 1.5cm of e] (g) {{\scriptsize $g$}};
+\node[shape=circle, thick, draw=coolblack, below right=.5cm and 1.5cm of c] (h) {{\scriptsize $h$}};
+\node[shape=circle, thick, draw=coolblack, above right=.5cm and 1.5cm of c] (i) {{\scriptsize $i$}};
+
+\uncover<3>{
+\node[shape=circle, thick, draw=coolblack, fill=red!50] at (e) {{\scriptsize $e$}};
+\node[shape=circle, thick, draw=bostonuniversityred] at (f) {{\scriptsize $f$}};
+\node[shape=circle, thick, draw=bostonuniversityred] at (g) {{\scriptsize $g$}};
+}
+
+
+\uncover<4>{
+\node[shape=circle, thick, draw=bostonuniversityred] at (a) {{\scriptsize $a$}};
+\node[shape=circle, thick, draw=bostonuniversityred] at (b) {{\scriptsize $b$}};
+\node[shape=circle, thick, draw=bostonuniversityred] at (c) {{\scriptsize $c$}};
+\node[shape=circle, thick, draw=bostonuniversityred] at (d) {{\scriptsize $d$}};
+\node[shape=circle, thick, draw=bostonuniversityred] at (e) {{\scriptsize $e$}};
+\node[shape=circle, thick, draw=coolblack, fill=red!50] at (g) {{\scriptsize $g$}};
+\node[shape=circle, thick, draw=bostonuniversityred] at (h) {{\scriptsize $h$}};
+\node[shape=circle, thick, draw=bostonuniversityred] at (i) {{\scriptsize $i$}};
+}
+
+\path (a) edge[-latex, very thick, shorten <=3pt, shorten >=3pt] (b);
+\path (a) edge[-latex, very thick, shorten <=3pt, shorten >=3pt] (c);
+\path (a) edge[-latex, very thick, shorten <=3pt, shorten >=3pt] (d);
+\path (f) edge[-latex, very thick, shorten <=3pt, shorten >=3pt] (e);
+\path (g) edge[-latex, very thick, shorten <=3pt, shorten >=3pt] (e);
+\path (e) edge[-latex, very thick, shorten <=3pt, shorten >=3pt] (a);
+\path (c) edge[-latex, very thick, shorten <=3pt, shorten >=3pt] (h);
+\path (c) edge[-latex, very thick, shorten <=3pt, shorten >=3pt] (i);
+
+
+\end{tikzpicture}
+
+\end{center}
+
+\column{.4\textwidth}
+
+\vbox to .4\textheight{%
+\uncover<3->{
+\begin{itemize}
+  \item If tasks $a,\ldots,i$ all share the same disjunctive resource, then:
+  \vfill
+  \begin{itemize}
+    \item $s_e \geq \min(s_f,s_g) + p_f + p_g$
+    \vfill\uncover<4->{
+    \item $e_g \leq \max(e_b,e_i,e_h,e_d) - (p_i + p_h + p_c + p_b + p_d + p_a + p_e + p_g)$
+    }
+  \end{itemize}
+\end{itemize}
+}
+}
+
+\end{columns}
+
+\vfill
+
+\end{frame}
+
+
+
+\begin{frame}
+  \frametitle{First Step: (Incrementally) Computing the Transitive Closure}
+
+\vfill 
+\begin{center}
+
+\begin{tikzpicture}
+
+\node[shape=circle, thick, draw=coolblack] (a) {{\scriptsize $a$}};
+\node[shape=circle, thick, draw=coolblack, above right=1cm and 1.5cm of a] (b) {{\scriptsize $b$}};
+\node[shape=circle, thick, draw=coolblack, right=1.5cm of a] (c) {{\scriptsize $c$}};
+\node[shape=circle, thick, draw=coolblack, below right=1cm and 1.5cm of a] (d) {{\scriptsize $d$}};
+\node[shape=circle, thick, draw=coolblack, above left=.5cm and 1.5cm of a] (e) {{\scriptsize $e$}};
+\node[shape=circle, thick, draw=coolblack, above left=.5cm and 1.5cm of e] (f) {{\scriptsize $f$}};
+\node[shape=circle, thick, draw=coolblack, below left=.5cm and 1.5cm of e] (g) {{\scriptsize $g$}};
+\node[shape=circle, thick, draw=coolblack, below right=.5cm and 1.5cm of c] (h) {{\scriptsize $h$}};
+\node[shape=circle, thick, draw=coolblack, above right=.5cm and 1.5cm of c] (i) {{\scriptsize $i$}};
+
+\uncover<2->{
+\path (a) edge[-latex, very thick, shorten <=3pt, shorten >=3pt] (b);
+}
+\uncover<3->{
+\path (a) edge[-latex, very thick, shorten <=3pt, shorten >=3pt] (c);
+}
+\uncover<4->{
+\path (a) edge[-latex, very thick, shorten <=3pt, shorten >=3pt] (d);
+}
+\uncover<5->{
+\path (e) edge[-latex, very thick, shorten <=3pt, shorten >=3pt] (a);
+}
+\uncover<6->{
+\path (e) edge[-latex, densely dashed, very thick, shorten <=3pt, shorten >=3pt] (b);
+\path (e) edge[-latex, densely dashed, very thick, shorten <=3pt, shorten >=3pt, bend left=10] (c);
+\path (e) edge[-latex, densely dashed, very thick, shorten <=3pt, shorten >=3pt, bend right] (d);
+}
+\uncover<7->{
+\path (f) edge[-latex, very thick, shorten <=3pt, shorten >=3pt] (e);
+\path (f) edge[-latex, densely dashed, very thick, shorten <=3pt, shorten >=3pt, bend right] (a);
+\path (f) edge[-latex, densely dashed, very thick, shorten <=3pt, shorten >=3pt, bend left] (b);
+\path (f) edge[-latex, densely dashed, very thick, shorten <=3pt, shorten >=3pt, bend left=10] (c);
+\path (f) edge[-latex, densely dashed, very thick, shorten <=3pt, shorten >=3pt, bend right] (d);
+}
+% \path (g) edge[-latex, very thick, shorten <=3pt, shorten >=3pt] (e);
+% \path (c) edge[-latex, very thick, shorten <=3pt, shorten >=3pt] (h);
+% \path (c) edge[-latex, very thick, shorten <=3pt, shorten >=3pt] (i);
+
+\end{tikzpicture}
+
+\end{center}
+
+\vfill
+
+\end{frame}
+
+
+\begin{frame}
+  \frametitle{Second Step: Computing the (Lower) Bounds}
+
+\vfill 
+
+\begin{columns}
+
+\column{.45\textwidth}
+
+\begin{center}
+
+\begin{tikzpicture}
+
+% \node[shape=circle, thick, draw=coolblack, above left=.5cm and 1.5cm of e] (f) {{\scriptsize 0}};
+% \node[shape=circle, thick, draw=coolblack, below left=.5cm and 1.5cm of e] (g) {{\scriptsize 0}};
+\node[shape=circle, thick, draw=coolblack, above right=.5cm and 1.5cm of a] (e) {{\scriptsize $e:0$}};
+\node[shape=circle, thick, draw=coolblack] (a) {{\scriptsize $a:0$}};
+\node[shape=circle, thick, draw=coolblack, above left=1cm and 1.5cm of a] (b) {{\scriptsize $b:0$}};
+\node[shape=circle, thick, draw=coolblack, left=1.5cm of a] (c) {{\scriptsize $c:0$}};
+\node[shape=circle, thick, draw=coolblack, below left=1cm and 1.5cm of a] (d) {{\scriptsize $d:0$}};
+% \node[shape=circle, thick, draw=coolblack, above=1cm of e] (h) {{\scriptsize 0}};
+\node[shape=circle, thick, draw=coolblack, above right=.5cm and 1.5cm of b] (f) {{\scriptsize $f:0$}};
+
+% \uncover<4->{
+% \node[shape=circle, thick, draw=coolblack, fill=red!50] at (f) {{\scriptsize 0}};
+% }
+% \uncover<5->{
+% \node[shape=circle, thick, draw=coolblack, fill=red!50] at (g) {{\scriptsize 0}};
+% }
+\uncover<4>{
+\node[shape=circle, thick, draw=coolblack, fill=red!50] at (e) {{\scriptsize $e:0$}};
+}
+\uncover<5>{
+\node[shape=circle, thick, draw=coolblack, fill=red!50] at (f) {{\scriptsize $f:0$}};
+\node[shape=circle, thick, draw=bostonuniversityred, fill=white] at (e) {{\scriptsize $e:5$}};
+% \node[shape=circle, thick, draw=bostonuniversityred, fill=white] at (f) {{\scriptsize 5}};
+% \node[shape=circle, thick, draw=bostonuniversityred, fill=white] at (g) {{\scriptsize 5}};
+}
+\uncover<6>{
+\node[shape=circle, thick, draw=coolblack, fill=red!50] at (a) {{\scriptsize $a:0$}};
+\node[shape=circle, thick, draw=bostonuniversityred, fill=white] at (e) {{\scriptsize $e:8$}};
+% \node[shape=circle, thick, draw=bostonuniversityred, fill=white] at (g) {{\scriptsize 5}};
+}
+\uncover<7>{
+\node[shape=circle, thick, draw=coolblack, fill=red!50] at (b) {{\scriptsize $b:0$}};
+\node[shape=circle, thick, draw=bostonuniversityred, fill=white] at (f) {{\scriptsize $f:10$}};
+\node[shape=circle, thick, draw=bostonuniversityred, fill=white] at (e) {{\scriptsize $e:18$}};
+\node[shape=circle, thick, draw=bostonuniversityred, fill=white] at (a) {{\scriptsize $a:10$}};
+}
+\uncover<8>{
+\node[shape=circle, thick, draw=coolblack, fill=red!50] at (c) {{\scriptsize $c:0$}};
+\node[shape=circle, thick, draw=bostonuniversityred, fill=white] at (e) {{\scriptsize $e:22$}};
+\node[shape=circle, thick, draw=bostonuniversityred, fill=white] at (a) {{\scriptsize $a:14$}};
+}
+\uncover<9>{
+\node[shape=circle, thick, draw=coolblack, fill=red!50] at (c) {{\scriptsize $c:0$}};
+\node[shape=circle, thick, draw=bostonuniversityred, fill=white] at (e) {{\scriptsize $e:22$}};
+\node[shape=circle, thick, draw=bostonuniversityred, fill=white] at (a) {{\scriptsize $a:14$}};
+}
+\uncover<10>{
+\node[shape=circle, thick, draw=coolblack, fill=red!50] at (d) {{\scriptsize $d:0$}};
+\node[shape=circle, thick, draw=bostonuniversityred, fill=white] at (e) {{\scriptsize $e:29$}};
+\node[shape=circle, thick, draw=bostonuniversityred, fill=white] at (a) {{\scriptsize $a:21$}};
+}
+
+% \node[shape=circle, thick, draw=coolblack, fill=white] at (e) {{\scriptsize 5}};
+% \node[shape=circle, thick, draw=coolblack, fill=white] at (a) {{\scriptsize 5}};
+% \node[shape=circle, thick, draw=coolblack, fill=white] at (b) {{\scriptsize 5}};
+% \node[shape=circle, thick, draw=coolblack, fill=white] at (c) {{\scriptsize 5}};
+% \node[shape=circle, thick, draw=coolblack, fill=white] at (d) {{\scriptsize 5}};
+% }
+
+
+\path (a) edge[latex-, very thick, shorten <=3pt, shorten >=3pt] (b);
+\path (a) edge[latex-, very thick, shorten <=3pt, shorten >=3pt] (c);
+\path (a) edge[latex-, very thick, shorten <=3pt, shorten >=3pt] (d);
+\path (e) edge[latex-, very thick, shorten <=3pt, shorten >=3pt] (a);
+\path (e) edge[latex-, densely dashed, very thick, shorten <=3pt, shorten >=3pt, bend right=10] (b);
+\path (e) edge[latex-, densely dashed, very thick, shorten <=3pt, shorten >=3pt, bend right=10] (c);
+\path (e) edge[latex-, densely dashed, very thick, shorten <=3pt, shorten >=3pt, bend left] (d);
+\path (f) edge[latex-, very thick, shorten <=3pt, shorten >=3pt] (b);
+\path (e) edge[latex-, very thick, shorten <=3pt, shorten >=3pt] (f);
+
+
+\end{tikzpicture}
+
+\end{center}
+
+\column{.55\textwidth}
+
+\vbox to .6\textheight{%
+\uncover<2->{
+\begin{itemize}
+\item Assume $p_a=3, p_b=10, p_c=4, p_d=7, p_e=5, p_f=5$
+
+  \vfill
+\item Initialise $offset[i]$ to $0$ for every task $t_i$
+\vfill\uncover<3->{
+
+  \item Order the tasks by decreasing earliest start time (necessarily a topological order because of propagation) 
+
+  \vfill
+
+  \item For each task $t_i$ in this order, and for each arc $(t_i,t_j)$ increment $offset[j]$ by $p_i$ and set \memph{$s_j \geq s_i + offset[j]$}
+
+\vfill\uncover<5->{
+  \begin{itemize}
+    \item $s_e \geq \min(s_f)+5$;  \uncover<6->{\memph{$s_e \geq \min(s_a)+8$}; \uncover<7->{\memph{$s_e \geq \min(s_b)+18$}; \uncover<8->{\memph{$s_e \geq \min(s_c)+22$}; \uncover<9->{\memph{$s_e \geq \min(s_d)+29$};}}}}
+
+    \vfill\uncover<7->{
+    \item $s_a \geq \min(s_b)+10$; \uncover<8->{\memph{$s_a \geq \min(s_c)+14$}; \uncover<9->{\memph{$s_d \geq \min(s_c)+21$};}}}
+
+    \vfill\uncover<7->{
+    \item $s_f \geq \min(s_b)+10$;
+    }
+  \end{itemize}
+}
+}
+\end{itemize}
+}
+}
+
+\end{columns}
+
+\vfill
+
+\end{frame}
+
+
+
+
+\begin{frame}
+  \frametitle{Explanation}
+
+\vfill 
+
+\begin{columns}
+
+\column{.45\textwidth}
+
+\begin{center}
+
+\begin{tikzpicture}
+
+\node[shape=circle, thick, draw=coolblack, above right=.5cm and 1.5cm of a] (e) {{\scriptsize $e:0$}};
+\node[shape=circle, thick, draw=coolblack] (a) {{\scriptsize $a:0$}};
+\node[shape=circle, thick, draw=coolblack, above left=1cm and 1.5cm of a] (b) {{\scriptsize $b:0$}};
+\node[shape=circle, thick, draw=coolblack, left=1.5cm of a] (c) {{\scriptsize $c:0$}};
+\node[shape=circle, thick, draw=coolblack, below left=1cm and 1.5cm of a] (d) {{\scriptsize $d:0$}};
+\node[shape=circle, thick, draw=coolblack, above right=.5cm and 1.5cm of b] (f) {{\scriptsize $f:0$}};
+
+
+\node[shape=circle, thick, draw=coolblack, fill=red!50] at (b) {{\scriptsize $b:0$}};
+\node[shape=circle, thick, draw=bostonuniversityred, fill=white] at (f) {{\scriptsize $f:10$}};
+\node[shape=circle, thick, draw=bostonuniversityred, fill=white] at (e) {{\scriptsize $e:18$}};
+\node[shape=circle, thick, draw=bostonuniversityred, fill=white] at (a) {{\scriptsize $a:10$}};
+
+
+
+\path (a) edge[latex-, very thick, shorten <=3pt, shorten >=3pt] (b);
+\path (a) edge[latex-, very thick, shorten <=3pt, shorten >=3pt] (c);
+\path (a) edge[latex-, very thick, shorten <=3pt, shorten >=3pt] (d);
+\path (e) edge[latex-, very thick, shorten <=3pt, shorten >=3pt] (a);
+\path (e) edge[latex-, densely dashed, very thick, shorten <=3pt, shorten >=3pt, bend right=10] (b);
+\path (e) edge[latex-, densely dashed, very thick, shorten <=3pt, shorten >=3pt, bend right=10] (c);
+\path (e) edge[latex-, densely dashed, very thick, shorten <=3pt, shorten >=3pt, bend left] (d);
+\path (f) edge[latex-, very thick, shorten <=3pt, shorten >=3pt] (b);
+\path (e) edge[latex-, very thick, shorten <=3pt, shorten >=3pt] (f);
+
+
+\end{tikzpicture}
+
+\end{center}
+
+\column{.55\textwidth}
+
+\vbox to .6\textheight{%
+\begin{itemize}
+\item The bound \memph{$s_e \geq \min(s_b)+18$} is explained by 
+\vfill
+\begin{itemize}
+  \item $b_{fe}$ ($f$ comes before $e$); 
+
+  \vfill
+  \item $b_{ae}$ ($a$ comes before $e$); 
+
+  \vfill
+  \item $b_{be}$ ($b$ comes before $e$); 
+
+  \vfill
+  \item $s_{b} \geq \min(s_b)$; $s_{a} \geq \min(s_b)$; and $s_{f} \geq \min(s_b)$; 
+\end{itemize}
+\vfill
+\item The transitive edge \memph{$b_{be}$} is explained by $b_{ba}$ and $b_{ae}$
+
+\end{itemize}
+}
+
+\end{columns}
+
+\vfill
+
+\end{frame}
+

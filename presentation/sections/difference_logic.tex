@@ -1,0 +1,162 @@
+
+\begin{frame}
+\frametitle{Difference Logic, Temporal Graph and Bounds Consistency}
+
+\begin{columns}
+
+\column{.48\textwidth}
+
+\begin{myblock}{Difference Logic}
+
+System of inequations of the form
+\[
+\memph{y - x \leq k \textrm{~(with k a constant)}}
+\]
+
+
+% \begin{itemize}
+%   \item \memph{Theory} in SMT
+%   \vfill
+%   \begin{itemize}
+%     \item Compute the consistent closure 
+
+%     \vfill
+%     \item Explain the closure
+%   \end{itemize}
+% \end{itemize}
+
+\end{myblock}
+
+\column{.48\textwidth}
+
+\begin{myblock}{Temporal Graph}
+
+\begin{itemize}
+  \item Vertices: temporal variables
+
+  \vfill
+  \item Edges: maximum delay
+
+\vfill
+\begin{itemize}
+  \item label \memph{$k$} on edge \memph{$(x \rightarrow y)$}: $x$ is at most $k$ after $y$
+\end{itemize}
+  
+\end{itemize}
+
+\end{myblock}
+
+\end{columns}
+
+\vfill
+
+\begin{itemize}
+  \item Closure of the difference logic system $\equiv$ Transitive closure of the graph
+
+  \vfill
+  \item Satisfiable if and only if there is no negative cycle 
+\end{itemize}
+
+% \vspace{-1cm}
+
+
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Precedence Graph}
+
+  \begin{center}
+ % \resizebox{10cm}{4.5cm}{%
+    \begin{colorschedfigure}{.6}
+      \uncover<1>{
+        \input{ex/precedence_graph.tex}
+      }
+      \uncover<2->{
+        \input{ex/precedence_graph_lb.tex}
+      }
+      \uncover<3->{
+        \input{ex/precedence_graph_ub.tex}
+      }
+    \end{colorschedfigure}
+    % }
+  \end{center}
+
+  \begin{itemize}
+    \item Lower bound of a temporal variable $x$: (opposite of the) \memph{shortest path} from $x$ to $0$
+
+\vfill
+    \item Upper bound of a temporal variable $x$: \memph{shortest path} from $0$ to $x$
+  \end{itemize}
+
+\end{frame}
+
+
+
+\begin{frame}
+\frametitle{Difference Logic with Full Transitivity}
+
+\vfill
+\begin{itemize}
+  \item Why not trying to make \memph{all the deductions} (full transitive closure)
+  \vfill
+  \begin{itemize}
+    \item A lot of information can be deduced, but can it be used to propagate?
+
+    \vfill
+    \item Potential gains for clause learning
+  \end{itemize}
+
+
+  \vfill
+  \begin{itemize}
+    \item Computing the transitive closure with Floyd-Warshall is too costly
+
+    \vfill
+    \begin{itemize}
+      \item Incremental closure; Merge vertices in null-cycles: \memph{not sufficient}
+    \end{itemize}
+
+    \vfill
+    \item No really promising ideas on how to use the transitive closure to propagate
+
+    \vfill
+    \item Implementation of learning was very complex
+  \end{itemize}
+
+\end{itemize}
+
+\vfill
+\end{frame}
+
+\begin{frame}
+\frametitle{Chosen Representation}
+
+\vfill
+
+  \begin{center}
+    \begin{colorschedfigure}{.6}
+        \input{ex/precedence_graph.tex}
+\uncover<2->{
+        \path (x5) edge[edgestyle, bend left=15, densely dashed, shorten <=3pt, shorten >=3pt] node[labelstyle, near end] {\textcolor{coolblack}{$0$}} (x6);
+        \path (x7) edge[edgestyle, bend left=15, densely dashed, shorten <=3pt, shorten >=3pt] node[labelstyle, near start] {\textcolor{coolblack}{$0$}} (x4);
+        }
+    \end{colorschedfigure}
+  \end{center}
+\vfill
+
+\uncover<2->{
+\begin{itemize}
+  \item $b_{ij} \implies e_i \leq s_j$; $\neg b_{ij} \implies e_j \leq s_i$ (as in Mistral)
+
+  \vfill\uncover<3->{
+  \item The only difference between updating the bounds using Bellman-Ford in this graph, or Arc Consistency in the constraint graph is that negative cycles can be detected earlier
+  }
+\end{itemize}
+}
+
+\vfill
+\end{frame}
+
+

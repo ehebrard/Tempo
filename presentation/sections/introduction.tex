@@ -1,0 +1,180 @@
+
+\begin{frame}
+\frametitle{Conclusion}
+
+%% Summary of experimental results
+
+\vfill
+
+\begin{footnotesize}
+\begin{tabular}{lrrrrrr}
+\toprule
+\multirow{2}{*}{Instance}&  \multicolumn{3}{c}{CP Optimizer} & \multicolumn{3}{c}{Tempo}\\
+\cmidrule(rr){2-4}\cmidrule(rr){5-7}
+% & \multicolumn{1}{c}{\%Opt.} 
+& \multicolumn{1}{c}{Objective} & \multicolumn{1}{c}{\#Branches} & \multicolumn{1}{c}{CPU (s)} & 
+% \multicolumn{1}{c}{\%Opt.} & 
+\multicolumn{1}{c}{Objective} & \multicolumn{1}{c}{\#Branches} & \multicolumn{1}{c}{CPU (s)} \\
+\midrule
+
+\texttt{j7-per0-0} & 1048.00 & \cellcolor{red!50}<2->{24625154} & \cellcolor{red!50}<2->{476.39} & 1048.00 & \cellcolor{green!50}<2->{4221305} & \cellcolor{green!50}<2->{261.11}\\
+\texttt{j8-per0-1} & 1039.00 & \cellcolor{red!50}<2->{486860201} & \cellcolor{red!50}<2->{6177.08} & 1039.00 & \cellcolor{green!50}<2->{12323946} & \cellcolor{green!50}<2->{933.30}\\
+
+% \texttt{j7-per0-0} & 100 & 1048.00 & 24625154 & \cellcolor{red!50}<4->{476.39} & 100 & 1048.00 & 4221305 & \cellcolor{green!50}<4->{261.11}\\
+% \texttt{j8-per0-1} & \cellcolor{red!50}<2->{85} & \cellcolor{red!50}<3->{1039.45} & 262592977 & \cellcolor{red!50}<4->{4289.58} & \cellcolor{green!50}<2->{100} & \cellcolor{green!50}<3->{1039.00} & 12323946 & \cellcolor{green!50}<4->{933.29}\\
+\bottomrule
+\end{tabular}
+\end{footnotesize}
+
+\vfill
+
+\uncover<2->{
+\begin{itemize}
+  \item CP Optimizer requires more than 3h to prove optimality on 3 out of 20 runs
+
+%   \vfill\uncover<3->{
+%   \item CP Optimizer fails to find the optimal solution on 3 out of 20 runs
+% }
+
+  \vfill
+  \item up to 7 times slower (explores up to 40 times more nodes)
+\end{itemize}
+}
+
+\vfill
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Jobshop with Time Lags}
+
+%% Summary of experimental results
+
+\vfill
+
+\begin{footnotesize}
+\begin{tabular}{lrrrrrr}
+\toprule
+\multirow{2}{*}{Instance}&  \multicolumn{3}{c}{CP Optimizer} & \multicolumn{3}{c}{Tempo$^*$}\\
+\cmidrule(rr){2-4}\cmidrule(rr){5-7}
+% & \multicolumn{1}{c}{\%Opt.} 
+& \multicolumn{1}{c}{Objective} & \multicolumn{1}{c}{\#Branches} & \multicolumn{1}{c}{CPU Time} 
+% & \multicolumn{1}{c}{\%Opt.} 
+& \multicolumn{1}{c}{Objective} & \multicolumn{1}{c}{\#Branches} & \multicolumn{1}{c}{CPU Time} \\
+\midrule
+
+\texttt{la25\_0\_0} & 1906.00 & 7272098 & \cellcolor{red!50}838.46 & 1906.00 & 189442 & \cellcolor{green!50}{26.31}\\
+\texttt{la25\_0\_0,5} & 1284.00 & 88457381 & \cellcolor{red!50}6150.42 & 1284.00 & 1610738 & \cellcolor{green!50}{272.01}\\
+\texttt{la25\_0\_1} & 1087.00 & 31424922 & \cellcolor{red!50}2109.69 & 1087.00 & 6098393 & \cellcolor{green!50}{1173.10}\\
+\texttt{la25\_0\_3} & 992.00 & 887841 & \cellcolor{red!50}40.56 & 992.00 & 53859 & \cellcolor{green!50}{6.53}\\
+\texttt{la25\_0\_10} & 977.00 & 467144 & \cellcolor{red!50}19.36 & 977.00 & 68138 & \cellcolor{green!50}{9.51}\\
+\bottomrule
+\end{tabular}
+\end{footnotesize}
+
+\vfill
+
+\begin{itemize}
+  \item Similar results on Jobshop with time lags
+
+  \vfill\pause
+  \item But I have to \emph{cheat} with the initial upper bound
+\end{itemize}
+
+\vfill
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Jobshop}
+
+%% Summary of experimental results
+
+\vfill
+
+\begin{footnotesize}
+\begin{tabular}{lrrrrrr}
+\toprule
+\multirow{2}{*}{Instance}&  \multicolumn{3}{c}{CP Optimizer} & \multicolumn{3}{c}{Tempo}\\
+\cmidrule(rr){2-4}\cmidrule(rr){5-7}
+% & \multicolumn{1}{c}{\%Opt.} 
+& \multicolumn{1}{c}{Objective} & \multicolumn{1}{c}{\#Branches} & \multicolumn{1}{c}{CPU Time} 
+% & \multicolumn{1}{c}{\%Opt.} 
+& \multicolumn{1}{c}{Objective} & \multicolumn{1}{c}{\#Branches} & \multicolumn{1}{c}{CPU Time} \\
+\midrule
+
+\texttt{ft20} & 1165.00 & 40568 & \cellcolor{green!50}0.73 & 1165.00 & 622493 & \cellcolor{red!50}66.48\\
+\texttt{la25} & 977.00 & 443022 & \cellcolor{red!50}17.95 & 977.00 & 72039 & \cellcolor{green!50}10.12\\
+\texttt{orb03} & 1005.00 & 239964 & \cellcolor{green!50}8.26 & 1005.00 & 808686 & \cellcolor{red!50}74.13\\
+\texttt{swv16} & 2924.00 & 5766 & \cellcolor{green!50}0.12 & 2924.00 & 981377 & \cellcolor{red!50}225.94\\
+\bottomrule
+\end{tabular}
+\end{footnotesize}
+
+\vfill
+
+\begin{itemize}
+  \item Not as good on jobshop
+
+  \vfill\pause
+  \item yet
+
+  \vfill\pause
+  \item But also, CP Optimizer:
+  \vfill
+  \begin{itemize}
+    \item \memph{Can handle time transitions, optional tasks, cumulative resources, reservoirs, etc.}
+  \end{itemize}
+\end{itemize}
+
+\vfill
+
+\end{frame}
+
+
+% \end{document}
+
+\begin{frame}
+\frametitle{How does it work?}
+
+% \begin{itemize}
+%   \item Hybrid CP/SAT/SMT
+% \end{itemize}
+
+\begin{myblock}{Variables}
+\begin{itemize}
+  \item \memph{Numeric} variables (bounds, generic type)
+
+  \vfill
+  \item \memph{Boolean} variables
+
+  \vfill
+  \begin{itemize}
+     \item Some Boolean variables can have a semantic (in difference logic: \memph{$y - x \leq k$} with $x$ and $y$ numeric variables)
+   \end{itemize} 
+\end{itemize}
+\end{myblock}
+
+\begin{myblock}{Global Constraints}
+\begin{itemize}
+  \item {Edge-Finding} 
+
+  \vfill
+  \item \memph{Precedence Reasoning} 
+\end{itemize}
+\end{myblock}
+
+\begin{myblock}{Clause Learning}
+\begin{itemize}
+  \item Literals in the clause can be
+
+  \vfill
+  \begin{itemize}
+    \item Pure Booleans; Difference logic literals ($y - x \leq k$); or Bound literals ($x \leq k$)
+  \end{itemize}
+\end{itemize}
+\end{myblock}
+
+\end{frame}

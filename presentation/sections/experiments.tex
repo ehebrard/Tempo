@@ -1,0 +1,89 @@
+\begin{frame}[fragile]
+\frametitle{Open Shop}
+\vfill
+\begin{itemize}
+	\item Small (64 tasks) but extremely hard instance
+\end{itemize}
+\vfill
+\begin{center}
+\input{ex/osp_cactus_j8-per0-1_zoom.tex}
+\end{center}
+\vfill
+\end{frame}
+
+
+\begin{frame}[fragile]
+\frametitle{Job Shop}
+\vfill
+\begin{itemize}
+	\item Larger (500 tasks) but very easy instance\uncover<2->{: 800000 branches but only \memph{926} fails (!)}
+
+	\vfill\uncover<3->{
+	\begin{itemize}
+	\item CP Optimizer has an extremely good primal heuristic (LNS?) 
+\vfill
+
+\item And it scales much better w.r.t the number of tasks 
+	\end{itemize}
+	}
+\end{itemize}
+\vfill
+\begin{center}
+\input{ex/jsp_cactus_swv16_zoom.tex}
+\end{center}
+\vfill
+\end{frame}
+
+
+\begin{frame}[fragile]
+\frametitle{Job Shop with Time Lags}
+\vfill
+\begin{itemize}
+	\item 150 tasks
+
+	\vfill\uncover<3->{
+	\begin{itemize}
+	\item CP Optimizer has \memph{an extremely good primal heuristic!} 
+	\end{itemize}
+	}
+\end{itemize}
+\vfill
+\begin{center}
+\input{ex/jstl_cactus_la25_0_0,5_zoom.tex}
+\end{center}
+\vfill
+\end{frame}
+
+
+
+\begin{frame}[fragile]
+\frametitle{Lessons}
+\vfill\pause
+\begin{itemize}
+	\item The initial bounds are not a problem 
+	\vfill
+	\begin{itemize}
+		\item LNS, local search, GNN, there are many things to try
+	\end{itemize}
+
+	\vfill\pause
+	\item The scalability is more worrying\pause, but:
+	\vfill
+	\begin{itemize}
+		\item The main issue is the number of binary disjuncts (i.e., $\geq 12000$ in \texttt{swv16})
+
+		\vfill\pause
+		\begin{itemize}
+			\item We need to scan them all to select a choicepoint (easy fix with a Heap structure)
+
+			\vfill\pause
+			\item \memph{We need to propagate them to detect unfeasible difference logic constraints (may require a dedicated algorithm)}
+		\end{itemize}
+\vfill\pause
+		\item Some gains can be made by making Edge-Finding more incremental
+	\end{itemize}
+\end{itemize}
+\vfill
+\end{frame}
+
+

@@ -1,0 +1,228 @@
+%------------------------------------------------------------------------------%
+% File:        learn.tex
+%
+% Description: 
+%
+% Created:     27 Jun 2013.
+%
+% Author:      Joao Marques-Silva (jpms).
+%------------------------------------------------------------------------------%
+\def\aformula{\ensuremath{\varphi}}
+
+\begin{frame}[fragile]
+\frametitle{Implication Graph}
+
+\begin{tikzpicture}[shorten >=1pt,node distance=2.0cm,on
+      grid,>=stealth', lines/.style={line
+        width=1pt,color=coolblack},thick, color=coolblack,
+      text=coolblack] %[auto]
+
+\node (L)  {Level}; %[drop shadow] 
+\node (D)  [right= 1cm of L] {Dec.};    % 2cm and 4cm
+\node (I)  [right= of D] {Unit Prop.};     % 2cm and 4cm
+% \node (C1) [right= 3cm of I] {$(\bar{z} \lor \bar{x} \lor a)$};
+% \node (C2) [right= 2cm of C1] {$(\bar{z} \lor b)$};
+% \node (C3) [right= 1.7cm of C2] {$(\bar{a} \lor \bar{b})$};
+% \node (C4) [right= 1.7cm of C3] {$(\bar{y} \lor \bar{c})$};
+
+\node (L0) [visible on=<2->, below= 0.75cm of L]  {$0$};
+\node (L1) [visible on=<3->, below= 0.75cm of L0] {$1$};
+\node (L2) [visible on=<4->, below= 1cm of L1] {$2$};
+\node (L3) [visible on=<5->, below= 1cm of L2] {$3$};
+\node (L4) [visible on=<6->, below= 1cm of L3] {$4$};
+\node (L5) [visible on=<7->, below= 1.25cm of L4] {$5$};
+
+\node (D0) [visible on=<2->, right= 1.25cm of L0] {$\emptyset$};
+\node [visible on=<3->] (a)  [right= 1.25cm of L1] {$a$};
+\node [visible on=<4->] (b)  [right= 1.25cm of L2] {$b$};
+\node [visible on=<5->] (c)  [right= 1.25cm of L3] {$c$};
+\node [visible on=<6->] (d)  [right= 1.25cm of L4] {$d$};
+\node [visible on=<7->] (e)  [right= 1.25cm of L5] {$e$};
+
+
+\node (nf) [visible on=<4->, right= of b]  {$\bar{f}$};
+\path[->,line width=1pt,color=coolblack,visible on=<4->]
+  (b)  edge  node [above] {} (nf)
+  ;
+
+\node (g) [visible on=<4->, right= of nf]  {$g$};
+\path[->,line width=1pt,color=coolblack,visible on=<4->]
+  (nf)  edge node [above] {} (g)
+  ;
+\path[->,line width=1pt,color=coolblack,visible on=<4->]
+(a)  edge [bend left=30] node [above] {} (g)
+;
+
+
+\node (nh) [visible on=<6->, right= of d]  {$\bar{h}$};
+\path[->,line width=1pt,color=coolblack,visible on=<6->]
+  (d)  edge node [above] {} (nh)
+  ;
+\path[->,line width=1pt,color=coolblack,visible on=<6->]
+(b)  edge [bend left=30] node [above] {} (nh)
+(c)  edge [bend left=30] node [above] {} (nh)
+;
+
+\node (i) [visible on=<6->, right= of nh]  {$i$};
+\path[->,line width=1pt,color=coolblack,visible on=<6->]
+  (nh)  edge node [above] {} (i)
+  (g)  edge node [above] {} (i)
+  ;
+
+  \node (j) [visible on=<7->, above right= .5cm and 2cm of e]  {$j$};
+  \node (k) [visible on=<7->, below right= .5cm and 2cm of e]  {$k$};
+
+
+\path[->,line width=1pt,color=coolblack,visible on=<7->]
+  (e)  edge node [above] {} (j)
+  (e)  edge node [above] {} (k)
+  ;
+
+  \node (l) [visible on=<7->, below= 1.25cm of i]  {$l$};
+  \path[->,line width=1pt,color=coolblack,visible on=<7->]
+  (j)  edge node [above] {} (l)
+  (k)  edge node [above] {} (l)
+  (g) edge [bend left=30] node [above] {} (l)
+  ;
+
+    \node (FAIL) [visible on=<7->, right=  of l]  {$\bot$};
+  \path[->,line width=1pt,color=coolblack,visible on=<7->]
+  (l)  edge node [above] {} (FAIL)
+  (g) edge [bend left=30] node [above] {} (FAIL)
+  ;
+%
+
+\node (formula) [right = 10cm of L2] {
+  $\begin{aligned}
+\aformula = &\textcolor<4>{bostonuniversityred}{(\bar{b} \lor \bar{f})} & \land \\
+&\textcolor<4>{bostonuniversityred}{(\bar{a} \lor f \lor g)} & \land \\
+&\textcolor<6>{bostonuniversityred}{(\bar{d} \lor \bar{c} \lor \bar{b} \lor \bar{h})} & \land \\
+&\textcolor<6>{bostonuniversityred}{(h \lor \bar{g} \lor i)} & \land \\
+&\textcolor<7>{bostonuniversityred}{(\bar{e} \lor j)} & \land \\
+&\textcolor<7>{bostonuniversityred}{(\bar{e} \lor k)} & \land \\
+&\textcolor<7>{bostonuniversityred}{(\bar{j} \lor \bar{k} \lor \bar{g} \lor l)} &  \land \\
+&\textcolor<7>{bostonuniversityred}{(\bar{l} \lor \bar{g})} & 
+  \end{aligned}$
+  };
+
+  \node [visible on=<8->, below = 0cm of formula.south] (cut1) {\memph{$(a \land b \land c \land d \land e) \implies \bot$}%
+  %and hence $\aformula \lmod (\bar{a} \lor \bar{b} \lor \bar{c} \lor \bar{d} \lor \bar{e})$
+  };
+\node [visible on=<8-9>, fill=bittersweet] at (a) {$a$};
+\node [visible on=<8-9>, fill=bittersweet] at (b) {$b$};
+\node [visible on=<8>, fill=bittersweet] at (c) {$c$};
+\node [visible on=<8>, fill=bittersweet] at (d) {$d$};
+\node [visible on=<8-9>, fill=bittersweet] at (e) {$e$};
+
+
+  \node [visible on=<9->, below = 0.5cm of cut1] (cut2) {\memph{$(a \land b \land e) \implies \bot$}%
+  %and hence $\aformula \lmod (\bar{a} \lor \bar{b} \lor \bar{e})$
+  };
+
+  \node [visible on=<10->, below = 0.5cm of cut2] (cut3) {\memph{$(g \land j \land k) \implies \bot$}% 
+  %and hence $\aformula \lmod (\bar{g} \lor \bar{e})$
+  };
+  \node [visible on=<10->, fill=bittersweet] at (g) {$g$};
+  \node [visible on=<10>, fill=bittersweet] at (j) {$j$};
+  \node [visible on=<10>, fill=bittersweet] at (k) {$k$};
+
+
+    \node [visible on=<11->, below = 0.5cm of cut3] (cut4) {\memph{$(l \land g) \implies \bot$}% 
+  %and hence $\aformula \lmod (\bar{g} \lor \bar{e})$
+  };
+  \node [visible on=<11->, fill=bittersweet] at (l) {$l$};
+
+
+
+
+% \node (C1) [right = 6cm of I] {$(\bar{b} \lor \bar{f}) \land$} ;
+% \node (C2) [below = of C1] {$(\bar{a} \lor f \lor g) \land$} ;
+% \node (C3) [below = of C2] {$(\bar{d} \lor \bar{c} \lor \bar{b} \lor \bar{h}) \land$} ;
+% \node (C4) [below = of C3] {$(h \lor \bar{g} \lor i) \land$} ;
+% \node (C5) [below = of C4] {$(\bar{e} \lor j) \land$} ;
+% \node (C6) [below = of C5] {$(\bar{e} \lor k) \land$} ;
+% \node (C7) [below = of C6] {$(\bar{j} \lor \bar{k} \lor \bar{g})$} ;
+
+
+% %
+% \node (a)  [visible on=<5->, right= of z]  {$a$};
+% \node (nc)  [visible on=<4->, right= 2.5cm of y]  {$\bar{c}$};
+% \node (b)  [visible on=<5->, below= 1.25cm of a]  {$b$};
+% \node (k)  [visible on=<5->, right= of a]  {$\cnode$};
+
+% \path[->,line width=1pt,color=coolblack,visible on=<5->]
+%   (x)  edge [bend left=30] node [above] {} (a)
+%   ;
+
+% \path[->,line width=1pt,color=coolblack,visible on=<4->]
+%   (y)  edge node [above] {} (nc)
+% ;
+
+% \path[->,line width=1pt,color=coolblack,visible on=<5>]
+%   (z)  edge node [above] {} (a)
+%        edge node [above] {} (b)
+%   (a)  edge node [above] {} (k)
+%   (b)  edge node [above] {} (k)
+% ;
+
+% \path[->,line width=2pt,color=darkred,visible on=<6->]
+%   (z)  edge node [above] {} (a)
+%        edge node [above] {} (b)
+%   (a)  edge node [above] {} (k)
+%   (b)  edge node [above] {} (k)
+% ;
+% %\begin{pgfonlayer}{background}
+% %  \path[-,selected edge,visible on=<3->]
+% %  (z)  edge node [above] {} (a)
+% %       edge node [above] {} (b)
+% %  (a)  edge node [above] {} (k)
+% %  (b)  edge node [above] {} (k)
+% %  %(x)  edge [bend left=30] node [above] {} (a)
+% %  ;
+% %  %\path[selected edge] (x.center) -- (a.center);
+% %\end{pgfonlayer}
+\end{tikzpicture}
+
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Explanation}
+
+\begin{itemize}
+  \item New bound \memph{$x \leq k$} via Bellman-Ford: we store $y$ the predecessor of $x$ in the shortest path from $0$
+
+  \begin{itemize}
+    \item \memph{$x \leq k$} is explained by \memph{$x - y \leq k'$} and $y \leq k-k'$
+  \end{itemize}
+
+  \item Truth value for $b_{ij} \implies e_i \leq s_j$; $\neg b_{ij} \implies e_j \leq s_i$ via binary disjunction:
+
+  \begin{itemize}
+    \item $b_{ij}$ is explained by $e_j > s_i$ ($e_j \geq k$ and $s_i \leq k'$)
+  \end{itemize}
+
+\end{itemize}
+
+\vfill
+
+\begin{myblock}{Aries -- Arthur Bit-Monnod's solver}
+\begin{itemize}
+  \item Aries is pretty much Mistral + clause learning
+
+  \vfill
+  \item During his thesis, Mohamed wrote a version of Mistral with the same ideas
+
+  \vfill
+  \begin{itemize}
+    \item Key difference, there was no literal for bounds ($x \leq k$)
+  \end{itemize}
+\end{itemize}
+
+\end{myblock}
+
+\vfill
+
+
+\end{frame}
