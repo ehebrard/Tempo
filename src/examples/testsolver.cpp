@@ -251,13 +251,13 @@ void test3(Options &options) {
   for (auto x : X)
     S.addToSearch(x);
 
-  std::cout << S << std::endl;
+//  std::cout << S << std::endl;
     
     MakespanObjective<int> duration(schedule, S);
     
     S.optimize(duration);
 
-  std::cout << duration.value() << std::endl;
+//  std::cout << duration.value() << std::endl;
 }
 
 void test4(Options &opt) {
@@ -297,7 +297,7 @@ void test5(Options &opt) {
     for (auto x : X)
       S.addToSearch(x);
 
-    std::cout << S << std::endl;
+//    std::cout << S << std::endl;
 
     MakespanObjective<int> duration(schedule, S);
     

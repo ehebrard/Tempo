@@ -11,9 +11,9 @@ namespace tempo {
 using var_t = uint32_t;
 using info_t = uint32_t;
 
-//#define DBG_BOUND (num_choicepoints >= 0)
-//#define DBG_BBOUND (sched.num_choicepoints >= 0) //(sched.num_fails >= 236)
-//#define DBG_TRACE 128 //55                             // 183 //1+2+4+32+128
+#define DBG_BOUND (num_choicepoints >= 3950)
+#define DBG_BBOUND (sched.num_choicepoints >= 3950) //(sched.num_fails >= 236)
+#define DBG_TRACE 35 //55                             // 183 //1+2+4+32+128
 #define SEARCH 1
 #define DOMAINS 2
 #define BRANCH 4
@@ -31,7 +31,7 @@ using info_t = uint32_t;
 //#define DBG_BELLMAN_EXPL (sched.num_choicepoints >= 4172)
 //#define DEBUG_HEURISTICS
 //#define DBG_UP
-//#define DBG_CL 10000000
+#define DBG_CL 151
 //#define DBG_CLPLUS
 //#define DBG_TRANSITIVITY true //(m_schedule.num_choicepoints >= 4064)
 //#define DBG_EXPL_TRANS true

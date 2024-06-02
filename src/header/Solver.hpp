@@ -310,8 +310,8 @@ void BoundExplainer<T>::xplain(const Literal<T> l, const hint h,
 
     var_t x{static_cast<var_t>(h)};
 
-//    std::cout << "explain contradiction: wipe out on numeric var x" << x
-//              << std::endl;
+    std::cout << "explain contradiction: wipe out on numeric var x" << x
+              << " in [" << solver.numeric.lower(x) << ".." << solver.numeric.upper(x) << "]" << std::endl;
 
     auto lidx{solver.numeric.lastLitIndex(bound::lower, x)};
     auto uidx{solver.numeric.lastLitIndex(bound::upper, x)};
@@ -326,6 +326,9 @@ void BoundExplainer<T>::xplain(const Literal<T> l, const hint h,
           le = solver.getLiteral(uidx);
           exp = solver.getReason(lidx);
       }
+      
+      std::cout << le << " and " << ~le << std::endl;
+      
       Cl.push_back(le);
       exp.explain(~le, Cl);
 
@@ -503,10 +506,11 @@ public:
    */
   //@{
   std::ostream &display(std::ostream &os, const bool dom = true,
-                        const bool bra = true, const bool sva = true,
+                        const bool bra = true, const bool sva = false,
                         const bool pre = false, const bool cla = false,
                         const bool bgr = false, const bool ngr = false,
                         const bool con = false, const bool trl = false) const;
+    std::ostream &displayTrail(std::ostream &os) const;
   std::ostream &displayDomains(std::ostream &os) const;
   std::ostream &displayBranches(std::ostream &os) const;
   std::ostream &displayVariables(std::ostream &os) const;
@@ -1254,7 +1258,7 @@ template <typename T> void Solver<T>::analyze(NewExplanation<T> &e) {
 #ifdef DBG_TRACE
       if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
         std::cout << " ** " << pretty(p) << " (" << p_lvl << "/" << decision_lvl
-                  << ")";
+                  << ") i.e., " << getLiteral(p_lvl);
       }
 #endif
       if (p_lvl < fact_lvl) {
@@ -1368,6 +1372,8 @@ template <typename T> void Solver<T>::analyze(NewExplanation<T> &e) {
     *cl_file << std::endl;
   }
 #endif
+    
+    
 }
 
 template <typename T> bool Solver<T>::isAssertive(std::vector<Literal<T>> &conf) const {
@@ -1608,7 +1614,7 @@ void Solver<T>::optimize(S &objective) {
       restart(true);
       try {
         objective.setPrimal(best);
-      } catch (Failure &f) {
+      } catch (NewFailure<T> &f) {
         objective.setDual(objective.primalBound());
       }
     } else if (satisfiability == False) {
@@ -1924,20 +1930,53 @@ void Solver<T>::wake_me_on(const Literal<T> l, const int c) {
 
 template <typename T> double Solver<T>::looseness(const Literal<T> &l) const {
   if (l.isNumeric()) {
+      
+      if(numeric.falsified(l))
+          return 0;
+      
     auto lb{numeric.lower(l.variable())};
     auto ub{numeric.upper(l.variable())};
+      
+//      std::cout << env.level() << std::endl;
+      
+//      std::cout << *this << std::endl;
+      
 
     if (l.sign() == bound::lower) {
       auto b{-l.value()};
-      assert(b >= lb);
-      assert(b <= ub);
-      return static_cast<double>(b - lb) / static_cast<double>(ub - lb);
+//        std::cout << "lower bound (" << ub << " - " << b << ")\n";
+////      assert(b >= lb);
+//        std::cout << l << " -> " << (static_cast<double>(ub - b) / static_cast<double>(ub - lb)) << std::endl;
+//        assert(b <= ub);
+        
+        double ls{static_cast<double>(ub - b)};
+        assert(ls>=0);
+//        {
+//            assert(numeric.falsified(l));
+//            return 0;
+//        }
+        
+        return ls / static_cast<double>(ub - lb);
     } else {
       auto b{l.value()};
-      assert(b >= lb);
-      assert(b <= ub);
-      return static_cast<double>(ub - b) / static_cast<double>(ub - lb);
+//        std::cout << "upper bound (" << b << " - " << lb << ")\n";
+////      assert(b <= ub);
+//        std::cout << l << " -> " << (static_cast<double>(b - lb) / static_cast<double>(ub - lb)) << std::endl;
+//        assert(b >= lb);
+        
+        double ls{static_cast<double>(b - lb)};
+        assert(ls>=0);
+//        {
+//            assert(numeric.falsified(l));
+//            return 0;
+//        }
+        
+        return ls / static_cast<double>(ub - lb);
+
     }
+      
+//      exit(1);
+      
   } else if (l.hasSemantic()) {
     auto c{boolean.getEdge(l)};
     return static_cast<double>(numeric.upper(c.from) - numeric.lower(c.to) +
@@ -2010,6 +2049,15 @@ std::ostream &Solver<T>::displayDomains(std::ostream &os) const {
 
 template <typename T>
 std::ostream &Solver<T>::displayBranches(std::ostream &os) const {
+    for(size_t i{0}; i<decisions.size(); ++i)
+    {
+        os << std::setw(3) << i << ": " << decisions[i] << std::endl;
+    }
+return os;
+}
+
+template <typename T>
+std::ostream &Solver<T>::displayTrail(std::ostream &os) const {
 //    os << "branch:";
 //      for(var_t x{0}; x<boolean.size(); ++x) {
 //          if(boolean.isTrue(x)) {

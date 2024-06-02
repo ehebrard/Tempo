@@ -871,9 +871,13 @@ template <typename T> void ClauseBase<T>::forget() {
   if (caller.getOptions().forget_strategy == Options::LiteralScore::Looseness or
       (caller.getActivityMap() == NULL and
        caller.getOptions().forget_strategy != Options::LiteralScore::Size)) {
+      
     for (auto idx{free_cl_indices.bbegin()}; idx != free_cl_indices.bend();
          ++idx) {
       score[*idx] = 0;
+        
+        
+        
       for (auto l : *base[*idx]) {
         score[*idx] += looseness(l);
       }
@@ -883,6 +887,8 @@ template <typename T> void ClauseBase<T>::forget() {
     for (auto idx{free_cl_indices.bbegin()}; idx != free_cl_indices.bend();
          ++idx) {
       score[*idx] = 0;
+        
+        
       for (auto l : *base[*idx]) {
         score[*idx] += loosenessOverActivity(l);
       }
@@ -891,6 +897,8 @@ template <typename T> void ClauseBase<T>::forget() {
              Options::LiteralScore::Activity) {
     for (auto idx{free_cl_indices.bbegin()}; idx != free_cl_indices.bend();
          ++idx) {
+
+        
       score[*idx] = 0;
       for (auto l : *base[*idx]) {
         score[*idx] += inverseActivity(l);
@@ -1630,6 +1638,9 @@ template <typename T> void NewClauseBase<T>::forget() {
     for (auto idx{free_cl_indices.bbegin()}; idx != free_cl_indices.bend();
          ++idx) {
       score[*idx] = 0;
+        
+//        std::cout << "compute (1) score for " << *base[*idx] << std::endl;
+        
       for (auto l : *base[*idx]) {
         score[*idx] += looseness(l);
       }
@@ -1639,6 +1650,9 @@ template <typename T> void NewClauseBase<T>::forget() {
     for (auto idx{free_cl_indices.bbegin()}; idx != free_cl_indices.bend();
          ++idx) {
       score[*idx] = 0;
+        
+//        std::cout << "compute (2) score for " << *base[*idx] << std::endl;
+        
       for (auto l : *base[*idx]) {
         score[*idx] += loosenessOverActivity(l);
       }
@@ -1648,6 +1662,9 @@ template <typename T> void NewClauseBase<T>::forget() {
     for (auto idx{free_cl_indices.bbegin()}; idx != free_cl_indices.bend();
          ++idx) {
       score[*idx] = 0;
+        
+//        std::cout << "compute (2) score for " << *base[*idx] << std::endl;
+        
       for (auto l : *base[*idx]) {
         score[*idx] += inverseActivity(l);
       }
