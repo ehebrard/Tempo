@@ -9,6 +9,7 @@
 #include "Clause.hpp"
 #include "Failure.hpp"
 #include "Global.hpp"
+#include "constraints/Constraint.hpp"
 #include "util/Options.hpp"
 #include "util/SparseSet.hpp"
 #include "util/SubscribableEvent.hpp"
@@ -127,7 +128,7 @@ private:
 #endif
 };
 
-template <class T> class NewClauseBase : NewExplainer<T> {
+template <class T> class NewClauseBase : public NewConstraint<T> {
 
 public:
   //    std::vector<Clause *> base;
@@ -200,6 +201,14 @@ public:
 
   //    std::string prettyLiteral(const genlit l) const;
 
+    //
+    virtual void post(const int idx);
+    // propagate the constraint
+    virtual void propagate();
+    // notify a change (with the literal and it's variable rank in the scope)
+    virtual bool notify(const Literal<T>, const int);
+    
+    
 private:
   Solver<T> &caller;
 
@@ -226,6 +235,8 @@ private:
   //    // for every event-lit, the set of (pointers to) constraints ordered by
   //    bound std::vector<std::vector<int>> cons_list;
   //    ////////////////////////////////////////
+    
+    SparseSet<var_t> triggered_bounds;
 
   // statistics
   size_t total_size{0};
@@ -1332,8 +1343,51 @@ std::ostream &operator<<(std::ostream &os, const tempo::ClauseBase<T> &x) {
 template <typename T>
 NewClauseBase<T>::NewClauseBase(Solver<T> &c)
     : caller(c), handlerToken(caller.SearchRestarted.subscribe_handled(
-                     [this]() { this->forget(); })) {}
+                     [this]() { this->forget(); })) {
+        
+        NewConstraint<T>::priority = Priority::Low;
+//        NewConstraint<T>::idempotent = true;
+    }
 
+
+template <typename T>
+void NewClauseBase<T>::post(const int idx) {
+    NewConstraint<T>::cons_id = idx;
+//    for(var_t x{0}; x<caller.boolean.size(); ++x) {
+//        caller.wake_me_on(caller.boolean.getLiteral(true, x), NewConstraint<T>::cons_id);
+//        caller.wake_me_on(caller.boolean.getLiteral(false, x), NewConstraint<T>::cons_id);
+//    }
+    
+//        for(var_t x{0}; x<caller.numeric.size(); ++x) {
+//            caller.wake_me_on(lb<T>(x), NewConstraint<T>::cons_id);
+//            caller.wake_me_on(ub<T>(x), NewConstraint<T>::cons_id);
+//        }
+    triggered_bounds.reserve(2 * caller.numeric.size());
+}
+
+// propagate the constraint
+template <typename T>
+void NewClauseBase<T>::propagate() {
+    for(auto b : triggered_bounds) {
+        unit_propagate(caller.numeric.strongestLiteral(Literal<T>::sign(b), Literal<T>::var(b)));
+    }
+    triggered_bounds.clear();
+//    std::cout << triggered_bounds << std::endl;
+}
+
+template <typename T>
+bool NewClauseBase<T>::notify(const Literal<T> l, const int) {
+//    if(not l.isNumeric())
+//        unit_propagate(l);
+    
+    assert(l.isNumeric());
+    if(not triggered_bounds.has(l)) {
+        triggered_bounds.add(l);
+        return true;
+//        std::cout << triggered_bounds << std::endl;
+    }
+    return false;
+}
 
 template<typename T>
 size_t NewClauseBase<T>::numLearnt() const {

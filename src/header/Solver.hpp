@@ -493,7 +493,6 @@ public:
   void trigger(const Literal<T> l);
   void propagate();
   boolean_state search();
-  void initializeSearch();
 
   boolean_state satisfiable();
   template <typename S> void optimize(S &objective);
@@ -685,6 +684,8 @@ public:
   long unsigned int learnt_size{0};
 
   int init_level{0};
+    bool initialized{false};
+    void initializeSearch();
 
   static const Literal<T> Contradiction;
 
@@ -1684,9 +1685,13 @@ template <typename T> void Solver<T>::branchRight() {
 }
 
 template <typename T> void Solver<T>::initializeSearch() {
-    heuristic.emplace(*this, options);
+    if(not initialized) {
+        start_time = cpu_time();
+        heuristic.emplace(*this, options);
+        post(&clauses);
+        initialized = true;
+    }
     restartPolicy.initialize();
-    start_time = cpu_time();
 }
 
 template <typename T> boolean_state Solver<T>::satisfiable() {
@@ -1815,13 +1820,20 @@ template <typename T> void tempo::Solver<T>::propagate() {
       }
 #endif
 
-      clauses.unit_propagate(l);
+        //TODO: not sure why it is better to do it like this than with the standard constraint queue system (PRIORITY?)
+//        if() {
+            if (not l.isNumeric())
+                clauses.unit_propagate(l);
+            else if(clauses.notify(l, 0))
+                propagation_queue.activate(&clauses);
+//        }
+
 
       //              std::cout << "propagate " << info_t(l) << std::endl;
       //
       //        std::cout << boolean_constraints << std::endl;
 
-      const std::vector<int> &cons =
+      const std::vector<int> &cid =
           (l.isNumeric() ? numeric_constraints[l] : boolean_constraints[l]);
       const std::vector<unsigned> &rank =
           (l.isNumeric() ? numeric_constraints.rank(l)
@@ -1830,18 +1842,20 @@ template <typename T> void tempo::Solver<T>::propagate() {
       //              std::cout << cons.size() << std::endl;
       //              exit(1);
 
-      for (auto i{cons.size()}; i-- > 0;) {
-        auto c{constraints[cons[i]]};
-        if (c->idempotent and culprit == c)
-          continue;
+      for (auto i{cid.size()}; i-- > 0;) {
+        auto cons{constraints[cid[i]]};
+          if (cons->idempotent and culprit == cons) {
+//              std::cout << "idempotency\n";
+              continue;
+          }
 
 #ifdef DBG_TRACE
         if (DBG_TRACE & QUEUE) {
-          std::cout << " -" << *c << " (" << c->id() << ")" << std::endl;
+          std::cout << " -" << *cons << " (" << cons->id() << ")" << std::endl;
         }
 #endif
 
-        propagation_queue.triggers(l, rank[i], cons[i]);
+        propagation_queue.triggers(l, rank[i], cons);
       }
 
       ++p_index;
@@ -1859,6 +1873,22 @@ template <typename T> void tempo::Solver<T>::propagate() {
       ++num_cons_propagations;
       cons->propagate();
     }
+      
+//      for(var_t x{0}; x < numeric.size(); ++x) {
+//          auto l{numeric.strongestLiteral(bound::lower, x)};
+//          auto u{numeric.strongestLiteral(bound::upper, x)};
+//          
+//  //        std::cout << "prop " << l << std::endl;
+//          
+//          if(l.value() != Constant::Infinity<T>)
+//              clauses.unit_propagate(l);
+//          
+//  //        std::cout << "prop " << u << std::endl;
+//          
+//          if(u.value() != Constant::Infinity<T>)
+//              clauses.unit_propagate(u);
+//      }
+      
   }
 
   propag_pointer = p_index;
