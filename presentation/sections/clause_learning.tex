@@ -190,14 +190,22 @@
 \begin{frame}
 \frametitle{Explanation}
 
+\vfill
+
 \begin{itemize}
   \item New bound \memph{$x \leq k$} via Bellman-Ford: we store $y$ the predecessor of $x$ in the shortest path from $0$
+
+  \vfill
 
   \begin{itemize}
     \item \memph{$x \leq k$} is explained by \memph{$x - y \leq k'$} and $y \leq k-k'$
   \end{itemize}
 
+  \vfill
+
   \item Truth value for $b_{ij} \implies e_i \leq s_j$; $\neg b_{ij} \implies e_j \leq s_i$ via binary disjunction:
+
+\vfill
 
   \begin{itemize}
     \item $b_{ij}$ is explained by $e_j > s_i$ ($e_j \geq k$ and $s_i \leq k'$)

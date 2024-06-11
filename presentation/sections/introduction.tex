@@ -6,25 +6,42 @@
 
 \vfill
 
+\begin{center}
 \begin{footnotesize}
-\begin{tabular}{lrrrrrr}
+
+
+\begin{tabular}{lrrrrrrrr}
 \toprule
-\multirow{2}{*}{Instance}&  \multicolumn{3}{c}{CP Optimizer} & \multicolumn{3}{c}{Tempo}\\
-\cmidrule(rr){2-4}\cmidrule(rr){5-7}
-% & \multicolumn{1}{c}{\%Opt.} 
-& \multicolumn{1}{c}{Objective} & \multicolumn{1}{c}{\#Branches} & \multicolumn{1}{c}{CPU (s)} & 
-% \multicolumn{1}{c}{\%Opt.} & 
-\multicolumn{1}{c}{Objective} & \multicolumn{1}{c}{\#Branches} & \multicolumn{1}{c}{CPU (s)} \\
+\multirow{2}{*}{Instance}&  \multicolumn{4}{c}{CPOptimizer} & \multicolumn{4}{c}{Tempo}\\
+\cmidrule(rr){2-5}\cmidrule(rr){6-9}
+& \multicolumn{1}{c}{\#Branches} & \multicolumn{3}{c}{CPU Time (s)} & \multicolumn{1}{c}{\#Branches} & \multicolumn{3}{c}{CPU Time (s)} \\\cmidrule(rl){2-2}\cmidrule(rl){3-5}\cmidrule(rl){6-6}\cmidrule(rl){7-9}
+ & \multicolumn{1}{c}{avg} & \multicolumn{1}{c}{min} & \multicolumn{1}{c}{avg} & \multicolumn{1}{c}{max} & \multicolumn{1}{c}{avg} & \multicolumn{1}{c}{min} & \multicolumn{1}{c}{avg} & \multicolumn{1}{c}{max} \\
 \midrule
 
-\texttt{j7-per0-0} & 1048.00 & \cellcolor{red!50}<2->{24625154} & \cellcolor{red!50}<2->{476.39} & 1048.00 & \cellcolor{green!50}<2->{4221305} & \cellcolor{green!50}<2->{261.11}\\
-\texttt{j8-per0-1} & 1039.00 & \cellcolor{red!50}<2->{486860201} & \cellcolor{red!50}<2->{6177.08} & 1039.00 & \cellcolor{green!50}<2->{12323946} & \cellcolor{green!50}<2->{933.30}\\
-
-% \texttt{j7-per0-0} & 100 & 1048.00 & 24625154 & \cellcolor{red!50}<4->{476.39} & 100 & 1048.00 & 4221305 & \cellcolor{green!50}<4->{261.11}\\
-% \texttt{j8-per0-1} & \cellcolor{red!50}<2->{85} & \cellcolor{red!50}<3->{1039.45} & 262592977 & \cellcolor{red!50}<4->{4289.58} & \cellcolor{green!50}<2->{100} & \cellcolor{green!50}<3->{1039.00} & 12323946 & \cellcolor{green!50}<4->{933.29}\\
+\texttt{j7-per0-0} & 24M & 250 & \cellcolor{red!50}<2->476 & 932 & 4M & 26 & \cellcolor{green!50}<2->261 & 600\\
+\texttt{j8-per0-1} & 486M & 1033 & \cellcolor{red!50}<2->6177 & \cellcolor{red!50}<3->28067 & 12M & 366 & \cellcolor{green!50}<2->933 & \cellcolor{green!50}<3->1594\\
 \bottomrule
 \end{tabular}
+
+% \begin{tabular}{lrrrrrr}
+% \toprule
+% \multirow{2}{*}{Instance}&  \multicolumn{3}{c}{CP Optimizer} & \multicolumn{3}{c}{Tempo}\\
+% \cmidrule(rr){2-4}\cmidrule(rr){5-7}
+% % & \multicolumn{1}{c}{\%Opt.} 
+% & \multicolumn{1}{c}{Objective} & \multicolumn{1}{c}{\#Branches} & \multicolumn{1}{c}{CPU (s)} & 
+% % \multicolumn{1}{c}{\%Opt.} & 
+% \multicolumn{1}{c}{Objective} & \multicolumn{1}{c}{\#Branches} & \multicolumn{1}{c}{CPU (s)} \\
+% \midrule
+
+% \texttt{j7-per0-0} & 1048.00 & \cellcolor{red!50}<2->{24625154} & \cellcolor{red!50}<2->{476.39} & 1048.00 & \cellcolor{green!50}<2->{4221305} & \cellcolor{green!50}<2->{261.11}\\
+% \texttt{j8-per0-1} & 1039.00 & \cellcolor{red!50}<2->{486860201} & \cellcolor{red!50}<2->{6177.08} & 1039.00 & \cellcolor{green!50}<2->{12323946} & \cellcolor{green!50}<2->{933.30}\\
+
+% % \texttt{j7-per0-0} & 100 & 1048.00 & 24625154 & \cellcolor{red!50}<4->{476.39} & 100 & 1048.00 & 4221305 & \cellcolor{green!50}<4->{261.11}\\
+% % \texttt{j8-per0-1} & \cellcolor{red!50}<2->{85} & \cellcolor{red!50}<3->{1039.45} & 262592977 & \cellcolor{red!50}<4->{4289.58} & \cellcolor{green!50}<2->{100} & \cellcolor{green!50}<3->{1039.00} & 12323946 & \cellcolor{green!50}<4->{933.29}\\
+% \bottomrule
+% \end{tabular}
 \end{footnotesize}
+\end{center}
 
 \vfill
 
@@ -53,25 +70,49 @@
 
 \vfill
 
+\begin{center}
 \begin{footnotesize}
-\begin{tabular}{lrrrrrr}
+\begin{tabular}{lrrrr}
 \toprule
-\multirow{2}{*}{Instance}&  \multicolumn{3}{c}{CP Optimizer} & \multicolumn{3}{c}{Tempo$^*$}\\
-\cmidrule(rr){2-4}\cmidrule(rr){5-7}
+\multirow{2}{*}{Instance}&  \multicolumn{2}{c}{CP Optimizer} & \multicolumn{2}{c}{Tempo$^*$}\\
+\cmidrule(rr){2-3}\cmidrule(rr){4-5}
 % & \multicolumn{1}{c}{\%Opt.} 
-& \multicolumn{1}{c}{Objective} & \multicolumn{1}{c}{\#Branches} & \multicolumn{1}{c}{CPU Time} 
+%& \multicolumn{1}{c}{Objective} & 
+\multicolumn{1}{c}{\#Branches} & \multicolumn{1}{c}{CPU Time (s)} 
 % & \multicolumn{1}{c}{\%Opt.} 
-& \multicolumn{1}{c}{Objective} & \multicolumn{1}{c}{\#Branches} & \multicolumn{1}{c}{CPU Time} \\
+%& \multicolumn{1}{c}{Objective} 
+& \multicolumn{1}{c}{\#Branches} & \multicolumn{1}{c}{CPU Time (s)} \\
 \midrule
 
-\texttt{la25\_0\_0} & 1906.00 & 7272098 & \cellcolor{red!50}838.46 & 1906.00 & 189442 & \cellcolor{green!50}{26.31}\\
-\texttt{la25\_0\_0,5} & 1284.00 & 88457381 & \cellcolor{red!50}6150.42 & 1284.00 & 1610738 & \cellcolor{green!50}{272.01}\\
-\texttt{la25\_0\_1} & 1087.00 & 31424922 & \cellcolor{red!50}2109.69 & 1087.00 & 6098393 & \cellcolor{green!50}{1173.10}\\
-\texttt{la25\_0\_3} & 992.00 & 887841 & \cellcolor{red!50}40.56 & 992.00 & 53859 & \cellcolor{green!50}{6.53}\\
-\texttt{la25\_0\_10} & 977.00 & 467144 & \cellcolor{red!50}19.36 & 977.00 & 68138 & \cellcolor{green!50}{9.51}\\
+\texttt{la25\_0\_0} 
+%& 1906.00 
+& 7272098 & \cellcolor{red!50}838.46 
+%& 1906.00 
+& 189442 & \cellcolor{green!50}{26.31}\\
+\texttt{la25\_0\_0,5} 
+%& 1284.00 
+& 88457381 & \cellcolor{red!50}6150.42 
+%& 1284.00 
+& 1610738 & \cellcolor{green!50}{272.01}\\
+\texttt{la25\_0\_1} 
+%& 1087.00 
+& 31424922 & \cellcolor{red!50}2109.69 
+%& 1087.00 
+& 6098393 & \cellcolor{green!50}{1173.10}\\
+\texttt{la25\_0\_3} 
+%& 992.00 
+& 887841 & \cellcolor{red!50}40.56 
+%& 992.00 
+& 53859 & \cellcolor{green!50}{6.53}\\
+\texttt{la25\_0\_10} 
+%& 977.00 
+& 467144 & \cellcolor{red!50}19.36 
+%& 977.00 
+& 68138 & \cellcolor{green!50}{9.51}\\
 \bottomrule
 \end{tabular}
 \end{footnotesize}
+\end{center}
 
 \vfill
 
@@ -94,24 +135,60 @@
 
 \vfill
 
+\begin{center}
 \begin{footnotesize}
-\begin{tabular}{lrrrrrr}
+
+\begin{tabular}{lrrrrr}
 \toprule
-\multirow{2}{*}{Instance}&  \multicolumn{3}{c}{CP Optimizer} & \multicolumn{3}{c}{Tempo}\\
-\cmidrule(rr){2-4}\cmidrule(rr){5-7}
-% & \multicolumn{1}{c}{\%Opt.} 
-& \multicolumn{1}{c}{Objective} & \multicolumn{1}{c}{\#Branches} & \multicolumn{1}{c}{CPU Time} 
-% & \multicolumn{1}{c}{\%Opt.} 
-& \multicolumn{1}{c}{Objective} & \multicolumn{1}{c}{\#Branches} & \multicolumn{1}{c}{CPU Time} \\
+\multirow{2}{*}{Instances}&  \multicolumn{2}{c}{CP Optimizer} & \multicolumn{3}{c}{Tempo}\\
+\cmidrule(rr){2-3}\cmidrule(rr){4-6}
+& \multicolumn{1}{c}{\#Branches} & \multicolumn{1}{c}{CPU Time (s)} & \multicolumn{1}{c}{\#Branches} & \multicolumn{1}{c}{\#Fails} & \multicolumn{1}{c}{CPU Time (s)} \\
 \midrule
 
-\texttt{ft20} & 1165.00 & 40568 & \cellcolor{green!50}0.73 & 1165.00 & 622493 & \cellcolor{red!50}66.48\\
-\texttt{la25} & 977.00 & 443022 & \cellcolor{red!50}17.95 & 977.00 & 72039 & \cellcolor{green!50}10.12\\
-\texttt{orb03} & 1005.00 & 239964 & \cellcolor{green!50}8.26 & 1005.00 & 808686 & \cellcolor{red!50}74.13\\
-\texttt{swv16} & 2924.00 & 5766 & \cellcolor{green!50}0.12 & 2924.00 & 981377 & \cellcolor{red!50}225.94\\
+\texttt{ft20} & 40K & \cellcolor{green!50}0.73 & 622K & 106K & \cellcolor{red!50}66.48\\
+\texttt{la25} & 443K & \cellcolor{red!50}17.95 & 72K & 13K & \cellcolor{green!50}10.12\\
+\texttt{orb03} & 239K & \cellcolor{green!50}8.26 & 808K & 209K & \cellcolor{red!50}74.13\\
+\texttt{swv16} & 5K & \cellcolor{green!50}0.12 & 981K & 1.5K & \cellcolor{red!50}225.93\\
 \bottomrule
 \end{tabular}
+
+
+% \begin{tabular}{lrrrr}
+% \toprule
+% \multirow{2}{*}{Instance}&  \multicolumn{2}{c}{CP Optimizer} & \multicolumn{2}{c}{Tempo}\\
+% \cmidrule(rr){2-3}\cmidrule(rr){4-5}
+% % & \multicolumn{1}{c}{\%Opt.} 
+% %& \multicolumn{1}{c}{Objective} 
+% & \multicolumn{1}{c}{\#Branches} & \multicolumn{1}{c}{CPU Time} 
+% % & \multicolumn{1}{c}{\%Opt.} 
+% %& \multicolumn{1}{c}{Objective} 
+% & \multicolumn{1}{c}{\#Branches} & \multicolumn{1}{c}{CPU Time} \\
+% \midrule
+
+% \texttt{ft20} 
+% %& 1165.00 
+% & 40568 & \cellcolor{green!50}0.73 
+% %& 1165.00 
+% & 622493 & \cellcolor{red!50}66.48\\
+% \texttt{la25} 
+% %& 977.00 
+% & 443022 & \cellcolor{red!50}17.95 
+% %& 977.00 
+% & 72039 & \cellcolor{green!50}10.12\\
+% \texttt{orb03} 
+% %& 1005.00 
+% & 239964 & \cellcolor{green!50}8.26 
+% %& 1005.00 
+% & 808686 & \cellcolor{red!50}74.13\\
+% \texttt{swv16} 
+% %& 2924.00 
+% & 5766 & \cellcolor{green!50}0.12 
+% %& 2924.00 
+% & 981377 & \cellcolor{red!50}225.94\\
+% \bottomrule
+% \end{tabular}
 \end{footnotesize}
+\end{center}
 
 \vfill
 
@@ -137,7 +214,7 @@
 % \end{document}
 
 \begin{frame}
-\frametitle{How does it work?}
+\frametitle{Tempo}
 
 % \begin{itemize}
 %   \item Hybrid CP/SAT/SMT

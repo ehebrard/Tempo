@@ -48,6 +48,8 @@ struct Literal {
     static var_t var(const var_t s);
     static bool sign(const var_t s);
 
+    void setValue(T v);
+
     var_t _id_{0};
     std::variant<info_t,T> _data_;
 };
@@ -65,6 +67,8 @@ template <typename T>
 Literal<T>::Literal(const bool sign, const var_t x, const info_t v)
     : _id_(index(sign,x)), _data_(v) {
 }
+
+template <typename T> void Literal<T>::setValue(T v) { _data_ = v; }
 
 template <typename T> bool Literal<T>::sameVariable(Literal<T> l) const {
   return isNumeric() == l.isNumeric() and variable() == l.variable();
@@ -138,6 +142,11 @@ template <typename T> Literal<T> operator~(const Literal<T> l) {
 
 template <typename T> std::ostream& Literal<T>::display(std::ostream &os) const {
     if(_id_ == Constant::NoVarx) {
+      if (value() == Constant::Infinity<T>)
+        os << "infinity";
+      else if (value() == -Constant::Infinity<T>)
+        os << "-infinity";
+      else
         os << "constant: " << value();
     } else if(isNumeric()) {
         os << (sign() ? "x" : "-x") << variable() << " <= " << value();

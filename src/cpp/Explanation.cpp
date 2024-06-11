@@ -3,6 +3,7 @@
 
 #include <assert.h>
 
+#include "Constant.hpp"
 #include "Explanation.hpp"
 
 
@@ -10,8 +11,8 @@ using namespace tempo;
 
 void Explainer::xplain(const lit, const hint, std::vector<lit> &) {}
 
-std::ostream &Explainer::print_reason(std::ostream &os, const hint) const {
-  os << "no reason";
+std::ostream &Explainer::print_reason(std::ostream &os, const hint h) const {
+  os << (h == Constant::FactHint ? "ground fact" : "decision");
   return os;
 }
 

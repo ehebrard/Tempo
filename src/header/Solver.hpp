@@ -63,20 +63,26 @@ public:
   const DistanceConstraint<T> &getEdge(const index_t l) const;
 
   bool hasSemantic(const var_t x) const;
-    
-    void saveBestSolution() { best_solution = polarity; }
+
+  void saveBestSolution() { best_solution = polarity; }
+
+  //    bool visited(const Literal<T> l) const;
+  //    void markVisited(const Literal<T> l) ;
+  //    void unmarkVisited(const Literal<T> l) ;
 
 protected:
   Solver<T> &solver;
 
   std::vector<bool> polarity;
-    std::vector<bool> best_solution;
+  std::vector<bool> best_solution;
 
   std::vector<info_t> edge_index;
 
   std::vector<DistanceConstraint<T>> edges;
 
   std::vector<index_t> propagation_level;
+
+  //  std::vector<bool> explored;
 };
 
 template<typename T>
@@ -119,6 +125,13 @@ public:
     return os;
   }
 
+  //  bool visited(const Literal<T> l) const;
+  //  void markVisited(const Literal<T> l) ;
+  //  void unmarkVisited(const Literal<T> l) ;
+
+  index_t getConflictIndex(const Literal<T> l) const;
+  void setConflictIndex(const Literal<T> l, T v);
+
 private:
   Solver<T> &solver;
 
@@ -141,6 +154,10 @@ private:
   //  std::vector<index_t> stamp;
   // used for clause minimization
   //  std::vector<bool> visited;
+
+  // used for learning
+  //  std::vector<T> explored_bound[2];
+  std::vector<index_t> conflict_index[2];
 };
 
 template <typename T = int> class GraphExplainer : public NewExplainer<T> {
@@ -174,9 +191,10 @@ void GraphExplainer<T>::xplain(const Literal<T> l, const hint h,
   if (l == Solver<T>::Contradiction) {
     auto s{Literal<T>::sign(h)};
     auto x{Literal<T>::var(h)};
-//    //        auto lcycle{solver.getLiteral(static_cast<index_t>(h))};
-//    std::cout << "explain contradiction: negative cycle "
-//              << (s == bound::lower ? "lb(x" : "ub(x") << x << ")" << std::endl;
+    //    //        auto lcycle{solver.getLiteral(static_cast<index_t>(h))};
+    //    std::cout << "explain contradiction: negative cycle "
+    //              << (s == bound::lower ? "lb(x" : "ub(x") << x << ")" <<
+    //              std::endl;
 
     auto end_cycle{x};
 
@@ -310,33 +328,34 @@ void BoundExplainer<T>::xplain(const Literal<T> l, const hint h,
 
     var_t x{static_cast<var_t>(h)};
 
-    std::cout << "explain contradiction: wipe out on numeric var x" << x
-              << " in [" << solver.numeric.lower(x) << ".." << solver.numeric.upper(x) << "]" << std::endl;
-
+    //        std::cout << "explain contradiction: wipe out on numeric var x" <<
+    //        x
+    //        << " in [" << solver.numeric.lower(x) << ".." <<
+    //        solver.numeric.upper(x) << "]" << std::endl;
+    //
     auto lidx{solver.numeric.lastLitIndex(bound::lower, x)};
     auto uidx{solver.numeric.lastLitIndex(bound::upper, x)};
-      
-      Literal<T> le;
-      NewExplanation<T> exp;
-      
-      if(lidx < uidx) {
-          le = solver.getLiteral(lidx);
-          exp = solver.getReason(uidx);
-      } else {
-          le = solver.getLiteral(uidx);
-          exp = solver.getReason(lidx);
-      }
-      
-      std::cout << le << " and " << ~le << std::endl;
-      
-      Cl.push_back(le);
-      exp.explain(~le, Cl);
 
-//    auto le{solver.getLiteral(std::min(lidx, uidx))};
-//    Cl.push_back(le);
-//    Cl.push_back(~le);
+    Literal<T> le;
+    NewExplanation<T> exp;
 
-      
+    if (lidx < uidx) {
+      le = solver.getLiteral(lidx);
+      exp = solver.getReason(uidx);
+    } else {
+      le = solver.getLiteral(uidx);
+      exp = solver.getReason(lidx);
+    }
+
+    //        std::cout << le << " and " << ~le << std::endl;
+
+    Cl.push_back(le);
+    exp.explain(~le, Cl);
+
+    //    auto le{solver.getLiteral(std::min(lidx, uidx))};
+    //    Cl.push_back(le);
+    //    Cl.push_back(~le);
+
   } else {
     std::cout << "explain lit " << l << " due to constraint "
               << solver.boolean.getEdge(static_cast<index_t>(h)) << std::endl;
@@ -446,15 +465,16 @@ public:
   // get the index in the propagation queue of the last Literal involving
   // variable x
   index_t propagationLevel(const Literal<T> l) const;
+  bool entailedByConflict(Literal<T>, const index_t) const;
 
-  void set(Literal<T> l, const NewExplanation<T> &e = Constant::NewNoReason<T>);
+  void set(Literal<T> l, const NewExplanation<T> &e = Constant::Decision<T>);
   //  void setNumericNoUpdate(Literal<T> l,
   //                  const NewExplanation<T> &e);
   void setNumeric(Literal<T> l,
-                  const NewExplanation<T> &e = Constant::NewNoReason<T>,
+                  const NewExplanation<T> &e = Constant::Decision<T>,
                   const bool do_update = true);
   void setBoolean(Literal<T> l,
-                  const NewExplanation<T> &e = Constant::NewNoReason<T>);
+                  const NewExplanation<T> &e = Constant::Decision<T>);
   void set(const DistanceConstraint<T> &c, const index_t r = Constant::NoIndex);
   void boundClosure(const var_t x, const var_t y, const T d, const index_t r);
   template <typename G>
@@ -473,20 +493,44 @@ public:
   void trigger(const Literal<T> l);
   void propagate();
   boolean_state search();
-    void initializeSearch();
-    
-    boolean_state satisfiable();
-    template <typename S> void optimize(S &objective);
-    
+  void initializeSearch();
+
+  boolean_state satisfiable();
+  template <typename S> void optimize(S &objective);
+
   void restart(const bool on_solution = false);
   void backtrack(NewExplanation<T> &e);
   void branchRight();
   void learnConflict(NewExplanation<T> &e);
   void analyze(NewExplanation<T> &e);
+
+  //    bool visited(const Literal<T> l) const {
+  //        if(l.isNumeric()) {
+  //            return numeric.visited(l);
+  //        }
+  //        return boolean.visited(l);
+  //    }
+  //    void markVisited(const Literal<T> l) {
+  //        if(l.isNumeric()) {
+  //            numeric.markVisited(l);
+  //        } else {
+  //            boolean.markVisited(l);
+  //        }
+  //    }
+  //    void unmarkVisited(const Literal<T> l) {
+  //        if(l.isNumeric()) {
+  //            numeric.unmarkVisited(l);
+  //        } else {
+  //            boolean.unmarkVisited(l);
+  //        }
+  //    }
+
   //    int takeDecision(const Literal<T> l);
 
-    const SparseSet<var_t, Reversible<size_t>> &getBranch() const {return boolean_search_vars;}
-    
+  const SparseSet<var_t, Reversible<size_t>> &getBranch() const {
+    return boolean_search_vars;
+  }
+
   int saveState();
   void restoreState(const int);
   void undo() override;
@@ -510,17 +554,17 @@ public:
                         const bool pre = false, const bool cla = false,
                         const bool bgr = false, const bool ngr = false,
                         const bool con = false, const bool trl = false) const;
-    std::ostream &displayTrail(std::ostream &os) const;
+  std::ostream &displayTrail(std::ostream &os) const;
   std::ostream &displayDomains(std::ostream &os) const;
   std::ostream &displayBranches(std::ostream &os) const;
   std::ostream &displayVariables(std::ostream &os) const;
   std::ostream &displayConstraints(std::ostream &os) const;
-    
-    std::ostream &displayProgress(std::ostream &os) const;
-    std::ostream &displayHeader(std::ostream &os, const int width = 59) const;
-    std::ostream &displaySummary(std::ostream &os, std::string msg) const;
-    
-    std::string pretty(const Literal<T> l) const;
+
+  std::ostream &displayProgress(std::ostream &os) const;
+  std::ostream &displayHeader(std::ostream &os, const int width = 59) const;
+  std::ostream &displaySummary(std::ostream &os, std::string msg) const;
+
+  std::string pretty(const Literal<T> l) const;
   //@}
 
   BooleanStore<T> boolean;
@@ -587,9 +631,9 @@ private:
 
   std::optional<heuristics::HeuristicManager<T>> heuristic;
   std::optional<heuristics::ValueHeuristicsManager> valueHeuristic;
-//  RestartPolicy *restart_policy = nullptr;
-//  unsigned int restart_limit{static_cast<unsigned int>(-1)};
-    RestartManager<Solver<T>> restartPolicy;
+  //  RestartPolicy *restart_policy = nullptr;
+  //  unsigned int restart_limit{static_cast<unsigned int>(-1)};
+  RestartManager<Solver<T>> restartPolicy;
 
 public:
   SparseSet<var_t, Reversible<size_t>> boolean_search_vars;
@@ -617,18 +661,18 @@ private:
   void printTrace() const;
 #endif
 
-      heuristics::impl::EventActivityMap<T> *activityMap{NULL};
+  heuristics::impl::EventActivityMap<T> *activityMap{NULL};
 
 public:
-      void setActivityMap(heuristics::impl::EventActivityMap<T> *map) {
-        activityMap = map;
-      }
-      heuristics::impl::EventActivityMap<T> *getActivityMap() {
-        return activityMap;
-      }
+  void setActivityMap(heuristics::impl::EventActivityMap<T> *map) {
+    activityMap = map;
+  }
+  heuristics::impl::EventActivityMap<T> *getActivityMap() {
+    return activityMap;
+  }
 
-    double start_time;
-    
+  double start_time;
+
   long unsigned int num_fails{0};
   long unsigned int num_choicepoints{0};
   long unsigned int num_backtracks{0};
@@ -646,7 +690,7 @@ public:
 
   double looseness(const Literal<T> &l) const;
 
-    bool isAssertive(std::vector<Literal<T>> &conf) const;
+  bool isAssertive(std::vector<Literal<T>> &conf) const;
     
 #ifdef DBG_CL
 private:
@@ -737,6 +781,8 @@ template <typename T> BooleanVar<T> BooleanStore<T>::newVar(const info_t s) {
   polarity.push_back(false);
   polarity.push_back(false);
 
+  //  explored.push_back(false);
+
   edge_index.push_back(s);
 
   return x;
@@ -790,6 +836,21 @@ bool BooleanStore<T>::falsified(const Literal<T> l) const {
   return polarity[~l];
 }
 
+// template <typename T> bool BooleanStore<T>::visited(const Literal<T> l) const
+// {
+//   return explored[l.variable()];
+// }
+//
+// template <typename T>
+// void BooleanStore<T>::markVisited(const Literal<T> l)  {
+//   explored[l.variable()] = true;
+// }
+//
+// template <typename T>
+// void BooleanStore<T>::unmarkVisited(const Literal<T> l)  {
+//   explored[l.variable()] = false;
+// }
+
 // template<typename T>
 // class DifferenceLogicStore {
 //
@@ -824,6 +885,12 @@ template <typename T> NumericVar<T> NumericStore<T>::newVar() {
 
   bound[bound::lower].push_back(Constant::Infinity<T>);
   bound[bound::upper].push_back(Constant::Infinity<T>);
+
+  //  explored_bound[bound::lower].push_back(-Constant::Infinity<T>);
+  //  explored_bound[bound::upper].push_back(-Constant::Infinity<T>);
+  //
+  conflict_index[bound::lower].push_back(Constant::NoIndex);
+  conflict_index[bound::upper].push_back(Constant::NoIndex);
 
   //    bound_index[bound::lower].emplace_back(std::initializer_list<
   //    index_t>{Constant::IndexOfMin});
@@ -885,6 +952,31 @@ template <typename T> void NumericStore<T>::undo(Literal<T> l) {
 //
 // }
 
+// template <typename T> bool NumericStore<T>::visited(const Literal<T> l) const
+// {
+//   return explored_bound[l.sign()][l.variable()] >= l.value();
+// }
+//
+// template <typename T>
+// void NumericStore<T>::markVisited(const Literal<T> l)  {
+//   explored_bound[l.sign()][l.variable()] = l.value();
+// }
+//
+// template <typename T>
+// void NumericStore<T>::unmarkVisited(const Literal<T> l)  {
+//   explored_bound[l.sign()][l.variable()] = -Constant::Infinity<T>;
+// }
+
+template <typename T>
+index_t NumericStore<T>::getConflictIndex(const Literal<T> l) const {
+  return conflict_index[l.sign()][l.variable()];
+}
+
+template <typename T>
+void NumericStore<T>::setConflictIndex(const Literal<T> l, T v) {
+  conflict_index[l.sign()][l.variable()] = v;
+}
+
 template <typename T> T NumericStore<T>::upper(const var_t x) const {
   return bound[bound::upper][x];
 }
@@ -907,16 +999,16 @@ index_t NumericStore<T>::lastLitIndex(const bool s, const var_t x) const {
 template <typename T>
 index_t NumericStore<T>::litIndex(const Literal<T> l) const {
 
-//      std::cout << "\ncompute lit index of " << l << std::endl;
-//      displayLiteralTrail(std::cout, l.sign(), l.variable());
-//      std::cout << std::endl;
+  //      std::cout << "\ncompute lit index of " << l << std::endl;
+  //      displayLiteralTrail(std::cout, l.sign(), l.variable());
+  //      std::cout << std::endl;
 
   auto i{bound_index[l.sign()][l.variable()].rbegin()};
   while (solver.getLiteral(*(i + 1)).value() <= l.value())
     ++i;
-    
-//    std::cout << " --> " << *i << std::endl;
-    
+
+  //    std::cout << " --> " << *i << std::endl;
+
   return *i;
 }
 
@@ -939,7 +1031,7 @@ Solver<T>::Solver(Options opt)
       boolean_search_vars(0, &env), numeric_search_vars(0, &env),
       graph_exp(*this), bound_exp(*this) {
   trail.emplace_back(Constant::NoVarx, Constant::Infinity<T>);
-  reason.push_back(Constant::NewNoReason<T>);
+  reason.push_back(Constant::Decision<T>);
   seed(options.seed);
 
 #ifdef DBG_CL
@@ -1038,11 +1130,12 @@ template <typename T>
 void Solver<T>::setNumeric(Literal<T> l, const NewExplanation<T> &e,
                            const bool do_update) {
 
-//#ifdef DBG_TRACE
-//  if (DBG_BOUND and (DBG_TRACE & PROPAGATION)) {
-//    std::cout << "set num literal " << l << " b/c " << e << "?" << std::endl;
-//  }
-//#endif
+  //#ifdef DBG_TRACE
+  //  if (DBG_BOUND and (DBG_TRACE & PROPAGATION)) {
+  //    std::cout << "set num literal " << l << " b/c " << e << "?" <<
+  //    std::endl;
+  //  }
+  //#endif
 
   if (not numeric.satisfied(l)) {
 
@@ -1082,11 +1175,12 @@ void Solver<T>::setNumeric(Literal<T> l, const NewExplanation<T> &e,
 template <typename T>
 void Solver<T>::setBoolean(Literal<T> l, const NewExplanation<T> &e) {
 
-//#ifdef DBG_TRACE
-//  if (DBG_BOUND and (DBG_TRACE & PROPAGATION)) {
-//    std::cout << "set bool literal " << l << " b/c " << e << "?" << std::endl;
-//  }
-//#endif
+  //#ifdef DBG_TRACE
+  //  if (DBG_BOUND and (DBG_TRACE & PROPAGATION)) {
+  //    std::cout << "set bool literal " << l << " b/c " << e << "?" <<
+  //    std::endl;
+  //  }
+  //#endif
 
   assert(not boolean.satisfied(l));
 
@@ -1122,7 +1216,7 @@ void Solver<T>::boundClosure(const var_t x, const var_t y, const T d,
 
   NewExplanation<T> e{&graph_exp, static_cast<hint>(r)};
   if (r == Constant::NoIndex)
-    e = Constant::NewNoReason<T>;
+    e = Constant::Decision<T>;
 
   if (numeric.lower(y) != -Constant::Infinity<T>) {
     setNumeric(geq<T>(x, numeric.lower(y) - d), e);
@@ -1135,34 +1229,34 @@ void Solver<T>::boundClosure(const var_t x, const var_t y, const T d,
 
 template <typename T> void Solver<T>::restart(const bool on_solution) {
   env.restore(init_level);
-    decisions.clear();
-    
-//    std::cout << "restart\n" ;
-//    displayBranches(std::cout);
-    
+  decisions.clear();
+
+  //    std::cout << "restart\n" ;
+  //    displayBranches(std::cout);
+
   undo();
-//    displayBranches(std::cout);
-    
-//    exit(1);
+  //    displayBranches(std::cout);
+
+  //    exit(1);
 
   if (on_solution) {
-      restartPolicy.initialize();
-//    restart_policy->initialize(restart_limit);
-//    restart_limit += num_fails;
-//    //      std::cout << num_fails << " / " << restart_limit << std::endl;
+    restartPolicy.initialize();
+    //    restart_policy->initialize(restart_limit);
+    //    restart_limit += num_fails;
+    //    //      std::cout << num_fails << " / " << restart_limit << std::endl;
   } else {
-      restartPolicy.reset();
-//    restart_policy->reset(restart_limit);
-//    //      std::cout << num_fails << " / " << restart_limit << std::endl;
-//    //    displayStats(std::cout, "             ");
+    restartPolicy.reset();
+    //    restart_policy->reset(restart_limit);
+    //    //      std::cout << num_fails << " / " << restart_limit << std::endl;
+    //    //    displayStats(std::cout, "             ");
   }
 
   SearchRestarted.trigger();
-    
-    if(options.verbosity > Options::NORMAL) {
-        std::cout << std::setw(13) << "restart ";
-        displayProgress(std::cout);
-    }
+
+  if (options.verbosity > Options::NORMAL) {
+    std::cout << std::setw(13) << "restart ";
+    displayProgress(std::cout);
+  }
 }
 
 template <typename T> void Solver<T>::backtrack(NewExplanation<T> &e) {
@@ -1172,7 +1266,7 @@ template <typename T> void Solver<T>::backtrack(NewExplanation<T> &e) {
 #ifdef DBG_TRACE
   if (DBG_BOUND and (DBG_TRACE & SEARCH)) {
     //    conflict_set.clear();
-    std::cout << "failure @level " << env.level() //<< "/" << init_level
+    std::cout << "failure @level " << env.level() << "/" << init_level
               << " b/c " << e << ":\n";
     //    e.explain(NoLit, conflict_set);
     //    for (auto gl : conflict_set) {
@@ -1183,22 +1277,22 @@ template <typename T> void Solver<T>::backtrack(NewExplanation<T> &e) {
 #endif
 
     ConflictEncountered.trigger(e);
-  propagation_queue.clear();
+    propagation_queue.clear();
 
-  ++num_backtracks;
+    ++num_backtracks;
 
-  if (env.level() == init_level) {
-    throw SearchExhausted();
-  }
+    if (env.level() == init_level) {
+      throw SearchExhausted();
+    }
 
-  try {
-    if (options.learning)
-      learnConflict(e);
-    else
-      branchRight();
-  } catch (NewFailure<T> &f) {
-    backtrack(f.reason);
-  }
+    try {
+      if (options.learning)
+        learnConflict(e);
+      else
+        branchRight();
+    } catch (NewFailure<T> &f) {
+      backtrack(f.reason);
+    }
 }
 
 template <typename T>
@@ -1215,11 +1309,22 @@ index_t Solver<T>::propagationLevel(const Literal<T> l) const {
 //     explored[propagationLevel(l)] = true;
 // }
 
+template <typename T>
+bool Solver<T>::entailedByConflict(Literal<T> p, const index_t p_lvl) const {
+  if (p.isNumeric()) {
+    auto p_idx{numeric.getConflictIndex(p)};
+    if (p_idx != Constant::NoIndex) {
+      return conflict[p_idx].value() <= p.value();
+    }
+  }
+  return explored[p_lvl]; // boolean.visited(p);
+}
+
 template <typename T> void Solver<T>::analyze(NewExplanation<T> &e) {
   explored.resize(trail.size(), false);
   conflict.clear();
   auto decision_lvl{propagationLevel(decisions.back())};
-    auto fact_lvl{propagationLevel(decisions[0])};
+  auto fact_lvl{propagationLevel(decisions[0])};
 
   int num_lit{0};
   index_t li{static_cast<index_t>(trail.size() - 1)};
@@ -1227,7 +1332,7 @@ template <typename T> void Solver<T>::analyze(NewExplanation<T> &e) {
 
 #ifdef DBG_TRACE
   if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
-    std::cout << "analyze conflict: ";
+    std::cout << "analyze conflict:\n";
     displayBranches(std::cout);
   }
 #endif
@@ -1249,92 +1354,151 @@ template <typename T> void Solver<T>::analyze(NewExplanation<T> &e) {
 #endif
 
     exp.explain(l, conflict);
+      
+      
+#ifdef DBG_CLPLUS
+  if (num_clauses == DBG_CL and cl_file != NULL) {
+    *cl_file << "0 " << (conflict.size() + num_lit + 1) << " 0 1 " << numeric.upper(1);
+      for(index_t i{0}; i<conflict.size(); ++i) {
+          writeLiteral(conflict[i]);
+      }
+      for(index_t i{li}; i>=decision_lvl; --i) {
+          if(explored[i])
+              writeLiteral(trail[i]);
+      }
+    *cl_file << std::endl;
+  }
+#endif
 
     for (int i{static_cast<int>(conflict.size()) - 1}; i >= csize;) {
 
       auto p{conflict[i]};
+
+      //@TODO: remove
       auto p_lvl{propagationLevel(p)};
 
 #ifdef DBG_TRACE
       if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
-        std::cout << " ** " << pretty(p) << " (" << p_lvl << "/" << decision_lvl
-                  << ") i.e., " << getLiteral(p_lvl);
+        std::cout << " ** " << pretty(p) << " (" << fact_lvl << "/" << p_lvl
+                  << "/" << decision_lvl << ") i.e., " << getLiteral(p_lvl);
       }
 #endif
+
+      //@TODO: need to separate decisions from ground facts in Explanation
       if (p_lvl < fact_lvl) {
-
 #ifdef DBG_TRACE
-              if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
-                std::cout << " => ground fact\n";
-              }
+        if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+          std::cout << " => ground fact\n";
+        }
 #endif
-              --i;
-
-      } else if (explored[p_lvl]) {
-
-#ifdef DBG_TRACE
-              if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
-                std::cout << " => already explored\n";
-              }
-#endif
-
-              --i;
-
-      } else {
-        if (p_lvl < decision_lvl) {
-
+        --i;
+      } else if (p_lvl < decision_lvl) {
+        if (entailedByConflict(p, p_lvl)) {
 #ifdef DBG_TRACE
           if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
-            std::cout << " => keep in conflict: [";
+            std::cout << " => entailed by cut\n";
           }
 #endif
+          --i;
+        } else {
+          bool need_add{true};
+          if (p.isNumeric()) {
+            auto idx_p{numeric.getConflictIndex(p)};
+            if (idx_p != Constant::NoIndex) {
+              if (conflict[idx_p].value() > p.value())
+                conflict[idx_p].setValue(p.value());
+              need_add = false;
+            } else {
+              numeric.setConflictIndex(p, csize);
+            }
+          }
+          if (need_add) {
 
-          std::swap(conflict[csize], conflict[i]);
-          ++csize;
-            
 #ifdef DBG_TRACE
             if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
-                for(int z{0}; z<csize; ++z) {
-                    std::cout << " " << conflict[z];
-                }
-                std::cout << " ]\n";
+              std::cout << " => add to confict[";
             }
 #endif
-            
-        } else {
+
+              if(not p.isNumeric())
+                  explored[p_lvl] = true;
+            std::swap(conflict[csize], conflict[i]);
+            ++csize;
+          }
+#ifdef DBG_TRACE
+          else if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+            std::cout << " => update confict[";
+          }
+            if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+              for (int z{0}; z < csize; ++z) {
+                std::cout << " " << conflict[z];
+              }
+              std::cout << " ]\n";
+            }
+#endif
+        }
+      } else if (explored[p_lvl]) {
+#ifdef DBG_TRACE
+        if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+          std::cout << " => already explored\n";
+        }
+#endif
+        --i;
+      } else {
 
 #ifdef DBG_TRACE
           if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
-            std::cout << " => to explore\n";
+            std::cout << " => to explore [ ";
+            for (index_t z{li - 1}; z >= decision_lvl; --z) {
+              if (explored[z] or z == p_lvl)
+                std::cout << " " << trail[z];
+            }
+            std::cout << "]\n";
           }
 #endif
-
+          explored[p_lvl] = true;
           ++num_lit;
           --i;
-        }
       }
 
-      explored[p_lvl] = true;
+//      if (p_lvl >= fact_lvl) {
+//        //            markVisited(p);
+//        explored[p_lvl] = true;
+//      }
+        
     }
+
     conflict.resize(csize);
 
-      while (not explored[li--]);
-      
-//      std::cout << "p level = " << (li+1)  << " #lits = " << num_lit << std::endl;
-      
-      assert(li + 1 >= decision_lvl);
-      
+    while (not explored[li--])
+      ;
+
+    assert(li + 1 >= decision_lvl);
+
     l = trail[li + 1];
     exp = reason[li + 1];
 
     explored[li + 1] = false;
+
     --num_lit;
 
   } while (num_lit > 0); // or l.isNumeric());
 
   for (auto &p : conflict) {
     explored[propagationLevel(p)] = false;
+
+    if (p.isNumeric()) {
+      numeric.setConflictIndex(p, Constant::NoIndex);
+    }
   }
+    
+    
+//    for(index_t i{1}; i<trail.size(); ++i) {
+//        if(explored[i])
+//            std::cout << "wrong lit " << trail[i] << std::endl;
+//        
+//        assert(not explored[i]);
+//    }
 
   conflict.push_back(l);
 
@@ -1345,17 +1509,17 @@ template <typename T> void Solver<T>::analyze(NewExplanation<T> &e) {
 
 #ifdef DBG_TRACE
   if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
-    std::cout << "levels:";
-    for (auto d : decisions) {
-      std::cout << " " << propagationLevel(d);
-    }
+//    std::cout << "levels:";
+//    for (auto d : decisions) {
+//      std::cout << " " << propagationLevel(d);
+//    }
     std::cout << "\nlearn conflict\n";
     for (auto l : conflict) {
       std::cout << " " << pretty(l) << " @" << propagationLevel(l);
-      if (l.isNumeric()) {
-        std::cout << " t =";
-        numeric.displayLiteralTrail(std::cout, l.sign(), l.variable());
-      }
+//      if (l.isNumeric()) {
+//        std::cout << " t =";
+//        numeric.displayLiteralTrail(std::cout, l.sign(), l.variable());
+//      }
       std::cout << std::endl;
       //            << "/[" << fact_lvl << ".." << decision_lvl << "]\n";
     }
@@ -1372,8 +1536,6 @@ template <typename T> void Solver<T>::analyze(NewExplanation<T> &e) {
     *cl_file << std::endl;
   }
 #endif
-    
-    
 }
 
 template <typename T> bool Solver<T>::isAssertive(std::vector<Literal<T>> &conf) const {
@@ -1403,60 +1565,23 @@ template <typename T> bool Solver<T>::isAssertive(std::vector<Literal<T>> &conf)
 
 template <typename T> void Solver<T>::learnConflict(NewExplanation<T> &e) {
 
-  //    std::cout << "learn conflict at lvl " << env.level() << " (after " <<
-  //    decisions.size() << " decisions)\n";
-
   analyze(e);
-
-  //  if (options.minimization >= 0) {
-  //    minimization(static_cast<size_t>(options.minimization));
-  //  }
-
-  //  clearVisited();
-
-  //  std::sort(conflict.begin(), conflict.end(), [&](const lit a, const lit b)
-  //  {
-  //    return decisionLevel(a) > decisionLevel(b);
-  //  });
-
-  //////    if(conflict.size() < 2) {
-  //        std::cout << "lvl=" << env.level() << std::endl;
-  //        for(auto l : conflict) {
-  //            std::cout << " " << l << " (" << propagationLevel(l) << ")";
-  //        }
-  //        std::cout << std::endl;
-  //////    }
 
   ClauseAdded.trigger(conflict);
 
   assert(propagationLevel(conflict[0]) >= propagationLevel(decisions.back()));
 
   int jump{1};
-
-    
-//    std::cout << "conflict.size(): " << conflict.size() << std::endl;
-//    std::cout << "decisions.size(): " << decisions.size() << std::endl;
-//    
+   
   if (conflict.size() == 1 or decisions.size() == 1) {
     jump = static_cast<int>(decisions.size());
   } else {
     auto uip_lvl{propagationLevel(conflict[1])};
-
-    //      std::cout << "uip lvl = " << uip_lvl << std::endl;
-    //      std::cout << "last decision lvl = " <<
-    //      propagationLevel(decisions.back()) << std::endl; std::cout << "prev
-    //      decision lvl = " << propagationLevel(*(decisions.rbegin() + jump))
-    //      << std::endl;
-    //
     for (auto d{decisions.rbegin() + jump};
          d != decisions.rend() and propagationLevel(*d) > uip_lvl; ++d) {
       ++jump;
     }
   }
-
-  //    std::cout << "lvl=" << env.level() << " jump: " << jump << "
-  //    (|decisions|=" << decisions.size() << ")"<< std::endl; if(jump == 15)
-  //        exit(1);
 
   restoreState(env.level() - jump);
 
@@ -1467,35 +1592,6 @@ template <typename T> void Solver<T>::learnConflict(NewExplanation<T> &e) {
 #endif
 
   decisions.resize(decisions.size() - jump);
-
-  //  int max_level{
-  //      (conflict.size() > 1 ? decisionLevel(conflict[1]) : init_level)};
-
-  //  assert(upper(HORIZON) == ub - Gap<T>::epsilon());
-
-  //#ifdef DBG_CL
-  ////  if (++num_clauses > DBG_CL)
-  ////    exit(1);
-  //  if (cl_file != NULL) {
-  //    *cl_file << "0 " << (conflict.size() + 1) << " 0 1 " << upper(HORIZON);
-  //  }
-  //#endif
-
-  //  for (size_t i{0}; i < conflict.size(); ++i) {
-  //
-  //#ifdef DBG_CL
-  //    if (cl_file != NULL) {
-  //      writeLiteral(conflict[i]);
-  //    }
-  //#endif
-  //
-  //    conflict[i] = clauses.newNegLiteral(conflict[i]);
-  //  }
-
-  //#ifdef DBG_CL
-  //  if (cl_file != NULL)
-  //    *cl_file << std::endl;
-  //#endif
 
   for (auto &p : conflict) {
     p = ~p;
@@ -1511,37 +1607,40 @@ template <typename T> void Solver<T>::learnConflict(NewExplanation<T> &e) {
   }
 #endif
 
-  if (conflict[0].isNumeric() and numeric.satisfied(conflict[0])) {
-    std::cout << "learn tautology " << conflict[0] << " ["
-              << numeric.lower(conflict[0].variable()) << ".."
-              << numeric.upper(conflict[0].variable()) << "]\n";
-  }
+//  if (conflict[0].isNumeric() and numeric.satisfied(conflict[0])) {
+//    std::cout << "learn tautology " << conflict[0] << " ["
+//              << numeric.lower(conflict[0].variable()) << ".."
+//              << numeric.upper(conflict[0].variable()) << "]\n";
+//  }
 
     assert(isAssertive(conflict));
-    assert(isAssertive(conflict));
-//  assert(not conflict[0].isNumeric() or not numeric.falsified(conflict[0]));
-//  assert(not conflict[0].isNumeric() or not numeric.satisfied(conflict[0]));
-//  assert(conflict[0].isNumeric() or not boolean.falsified(conflict[0]));
-//  assert(conflict[0].isNumeric() or not boolean.satisfied(conflict[0]));
-//
-//  for (size_t i{1}; i < conflict.size(); ++i) {
-//    //      if(conflict[i].isNumeric() and not numeric.falsified(conflict[i])) {
-//    //          std::cout << conflict[i] << ": [" <<
-//    //          numeric.lower(conflict[i].variable()) << ".." <<
-//    //          numeric.upper(conflict[i].variable()) << "]\n";
-//    //      }
-//
-//    assert(conflict[i].isNumeric() or boolean.falsified(conflict[i]));
-//    assert(not conflict[i].isNumeric() or numeric.falsified(conflict[i]));
-//  }
-    
-//    //@TODO: replace
-//    if(conflict[0].isNumeric()) {
-//        if(numeric.satisfied(conflict[0]))
-//            
-//    } else {
-//        
-//    }
+
+    //  assert(not conflict[0].isNumeric() or not
+    //  numeric.falsified(conflict[0]));
+    //  assert(not conflict[0].isNumeric() or not
+    //  numeric.satisfied(conflict[0])); assert(conflict[0].isNumeric() or not
+    //  boolean.falsified(conflict[0])); assert(conflict[0].isNumeric() or not
+    //  boolean.satisfied(conflict[0]));
+    //
+    //  for (size_t i{1}; i < conflict.size(); ++i) {
+    //    //      if(conflict[i].isNumeric() and not
+    //    numeric.falsified(conflict[i])) {
+    //    //          std::cout << conflict[i] << ": [" <<
+    //    //          numeric.lower(conflict[i].variable()) << ".." <<
+    //    //          numeric.upper(conflict[i].variable()) << "]\n";
+    //    //      }
+    //
+    //    assert(conflict[i].isNumeric() or boolean.falsified(conflict[i]));
+    //    assert(not conflict[i].isNumeric() or numeric.falsified(conflict[i]));
+    //  }
+
+    //    //@TODO: replace
+    //    if(conflict[0].isNumeric()) {
+    //        if(numeric.satisfied(conflict[0]))
+    //
+    //    } else {
+    //
+    //    }
 
 #ifdef DBG_TRACE
   auto cl =
@@ -1564,6 +1663,10 @@ template <typename T> void Solver<T>::learnConflict(NewExplanation<T> &e) {
 
 template <typename T> void Solver<T>::branchRight() {
 
+  //    if (env.level() == init_level) {
+  //      throw SearchExhausted();
+  //    }
+
   auto deduction{~decisions.back()};
   restoreState(env.level() - 1);
   decisions.pop_back();
@@ -1571,7 +1674,9 @@ template <typename T> void Solver<T>::branchRight() {
 #ifdef DBG_TRACE
   if (DBG_BOUND and (DBG_TRACE & SEARCH)) {
     std::cout << "-- backtrack to lvl " << env.level() << " & deduce "
-              << deduction << " [i=" << num_choicepoints << "] --\n";
+              << deduction << ": " << pretty(deduction)
+              << " [i=" << num_choicepoints << "] --\n";
+    printTrace();
   }
 #endif
 
@@ -1630,7 +1735,8 @@ template <typename T> boolean_state Solver<T>::search() {
 
   init_level = env.level();
   boolean_state satisfiability{Unknown};
-  while (satisfiability == Unknown and not KillHandler::instance().signalReceived()) {
+  while (satisfiability == Unknown and
+         not KillHandler::instance().signalReceived()) {
 
     ++num_choicepoints;
     try {
@@ -1642,39 +1748,44 @@ template <typename T> boolean_state Solver<T>::search() {
       // all resource constraints are accounted for => a solution has been found
       if (boolean_search_vars.empty()) {
         satisfiability = True;
-          
+
 #ifdef DBG_TRACE
         if (DBG_BOUND) {
           std::cout << "--- new solution [i=" << num_choicepoints << "] ---\n";
           printTrace();
         }
 #endif
-          
-      } else {
-//        ++num_choicepoints;
 
-          var_t x = heuristic->nextChoicePoint(*this);
-//        var_t x = *(boolean_search_vars.begin());
-//        //        lit d = valueHeuristic->choosePolarity(x, *this);
+      } else {
+        //        ++num_choicepoints;
+
+        var_t x = heuristic->nextChoicePoint(*this);
+        //        var_t x = *(boolean_search_vars.begin());
+        //        //        lit d = valueHeuristic->choosePolarity(x, *this);
         Literal<T> d{boolean.getLiteral((random() % 2), x)};
         decisions.push_back(d);
 
 #ifdef DBG_TRACE
         if (DBG_BOUND) {
-          std::cout << "--- search node (lvl=" << env.level()
-                    << ") [i=" << num_choicepoints << "] ---\n";
-          std::cout << " ** take decision " << pretty(d) << " **\n";
+          std::cout << "--- search node (lvl=" << env.level() << "/"
+                    << init_level << ") [i=" << num_choicepoints << "] ---\n";
+          std::cout << " ** take decision " << d << ": " << pretty(d)
+                    << " **\n";
           printTrace();
         }
 #endif
-
         set(d);
+
+#ifdef DBG_TRACE
+        if (DBG_BOUND) {
+          printTrace();
+        }
+#endif
       }
     } catch (NewFailure<T> &f) {
       try {
         backtrack(f.reason);
-//        if (num_fails > restart_limit) {
-          if(restartPolicy.limit()) {
+        if (restartPolicy.limit()) {
           restart();
         }
       } catch (const SearchExhausted &f) {

@@ -1718,7 +1718,7 @@ NewClause<T> *NewClauseBase<T>::add(const iter first, const iter last,
 
   if (first + 1 == last) {
     //    assign(*first, Constant::NewNoReason<T>);
-    caller.set(*first, Constant::NewNoReason<T>);
+    caller.set(*first, Constant::GroundFact<T>);
   } else {
     if (not free_cl_indices.empty()) {
       int id{free_cl_indices.back()};
@@ -1851,7 +1851,7 @@ void NewClauseBase<T>::xplain(const Literal<T> l, const hint h,
     //      std::cout << "explain " << l << std::endl;
 
     for (auto p : reason)
-      if (not l.sameVariable(p)) {
+      if (not l.sameVariable(p) or l.sign() != p.sign()) {
         Cl.push_back(~p);
       }
   }
