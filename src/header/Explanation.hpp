@@ -83,6 +83,7 @@ public:
 template <typename T> class NewExplanation {
 
 public:
+    NewExplanation() {}
   NewExplanation(NewExplainer<T> *e, hint h);
   void explain(const Literal<T> l, std::vector<Literal<T>> &Cl);
   std::ostream &display(std::ostream &os) const;

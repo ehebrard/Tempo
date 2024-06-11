@@ -1,0 +1,851 @@
+
+\def\ntask{\ensuremath{n}}
+\def\nresource{\ensuremath{k}}
+\def\njob{\ensuremath{m}}
+
+\def\ti{\ensuremath{i}}
+\def\ji{\ensuremath{l}}
+\def\mi{\ensuremath{j}}
+\def\alltasks{\ensuremath{\mathcal{T}}}
+\def\schedule{\ensuremath{\mathcl{S}}}
+
+
+\def\atask{\ensuremath{t}}
+\def\aresource{\ensuremath{R}}
+
+
+\usepackage{xintexpr}
+\def\roundandprint #1{\xinttheiexpr #1\relax }
+
+
+\usetikzlibrary{shapes,positioning,patterns,shadows}
+
+
+
+\newcommand{\task}[1]{\ensuremath{\atask_{#1}}}
+\newcommand{\mach}[1]{\ensuremath{\amach_{#1}}}
+\newcommand{\resource}[1]{\ensuremath{\aresource_{#1}}}
+
+
+\def\itask{\task{1}}
+\def\iresource{\resource{1}}
+
+\def\otask{\task{2}}
+\def\oresource{\resource{2}}
+
+\def\yatask{\task{3}}
+\def\yaresource{\resource{3}}
+
+
+\newdimen\XCoord
+\newdimen\YCoord
+\newdimen\ACoord
+\newdimen\BCoord
+\newcommand*{\ExtractXYCoordinate}[1]{\path (#1); \pgfgetlastxy{\XCoord}{\YCoord};}%
+\newcommand*{\ExtractABCoordinate}[1]{\path (#1); \pgfgetlastxy{\ACoord}{\BCoord};}%
+
+
+\newcommand{\tasksof}[1]{#1}
+\newcommand{\resourceof}[1]{\ensuremath{res(#1)}}
+\newcommand{\stof}[1]{\ensuremath{s_{#1}}}
+\newcommand{\ctof}[1]{\ensuremath{e_{#1}}}
+
+\newcommand{\patvar}[2]{\ensuremath{a^{#2}_{#1}}}
+\newcommand{\precvar}[2]{\ensuremath{b_{{#1}{#2}}}}
+
+% \newcommand{\dur}[1]{\ensuremath{p_{#1}}}
+\newcommand{\demand}[1]{\ensuremath{c_{#1}}}
+\newcommand{\est}[1]{\ensuremath{r_{#1}}}
+\newcommand{\lst}[1]{\ensuremath{lst_{#1}}}
+\newcommand{\ect}[1]{\ensuremath{ect_{#1}}}
+\newcommand{\lct}[1]{\ensuremath{d_{#1}}}
+\newcommand{\energy}[1]{\ensuremath{w_{#1}}}
+\newcommand{\energyon}[3]{\ensuremath{w_{#1}({#2},{#3})}}
+\newcommand{\totalenergy}[2]{\ensuremath{W({#1},{#2})}}
+\newcommand{\leftshift}[2]{\ensuremath{\dur{#1}^+({#2})}}
+\newcommand{\rightshift}[2]{\ensuremath{\dur{#1}^-({#2})}}
+
+\def\capacity{\ensuremath{C}}
+
+\newcommand{\leftcut}[2]{\ensuremath{{#1}|_{{#2}}}}
+
+
+
+  \newcounter{x}
+  \newcounter{y}
+  \newcounter{px}
+  \newcounter{py}
+  \newcounter{task}
+  \newcounter{time}
+	
+  \newcounter{resA}
+  \newcounter{resB}
+  \newcounter{resC}
+  \newcounter{resD}
+  \newcounter{resE}
+  \newcounter{resF}
+	\newcounter{resG}
+	\newcounter{resH}
+	\newcounter{resI}
+	\newcounter{resJ}
+	\newcounter{resK}
+	\newcounter{resL}
+	% \newcounter{resAB}
+	
+  \newcounter{joba}
+  \newcounter{jobb}
+  \newcounter{jobc}
+  \newcounter{jobd}
+  \newcounter{jobe}
+ 	\newcounter{jobf}
+	\newcounter{jobg}
+	\newcounter{jobh}
+	\newcounter{jobi}
+	\newcounter{jobj}
+	\newcounter{jobk}
+	\newcounter{jobl}
+	
+  \newcounter{crowa}
+  \newcounter{crowb}
+  \newcounter{crowc}
+  \newcounter{crowd}
+  \newcounter{crowe}
+ 	\newcounter{crowf}
+	\newcounter{crowg}
+	\newcounter{crowh}
+	\newcounter{crowi}
+	\newcounter{crowj}
+	\newcounter{crowk}
+	\newcounter{crowl}
+	
+	% \newcommand{\getId}[1]{\ifthenelse{\equal{#1}{1}}{A}{\ifthenelse{\equal{#1}{2}}{B}{\ifthenelse{\equal{#1}{3}}{C}{\ifthenelse{\equal{#1}{4}}{D}{\ifthenelse{\equal{#1}{5}}{E}{\ifthenelse{\equal{#1}{6}}{F}{\ifthenelse{\equal{#1}{7}}{G}{\ifthenelse{\equal{#1}{8}}{H}{\ifthenelse{\equal{#1}{9}}{I}{\ifthenelse{\equal{#1}{10}}{J}{\ifthenelse{\equal{#1}{11}}{K}{\ifthenelse{\equal{#1}{12}}{L}{\ifthenelse{\equal{#1}{13}}{M}{\ifthenelse{\equal{#1}{14}}{N}{\ifthenelse{\equal{#1}{15}}{O}{\ifthenelse{\equal{#1}{16}}{P}{}}}}}}}}}}}}}}}}}
+	%
+	
+	\newcommand{\getStyle}[1]{stres#1}
+	\newcommand{\getExtStyle}[1]{extst#1}
+	\newcommand{\getResource}[1]{res#1}
+	\newcommand{\getJob}[1]{job#1}
+	\newcommand{\getRow}[1]{crow#1}
+	
+	
+\newcommand\getmytransformmatrix{%
+  \pgfgettransformentries{\mya}{\myb}{\myc}{\myd}{\mys}{\myt}%
+% coordinate (x,y) is transformed to (ax + by + s, cx + dy + t)  
+}
+
+
+\newenvironment{bwschedfigure}[1]{%
+  \begin{tikzpicture}[scale={#1},
+      stresA/.style={top color=white,bottom color=white!50!black},
+      stresB/.style={color=black, fill=white},
+      stresC/.style={color=black, pattern color=white!50!black, pattern=north east lines },
+      stresD/.style={color=black, pattern color=white!50!black, pattern=crosshatch },
+      stresE/.style={color=black, pattern color=white!50!black, pattern=grid },
+      stresF/.style={color=black, pattern color=white!50!black, pattern=vertical lines },
+      stresG/.style={color=black, pattern color=white!50!black, pattern=dots },
+      stresH/.style={dashed},
+    ]
+}{%
+  \end{tikzpicture}
+}
+
+\definecolor{blue(munsell)}{rgb}{0.0, 0.5, 0.69}
+\definecolor{airforceblue}{rgb}{0.36, 0.54, 0.66}
+% \definecolor{blue(ncs)}{rgb}{0.0, 0.53, 0.74}
+\definecolor{egyptianblue}{rgb}{0.06, 0.2, 0.65}
+
+
+\definecolor{cadmiumred}{rgb}{0.89, 0.0, 0.13}
+\definecolor{carnelian}{rgb}{0.7, 0.11, 0.11}
+
+
+\definecolor{chromeyellow}{rgb}{1.0, 0.65, 0.0}
+\definecolor{chocolate(web)}{rgb}{0.82, 0.41, 0.12}
+
+
+\definecolor{green(pigment)}{rgb}{0.0, 0.65, 0.31}
+\definecolor{darkgreen}{rgb}{0.0, 0.2, 0.13}
+
+
+\definecolor{platinum}{rgb}{0.9, 0.89, 0.89}
+\definecolor{onyx}{rgb}{0.06, 0.06, 0.06}
+
+
+\definecolor{cinnamon}{rgb}{0.82, 0.41, 0.12}
+\definecolor{darkbrown}{rgb}{0.4, 0.26, 0.13}
+
+
+\definecolor{verdigris}{rgb}{0.26, 0.7, 0.68}
+\definecolor{darkcyan}{rgb}{0.0, 0.55, 0.55}
+
+
+\definecolor{darkpastelpurple}{rgb}{0.59, 0.44, 0.84}
+\definecolor{byzantium}{rgb}{0.44, 0.16, 0.39}
+
+\definecolor{brinkpink}{rgb}{0.98, 0.38, 0.5}
+\definecolor{burgundy}{rgb}{0.5, 0.0, 0.13}
+
+
+\definecolor{bostonuniversityred}{rgb}{0.8, 0.0, 0.0}
+
+\definecolor{deepchampagne}{rgb}{0.98, 0.84, 0.65}
+
+
+\def\tasksep{.1}
+
+
+
+\makeatletter
+\newenvironment{colorfadedschedfigure}[2]{%
+  \begin{tikzpicture}[scale={#1},
+stresA/.style={color=egyptianblue, fill=white!#2!blue(munsell)},
+stresAA/.style={color=egyptianblue, fill=white!#2!blue(munsell)},
+stresAB/.style={color=egyptianblue, top color=white!#2!blue(munsell), bottom color=white!#2!cadmiumred},
+stresAC/.style={color=egyptianblue, bottom color=white!#2!chromeyellow, top color=white!#2!blue(munsell)},
+stresAD/.style={color=egyptianblue, bottom color=white!#2!green(pigment), top color=white!#2!blue(munsell)},
+stresAE/.style={color=onyx, fill=white!#2!blue(munsell)},
+stresAF/.style={color=darkbrown, fill=white!#2!blue(munsell)},
+stresAG/.style={color=darkcyan, fill=white!#2!blue(munsell)},
+stresAH/.style={color=byzantium, fill=white!#2!blue(munsell)},
+stresAI/.style={color=burgundy, fill=white!#2!blue(munsell)},
+stresB/.style={color=carnelian, fill=white!#2!cadmiumred},
+stresAB/.style={color=egyptianblue, top color=white!#2!cadmiumred, bottom color=white!#2!blue(munsell)},
+stresBA/.style={color=egyptianblue, fill=white!#2!cadmiumred},
+stresBB/.style={color=carnelian, fill=white!#2!cadmiumred},
+stresBC/.style={color=chocolate(web), fill=white!#2!cadmiumred},
+stresBD/.style={color=darkgreen, bottom color=white!#2!green(pigment), top color=white!#2!cadmiumred},
+stresBE/.style={color=onyx, fill=white!#2!cadmiumred},
+stresBF/.style={color=darkbrown, fill=white!#2!cadmiumred},
+stresBG/.style={color=darkcyan, fill=white!#2!cadmiumred},
+stresBH/.style={color=byzantium, fill=white!#2!cadmiumred},
+stresBI/.style={color=burgundy, fill=white!#2!cadmiumred},
+stresC/.style={color=chocolate(web), fill=white!#2!chromeyellow},
+stresCA/.style={color=egyptianblue, fill=white!#2!chromeyellow},
+stresCB/.style={color=carnelian, fill=white!#2!chromeyellow},
+stresCC/.style={color=chocolate(web), fill=white!#2!chromeyellow},
+stresCD/.style={color=darkgreen, fill=white!#2!chromeyellow},
+stresCE/.style={color=onyx, fill=white!#2!chromeyellow},
+stresCF/.style={color=darkbrown, fill=white!#2!chromeyellow},
+stresCG/.style={color=darkcyan, fill=white!#2!chromeyellow},
+stresCH/.style={color=byzantium, fill=white!#2!chromeyellow},
+stresCI/.style={color=burgundy, fill=white!#2!chromeyellow},
+stresD/.style={color=darkgreen, fill=white!#2!green(pigment)},
+stresDA/.style={color=egyptianblue, fill=white!#2!green(pigment)},
+stresDB/.style={color=carnelian, fill=white!#2!green(pigment)},
+stresDC/.style={color=chocolate(web), fill=white!#2!green(pigment)},
+stresDD/.style={color=darkgreen, fill=white!#2!green(pigment)},
+stresDE/.style={color=onyx, fill=white!#2!green(pigment)},
+stresDF/.style={color=darkbrown, fill=white!#2!green(pigment)},
+stresDG/.style={color=darkcyan, fill=white!#2!green(pigment)},
+stresDH/.style={color=byzantium, fill=white!#2!green(pigment)},
+stresDI/.style={color=burgundy, fill=white!#2!green(pigment)},
+stresE/.style={color=onyx, fill=white!#2!platinum},
+stresEA/.style={color=egyptianblue, fill=white!#2!platinum},
+stresEB/.style={color=carnelian, fill=white!#2!platinum},
+stresEC/.style={color=chocolate(web), fill=white!#2!platinum},
+stresED/.style={color=darkgreen, fill=white!#2!platinum},
+stresEE/.style={color=onyx, fill=white!#2!platinum},
+stresEF/.style={color=darkbrown, fill=white!#2!platinum},
+stresEG/.style={color=darkcyan, fill=white!#2!platinum},
+stresEH/.style={color=byzantium, fill=white!#2!platinum},
+stresEI/.style={color=burgundy, fill=white!#2!platinum},
+stresF/.style={color=darkbrown, fill=white!#2!cinnamon},
+stresFA/.style={color=egyptianblue, fill=white!#2!cinnamon},
+stresFB/.style={color=carnelian, fill=white!#2!cinnamon},
+stresFC/.style={color=chocolate(web), fill=white!#2!cinnamon},
+stresFD/.style={color=darkgreen, fill=white!#2!cinnamon},
+stresFE/.style={color=onyx, fill=white!#2!cinnamon},
+stresFF/.style={color=darkbrown, fill=white!#2!cinnamon},
+stresFG/.style={color=darkcyan, fill=white!#2!cinnamon},
+stresFH/.style={color=byzantium, fill=white!#2!cinnamon},
+stresFI/.style={color=burgundy, fill=white!#2!cinnamon},
+stresG/.style={color=darkcyan, fill=white!#2!verdigris},
+stresGA/.style={color=egyptianblue, fill=white!#2!verdigris},
+stresGB/.style={color=carnelian, fill=white!#2!verdigris},
+stresGC/.style={color=chocolate(web), fill=white!#2!verdigris},
+stresGD/.style={color=darkgreen, fill=white!#2!verdigris},
+stresGE/.style={color=onyx, fill=white!#2!verdigris},
+stresGF/.style={color=darkbrown, fill=white!#2!verdigris},
+stresGG/.style={color=darkcyan, fill=white!#2!verdigris},
+stresGH/.style={color=byzantium, fill=white!#2!verdigris},
+stresGI/.style={color=burgundy, fill=white!#2!verdigris},
+stresH/.style={color=byzantium, fill=white!#2!darkpastelpurple},
+stresHA/.style={color=egyptianblue, fill=white!#2!darkpastelpurple},
+stresHB/.style={color=carnelian, fill=white!#2!darkpastelpurple},
+stresHC/.style={color=chocolate(web), fill=white!#2!darkpastelpurple},
+stresHD/.style={color=darkgreen, fill=white!#2!darkpastelpurple},
+stresHE/.style={color=onyx, fill=white!#2!darkpastelpurple},
+stresHF/.style={color=darkbrown, fill=white!#2!darkpastelpurple},
+stresHG/.style={color=darkcyan, fill=white!#2!darkpastelpurple},
+stresHH/.style={color=byzantium, fill=white!#2!darkpastelpurple},
+stresHI/.style={color=burgundy, fill=white!#2!darkpastelpurple},
+stresI/.style={color=burgundy, fill=white!#2!brinkpink},
+stresIA/.style={color=egyptianblue, fill=white!#2!brinkpink},
+stresIB/.style={color=carnelian, fill=white!#2!brinkpink},
+stresIC/.style={color=chocolate(web), fill=white!#2!brinkpink},
+stresID/.style={color=darkgreen, fill=white!#2!brinkpink},
+stresIE/.style={color=onyx, fill=white!#2!brinkpink},
+stresIF/.style={color=darkbrown, fill=white!#2!brinkpink},
+stresIG/.style={color=darkcyan, fill=white!#2!brinkpink},
+stresIH/.style={color=byzantium, fill=white!#2!brinkpink},
+stresII/.style={color=burgundy, fill=white!#2!brinkpink},
+			stres/.style={color=black, fill=deepchampagne},
+extstA/.style={color=egyptianblue, fill=white!#2!blue(munsell)!50},
+extstAA/.style={color=egyptianblue, fill=white!#2!blue(munsell)!50},
+extstAB/.style={color=carnelian, fill=white!#2!blue(munsell)!50},
+extstAC/.style={color=chocolate(web), fill=white!#2!blue(munsell)!50},
+extstAD/.style={color=darkgreen, fill=white!#2!blue(munsell)!50},
+extstAE/.style={color=onyx, fill=white!#2!blue(munsell)!50},
+extstAF/.style={color=darkbrown, fill=white!#2!blue(munsell)!50},
+extstAG/.style={color=darkcyan, fill=white!#2!blue(munsell)!50},
+extstAH/.style={color=byzantium, fill=white!#2!blue(munsell)!50},
+extstAI/.style={color=burgundy, fill=white!#2!blue(munsell)!50},
+extstB/.style={color=carnelian, fill=white!#2!cadmiumred!50},
+extstBA/.style={color=egyptianblue, fill=white!#2!cadmiumred!50},
+extstBB/.style={color=carnelian, fill=white!#2!cadmiumred!50},
+extstBC/.style={color=chocolate(web), fill=white!#2!cadmiumred!50},
+extstBD/.style={color=darkgreen, fill=white!#2!cadmiumred!50},
+extstBE/.style={color=onyx, fill=white!#2!cadmiumred!50},
+extstBF/.style={color=darkbrown, fill=white!#2!cadmiumred!50},
+extstBG/.style={color=darkcyan, fill=white!#2!cadmiumred!50},
+extstBH/.style={color=byzantium, fill=white!#2!cadmiumred!50},
+extstBI/.style={color=burgundy, fill=white!#2!cadmiumred!50},
+extstC/.style={color=chocolate(web), fill=white!#2!chromeyellow!50},
+extstCA/.style={color=egyptianblue, fill=white!#2!chromeyellow!50},
+extstCB/.style={color=carnelian, fill=white!#2!chromeyellow!50},
+extstCC/.style={color=chocolate(web), fill=white!#2!chromeyellow!50},
+extstCD/.style={color=darkgreen, fill=white!#2!chromeyellow!50},
+extstCE/.style={color=onyx, fill=white!#2!chromeyellow!50},
+extstCF/.style={color=darkbrown, fill=white!#2!chromeyellow!50},
+extstCG/.style={color=darkcyan, fill=white!#2!chromeyellow!50},
+extstCH/.style={color=byzantium, fill=white!#2!chromeyellow!50},
+extstCI/.style={color=burgundy, fill=white!#2!chromeyellow!50},
+extstD/.style={color=darkgreen, fill=white!#2!green(pigment)!50},
+extstDA/.style={color=egyptianblue, fill=white!#2!green(pigment)!50},
+extstDB/.style={color=carnelian, fill=white!#2!green(pigment)!50},
+extstDC/.style={color=chocolate(web), fill=white!#2!green(pigment)!50},
+extstDD/.style={color=darkgreen, fill=white!#2!green(pigment)!50},
+extstDE/.style={color=onyx, fill=white!#2!green(pigment)!50},
+extstDF/.style={color=darkbrown, fill=white!#2!green(pigment)!50},
+extstDG/.style={color=darkcyan, fill=white!#2!green(pigment)!50},
+extstDH/.style={color=byzantium, fill=white!#2!green(pigment)!50},
+extstDI/.style={color=burgundy, fill=white!#2!green(pigment)!50},
+extstE/.style={color=onyx, fill=white!#2!platinum!50},
+extstEA/.style={color=egyptianblue, fill=white!#2!platinum!50},
+extstEB/.style={color=carnelian, fill=white!#2!platinum!50},
+extstEC/.style={color=chocolate(web), fill=white!#2!platinum!50},
+extstED/.style={color=darkgreen, fill=white!#2!platinum!50},
+extstEE/.style={color=onyx, fill=white!#2!platinum!50},
+extstEF/.style={color=darkbrown, fill=white!#2!platinum!50},
+extstEG/.style={color=darkcyan, fill=white!#2!platinum!50},
+extstEH/.style={color=byzantium, fill=white!#2!platinum!50},
+extstEI/.style={color=burgundy, fill=white!#2!platinum!50},
+extstF/.style={color=darkbrown, fill=white!#2!cinnamon!50},
+extstFA/.style={color=egyptianblue, fill=white!#2!cinnamon!50},
+extstFB/.style={color=carnelian, fill=white!#2!cinnamon!50},
+extstFC/.style={color=chocolate(web), fill=white!#2!cinnamon!50},
+extstFD/.style={color=darkgreen, fill=white!#2!cinnamon!50},
+extstFE/.style={color=onyx, fill=white!#2!cinnamon!50},
+extstFF/.style={color=darkbrown, fill=white!#2!cinnamon!50},
+extstFG/.style={color=darkcyan, fill=white!#2!cinnamon!50},
+extstFH/.style={color=byzantium, fill=white!#2!cinnamon!50},
+extstFI/.style={color=burgundy, fill=white!#2!cinnamon!50},
+extstG/.style={color=darkcyan, fill=white!#2!verdigris!50},
+extstGA/.style={color=egyptianblue, fill=white!#2!verdigris!50},
+extstGB/.style={color=carnelian, fill=white!#2!verdigris!50},
+extstGC/.style={color=chocolate(web), fill=white!#2!verdigris!50},
+extstGD/.style={color=darkgreen, fill=white!#2!verdigris!50},
+extstGE/.style={color=onyx, fill=white!#2!verdigris!50},
+extstGF/.style={color=darkbrown, fill=white!#2!verdigris!50},
+extstGG/.style={color=darkcyan, fill=white!#2!verdigris!50},
+extstGH/.style={color=byzantium, fill=white!#2!verdigris!50},
+extstGI/.style={color=burgundy, fill=white!#2!verdigris!50},
+extstH/.style={color=byzantium, fill=white!#2!darkpastelpurple!50},
+extstHA/.style={color=egyptianblue, fill=white!#2!darkpastelpurple!50},
+extstHB/.style={color=carnelian, fill=white!#2!darkpastelpurple!50},
+extstHC/.style={color=chocolate(web), fill=white!#2!darkpastelpurple!50},
+extstHD/.style={color=darkgreen, fill=white!#2!darkpastelpurple!50},
+extstHE/.style={color=onyx, fill=white!#2!darkpastelpurple!50},
+extstHF/.style={color=darkbrown, fill=white!#2!darkpastelpurple!50},
+extstHG/.style={color=darkcyan, fill=white!#2!darkpastelpurple!50},
+extstHH/.style={color=byzantium, fill=white!#2!darkpastelpurple!50},
+extstHI/.style={color=burgundy, fill=white!#2!darkpastelpurple!50},
+extstI/.style={color=burgundy, fill=white!#2!brinkpink!50},
+extstIA/.style={color=egyptianblue, fill=white!#2!brinkpink!50},
+extstIB/.style={color=carnelian, fill=white!#2!brinkpink!50},
+extstIC/.style={color=chocolate(web), fill=white!#2!brinkpink!50},
+extstID/.style={color=darkgreen, fill=white!#2!brinkpink!50},
+extstIE/.style={color=onyx, fill=white!#2!brinkpink!50},
+extstIF/.style={color=darkbrown, fill=white!#2!brinkpink!50},
+extstIG/.style={color=darkcyan, fill=white!#2!brinkpink!50},
+extstIH/.style={color=byzantium, fill=white!#2!brinkpink!50},
+extstII/.style={color=burgundy, fill=white!#2!brinkpink!50},
+			extst/.style={color=black, fill=deepchampagne!50},
+			decision/.style={very thick, draw=carnelian},
+			backdecision/.style={very thick, draw=carnelian, densely dashed},
+			back/.style={densely dashed},
+			rback/.style={bend right=5, densely dashed},
+			ub/.style={very thick, draw=carnelian, dashed},
+			lb/.style={very thick, draw=darkgreen, dashed},
+			profA/.style={color=egyptianblue},
+			profB/.style={color=carnelian},
+			profC/.style={color=chocolate(web)},
+			profD/.style={color=darkgreen},
+			profE/.style={color=onyx},
+			profF/.style={color=darkbrown},
+			profG/.style={color=darkcyan},
+			profH/.style={color=byzantium},
+			profI/.style={color=burgundy},
+			pruA/.style={pattern color=egyptianblue},
+			pruB/.style={pattern color=carnelian},
+			pruC/.style={pattern color=chocolate(web)},
+			pruD/.style={pattern color=darkgreen},
+			pruE/.style={pattern color=onyx},
+			pruF/.style={pattern color=darkbrown},
+			pruG/.style={pattern color=darkcyan},
+			pruH/.style={pattern color=byzantium},
+			pruI/.style={pattern color=burgundy},
+    ]
+		\def\scalefactor{#1}
+		\setlength{\topsep}{0pt}
+		\setlength{\partopsep}{0pt}
+}{%
+  \end{tikzpicture}
+}
+\newenvironment{colorschedfigure}[1]{%
+  \begin{colorfadedschedfigure}{#1}{40}
+}{%
+  \end{colorfadedschedfigure}
+}
+\makeatother
+
+
+
+\newcommand\AllInterval[6]{ %1:est, %2:lst, %3:ect, %4:lct, %5:row, %6:demand
+	  \draw[thick,color=blue!50!black] (#1+\tasksep*1.75,-#5-\tasksep/3) -- (#1+\tasksep*.75,-#5-\tasksep/3) -- (#1+\tasksep*.75,-#5-#6+\tasksep/3) -- (#1+\tasksep*1.75,-#5-#6+\tasksep/4);
+	  \draw[thick,color=blue!50!black] (#2-\tasksep*1.75,-#5-\tasksep/3) -- (#2-\tasksep*.75,-#5-\tasksep/3) -- (#2-\tasksep*.75,-#5-#6+\tasksep/3) -- (#2-\tasksep*1.75,-#5-#6+\tasksep/4);
+		\draw[very thin, latex-latex, densely dashed,color=blue!50!black] (#1+\tasksep,-#6/2-#5+\tasksep) -- (#2-\tasksep,-#6/2-#5+\tasksep);
+
+
+		\draw[thick,color=red!50!black] (#3+\tasksep*1.75,-#5-\tasksep/3) -- (#3+\tasksep*.75,-#5-\tasksep/3) -- (#3+\tasksep*.75,-#5-#6+\tasksep/3) -- (#3+\tasksep*1.75,-#5-#6+\tasksep/4);
+	  \draw[thick,color=red!50!black] (#4-\tasksep*1.75,-#5-\tasksep/3) -- (#4-\tasksep*.75,-#5-\tasksep/3) -- (#4-\tasksep*.75,-#5-#6+\tasksep/3) -- (#4-\tasksep*1.75,-#5-#6+\tasksep/4);
+		\draw[very thin, latex-latex, densely dashed, color=red!50!black] (#3+\tasksep,-#6/2-#5-\tasksep) -- (#4-\tasksep,-#6/2-#5-\tasksep);
+}
+
+% \newcommand\RightInterval[4]{ %1:task pos, %2:interval pos, %3:row, %4:demand
+% 	  \draw[thick] (#2-\tasksep*1.25,-#3-\tasksep/3) -- (#2,-#3-\tasksep/3) -- (#2,-#3-#4+\tasksep/3) -- (#2-\tasksep*1.25,-#3-#4+\tasksep/4);
+% 		\draw[very thin, -latex, densely dashed] (#1,-#4/2-#3) -- (#2-\tasksep/3,-#4/2-#3);
+% }
+
+
+\newcommand\LeftInterval[4]{ %1:task pos, %2:interval pos, %3:row, %4:demand
+	  \draw[thick] (#2+\tasksep*1.25,-#3-\tasksep/3) -- (#2,-#3-\tasksep/3) -- (#2,-#3-#4+\tasksep/3) -- (#2+\tasksep*1.25,-#3-#4+\tasksep/4);
+		\draw[very thin, -latex, densely dashed] (#1,-#4/2-#3) -- (#2+\tasksep/3,-#4/2-#3);
+}
+
+% \newcommand\PrunedLeftInterval[5]{ %1:task pos, %2:interval pos, %3:row, %4:demand
+% 	  \draw[thick] (#2+\tasksep*1.25,-#3-\tasksep/3) -- (#2+\tasksep/3,-#3-\tasksep/3) -- (#2+\tasksep/3,-#3-#4+\tasksep/3) -- (#2+\tasksep*1.25,-#3-#4+\tasksep/4);
+% 		\draw[prof#5, pattern=north east lines] (#2-\tasksep/3,-#3-#4+\tasksep/3) rectangle (#1,-#3-\tasksep/3);
+% 		% \draw[very thin, -latex, densely dashed] (#1,-#4/2-#3) -- (#2+\tasksep/3,-#4/2-#3);
+% }
+
+\newcommand\Intertask[4]{ %1:task1 pos, %2:task2 pos, %3:row, %4:dem
+		\draw[latex-latex, color=black!70, densely dashed] (#1+\tasksep/3,-#4/2-#3) -- (#2-\tasksep/3,-#4/2-#3);
+}
+
+\newcommand\RightInterval[4]{ %1:task pos, %2:interval pos, %3:row, %4:demand
+	  \draw[thick] (#2-\tasksep*1.25,-#3-\tasksep/3) -- (#2,-#3-\tasksep/3) -- (#2,-#3-#4+\tasksep/3) -- (#2-\tasksep*1.25,-#3-#4+\tasksep/4);
+		\draw[very thin, -latex, densely dashed] (#1,-#4/2-#3) -- (#2-\tasksep/3,-#4/2-#3);
+}
+
+\newcommand\RightBracket[3]{ %1:interval pos, %2:row, %3:demand
+	  \draw[thick] (#1-\tasksep*1.25,-#2-\tasksep/3) -- (#1,-#2-\tasksep/3) -- (#1,-#2-#3+\tasksep/3) -- (#1-\tasksep*1.25,-#2-#3+\tasksep/4);
+}
+
+\newcommand\LeftBracket[3]{ %1:interval pos, %2:row, %3:demand
+	  \draw[thick] (#1+\tasksep*1.25,-#2-\tasksep/3) -- (#1,-#2-\tasksep/3) -- (#1,-#2-#3+\tasksep/3) -- (#1+\tasksep*1.25,-#2-#3+\tasksep/4);
+}
+
+\newcommand\Precedence[3]{ 
+\ExtractXYCoordinate{t#1.east}
+\ExtractABCoordinate{t#2.west}
+\ifdim\dimexpr\ACoord-3pt>\XCoord
+	\draw[-latex, shorten >=1mm,shorten <=1mm,#3] (t#1.east) -- (t#2.west);%
+\else
+	\ifdim\YCoord>\BCoord
+		 \draw[-latex, shorten >=1mm,shorten <=1mm,#3] (t#1.south) -- (t#2.west);%
+	\else%
+		 \ifdim\YCoord<\BCoord
+		 		\draw[-latex, shorten >=1mm,shorten <=1mm,#3] (t#1.north) -- (t#2.west);%
+		 \fi
+	\fi
+\fi
+}
+
+\newcommand\BackPrecedence[3]{ 
+	\ExtractXYCoordinate{t#1}
+	\ExtractABCoordinate{t#2}
+	\ifdim\YCoord>\BCoord
+		\ExtractXYCoordinate{t#1.south}
+		\ExtractABCoordinate{t#2.north}
+		\ifdim\dimexpr\YCoord-3pt>\BCoord
+			\path[] (t#1.south) edge [bend left=5, -latex, shorten >=1mm,shorten <=1mm,#3] (t#2.north);%
+		\else
+		 	\path[] (t#1) edge [bend left=5, -latex, shorten >=1mm,shorten <=1mm,#3] (t#2.north);%
+		\fi
+	\else%
+		\ExtractXYCoordinate{t#1.north}
+		\ExtractABCoordinate{t#2.south}
+		\ifdim\dimexpr\YCoord+3pt<\BCoord
+			\path[] (t#1.north) edge [bend left=5, -latex, shorten >=1mm,shorten <=1mm,#3] (t#2.south);%
+		\else
+		 	\path[] (t#1) edge [bend left=5, -latex, shorten >=1mm,shorten <=1mm,#3] (t#2.south);%
+		\fi
+	\fi
+}
+
+%1:est, 2:lst, 3:ect, 4:lct, 5:duration, 6:demand, 7:row, 8:color, 9:label
+\newcommand\PreemptiveVariableTask[9]{
+\PhantomExtensibleTask{#1/2+#4/2-#5/2}{#5}{#5}{#6}{#7}{#8}{#9}
+\AllInterval{#1}{#2}{#3}{#4}{#7}{#6}
+}
+
+
+%1:est, 2:lst, 3:ect, 4:lct, 5:duration, 6:demand, 7:row, 8:color, 9:label
+\newcommand\PreemptiveAutoVariableTask[9]{
+\PhantomExtensibleTask{#1/2+#4/2-#5/2}{#5}{#5}{#6}{#7}{#8}{#9}
+\AllInterval{#1}{#4-#5}{#1+#5}{#4}{#7}{#6}
+
+}
+
+
+\newcommand\PrunedPreemptiveVariableTaskOver[9]{%
+%1:est, 2:lst, 3:ect, 4:lct, 5:duration, 6:demand, 7:row, 8:color, 9:label, 10:pruned est, 11: pruned lct
+\PreemptiveVariableTask{#1}{#2}{#3}{#4}{#5}{#6}{#7}{#8}{#9}
+
+		\ifthenelse{\equal{#2}{#4-#5}}{}{
+		\draw[thick, latex-, shorten >=3pt, shorten <=1pt] (#2,-#7) to[bend left] (#4-#5,-#7);
+		}
+
+		\fill[pattern=north east lines, draw=black!50] (#4-#5+\tasksep,-#7-#6+\tasksep) rectangle (#2-\tasksep,-#7-\tasksep);
+
+
+		\ifthenelse{\equal{#3}{#1+#5}}{}{
+		\draw[thick, latex-, shorten >=3pt, shorten <=1pt] (#3,-#7) to[bend right] (#1+#5,-#7);
+		}
+
+		\fill[pattern=north east lines, draw=black!50] (#3-\tasksep,-#7-#6+\tasksep) rectangle (#1+#5+\tasksep,-#7-\tasksep);
+	
+}
+
+\newcommand\Pruning[4]{%
+\fill[pattern=north east lines] (#1,-#4-#3+2*\tasksep) rectangle (#2,-#4-2*\tasksep);
+}%
+
+\newcommand\PruningOver[4]{%
+%1:est, 2:lst, 3:ect, 4:lct, 5:duration, 6:demand, 7:row, 8:color, 9:label, 10:pruned est, 11: pruned lct
+% \PreemptiveVariableTask{#1}{#2}{#3}{#4}
+
+		\ifthenelse{\equal{#1}{#2}}{}{
+		\draw[thick, -latex, shorten >=1pt, shorten <=1pt] (#1,-#4) to[bend left] (#2,-#4);
+
+		\Pruning{#1}{#2}{#3}{#4}
+		}
+		
+		}%
+
+		\newcommand\PruningUnder[4]{%
+%1:est, 2:lst, 3:ect, 4:lct, 5:duration, 6:demand, 7:row, 8:color, 9:label, 10:pruned est, 11: pruned lct
+% \PreemptiveVariableTask{#1}{#2}{#3}{#4}
+
+		\ifthenelse{\equal{#1}{#2}}{}{
+		\draw[thick, -latex, shorten >=1pt, shorten <=1pt] (#2,-#4-#3) to[bend left] (#1,-#4-#3);
+
+		\Pruning{#1}{#2}{#3}{#4}
+		% \fill[pattern=north east lines] (#1,-#4-#3+2*\tasksep) rectangle (#2,-#4-2*\tasksep);
+		}
+		
+		}%
+
+% \newcommand\RightPruning[4]{%
+% 		\ifthenelse{\equal{#1}{#2}}{}{
+% 		\draw[thick, latex-, shorten >=3pt, shorten <=1pt] (#3,-#7) to[bend right] (#1+#5,-#7);
+% 		}
+
+% 		\fill[pattern=north east lines, draw=black!50] (#3-\tasksep,-#7-#6+\tasksep) rectangle (#1+#5+\tasksep,-#7-\tasksep);
+	
+% }
+
+
+% \newcommand\PrunedPreemptiveVariableTaskUnder[9]{%
+% %1:est, 2:lst, 3:ect, 4:lct, 5:duration, 6:demand, 7:row, 8:color, 9:label, 10:pruned est, 11: pruned lct
+% \PreemptiveVariableTask{#1}{#2}{#3}{#4}{#5}{#6}{#7}{#8}{#9}
+
+% 		\ifthenelse{\equal{#2}{#4-#5}}{}{
+% 		\draw[thick, latex-, shorten >=3pt, shorten <=1pt] (#2,-#7-#6) to[bend right] (#4-#5,-#7-#6);
+% 		}
+
+% 		\ifthenelse{\equal{#3}{#1+#5}}{}{
+% 		\draw[thick, latex-, shorten >=3pt, shorten <=1pt] (#3,-#7-#6) to[bend left] (#1+#5,-#7-#6);
+% 		}
+
+% 		% \ifthenelse{\equal{#1}{#10}}{}{
+% 		% \draw[thick, opacity=.2, \getExtStyle{#8}, rounded corners] (#10,-#7-#6+\tasksep) rectangle (#1,-\tasksep-#7);
+% 		% }
+	
+% }
+
+
+
+\newcommand\VariableTask[7]{
+\ExtensibleVariableTask{#1}{#2}{#3}{#3}{#4}{#5}{#6}{#7}
+}
+\newcommand\ExtensibleVariableTask[8]{ %1:est, 2:lct, 3:min duration, 4:max duration, 5:demand, 6:row, 7:color, 8:label
+	\ExtensibleTask{#1/2+#2/2-#4/2}{#3}{#4}{#5}{#6}{#7}{#8}
+	\LeftInterval{#1/2+#2/2-#4/2}{#1}{#6}{#5};
+	\RightInterval{#1/2+#2/2+#4/2}{#2}{#6}{#5};
+}
+\newcommand\UnlabeledExtensibleVariableTask[8]{ %1:est, 2:lct, 3:min duration, 4:max duration, 5:demand, 6:row, 7:color, 8:label
+	\UnlabeledTask{#1/2+#2/2-#4/2}{#3}{#4}{#5}{#6}{#7}{#8}
+	\LeftInterval{#1/2+#2/2-#4/2}{#1}{#6}{#5};
+	\RightInterval{#1/2+#2/2+#4/2}{#2}{#6}{#5};
+}
+\newcommand\PhantomExtensibleVariableTask[8]{ %1:est, 2:lct, 3:min duration, 4:max duration, 5:demand, 6:row, 7:color, 8:label
+	\PhantomExtensibleTask{#1/2+#2/2-#4/2}{#3}{#4}{#5}{#6}{#7}{#8}
+	\LeftInterval{#1/2+#2/2-#4/2}{#1}{#6}{#5};
+	\RightInterval{#1/2+#2/2+#4/2}{#2}{#6}{#5};
+}
+
+\newcommand\LeftVariableTask[7]{ %1:est, 2:lct, 3: duration, 4:demand, 5:row, 6:color, 7:label
+\LeftExtensibleVariableTask{#1}{#2}{#3}{#3}{#4}{#5}{#6}{#7}
+}
+\newcommand\LeftExtensibleVariableTask[8]{ %1:est, 2:lct, 3:min duration, 4:max duration, 5:demand, 6:row, 7:color, 8:label
+	\ExtensibleTask{#1}{#3}{#4}{#5}{#6}{#7}{#8}
+	\LeftBracket{#1}{#6}{#5};
+	\RightInterval{#1+#4}{#2}{#6}{#5};
+}
+\newcommand\LeftPhantomExtensibleVariableTask[8]{ %1:est, 2:lct, 3:min duration, 4:max duration, 5:demand, 6:row, 7:color, 8:label
+	\PhantomExtensibleTask{#1}{#3}{#4}{#5}{#6}{#7}{#8}
+	\LeftBracket{#1}{#6}{#5};
+	\RightInterval{#1+#4}{#2}{#6}{#5};
+}
+
+\newcommand\RightVariableTask[7]{
+\RightExtensibleVariableTask{#1}{#2}{#3}{#3}{#4}{#5}{#6}{#7}
+}
+\newcommand\RightExtensibleVariableTask[8]{ %1:est, 2:lct, 3:min duration, 4:max duration, 5:demand, 6:row, 7:color, 8:label
+	\ExtensibleTask{#2-#4}{#3}{#4}{#5}{#6}{#7}{#8}
+	\LeftInterval{#2-#4}{#1}{#6}{#5};
+	\RightBracket{#2}{#6}{#5};
+}
+\newcommand\RightPhantomExtensibleVariableTask[8]{ %1:est, 2:lct, 3:min duration, 4:max duration, 5:demand, 6:row, 7:color, 8:label
+	\PhantomExtensibleTask{#2-#4}{#3}{#4}{#5}{#6}{#7}{#8}
+	\LeftInterval{#2-#4}{#1}{#6}{#5};
+	\RightBracket{#2}{#6}{#5};
+}
+
+
+\newcommand\NormalTask[6]{ %1:start, 2:duration, 3:demand, 4:row, 5:color, 6:label 
+		\LeftVariableTask{#1}{#1+#2}{#2}{#3}{#4}{#5}{#6}
+}
+
+% \newcommand\GroundTask[6]{ %1:start, 2:duration, 3:demand, 4:row, 5:color, 6:label
+%     \draw[thick, \getStyle{#5}] (#1+\tasksep*2/3,-#4-#3+\tasksep*2/3) rectangle (#1+#2-\tasksep*2/3,-\tasksep*2/3-#4);
+%     \node[minimum width=#2*.48cm] (t#6) at (#1+#2/2,-#4-#3/2) {{\scriptsize #6}};
+% }
+%
+% \newcommand\UnlabeledGroundTask[6]{ %1:start, 2:duration, 3:demand, 4:row, 5:color, 6:label
+%     \draw[thick, \getStyle{#5}] (#1+\tasksep*2/3,-#4-#3+\tasksep*2/3) rectangle (#1+#2-\tasksep*2/3,-\tasksep*2/3-#4);
+%     \node[minimum width=#2*.48cm] (t) at (#1+#2/2,-#4-#3/2) {{\scriptsize #6}};
+% }
+
+\newcommand\GroundTask[7][]{ % 1:print label (optional) 2:start, 3:duration, 4:demand, 5:row, 6:color, 7:label 
+    \draw[thick, \getStyle{#6}, rounded corners] (#2+\tasksep/3,-#5-#4+\tasksep) rectangle (#2+#3-\tasksep/3,-#5-\tasksep);
+    \node[minimum width=#3*.48cm] (t#7) at (#2+#3/2,-#5-#4/2) {{\scriptsize #1}};
+}
+
+% \newcommand\UnlabeledGroundTask[6]{ %1:start, 2:duration, 3:demand, 4:row, 5:color, 6:label 
+%     \draw[thick, \getStyle{#5}, rounded corners] (#1,-#4-#3) rectangle (#1+#2,-#4);
+%     \node[minimum width=#2*.48cm] (t) at (#1+#2/2,-#4-#3/2) {{\scriptsize #6}};
+% }
+
+
+% \newcommand\MandatoryPartTask[7]{ %1:start, 2:min duration, 3:max duration, 4:demand, 5:row, 6:color, 7:label
+% 		\draw[thick, \getExtStyle{#6}] (#1+\tasksep,-#5-#4+\tasksep*2) rectangle (#1+#3-\tasksep,-\tasksep*2-#5);
+% 		\draw[thick, \getStyle{#6}] (#1+#3/2-#2/2+\tasksep,-#5-#4+\tasksep*2) rectangle (#1+#3/2+#2/2-\tasksep,-\tasksep*2-#5);
+%     \node[minimum width=#3*\scalefactor cm, minimum height=#4*\scalefactor cm] (t#7) at (#1+#3/2,-#5-#4/2) {{\tiny #7}};
+% }
+
+\newcommand\MandatoryPartTask[7]{ %1:start, 2:min duration, 3:max duration, 4:demand, 5:row, 6:color, 7:label 
+		\draw[thick, \getExtStyle{#6}, rounded corners] (#1,-#5-#4+\tasksep) rectangle (#1+#3,-\tasksep-#5);
+		\draw[thick, \getStyle{#6}] (#1+#3/2-#2/2,-#5-#4+\tasksep) rectangle (#1+#3/2+#2/2,-\tasksep-#5);
+    \node[minimum width=#3*\scalefactor cm, minimum height=#4*\scalefactor cm] (t#7) at (#1+#3/2,-#5-#4/2) {{\tiny #7}};
+}
+
+% \newcommand\PhantomExtensibleTask[7]{ %1:start, 2:min duration, 3:max duration, 4:demand, 5:row, 6:color, 7:label
+% 		% \draw[thick, opacity=.2, \getExtStyle{#6}] (#1+\tasksep,-#5-#4+\tasksep*2) rectangle (#1+#3-\tasksep,-\tasksep*2-#5);
+% 		% \draw[thick, opacity=.2, \getStyle{#6}] (#1+#3/2-#2/2-\tasksep,-#5-#4+\tasksep*2) rectangle (#1+#3/2+#2/2-\tasksep,-\tasksep*2-#5);
+% 		%     \node[] (t#7) at (#1+#3/2,-#5-#4/2) {{\scriptsize #7}};
+% 		\draw[thick, opacity=.3, \getStyle{#6}] (#1+\tasksep*1.5,-#5-#4+\tasksep*2) rectangle (#1+#2-\tasksep*1.5,-\tasksep*2-#5);
+% 		\draw[thick, opacity=.2, \getExtStyle{#6}] (#1+#2-\tasksep*1.5,-#5-#4+\tasksep*2) rectangle (#1+#3-\tasksep*1.5,-\tasksep*2-#5);
+% 		\node[minimum width=#3*\scalefactor cm, minimum height=#4*\scalefactor cm,opacity=.3] (t#7) at (#1+#2/2,-#5-#4/2) {{\tiny #7}};
+% }
+%
+% \newcommand\PrunedExtensibleTask[7]{
+% 		\draw[thick, opacity=.3, pru#6, \getStyle{#6}, pattern=north east lines] (#1+\tasksep*1.5,-#5-#4+\tasksep*2) rectangle (#1+#2-\tasksep*1.5,-\tasksep*2-#5);
+% 		\draw[thick, opacity=.2, \getExtStyle{#6}] (#1+#2-\tasksep*1.5,-#5-#4+\tasksep*2) rectangle (#1+#3-\tasksep*1.5,-\tasksep*2-#5);
+% 		\node[minimum width=#3*\scalefactor cm, minimum height=#4*\scalefactor cm,opacity=.3] (t#7) at (#1+#2/2,-#5-#4/2) {{\tiny #7}};
+% }
+%
+% \newcommand\ExtensibleTask[7]{ %1:start, 2:min duration, 3:max duration, 4:demand, 5:row, 6:color, 7:label
+%     \draw[thick, \getExtStyle{#6}] (#1+\tasksep*1.5,-#5-#4+\tasksep*2) rectangle (#1+#3-\tasksep*1.5,-\tasksep*2-#5);
+% 		\draw[thick, \getStyle{#6}] (#1+\tasksep*1.5,-#5-#4+\tasksep*2) rectangle (#1+#2-\tasksep*1.5,-\tasksep*2-#5);
+%     \node[minimum width=#3*\scalefactor cm, minimum height=#4*\scalefactor cm] (t#7) at (#1+#3/2,-#5-#4/2) {{\tiny #7}};
+% }
+%
+% \newcommand\UnlabeledTask[7]{ %1:start, 2:min duration, 3:max duration, 4:demand, 5:row, 6:color, 7:label
+%     \draw[thick, \getExtStyle{#6}] (#1+\tasksep*1.5,-#5-#4+\tasksep*2) rectangle (#1+#3-\tasksep*1.5,-\tasksep*2-#5);
+% 		\draw[thick, \getStyle{#6}] (#1+\tasksep*1.5,-#5-#4+\tasksep*2) rectangle (#1+#2-\tasksep*1.5,-\tasksep*2-#5);
+%     \node[minimum width=#3*\scalefactor cm, minimum height=#4*\scalefactor cm] (t) at (#1+#3/2,-#5-#4/2) {{\tiny #7}};
+% }
+
+\newcommand\PhantomExtensibleTask[7]{ %1:start, 2:min duration, 3:max duration, 4:demand, 5:row, 6:color, 7:label 
+		% \draw[thick, opacity=.2, \getExtStyle{#6}] (#1+\tasksep,-#5-#4+\tasksep*2) rectangle (#1+#3-\tasksep,-\tasksep*2-#5);
+		% \draw[thick, opacity=.2, \getStyle{#6}] (#1+#3/2-#2/2-\tasksep,-#5-#4+\tasksep*2) rectangle (#1+#3/2+#2/2-\tasksep,-\tasksep*2-#5);
+		%     \node[] (t#7) at (#1+#3/2,-#5-#4/2) {{\scriptsize #7}};
+		\draw[thick, opacity=.3, \getStyle{#6}, rounded corners] (#1,-#5-#4+\tasksep) rectangle (#1+#2,-\tasksep-#5);
+
+		\ifthenelse{\equal{#2}{#3}}{}{
+		\draw[thick, opacity=.2, \getExtStyle{#6}, rounded corners] (#1+#2,-#5-#4+\tasksep) rectangle (#1+#3,-\tasksep-#5);
+		}
+		\node[minimum width=#3*\scalefactor cm, minimum height=#4*\scalefactor cm,opacity=.3] (t#7) at (#1+#2/2,-#5-#4/2) {{\tiny #7}};
+}
+
+\newcommand\PrunedExtensibleTask[7]{ 
+		\draw[thick, opacity=.3, pru#6, \getStyle{#6}, pattern=north east lines, rounded corners] (#1,-#5-#4+\tasksep) rectangle (#1+#2,-\tasksep-#5);
+
+		\ifthenelse{\equal{#2}{#3}}{}{
+		\draw[thick, opacity=.2, \getExtStyle{#6}, rounded corners] (#1+#2,-#5-#4+\tasksep) rectangle (#1+#3,-\tasksep-#5);
+		}
+		
+		\node[minimum width=#3*\scalefactor cm, minimum height=#4*\scalefactor cm,opacity=.3] (t#7) at (#1+#2/2,-#5-#4/2) {{\tiny #7}};
+}
+
+\newcommand\ExtensibleTask[7]{ %1:start, 2:min duration, 3:max duration, 4:demand, 5:row, 6:color, 7:label
+    \draw[thick, \getExtStyle{#6}, rounded corners] (#1,-#5-#4+\tasksep) rectangle (#1+#3,-\tasksep-#5);
+		\draw[thick, \getStyle{#6}, rounded corners] (#1,-#5-#4+\tasksep) rectangle (#1+#2,-\tasksep-#5);
+    \node[minimum width=#3*\scalefactor cm, minimum height=#4*\scalefactor cm] (t#7) at (#1+#3/2,-#5-#4/2) {{\tiny #7}};
+}
+
+\newcommand\UnlabeledTask[7]{ %1:start, 2:min duration, 3:max duration, 4:demand, 5:row, 6:color, 7:label
+    \draw[thick, \getExtStyle{#6}, rounded corners] (#1,-#5-#4+\tasksep) rectangle (#1+#3,-\tasksep-#5);
+		\draw[thick, \getStyle{#6}, rounded corners] (#1,-#5-#4+\tasksep) rectangle (#1+#2,-\tasksep-#5);
+    \node[minimum width=#3*\scalefactor cm, minimum height=#4*\scalefactor cm] (t) at (#1+#3/2,-#5-#4/2) {{\tiny #7}};
+}
+
+
+
+
+
+\newcommand\PrintRow[1] {
+	\setcounter{x}{0}
+	\foreach \ijob in {#1} {
+		\addtocounter{x}{1}
+		\node[] at (-.5,-.5-\value{x}) {$J_{\arabic{x}}$};
+		\setcounter{\getJob{\ijob}}{0}
+		\setcounter{\getRow{\ijob}}{\value{x}}
+	}
+}
+
+\newcommand\PrintJobs[1] {
+	\setcounter{x}{0}
+	\foreach \ijob in {#1} {
+		\addtocounter{x}{1}
+		\node[] at (-.5,-.5-\value{x}) {$J_{\ijob}$};
+		\setcounter{\getJob{\ijob}}{0}
+		\setcounter{\getRow{\ijob}}{\value{x}}
+	}
+}
+
+\newcommand\PrintGrid[2] {
+	\draw[densely dotted, color=black!90] (0, 0) grid (#1, -#2);
+}
+% \newcommand\PrintTics[2] {
+% 	\foreach \x in {#1} {
+% 		\node[font=\tiny] at (\x*#2, .3) {\x};
+% 	}
+% }
+\newcommand\PrintTics[2] {
+	\foreach \x in {#1} {
+		\node[font=\tiny] at (\x, .3) {\roundandprint{\x / #2}};
+	}
+}
+
+
+\newcommand\Jobshop[3] { %1: numjobs, 2:list of machines' tasks
+	\foreach \imach in {#1} {
+		\setcounter{\getResource{\imach}}{0}
+	}
+	\PrintJobs{#2}
+	
+	  \foreach \imach/\tdur/\ijob in #3 {
+			\ifnum\value{\getResource{\imach}}<\value{\getJob{\ijob}}
+					\GroundTask[\ijob:\tdur]{\value{\getJob{\ijob}}}{\tdur}{1}{\value{\getRow{\ijob}}}{\imach}{\ijob\imach}
+					\addtocounter{\getJob{\ijob}}{\tdur}
+					\setcounter{\getResource{\imach}}{\value{\getJob{\ijob}}}
+	 			\else
+					\GroundTask[\ijob:\tdur]{\value{\getResource{\imach}}}{\tdur}{1}{\value{\getRow{\ijob}}}{\imach}{\ijob\imach}
+					\addtocounter{\getResource{\imach}}{\tdur}
+					\setcounter{\getJob{\ijob}}{\value{\getResource{\imach}}}
+			\fi
+	}
+}
+
+\newcommand\Profile[3] {
+	\setcounter{px}{0}
+	\setcounter{py}{0}
+	\setcounter{x}{0}
+	\setcounter{y}{0}
+
+	\foreach \X/\Y in #1 {
+		\fill[color=bostonuniversityred, opacity=.3] (\arabic{x}, -#3) rectangle (\X, \arabic{y}-#3);
+		\draw[ultra thick, color=bostonuniversityred] (\arabic{px}, \arabic{py}-#3) -- (\arabic{x}, \arabic{py}-#3) -- (\arabic{x}, \arabic{y}-#3) -- (\X, \arabic{y}-#3) -- (\X,\Y-#3);
+		
+		\setcounter{px}{\value{x}}
+		\setcounter{py}{\value{y}}
+		\setcounter{x}{\X}
+		\setcounter{y}{\Y}
+	}
+	
+	\draw[dashed, thick, color=bostonuniversityred] (0, #2-#3) -- (\arabic{x}, #2-#3);
+	
+}
+
+
+\tikzset{edgestyle/.style={thick, shorten >=1pt, shorten <=1pt, <-}} 
+\tikzset{vertexstyle/.style={shape=circle,draw,inner sep=1pt}}
+\tikzset{labelstyle/.style={inner sep=1.2pt, fill=white, font=\tiny}}
+
+
+% \newcommand\CProfile[3] {
+% 	\foreach \Xf/\Yf/\Xs/\Ys in #1 {
+% 		\fill[color=bostonuniversityred, opacity=.3] (\Xf, -#3) rectangle (\Xs, \Yf-#3);
+% 		\draw[ultra thick, color=bostonuniversityred] (\Xf, \Yf-#3) -- (\Xs, \Yf-#3) -- (\Xs, \Yf-#3) -- (\Xs,\Ys-#3);
+% 		\draw[dashed, thick, color=bostonuniversityred] (\Xf, #2-#3) -- (\Xs, #2-#3);
+% 	}
+% }
+
+\newcommand\CProfile[5] {
+	\foreach \Xf/\Yf/\Xs/\Ys in #1 {
+		\fill[prof#4, opacity=.3] (\Xf, -#3) rectangle (\Xs, \Yf-#3);
+		\draw[ultra thick, prof#4] (\Xf, \Yf-#3) -- (\Xs, \Yf-#3) -- (\Xs, \Yf-#3) -- (\Xs,\Ys-#3);
+	}
+	\draw[dashed, thick, prof#4] (0, #2-#3) -- (#5, #2-#3);
+}
+
+
+\newcommand\memph[1]{\textcolor{carnelian}{#1}}
+
+
+
+

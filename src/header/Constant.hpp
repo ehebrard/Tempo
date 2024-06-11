@@ -53,7 +53,7 @@ NewExplanation<T>
 //const index_t Constant::index_of_max = 1;
 
 template <typename T>
-const T Constant::Infinity = std::numeric_limits<T>::max();
+const T Constant::Infinity = std::numeric_limits<T>::max(); //-Gap<T>::epsilon();
 
 //template <typename T>
 //const T Constant::minvalue = std::numeric_limits<T>::min();

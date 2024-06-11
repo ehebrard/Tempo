@@ -1,0 +1,120 @@
+\begin{frame}
+\frametitle{Transition Times (Traveling Salesman Problem)}
+
+\pause
+\begin{itemize}
+	\item The \memph{Minimum Spanning Tree} gives a good lower bound
+
+	\vfill\pause
+	\item But spanning tree of which graph? (initially all edges may be feasible)
+
+	\vfill\pause
+	\begin{itemize}
+		\item We need to know which edges are not possible anymore
+
+		\vfill\pause
+		\item \memph{Transitive Reduction}: can be computed incrementally as easily as the transitive closure
+
+		\vfill\pause
+		\item Computing a global lower bound in this way is easy. \pause Two challenges:
+
+		\vfill
+		\begin{itemize}
+			\item Computing ``local'' bounds (e.g., only among the predecessors of a tasks): how many and which ones?
+
+			\vfill
+			\item Computing an explanation is not trivial: \memph{deleted edges} (but hopefully not all of them)
+		\end{itemize}
+	\end{itemize}
+\end{itemize}
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Optional Taks / Flexible Scheduling}
+
+\begin{itemize}
+	\item Easy to model with Boolean variables
+
+	\vfill\pause
+	\item Easy to propagate (say) the Edge-Finding rule: just ignore optional tasks
+
+	\vfill\pause
+	\item Challenge: deduce from (say) the Edge-Finding rule that a given optional task is not possible
+
+	\vfill\pause
+	\begin{itemize}
+		\item Tentatively insert optional tasks in the theta tree
+
+		\vfill
+		\begin{itemize}
+			\item If it would entail an overload, the task cannot exist
+
+			\vfill
+			\item Otherwise, ignore it (remove it from the theta tree)
+		\end{itemize}
+	\end{itemize}
+
+	\vfill\pause
+	\item Change every resource propagator to handle optional tasks in this way
+\end{itemize}
+
+\end{frame}
+
+
+
+
+\begin{frame}
+\frametitle{Cumulative Resources}
+
+\vfill\pause
+
+\begin{itemize}
+	\item The same principles apply
+
+	\vfill
+	\item More complex model:
+
+	\vfill\pause
+	\begin{itemize}
+		\item With \memph{disjunctive} resources, we only need a Boolean disjunct for every pair of \memph{tasks}
+
+		\vfill
+		\item With \memph{cumulative} resources we need a disjunct for every pair of \memph{events} (starts and ends of tasks)
+	\end{itemize}
+
+	\vfill\pause
+	\item More complex propagators and explanations (there is a lot of prior work)
+
+\end{itemize}
+
+\vfill
+
+\end{frame}
+
+
+
+
+\begin{frame}
+\frametitle{Long Term}
+
+\vfill\pause
+\begin{itemize}
+	\item General Constraint Programming (not difficult, just tedious)
+
+	\vfill\pause
+	\item More complex theories/semantic for Boolean variables
+
+	\vfill\pause
+	\begin{itemize}
+		\item Linear Arithmetic: instead of a difference logic constraint, Boolean variables can be given a general linear inequation as semantic
+
+		\vfill
+		\item Simplex reasoning instead of Bellman-Ford
+	\end{itemize}
+\end{itemize}
+
+\vfill
+
+\end{frame}

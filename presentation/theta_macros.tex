@@ -1,0 +1,121 @@
+\newcommand{\sptext}[2] {%
+			{$dur:{#1}$}%
+			  \nodepart{second}{$est:{#2}$}%
+			  % \nodepart{third}{$est = {#3}$}%
+}
+
+
+\newcommand{\ttnode}[3] {%
+	node[punkt] [rectangle split, rectangle split, rectangle split parts=2,text ragged, active on=<#3->] {%
+		\sptext{#1}{#2}
+	}%
+}
+
+\newcommand{\thetaroot}[3] {%
+	\node[punkt] [rectangle split, rectangle split, rectangle split parts=2,text ragged, active on=<#3->] {%
+		\sptext{#1}{#2}
+	}%
+}
+
+
+  \tikzset{
+    inactive/.style={color=red!15!white},
+    active on/.style={alt={#1{}{inactive}}},
+    alt/.code args={<#1>#2#3}{%
+      \alt<#1>{\pgfkeysalso{#2}}{\pgfkeysalso{#3}} % \pgfkeysalso doesn't change the path
+    },
+  }
+
+  \tikzset{
+    invisible/.style={opacity=0},
+    visible on/.style={alt={#1{}{invisible}}},
+    alt/.code args={<#1>#2#3}{%
+      \alt<#1>{\pgfkeysalso{#2}}{\pgfkeysalso{#3}} % \pgfkeysalso doesn't change the path
+    },
+  }
+	
+  \tikzset{
+    highlighted/.style={draw=red, color=red!80!black},
+    highlighted on/.style={alt={#1{highlighted}{}}},
+    alt/.code args={<#1>#2#3}{%
+      \alt<#1>{\pgfkeysalso{#2}}{\pgfkeysalso{#3}} % \pgfkeysalso doesn't change the path
+    },
+  }
+
+
+\newenvironment{downtwolvltree}{%
+\begin{tikzpicture}[%
+    grow=down,%
+    level 1/.style={sibling distance=3cm, level distance=1.6cm},%
+    level 2/.style={sibling distance=1.5cm, level distance=1.6cm},%
+		kant/.style={font=\scriptsize},%
+    edge from parent/.style={very thick,draw=red!40!black!60,%
+        shorten >=5pt, shorten <=5pt},%
+    edge from parent path={(\tikzparentnode.south) -- (\tikzchildnode.north)},%
+    punkt/.style={text ragged, inner sep=1mm, font=\scriptsize, rectangle, rounded corners, shade, top color=white,%
+    bottom color=red!50!black!20, draw=red!40!black!60, very thick }%
+    ]%
+}{%
+  \end{tikzpicture}
+}
+
+
+\newenvironment{righttwolvltree}{%
+\begin{tikzpicture}[%
+    grow=right,
+    level 1/.style={sibling distance=3.2cm, level distance=2.2cm},
+    level 2/.style={sibling distance=1.6cm, level distance=1.8cm},
+		kant/.style={text width=2cm, text centered, sloped},
+    edge from parent/.style={very thick,draw=blue!40!black!60,
+        shorten >=5pt, shorten <=5pt},
+    edge from parent path={(\tikzparentnode.east) -- (\tikzchildnode.west)},
+    punkt/.style={text ragged, inner sep=1mm, font=\scriptsize, rectangle, rounded corners, shade, top color=white,
+    bottom color=blue!50!black!20, draw=blue!40!black!60, very thick }%
+    ]%
+}{%
+  \end{tikzpicture}
+}
+
+
+
+\newenvironment{downthreelvltree}{%
+\begin{tikzpicture}[%
+    scale=.8,%
+    grow=down,%
+    level 1/.style={sibling distance=4.5cm, level distance=2cm},%
+    level 2/.style={sibling distance=3cm, level distance=2cm},%
+		level 3/.style={sibling distance=1.5cm, level distance=2cm},%
+		kant/.style={font=\scriptsize},%
+    edge from parent/.style={very thick,draw=red!40!black!60,%
+        shorten >=3pt, shorten <=3pt},%
+    edge from parent path={(\tikzparentnode.south) -- (\tikzchildnode.north)},%
+    punkt/.style={text ragged, inner sep=1mm, font=\scriptsize, rectangle, rounded corners, shade, top color=white,%
+    bottom color=red!50!black!20, draw=red!40!black!60, very thick }%
+    ]%
+}{%
+  \end{tikzpicture}
+}
+
+
+
+\def\thetree{
+\thetaroot{All tasks} {\only<2>{6}\only<3>{11}\only<4>{16}}{\only<2>{8}\only<3>{11}\only<4>{16}}
+    child {
+				\ttnode{$A ~\&~ B$} {4}{14}
+				child {
+					\ttnode{ $A$} {4}{14}
+				}
+				child {
+					\ttnode{ $B$} {4}{3}
+				}
+    }
+    child {
+				\ttnode{ $C ~\&~ D$} {6}{\only<1>{8}\only<2>{9}\only<3->{10}}
+				child[visible on=<4->, highlighted on=<4>] {
+					\ttnode{ $C$} {4}{14}
+				}
+				child[visible on=<2->, highlighted on=<2-3>] {
+					\ttnode{ $D$} {4}{12}
+				}
+    };
+}

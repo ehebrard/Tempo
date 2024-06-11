@@ -1,0 +1,159 @@
+\begin{frame}
+\frametitle{Mistral (back to 2008)}
+
+\pause
+\begin{itemize}
+  \item Mistral happenned to be very good on the Open Shop instances of the solver competition
+
+  \vfill\pause
+  \begin{itemize}
+     \item No sophisticated propagation, no dedicated heuristic
+
+     \vfill
+     \item \memph{Binary Disjunction} $b_{ij} = \texttt{true} \implies e_i \leq s_j$ and $b_{ij} = \texttt{false} \implies e_j \leq s_i$
+   \end{itemize} 
+
+   \vfill\pause
+   \begin{itemize}
+     \item Branching on the Boolean variables $b_{ij}$ is a good idea
+
+     \vfill
+     \item The \memph{weighted degree} heuristic works very well
+
+     \vfill
+     \begin{itemize}
+       \item Increment the \memph{weight} of the variables involved in a \memph{failed} constraint ($b_{ij},s_i,s_j$)
+
+       \vfill
+       \item select the variable with minimum ratio \emph{domain size} over \emph{weight}
+     \end{itemize}
+   \end{itemize}
+
+   \vfill\pause
+   \item Paper ``Closing the Open-Shop'' with Diarmuid Grimes and Arnaud Malapert
+\end{itemize}
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Edge Branching}
+
+\begin{colorschedfigure}{.5}
+
+\uncover<1>{
+\VariableTask{0}{13}{5}{1}{1}{A}{}
+\VariableTask{5}{16}{3}{1}{2}{B}{}
+\VariableTask{8}{20}{4}{1}{3}{C}{}
+\VariableTask{12}{25}{5}{1}{4}{D}{}
+}
+\uncover<2>{
+\VariableTask{0}{12}{5}{1}{1}{A}{}
+\VariableTask{5}{15}{3}{1}{2}{B}{}
+\VariableTask{8}{20}{4}{1}{3}{C}{}
+\VariableTask{12}{25}{5}{1}{4}{D}{}
+\fill[pattern=north east lines] (12,-1) rectangle (13,-2);
+\fill[pattern=north east lines] (15,-2) rectangle (16,-3);
+}
+\uncover<3>{
+\VariableTask{0}{13}{5}{1}{1}{A}{}
+\VariableTask{7}{16}{3}{1}{2}{B}{}
+\VariableTask{10}{20}{4}{1}{3}{C}{}
+\VariableTask{14}{25}{5}{1}{4}{D}{}
+\fill[pattern=north east lines] (5,-2) rectangle (7,-3);
+\fill[pattern=north east lines] (8,-3) rectangle (10,-4);
+\fill[pattern=north east lines] (12,-4) rectangle (14,-5);
+}
+
+\uncover<1>{
+\VariableTask{0}{15}{3}{1}{5}{D}{}
+\VariableTask{3}{19}{4}{1}{6}{B}{}
+\VariableTask{7}{21}{2}{1}{7}{A}{}
+\VariableTask{9}{25}{4}{1}{8}{C}{}
+}
+\uncover<2>{
+\VariableTask{0}{15}{3}{1}{5}{D}{}
+\VariableTask{8}{19}{4}{1}{6}{B}{}
+\VariableTask{12}{21}{2}{1}{7}{A}{}
+\VariableTask{14}{25}{4}{1}{8}{C}{}
+\fill[pattern=north east lines] (3,-6) rectangle (8,-7);
+\fill[pattern=north east lines] (7,-7) rectangle (12,-8);
+\fill[pattern=north east lines] (9,-8) rectangle (14,-9);
+}
+\uncover<3>{
+\VariableTask{0}{12}{3}{1}{5}{D}{}
+\VariableTask{3}{16}{4}{1}{6}{B}{}
+\VariableTask{7}{21}{2}{1}{7}{A}{}
+\VariableTask{9}{25}{4}{1}{8}{C}{}
+\fill[pattern=north east lines] (12,-5) rectangle (15,-6);
+\fill[pattern=north east lines] (16,-6) rectangle (19,-7);
+}
+
+\VariableTask{0}{13}{3}{1}{9}{B}{}
+\VariableTask{3}{16}{3}{1}{10}{D}{}
+\VariableTask{6}{22}{6}{1}{11}{A}{}
+\VariableTask{12}{25}{3}{1}{12}{C}{}
+
+\uncover<2>{
+  \draw[color=black, ->, ultra thick, shorten >=3pt, shorten <=3pt] (11.5, -6) -- (10.5, -3);
+}
+\uncover<3>{
+  \draw[color=black, ->, ultra thick, shorten >=3pt, shorten <=3pt] (10.5, -6) -- (11.5, -3);
+}
+\end{colorschedfigure}
+
+\end{frame}
+
+
+
+
+\begin{frame}
+\frametitle{Search Tree}
+
+\vfill
+
+\begin{myblock}{Branching on Boolean disjunctions}
+
+\begin{itemize}
+  \item Often triggers some pruning
+
+  \vfill\pause
+  \item \emph{Tends to constrain both branches}
+\end{itemize}
+
+\end{myblock}
+
+\vfill\pause
+
+\begin{myblock}{Branching on start times}
+
+\begin{itemize}
+  \item The size of the tree depends on the chosen precision 
+
+  \vfill\pause
+
+% \begin{itemize}
+%   \item Dedicated heuristics to mitigate that
+% \end{itemize}
+
+% \vfill
+  \item Might make the tree \memph{unbalanced}:
+
+  \vfill
+  \begin{itemize}
+    \item The constraint $s_i = t$ is much stronger than  $s_i \neq t$
+  \end{itemize}
+
+  \vfill\pause
+  \item Dedicated heuristics to mitigate that
+
+\end{itemize}
+
+\end{myblock}
+
+\vfill
+
+\end{frame}
+
+
+

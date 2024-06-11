@@ -1,0 +1,46 @@
+\thetaroot{\only<3>{\textcolor{red!85!black}{4}}\only<4>{\textcolor{red!85!black}{7}}\only<5>{\textcolor{red!85!black}{11}}\only<6>{\textcolor{red!85!black}{16}}\only<7>{\textcolor{red!85!black}{19}}\only<8>{\textcolor{red!85!black}{25}}}{\only<3>{\textcolor{red!85!black}{8}}\only<4>{\textcolor{red!85!black}{9}}\only<5>{\textcolor{red!85!black}{13}}\only<6>{\textcolor{red!85!black}{16}}\only<7>{\textcolor{red!85!black}{19}}\only<8>{\textcolor{red!85!black}{25}}}{3}
+child{
+\ttnode{\only<3>{\textcolor{red!85!black}{4}}\only<4>{\textcolor{red!85!black}{7}}\only<5>{7}\only<6>{\textcolor{red!85!black}{12}}\only<7>{12}\only<8>{\textcolor{red!85!black}{18}}}{\only<3>{\textcolor{red!85!black}{8}}\only<4>{\textcolor{red!85!black}{9}}\only<5>{9}\only<6>{\textcolor{red!85!black}{12}}\only<7>{12}\only<8>{\textcolor{red!85!black}{18}}}{3}
+child{
+\ttnode{\only<4>{\textcolor{red!85!black}{3}}\only<5>{3}\only<6>{\textcolor{red!85!black}{8}}\only<7>{8}\only<8>{8}}{\only<4>{\textcolor{red!85!black}{5}}\only<5>{5}\only<6>{\textcolor{red!85!black}{8}}\only<7>{8}\only<8>{8}}{4}
+child{
+\ttnode{\only<6>{\textcolor{red!85!black}{5}}\only<7>{5}\only<8>{5}}{\only<6>{\textcolor{red!85!black}{5}}\only<7>{5}\only<8>{5}}{6}
+edge from parent
+       node[kant, left, yshift=1mm, pos=.6] {A}
+}
+child{
+\ttnode{\only<4>{\textcolor{red!85!black}{3}}\only<5>{3}\only<6>{3}\only<7>{3}\only<8>{3}}{\only<4>{\textcolor{red!85!black}{5}}\only<5>{5}\only<6>{5}\only<7>{5}\only<8>{5}}{4}
+edge from parent
+       node[kant, right, yshift=1mm, pos=.6] {C}
+}
+}
+child{
+\ttnode{\only<3>{\textcolor{red!85!black}{4}}\only<4>{4}\only<5>{4}\only<6>{4}\only<7>{4}\only<8>{\textcolor{red!85!black}{10}}}{\only<3>{\textcolor{red!85!black}{8}}\only<4>{8}\only<5>{8}\only<6>{8}\only<7>{8}\only<8>{\textcolor{red!85!black}{13}}}{3}
+child{
+\ttnode{\only<8>{\textcolor{red!85!black}{6}}}{\only<8>{\textcolor{red!85!black}{9}}}{8}
+edge from parent
+       node[kant, left, yshift=1mm, pos=.6] {E}
+}
+child{
+\ttnode{\only<3>{\textcolor{red!85!black}{4}}\only<4>{4}\only<5>{4}\only<6>{4}\only<7>{4}\only<8>{4}}{\only<3>{\textcolor{red!85!black}{8}}\only<4>{8}\only<5>{8}\only<6>{8}\only<7>{8}\only<8>{8}}{3}
+edge from parent
+       node[kant, right, yshift=1mm, pos=.6] {B}
+}
+}
+}
+child{
+\ttnode{\only<5>{\textcolor{red!85!black}{4}}\only<6>{4}\only<7>{\textcolor{red!85!black}{7}}\only<8>{7}}{\only<5>{\textcolor{red!85!black}{11}}\only<6>{11}\only<7>{\textcolor{red!85!black}{14}}\only<8>{14}}{5}
+child{
+\ttnode{\only<5>{\textcolor{red!85!black}{4}}\only<6>{4}\only<7>{\textcolor{red!85!black}{7}}\only<8>{7}}{\only<5>{\textcolor{red!85!black}{11}}\only<6>{11}\only<7>{\textcolor{red!85!black}{14}}\only<8>{14}}{5}
+child{
+\ttnode{\only<5>{\textcolor{red!85!black}{4}}\only<6>{4}\only<7>{4}\only<8>{4}}{\only<5>{\textcolor{red!85!black}{11}}\only<6>{11}\only<7>{11}\only<8>{11}}{5}
+edge from parent
+       node[kant, left, yshift=1mm, pos=.6] {D}
+}
+child{
+\ttnode{\only<7>{\textcolor{red!85!black}{3}}\only<8>{3}}{\only<7>{\textcolor{red!85!black}{13}}\only<8>{13}}{7}
+edge from parent
+       node[kant, right, yshift=1mm, pos=.6] {F}
+}
+}
+};

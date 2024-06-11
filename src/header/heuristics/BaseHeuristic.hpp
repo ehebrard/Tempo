@@ -58,6 +58,7 @@ public:
     assert(not indexSequence.empty());
 
     for (auto x : indexSequence) {
+        
       const auto cost = this->getImpl().getCost(x, scheduler);
 
 #ifdef DEBUG_HEURISTICS_CHOICE
@@ -86,14 +87,30 @@ public:
     template <typename T>
     requires(HeuristicImplementation<Impl,T>) auto nextChoicePoint(
         const Solver<T> &solver) {
+        
+//        std::cout << "hello\n";
+        
       var_t best_var{Constant::NoVarx};
       auto &indexSequence = solver.getBranch();
       double minCost = std::numeric_limits<double>::infinity();
 
       assert(not indexSequence.empty());
+        
+//        std::cout << indexSequence << std::endl;
 
       for (auto x : indexSequence) {
+          
+//          std::cout << " - " << x << std::endl;
+          
+//          std::cout << solver.boolean.getLiteral(true, x) << "<>" << solver.boolean.getLiteral(false, x) << ": " ;
+          
+//          std::cout << std::endl;
+          
+          
         const auto cost = this->getImpl().getCost(x,solver);
+          
+          
+//          std::cout << " cost = " << cost << std::endl;
                   
                   if (cost < minCost) {
                       minCost = cost;

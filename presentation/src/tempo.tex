@@ -1,0 +1,492 @@
+%----------------------------------------------------------------------------------------
+%	PACKAGES AND THEMES
+%----------------------------------------------------------------------------------------
+\documentclass[aspectratio=169,xcolor=dvipsnames]{beamer}
+\usetheme{laas}
+
+\definecolor{bittersweet}{rgb}{1.0, 0.44, 0.37}
+
+\definecolor{airforceblue}{rgb}{0.36, 0.54, 0.66}
+\definecolor{burntsienna}{rgb}{0.91, 0.45, 0.32}
+\definecolor{darkseagreen}{rgb}{0.56, 0.74, 0.56}
+
+\definecolor{bostonuniversityred}{rgb}{0.8, 0.0, 0.0}
+\definecolor{islamicgreen}{rgb}{0.0, 0.56, 0.0}
+\definecolor{darkseagreen}{rgb}{0.56, 0.74, 0.56}
+\definecolor{darkcyan}{rgb}{0.0, 0.55, 0.55}
+\definecolor{cerulean}{rgb}{0.0, 0.48, 0.65}
+\definecolor{coolblack}{rgb}{0.0, 0.18, 0.39}
+\definecolor{darkcerulean}{rgb}{0.03, 0.27, 0.49}
+
+% \definecolor{alizarin}{rgb}{0.82, 0.1, 0.26}
+% \definecolor{emerald}{rgb}{0.31, 0.78, 0.47}
+
+\definecolor{emerald}{rgb}{0.01, 1, 0.14}
+\definecolor{alizarin}{rgb}{1.0, 0.01, 0.14}
+
+\definecolor{pearl}{rgb}{0.94, 0.92, 0.84}
+
+% \alt<2->{\newcolumntype{R}{>{\columncolor{burntsienna}}r}}{\newcolumntype{R}{r}}
+% \alt<3->{\newcolumntype{B}{>{\columncolor{airforceblue}}r}}{\newcolumntype{B}{r}}
+% \alt<4->{\newcolumntype{G}{>{\columncolor{darkseagreen}}r}}{\newcolumntype{G}{r}}
+
+\newcommand{\backupbegin}{
+   \newcounter{finalframe}
+   \setcounter{finalframe}{\value{framenumber}}
+}
+\newcommand{\backupend}{
+   \setcounter{framenumber}{\value{finalframe}}
+}
+
+
+\newcommand<>{\HiLi}{\onslide#1{\leavevmode\rlap{\hbox to \hsize{\color{yellow!50}\leaders\hrule height .8\baselineskip depth .5ex\hfill}}}}
+
+
+
+
+
+% Use the postscript times font!
+% \usepackage{times}
+
+\usepackage{array}
+\newcolumntype{L}[1]{>{\raggedright\let\newline\\\arraybackslash\hspace{0pt}}m{#1}}
+\newcolumntype{C}[1]{>{\centering\let\newline\\\arraybackslash\hspace{0pt}}m{#1}}
+\newcolumntype{R}[1]{>{\raggedleft\let\newline\\\arraybackslash\hspace{0pt}}m{#1}}
+
+
+\usepackage{xcolor}
+\usepackage{soul}
+\usepackage[utf8]{inputenc}
+\usepackage[small]{caption}
+\usepackage{url}
+
+\usepackage{xspace}
+\usepackage[ruled,vlined]{algorithm2e}
+\usepackage{amssymb}
+\usepackage{amsthm}
+\usepackage{amsmath}
+\usepackage{longtable}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{tikz}
+\usepackage{fp}
+\usepackage{pgfplots}
+\usepackage{subfig}
+\usetikzlibrary{arrows,shadows,fit,calc,positioning,decorations.pathreplacing,matrix,shapes,petri,topaths,fadings,mindmap,backgrounds}
+
+
+\usepackage{animate}
+\usepackage{marvosym}
+
+\usepackage{forest}
+
+\usepackage{colortbl}
+
+%
+% %\usepackage{pdfrender}
+%
+%
+% \usepackage{tikz}
+% \usepackage{fp}
+% \usetikzlibrary{arrows,shadows,fit,calc,positioning,decorations.pathmorphing,decorations.pathreplacing,matrix,shapes,petri,topaths,fadings,mindmap,backgrounds,patterns}
+% %\usepackage{tkz-berge}
+
+\usepackage{tikzsymbols}
+
+
+% \newcommand\solver[1]{\texttt{#1}}
+% \def\wlmc{\solver{wlmc}}
+% \def\cdcl{\solver{cdcl-quick}}
+% \def\dyn{\solver{cdcl-dyn}}
+% \def\dscdcl{\solver{ds-cdcl-quick}}
+% \def\dsdyn{\solver{ds-cdcl-dyn}}
+% \def\weak{\solver{cdcl}}
+% \def\cliquer{\solver{cliquer}}
+% \def\nopruning{\cdcl$\setminus$\solver{pru}}
+% \def\nodominance{\cdcl$\setminus$\solver{dom}}
+% \def\nolearning{\cdcl$\setminus$\solver{learn}}
+% \def\weaksol{\weak$^+$}
+% \def\dynsol{\dyn$^+$}
+% \def\otclique{\solver{OTClique}}
+% \def\tavares{\solver{Tavares}}
+
+% \usetheme{laas}
+
+
+
+
+
+\definecolor{cit}{rgb}{0.1,0.6,0.2}
+\definecolor{mc}{rgb}{0.73,0.13,0.13}
+\definecolor{bc}{rgb}{0.83,0.13,0.13}
+\definecolor{bst}{rgb}{0.13,0.13,0.73}
+\definecolor{gr}{rgb}{0.5,0.5,0.5}
+\definecolor{emp}{rgb}{0,0.25,0.4}
+
+
+\tikzstyle{npvc}=[circle, fill=black!50!MidnightBlue, text=white, drop shadow={shadow xshift=.5mm, shadow yshift=-.5mm}, draw=black, font=\scriptsize, minimum width=4mm, inner sep=3pt]
+\tikzstyle{npis}=[circle, fill=black!50!Red, text=white, drop shadow={shadow xshift=.5mm, shadow yshift=-.5mm}, draw=black, font=\scriptsize, minimum width=4mm, inner sep=3pt]
+\tikzstyle{npone}=[circle, fill=white, drop shadow={shadow xshift=.5mm, shadow yshift=-.5mm}, draw=black, font=\scriptsize, minimum width=4mm, inner sep=3pt]
+\tikzstyle{nptwo}=[circle, fill=mc, text=white, drop shadow={shadow xshift=.5mm, shadow yshift=-.5mm}, draw=black, font=\scriptsize, minimum width=4mm, inner sep=3pt]
+\tikzstyle{npthree}=[circle, fill=bst, text=white, drop shadow={shadow xshift=.5mm, shadow yshift=-.5mm}, draw=black, font=\scriptsize, minimum width=4mm, inner sep=3pt]
+\tikzstyle{npfour}=[circle, fill=Green, text=white, drop shadow={shadow xshift=.5mm, shadow yshift=-.5mm}, draw=black, font=\scriptsize, minimum width=4mm, inner sep=3pt]
+\tikzstyle{npfive}=[circle, fill=Dandelion, text=white, drop shadow={shadow xshift=.5mm, shadow yshift=-.5mm}, draw=black, font=\scriptsize, minimum width=4mm, inner sep=3pt]
+\tikzstyle{npsix}=[circle, fill=RedOrange, text=white, drop shadow={shadow xshift=.5mm, shadow yshift=-.5mm}, draw=black, font=\scriptsize, minimum width=4mm, inner sep=3pt]
+\tikzstyle{npseven}=[circle, fill=Purple, text=white, drop shadow={shadow xshift=.5mm, shadow yshift=-.5mm}, draw=black, font=\scriptsize, minimum width=4mm, inner sep=3pt]
+
+
+\tikzstyle{assigned}=[thick, circle, draw=black, fill=black!30, font=\scriptsize, minimum width=4mm, inner sep=3pt]
+
+
+
+
+\tikzstyle{uedge}=[thick, draw=black, shorten <=1.5mm, shorten >=1.5mm]
+\tikzstyle{redge}=[thick, draw=black, densely dotted, shorten <=1.5mm, shorten >=1.5mm]
+\tikzstyle{lbl}=[font=\scriptsize, color=mc!50!black]
+
+
+
+
+
+
+\def\citation#1{{\color{cit} [{#1}]}}
+\def\invisible#1{{\color{white} {#1}}}
+\def\name#1{{\color{bst} {#1}}}
+\def\hidden#1{{\color{gr} {#1}}}
+\def\math#1{{\color{mc} {#1}}}
+\def\cemph#1{{\color{emp} {#1}}}
+\def\bemph#1{{\bf {\large {\color{bc} {#1}}}}}
+% \def\best#1{{\color{bst} {#1}}}
+\def\greened#1{{\color{Green} {#1}}}
+
+
+
+
+\newcommand\cactus[5]{%%
+\begin{tikzpicture}[scale=.9]
+  \begin{axis}[scatter/classes={
+    a={mark=square*,blue!50,draw=blue!50!black},%%
+    b={mark=triangle*,red!50,draw=red!50!black},%%
+    c={mark=*,black!50!white,draw=black},%%
+    d={mark=diamond*,green!50,draw=green!50!black},%%
+    e={mark=pentagon*,orange!50,draw=orange!50!black},%%
+    f={mark=10-pointed star,draw=blue!60!black},%%
+    g={mark=x,draw=black,thick},%%
+    h={mark=+,draw=red!50!black},%%
+    i={mark=Mercedes star,draw=green!50!black},%%
+    j={mark=square,draw=orange!50!black},%%
+    k={mark=diamond,draw=red!50!black},%%
+    l={mark=o,draw=blue!50!black},%%
+    m={mark=asterisk,draw=magenta!50!black},%%
+    n={mark=triangle,draw=green!50!black},%%
+    o={mark=pentagon,draw=red!50!black},%%
+    p={mark=asterisk,draw=black},%%
+    q={mark=Mercedes star,draw=magenta!50!black},%%
+    r={mark=pentagon*,blue!50,draw=blue!50!black},%%
+    s={mark=x,draw=green!50!black},%%
+    t={mark=diamond*,red!50,draw=red!50!black}},%%
+    mark size=1.5pt,
+    ymode=log,
+    ylabel=#2,
+    xlabel=#1,
+    font=\scriptsize,
+    {#5}
+    ]
+
+    \foreach \bidule in #4 {
+
+    \addplot[scatter, scatter src=explicit symbolic] coordinates {\bidule};
+
+    }
+    \legend{#3}
+  \end{axis}
+\end{tikzpicture}
+}
+
+
+
+\author{Emmanuel Hebrard}
+\institute{LAAS-CNRS, Université de Toulouse}
+\title{On How to Have the \textnormal{\emph{Edge}} on CPOptimizer}
+
+
+% \newcommand{\backupbegin}{
+%    \newcounter{finalframe}
+%    \setcounter{finalframe}{\value{framenumber}}
+% }
+% \newcommand{\backupend}{
+%    \setcounter{framenumber}{\value{finalframe}}
+% }
+
+
+\tikzset{
+    invisible/.style={opacity=0,text opacity=0},
+    visible on/.style={alt=#1{}{invisible}},
+    alt/.code args={<#1>#2#3}{%
+      \alt<#1>{\pgfkeysalso{#2}}{\pgfkeysalso{#3}} % \pgfkeysalso doesn't change the path
+    },
+}
+\forestset{
+  visible on/.style={
+    for tree={
+      /tikz/visible on={#1},
+      edge+={/tikz/visible on={#1}}}}}
+
+% \tikzset{% set up for transitions using tikz with beamer overlays
+%   invisible/.style={opacity=0,text opacity=0},
+%   visible on/.style={alt=#1{}{invisible}},
+%   alt/.code args={<#1>#2#3}{%
+%     \alt<#1>{\pgfkeysalso{#2}}{\pgfkeysalso{#3}} % \pgfkeysalso doesn't change the path
+%   },
+%   transparent/.style={opacity=0.1,text opacity=0.1},
+%   opaque on/.style={alt=#1{}{transparent}},
+%   alerted/.style={color=alerted text.fg},
+%   alert on/.style={alt=#1{alerted}{}},
+% }
+% \forestset{%
+%   visible on/.style={%
+%     for tree={%
+%       /tikz/visible on={#1},
+%       edge={/tikz/visible on={#1}}}},
+%   opaque on/.style={%
+%     for tree={%
+%       /tikz/opaque on={#1},
+%       edge={/tikz/opaque on={#1}}}},
+%   alerted on/.style={%
+%     for tree={%
+%       /tikz/alerted on={#1},
+%       edge={/tikz/alerted on={#1}}}},
+% }
+
+
+
+
+\def\numjob{n}
+\def\nummachine{m}
+\newcommand{\numtask}[1][]{\ensuremath{n_{#1}}}
+\def\alljobs{\ensuremath{\mathcal J}}
+\def\allmachines{\ensuremath{\mathcal M}}
+\newcommand{\job}[1]{\ensuremath{J_{#1}}\xspace}
+% \newcommand{\task}[1]{\ensuremath{t_{#1}}\xspace}
+\newcommand{\dur}[1]{\ensuremath{p_{#1}}\xspace}
+\newcommand{\machine}[1]{\ensuremath{M_{#1}}\xspace}
+\def\gid{i}
+\def\jid{i}
+\def\tid{j}
+\def\maid{m}
+\def\pid{k}
+\def\cmax{C_{\max}}
+
+\def\true{\texttt{true}}
+\def\false{\texttt{false}}
+
+
+
+
+% \input{../solvers}
+\input{sched_macros}
+\input{theta_macros}
+
+
+
+
+\def\acsp{\ensuremath{\mathcal{N}}}
+\def\atup{\ensuremath{\tau}}
+\def\otup{\ensuremath{\sigma}}
+% \def\tuplels{\langle}
+% \def\tuplers{\rangle}
+\def\tuplels{(}
+\def\tuplers{)}
+\newcommand{\pair}[2]{\ensuremath{\tuplels{#1},{#2}\tuplers}}
+\newcommand{\triple}[3]{\ensuremath{\tuplels{#1},{#2},{#3}\tuplers}}
+\newcommand{\tuple}[2]{\ensuremath{\tuplels{#1},\ldots,{#2}\tuplers}}
+\newcommand{\elt}[2]{\ensuremath{{#1}_{#2}}}
+
+
+\newcommand{\project}[2]{\ensuremath{{#1}_{#2}}}
+
+\newcommand\class[1]{\ensuremath{{\cal {#1}}}}
+\def\anet{\ensuremath{\class{N}}}
+
+
+\newcommand{\todo}[1]{{\color{red!50!black}\textbf{[TODO: #1]}}}
+
+\newcommand{\mytodo}[2]{\textcolor{red!50!black}{\textbf{#1: #2}}}
+\newcommand{\cgtodo}[1]{\mytodo{CG}{#1}}
+\newcommand{\ehtodo}[1]{\mytodo{EH}{#1}}
+% \renewcommand{\mytodo}[2]{} % Uncomment this line to disable todos
+
+
+\newcommand{\constraint}[1]{\text{\textsc{#1}}}
+
+
+\newcommand{\CSP}{\classname{CSP}}
+\newcommand{\vars}{\ensuremath{{\mathbf{x}}}\xspace}
+\newcommand{\cons}{\ensuremath{{\mathbf{c}}}\xspace}
+\newcommand{\activations}{\ensuremath{{\mathbf{a}}}\xspace}
+\newcommand{\thestarts}{\ensuremath{{\mathbf{s}}}\xspace}
+\newcommand{\theends}{\ensuremath{{\mathbf{e}}}\xspace}
+
+
+\newcommand{\var}[1][]{\ensuremath{x_{{#1}}}}
+\newcommand{\ovar}[1][]{\ensuremath{y_{{#1}}}}
+\newcommand{\val}[1][]{\ensuremath{v_{{#1}}}}
+
+
+
+\newcommand{\dom}[1][]{\ensuremath{{\cal D}\ifthenelse{\equal{#1}{}}{}{({#1})}}\xspace}
+\newcommand{\cdom}[1][]{\ensuremath{{D}\ifthenelse{\equal{#1}{}}{}{({#1})}}\xspace}
+
+
+% \newcommand{\cons}{\ensuremath{{\cal C}}\xspace}
+\newcommand{\con}[1][]{\ensuremath{c_{{#1}}}}
+\newcommand{\scope}[1]{\ensuremath{S_{#1}}}
+\newcommand{\rel}[1]{\ensuremath{P_{#1}}}
+
+\newcommand{\sol}[1][]{\ensuremath{\sigma\ifthenelse{\equal{#1}{}}{}{({#1})}}}
+\newcommand{\solp}[2][]{\ensuremath{\sigma_{#2}\ifthenelse{\equal{#1}{}}{}{({#1})}}}
+
+
+\newcommand{\nooverlap}[1][]{\constraint{NoOverlap\ifthenelse{\equal{#1}{}}{}{(\ensuremath{#1})}}\xspace}
+\newcommand{\pnooverlap}[1][]{\constraint{Preemptive\allowbreak NoOverlap\ifthenelse{\equal{#1}{}}{}{(\ensuremath{#1})}}\xspace}
+% \newcommand{\nooverlap}[1][]{\constraint{PreemptiveNoOverlap(\ensuremath{#1})}\xspace}
+\def\alldiff{\constraint{AllDifferent}\xspace}
+\def\alldiffprec{\constraint{AllDiffPrec}\xspace}
+\def\gcc{\constraint{GlobalCardinality}\xspace}
+% \def\pno{\constraint{PreemptiveExclusive}\xspace}
+% \def\pno{\constraint{PreemptiveDisjunctive}\xspace}
+\def\pno{\constraint{Preemptive\allowbreak NoOverlap}\xspace}
+\def\noc{\constraint{NoOverlap}\xspace}
+\def\pnoa{\constraint{Preemptive\allowbreak NoOverlap}\xspace}
+\def\noo{\constraint{NoOverload}\xspace}
+
+\def\timepoint{\tau}
+\def\horizon{{\ensuremath{\mathcal H}}}
+
+\newcommand{\ub}[1]{\ensuremath{\max({#1})}}
+\newcommand{\lb}[1]{\ensuremath{\min({#1})}}
+
+
+\newcommand{\xstart}[1]{\ensuremath{s_{#1}}\xspace}
+\newcommand{\xend}[1]{\ensuremath{e_{#1}}\xspace}
+\newcommand{\xproc}[1]{\ensuremath{x_{#1}}\xspace}
+\newcommand{\xact}[1]{\ensuremath{a_{#1}}\xspace}
+
+
+\newcommand{\ointerval}[2]{\ensuremath{[{#1},{#2})}}
+\newcommand{\cinterval}[2]{\ensuremath{[{#1},{#2}]}}
+
+
+% \newcommand{\totalenergy}{\ensuremath{N}}
+
+% \newcommand{\alltasks}{\ensuremath{{\mathcal T}}\xspace}
+\newcommand{\sometasks}{\ensuremath{\Omega}\xspace}
+
+\newcommand{\myemph}[1]{\textcolor{bostonuniversityred}{\textit{#1}}}
+
+\SetKwFunction{pathmax}{pathmax}
+\SetKwFunction{pathset}{pathset}
+
+
+\renewcommand<>\cellcolor[1]{\only#2{\beameroriginal\cellcolor{#1}}}
+
+
+\AtBeginSection[]{
+  \begin{frame}
+  \vfill
+  \centering
+  \begin{beamercolorbox}[sep=8pt,center,shadow=true,rounded=true]{title}
+    \usebeamerfont{title}\insertsectionhead\par%
+  \end{beamercolorbox}
+  \vfill
+  \end{frame}
+}
+
+
+	\begin{document}
+
+
+
+\maketitle
+
+\begin{frame}{Overview}
+\tableofcontents
+\end{frame}
+
+
+\section{Conclusion}
+
+\input{sections/introduction.tex}
+
+\section{Search}
+
+\input{sections/edge_branching.tex}
+
+\input{sections/difference_logic.tex}
+
+\section{Clause Learning}
+
+\input{sections/clause_learning.tex}
+
+\section{Precedence Reasoning}
+
+\input{sections/precedence_reasoning.tex}
+
+\section{Edge Finding}
+
+\input{sections/edge_finding.tex}
+
+\section{Some Experiments}
+
+\input{sections/experiments.tex}
+
+\section{Future Work}
+
+\input{sections/future_work.tex}
+
+
+
+
+
+
+
+
+%% Cross between a CP/SAT solver and a SMT solver
+
+%%% difference logic <-> temporal graph 
+
+%% Disjunctive non-preemptive scheduling
+
+%%% I believe it is already better than CPO on some very combinatorial instances
+
+%%% But it is easy to find instances where CPO is better
+
+%% Transition times TSP/VRP
+
+%% Optional tasks / flexible scheduling
+
+%% Cumulative resources
+
+%% General constraint programming
+
+%% SAT Modulo Linear Arithmetic
+
+% \end{frame}
+
+
+%% x - y <= k OR x <= p
+%% y - x <= -k-1 AND -x <= -p-1
+
+
+
+
+
+
+
+
+
+\end{document}
+
+
+
+

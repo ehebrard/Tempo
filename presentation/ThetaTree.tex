@@ -1,0 +1,106 @@
+
+
+
+\begin{frame}
+\frametitle{Overload Checking algorithm~\mycite{VilimEtAl04}}
+
+\begin{itemize}
+	\item Definitions
+\end{itemize}
+\begin{eqnarray*}
+	\memph{\ect{\Omega}} &=& \max\{\est{\Omega'} + \dur{\Omega'} \mid \Omega' \subseteq \Omega\} \\
+	\memph{\leftcut{{\cal T}}{j}} &=& \{i \in {\cal T} \mid \lct{i} \leq \lct{j}\}
+\end{eqnarray*}
+
+\begin{itemize}
+	\item Reformulation
+\end{itemize}
+\begin{eqnarray*}
+	\forall \Omega \subseteq {\cal T}~ \stof{\Omega} + \dur{\Omega} \leq \ctof{\Omega}  \iff
+	\memph{\forall j \in {\cal T}}~ \memph{\ect{\leftcut{{\cal T}}{j}} \leq \lct{j}}
+\end{eqnarray*}
+
+\begin{itemize}
+	\item May not seem like a big progress
+	\begin{itemize}
+		\item Check $2^{|{\cal T}|}$ relations
+		\item Check $|{\cal T}|$ relations, each requiring to compute the max of $2^{|{\cal T}|}$ elements
+	\end{itemize}
+\end{itemize}
+
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Overload Checking -- Dynamic Programming}
+
+\begin{myblock}{\centering $\ect{\Omega} = \max\{\only<1-8>{\ect{\Omega_L} + \dur{\Omega_R}}\only<9>{\textcolor{carnelian}{\ect{\Omega_L} + \dur{\Omega_R}}}, \only<1-2>{\ect{\Omega_R}}\only<3>{\textcolor{carnelian}{\ect{\Omega_R}}}\only<4->{\ect{\Omega_R}}\}$}
+	\begin{itemize}
+		\item {\small With $\Omega_L, \Omega_R$  two disjoint sets s.t. $\max\{\est{i} \mid i \in \Omega_L\} \leq \min\{\est{i} \mid i \in \Omega_R\}$}
+	\end{itemize}
+\end{myblock}
+
+
+\begin{center}
+	\begin{colorschedfigure}{.45}
+		\input{ex/recursion_proof.tex}
+	\end{colorschedfigure}
+\end{center}
+
+
+\uncover<2->{
+	\begin{itemize}
+		\item Let $\Omega' \subseteq \Omega$ be such that $\ect{\Omega} = \est{\Omega'} + \dur{\Omega'}$
+		\uncover<3->{
+			\begin{itemize}
+				\item Either \textcolor{carnelian}{$\Omega' \subseteq \Omega_R$} and therefore \textcolor{carnelian}{$\ect{\Omega} = \ect{\Omega'} = \ect{\Omega_R}$}
+				\uncover<4->{
+					\item Or $\Omega' \not\subseteq \Omega_R$ and $\ect{\Omega} = \only<4>{\est{\Omega'}}\only<5-7>{\textcolor{egyptianblue}{\est{\Omega' \cap \Omega_L}}} \only<4-5>{ + \dur{\Omega'}}\only<6-7>{ + \textcolor{egyptianblue}{\dur{\Omega' \cap \Omega_L}}}\only<8>{\textcolor{egyptianblue}{\ect{\Omega' \cap \Omega_L}}}\only<9->{\textcolor{egyptianblue}{\ect{\Omega_L}}}\only<6>{ + \textcolor{carnelian}{\dur{\Omega' \cap \Omega_R}}}\only<7->{ + \textcolor{carnelian}{\dur{\Omega_R}}}$
+				}
+			\end{itemize}
+		}
+	\end{itemize}
+}
+
+\end{frame}
+
+
+
+
+
+\begin{frame}
+\frametitle{Overload Checking -- Theta Tree}
+\begin{itemize}
+	\item Order the tasks by non-decreasing \memph{due date} to compute \memph{$\leftcut{{\cal T}}{j}$} for all \memph{$j \in {\cal T}$}
+	\item Order the tasks by non-decreasing \memph{release date} to compute \memph{$\ect{\leftcut{{\cal T}}{j}}$}
+\end{itemize}
+
+\begin{myblock}{Solutions}
+	\begin{itemize}
+		\item Theta tree \mycite{VilimEtAl04}
+		\begin{itemize}
+			\item Explore nested sets of tasks in any order (here non-decreasing due dates)
+			\item Incrementally compute a property (here \memph{$\ect{\leftcut{{\cal T}}{j}}$}) requiring another order
+		\end{itemize}
+	\end{itemize}
+\end{myblock}
+\end{frame}
+
+
+\begin{frame}
+\frametitle{Theta Tree}
+\begin{center}
+	\begin{colorschedfigure}{.38}
+		\input{ex/theta_sched.tex}
+	\end{colorschedfigure}
+
+	\uncover<2->{
+	\begin{downthreelvltree}
+		\input{ex/theta_tree.tex}
+	\end{downthreelvltree}
+	}
+\end{center}
+\end{frame}
+
+
+

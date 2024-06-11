@@ -1,0 +1,144 @@
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{beamerthemelaas}
+[2017/05/31 v1.0 LAAS Beamer theme]
+\RequirePackage{tikz}
+\RequirePackage[absolute, overlay]{textpos}
+
+\usetikzlibrary{positioning}
+
+\mode<presentation>
+{
+  \usetheme{Boadilla}
+  \usefonttheme[onlylarge]{structurebold}
+}
+
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{itemize/enumerate body begin}{\footnotesize}
+\setbeamertemplate{itemize/enumerate subbody begin}{\scriptsize}
+\setbeamertemplate{itemize/enumerate subsubbody begin}{\tiny}
+
+\xdefinecolor{KindOfBlue}{rgb}{0,0.2,0.3}
+\usecolortheme[named=KindOfBlue]{structure}
+
+%% Margins
+\setlength{\leftmargini}{12pt}
+\setlength{\leftmarginii}{10pt}
+
+
+\setbeamerfont*{frametitle}{size=\normalsize,series=\bfseries}
+\setbeamerfont{author}{size=\normalsize}
+\setbeamerfont{institute}{size=\normalsize\itshape}
+\setbeamerfont{title}{size=\huge\bfseries}
+\setbeamerfont{subtitle}{size=\Large\normalfont\slshape}
+
+
+%% TITLE PAGE
+\setbeamertemplate{title page}{%
+  \begin{tikzpicture}[remember picture,overlay]
+    \node[anchor=south west]
+    at ([yshift=-4pt, xshift=-4pt]current page.south west) (footer)
+    {\includegraphics[width=\paperwidth]{im/Title_Bottom.png}};
+
+
+    \node[anchor=north west]
+    at (current page.north west) (header)
+    {\includegraphics[width=0.25\paperwidth]{im/LogoLAAS2016.png}};
+
+
+    \node[] at ([yshift=10mm]current page.center)
+    (title)
+    {\parbox[t]{\textwidth}{\center
+        \usebeamerfont{title}\textcolor{KindOfBlue}{\inserttitle}}};
+
+    \node[below=5mm of title]
+    (author)
+    {\parbox[t]{\textwidth}{\center{\scriptsize
+          \usebeamerfont{author}{\textcolor{black}{\textbf{\insertauthor}}}
+        }}};
+				
+    \node[below=1mm of author]
+    (author)
+    {\parbox[t]{\textwidth}{\center{\scriptsize
+          \usebeamerfont{author}{\textcolor{black!70}{\textbf{\insertinstitute}}}
+        }}};
+
+  \end{tikzpicture}
+}
+
+\def\maketitle{%
+  \ifbeamer@inframe
+    \titlepage
+  \else
+    \frame[plain,noframenumbering]{\titlepage}
+  \fi
+}
+
+%% SLIDE HEADER
+\setbeamertemplate{frametitle}[default][right]
+\addtobeamertemplate{frametitle}{
+  \begin{textblock*}{\paperwidth}(0pt,0pt)
+    \vbox{\includegraphics[height=1.05cm]{im/LogoLAAS2016.png}}
+  \end{textblock*}
+}
+
+
+%% SLIDE FOOTER
+\setbeamertemplate{background canvas}{%
+  \vbox to \paperheight{\vfil\hbox to \paperwidth{\includegraphics[width=\paperwidth,height=6.5mm]{im/Bottom-suite.png}}}%
+}
+\setbeamertemplate{footline}%
+{
+  \leavevmode%
+  \hbox{%
+    \begin{beamercolorbox}[wd=.44\paperwidth,ht=1.5ex,dp=3.5ex]{frame number in head/foot}%
+    \end{beamercolorbox}
+    \begin{beamercolorbox}[wd=.41\paperwidth,ht=1.5ex,dp=3.5ex,left]{frame number in head/foot}%
+      \usebeamerfont{date in head/foot}
+      {\color{White} {\bf \insertsection}}
+    \end{beamercolorbox}
+    \begin{beamercolorbox}[wd=.15\paperwidth,ht=1.5ex,dp=3.5ex,right,rightskip=3ex]{frame number in head/foot}%
+      \usebeamerfont{date in head/foot}
+      {\color{White} \insertframenumber{} / \inserttotalframenumber}
+    \end{beamercolorbox}
+  }%
+  \vskip0pt%
+}
+
+
+%% CUSTOM BLOCK ENVIRONMENT
+\definecolor{titlefg}{rgb}{0,0.32,0.4}
+\definecolor{titlebg}{rgb}{.9,.93,.95}
+\definecolor{etitlefg}{rgb}{0.4,0.2,0}
+\definecolor{etitlebg}{rgb}{.93,.91,.88}
+\definecolor{efg}{rgb}{0.4,0.2,0}
+\definecolor{ebg}{rgb}{1,1,1}
+\newenvironment<>{myblock}[1]{%
+  \begin{actionenv}#2%
+    \def\insertblocktitle{#1}%
+    \par%
+    \mode<presentation>{%
+      \setbeamercolor{block title}{fg=titlefg,bg=titlebg}
+      \setbeamercolor{block body}{fg=black,bg=white}
+      \setbeamercolor{itemize subitem}{fg=titlefg}
+      \setbeamertemplate{itemize subitem}[triangle]
+      % \setbeamertemplate{itemize/enumerate body begin}{\setlength{\leftmargini}{\origleftmargini}}
+      % \setbeamertemplate{itemize/enumerate body begin}{\setlength{\leftmarginii}{\origleftmarginii}}
+    }%
+    \usebeamertemplate{block begin}}
+  {\par\usebeamertemplate{block end}\end{actionenv}}
+
+\newenvironment<>{myemphblock}[1]{%
+  \begin{actionenv}#2%
+    \def\insertblocktitle{#1}%
+    \par%
+    \mode<presentation>{%
+      \setbeamercolor{block title}{fg=etitlefg,bg=etitlebg}
+      \setbeamercolor{block body}{fg=efg,bg=ebg}
+      \setbeamercolor{itemize subitem}{fg=etitlefg}
+      \setbeamertemplate{itemize subitem}[triangle]
+    }%
+    \usebeamertemplate{block begin}}
+  {\par\usebeamertemplate{block end}\end{actionenv}}
+
+%%
+%% End of file `beamerthemelaas.sty'.

@@ -871,9 +871,13 @@ template <typename T> void ClauseBase<T>::forget() {
   if (caller.getOptions().forget_strategy == Options::LiteralScore::Looseness or
       (caller.getActivityMap() == NULL and
        caller.getOptions().forget_strategy != Options::LiteralScore::Size)) {
+      
     for (auto idx{free_cl_indices.bbegin()}; idx != free_cl_indices.bend();
          ++idx) {
       score[*idx] = 0;
+        
+        
+        
       for (auto l : *base[*idx]) {
         score[*idx] += looseness(l);
       }
@@ -883,6 +887,8 @@ template <typename T> void ClauseBase<T>::forget() {
     for (auto idx{free_cl_indices.bbegin()}; idx != free_cl_indices.bend();
          ++idx) {
       score[*idx] = 0;
+        
+        
       for (auto l : *base[*idx]) {
         score[*idx] += loosenessOverActivity(l);
       }
@@ -891,6 +897,8 @@ template <typename T> void ClauseBase<T>::forget() {
              Options::LiteralScore::Activity) {
     for (auto idx{free_cl_indices.bbegin()}; idx != free_cl_indices.bend();
          ++idx) {
+
+        
       score[*idx] = 0;
       for (auto l : *base[*idx]) {
         score[*idx] += inverseActivity(l);
@@ -974,7 +982,20 @@ Clause *ClauseBase<T>::add(const iter first, const iter last,
       
       total_size += c->size();
 
+      
+//      auto sbefore{caller.numBoundLiteral() + caller.numEdgeLiteral()};
+//      std::cout << " literal ";
+//      if(LTYPE(l) == EDGE_LIT) {
+//                  std::cout << prettyLiteral(l) << std::endl;
+//      } else {
+//                  std::cout << prettyLiteral(l) << std::endl;
+//      }
     assign(l, {this, c->id});
+//      
+//      auto safter{caller.numBoundLiteral() + caller.numEdgeLiteral()};
+//      assert(sbefore < safter);
+//      
+//      std::cout << "\n\n\n" << safter - sbefore << "\n\n\n" << std::endl;
   }
 
 #ifdef DBG_WATCHERS
@@ -1402,18 +1423,40 @@ void NewClauseBase<T>::unit_propagate(const Literal<T> l) {
     index_t idx{cl->watched_index[watch_rank]};
     Literal<T> other{cl->watched(1 - watch_rank)};
     Literal<T> c_lit{(*cl)[idx]};
+      
+//      std::cout << " self = " << c_lit << std::endl;
+//      std::cout << "other = " << other << std::endl;
+      
+      assert(c_lit.sameVariable(l));
+      assert(c_lit.sign() != l.sign());
 
-    assert(l.sign() != c_lit.sign());
+//      if(l.sign() == c_lit.sign()) {
+//          std::cout << l << " is watched by " << *cl << " @" << idx << std::endl;
+//          exit(1);
+//      }
+      
+//      std::cout << "==> " << c_lit << std::endl;
 
-    if (lt == NUMERIC and c_lit.value() + l.value() >= 0) {
-
+      if (lt == NUMERIC) {
+          if(c_lit.value() + l.value() >= 0) {
+              
 #ifdef DBG_TRACE
-      if (DBG_TRACE & UNITPROPAGATION) {
-        std::cout << " false trigger (" << c_lit << " is not falsified)";
-      }
+              if (DBG_TRACE & UNITPROPAGATION) {
+                  std::cout << " false trigger (" << c_lit << " is not falsified)\n";
+              }
 #endif
-      continue;
-    }
+              
+              continue;
+          } else {
+              
+#ifdef DBG_TRACE
+              if (DBG_TRACE & UNITPROPAGATION) {
+                  std::cout << " true trigger (" << c_lit << " and " << l << " are contradictory)\n";
+              }
+#endif
+              
+          }
+      }
 
     if (satisfied(other)) {
 
@@ -1428,6 +1471,11 @@ void NewClauseBase<T>::unit_propagate(const Literal<T> l) {
 
     index_t i{idx};
 
+#ifdef DBG_TRACE
+      if (DBG_TRACE & UNITPROPAGATION) {
+        std::cout << "search another literal to watch" ;
+      }
+#endif
     while (true) {
 
       if (++i == cl->size())
@@ -1502,12 +1550,19 @@ void NewClauseBase<T>::unit_propagate(const Literal<T> l) {
 template <typename T>
 void NewClauseBase<T>::set_watcher(const int r, const index_t i,
                                    NewClause<T> *cl) {
+    
+    
+//    std::cout << *cl << std::endl << "current watchers: " << cl->watched(0) << " & " << cl->watched(1) << std::endl;
 
   cl->watched_index[r] = i;
 
   Literal<T> l{~((*cl)[i])};
 
-  //    std::cout << "make " << *cl << " watch " << l << std::endl;
+//      std::cout << "make " << *cl << " (" << cl->id << ") watch " << l << " (" << info_t(l) << ") because it contains " <<
+//    (*cl)[i] << " (" << info_t((*cl)[i]) << ")"
+//    << std::endl;
+//    
+//    std::cout << "new watchers: " << cl->watched(0) << " & " << cl->watched(1) << std::endl;
 
   watch[l.isNumeric()][l].push_back(cl);
 }
@@ -1583,6 +1638,9 @@ template <typename T> void NewClauseBase<T>::forget() {
     for (auto idx{free_cl_indices.bbegin()}; idx != free_cl_indices.bend();
          ++idx) {
       score[*idx] = 0;
+        
+//        std::cout << "compute (1) score for " << *base[*idx] << std::endl;
+        
       for (auto l : *base[*idx]) {
         score[*idx] += looseness(l);
       }
@@ -1592,6 +1650,9 @@ template <typename T> void NewClauseBase<T>::forget() {
     for (auto idx{free_cl_indices.bbegin()}; idx != free_cl_indices.bend();
          ++idx) {
       score[*idx] = 0;
+        
+//        std::cout << "compute (2) score for " << *base[*idx] << std::endl;
+        
       for (auto l : *base[*idx]) {
         score[*idx] += loosenessOverActivity(l);
       }
@@ -1601,6 +1662,9 @@ template <typename T> void NewClauseBase<T>::forget() {
     for (auto idx{free_cl_indices.bbegin()}; idx != free_cl_indices.bend();
          ++idx) {
       score[*idx] = 0;
+        
+//        std::cout << "compute (2) score for " << *base[*idx] << std::endl;
+        
       for (auto l : *base[*idx]) {
         score[*idx] += inverseActivity(l);
       }
@@ -1934,19 +1998,20 @@ void NewClauseBase<T>::verifyWatchers(const char *msg) const {
             exit(1);
           }
 
-          if (not(cl->watched(0).sameVariable(l) or
-                  cl->watched(1).sameVariable(l))) {
+          if (not((cl->watched(0).sameVariable(l) and cl->watched(0).sign() != l.sign())  or
+                  (cl->watched(1).sameVariable(l) and cl->watched(1).sign() != l.sign()))) {
             std::cout << msg << ": error on clause " << cl->id << " -- " << *cl
-                      << " watching " << l << std::endl;
+                      << " watching " << l << " (" << info_t(l) << ")" << std::endl;
             exit(1);
           }
         }
       }
-      if (not watch[NUMERIC][~l].empty()) {
-        num_watchers += watch[NUMERIC][~l].size();
-        for (auto cl : watch[NUMERIC][~l]) {
+        auto p{ub<T>(x)};
+      if (not watch[NUMERIC][p].empty()) {
+        num_watchers += watch[NUMERIC][p].size();
+        for (auto cl : watch[NUMERIC][p]) {
           if (cl->size() < 2) {
-            std::cout << msg << ": error empty clause watching " << ~l
+            std::cout << msg << ": error empty clause watching " << p
                       << std::endl;
             exit(1);
           }
@@ -1956,10 +2021,10 @@ void NewClauseBase<T>::verifyWatchers(const char *msg) const {
             exit(1);
           }
 
-          if (not(cl->watched(0).sameVariable(l) or
-                  cl->watched(1).sameVariable(l))) {
+          if (not((cl->watched(0).sameVariable(p) and cl->watched(0).sign() != p.sign())  or
+                  (cl->watched(1).sameVariable(p) and cl->watched(1).sign() != p.sign()))) {
             std::cout << msg << ": error on clause " << cl->id << " -- " << *cl
-                      << " watching " << l << std::endl;
+                      << " watching " << p << " (" << info_t(p) << ")" << std::endl;
             exit(1);
           }
         }
