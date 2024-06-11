@@ -301,6 +301,8 @@ void test5(Options &opt) {
 
     MakespanObjective<int> duration(schedule, S);
     
+    S.set(schedule.end.before(opt.ub));
+    
     S.optimize(duration);
     
 }
