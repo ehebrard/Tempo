@@ -502,7 +502,7 @@ public:
   void branchRight();
   void learnConflict(NewExplanation<T> &e);
   void analyze(NewExplanation<T> &e);
-//    void minimize();
+    void minimize();
 
   //    bool visited(const Literal<T> l) const {
   //        if(l.isNumeric()) {
@@ -654,10 +654,11 @@ private:
 
   // buffers
   SparseSet<> changed;
-  //    std::vector<Literal<T>> lit_buffer;
+      std::vector<Literal<T>> lit_buffer;
   std::vector<Literal<T>> conflict;
-    std::vector<index_t> conflict_indices;
+    std::vector<index_t> literal_lvl;
     std::vector<Literal<T>> learnt_clause;
+    std::vector<Literal<T>> minimal_clause;
 //    std::vector<Literal<T>> probe;
 
 #ifdef DBG_TRACE
@@ -1325,17 +1326,59 @@ bool Solver<T>::entailedByConflict(Literal<T> p, const index_t p_lvl) const {
   return explored[p_lvl]; // boolean.visited(p);
 }
 
-//template <typename T> void Solver<T>::minimize() {
-//    bool minimal{true};
-//    for(auto l : conflict) {
+template <typename T> void Solver<T>::minimize() {
+    minimal_clause.clear();
+    minimal_clause.push_back(learnt_clause[0]);
+    
+//    std::cout << std::endl << learnt_clause[0] << ": (UIP)\n";
+    
+    for(index_t i{0}; ++i<learnt_clause.size();) {
+        auto p_lvl{literal_lvl[i]};
+        auto r{reason[p_lvl]};
+        bool relevant{true};
+        
+//        std::cout << ~learnt_clause[i] << ":";
+        
+        if(r != Constant::Decision<T>) {
+            auto p{~learnt_clause[i]};
+            relevant = false;
+        
+            lit_buffer.clear();
+            r.explain(p, lit_buffer);
+            
+            for(auto q : lit_buffer) {
+//                std::cout << " " << q;
+//                std::cout.flush();
+                if(not entailedByConflict(q, propagationLevel(q)))
+                {
+                    relevant = true;
+                    break;
+                }
+            }
+        } 
+//        else {
+//            std::cout << " (decision)";
+//        }
+        if(relevant) {
+            minimal_clause.push_back(learnt_clause[i]);
+        }
+        
+//        std::cout << (relevant ? " ==> relevant\n" : " ==> useless\n");
+    }
+//    if(minimal_clause.size() < learnt_clause.size())
+//        std::cout << "minimized away " << (learnt_clause.size() - minimal_clause.size()) << " literals\n";
+    std::swap(minimal_clause, learnt_clause);
+    
+    
+//    for(auto l : learnt_clause) {
 //        auto p_lvl{propagationLevel(l)};
 //    }
-//}
+}
 
 template <typename T> void Solver<T>::analyze(NewExplanation<T> &e) {
   explored.resize(trail.size(), false);
   conflict.clear();
-    conflict_indices.clear();
+    literal_lvl.clear();
     learnt_clause.clear();
   auto decision_lvl{propagationLevel(decisions.back())};
   auto fact_lvl{propagationLevel(decisions[0])};
@@ -1421,7 +1464,7 @@ template <typename T> void Solver<T>::analyze(NewExplanation<T> &e) {
             if (idx_p != Constant::NoIndex) {
                 if (conflict[idx_p].value() > p.value()) {
                     conflict[idx_p].setValue(p.value());
-                    conflict_indices[idx_p] = p_lvl;
+                    literal_lvl[idx_p] = p_lvl;
                 }
               need_add = false;
             } else {
@@ -1441,7 +1484,7 @@ template <typename T> void Solver<T>::analyze(NewExplanation<T> &e) {
             std::swap(conflict[csize], conflict[i]);
             ++csize;
               
-              conflict_indices.push_back(p_lvl);
+              literal_lvl.push_back(p_lvl);
           }
 #ifdef DBG_TRACE
           else if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
@@ -1519,7 +1562,7 @@ template <typename T> void Solver<T>::analyze(NewExplanation<T> &e) {
       if (idx_l != Constant::NoIndex) {
           if (conflict[idx_l].value() > l.value()) {
               conflict[idx_l].setValue(l.value());
-              conflict_indices[idx_l] = li+1;
+              literal_lvl[idx_l] = li+1;
           }
           need_add = false;
       }
@@ -1527,32 +1570,28 @@ template <typename T> void Solver<T>::analyze(NewExplanation<T> &e) {
     
     if(need_add) {
         conflict.push_back(l);
-        conflict_indices.push_back(li+1);
+        literal_lvl.push_back(li+1);
     }
     
   
     
-    assert(conflict.size() == conflict_indices.size());
+    assert(conflict.size() == literal_lvl.size());
     
 
-//  std::sort(conflict.begin(), conflict.end(),
-//            [&](const Literal<T> a, const Literal<T> b) {
-//              return propagationLevel(a) > propagationLevel(b);
-//            });
     
-    std::sort(conflict_indices.begin(), conflict_indices.end(),
+    std::sort(literal_lvl.begin(), literal_lvl.end(),
               [&](const index_t a, const index_t b) {
                 return a > b;
               });
     
 //    std::cout << "\n";
-    for(size_t i{0}; i<conflict_indices.size(); ++i) {
-//        std::cout << conflict[i] << " " << propagationLevel(conflict[i]) << " " << conflict_indices[i] << std::endl;
+    for(size_t i{0}; i<literal_lvl.size(); ++i) {
+//        std::cout << conflict[i] << " " << propagationLevel(conflict[i]) << " " << literal_lvl[i] << std::endl;
         
-//        assert(propagationLevel(conflict[i]) == conflict_indices[i]);
+//        assert(propagationLevel(conflict[i]) == literal_lvl[i]);
         
         
-        auto p{trail[conflict_indices[i]]};
+        auto p{trail[literal_lvl[i]]};
         
 //        std::cout << p << std::endl;
         
@@ -1580,9 +1619,9 @@ template <typename T> void Solver<T>::analyze(NewExplanation<T> &e) {
 //    int i{0};
 //  for (auto &p : conflict) {
 //      
-////      std::cout << p << "/" << conflict[i] << " " << propagationLevel(conflict[i]) << " " << conflict_indices[i] << std::endl;
+////      std::cout << p << "/" << conflict[i] << " " << propagationLevel(conflict[i]) << " " << literal_lvl[i] << std::endl;
 //      
-//      assert(propagationLevel(p) == conflict_indices[i]);
+//      assert(propagationLevel(p) == literal_lvl[i]);
 //      
 //    explored[propagationLevel(p)] = false;
 //
@@ -1593,14 +1632,24 @@ template <typename T> void Solver<T>::analyze(NewExplanation<T> &e) {
 //      ++i;
 //  }
     
+    
+    if(options.minimization > 0)
+        minimize();
+//    std::swap(minimal_clause, learnt_clause);
+    
     for(auto p : conflict)
         if (p.isNumeric()) {
               numeric.setConflictIndex(p, Constant::NoIndex);
             }
     
-  for (auto i : conflict_indices) {
+  for (auto i : literal_lvl) {
     explored[i] = false;
   }
+    
+    
+    
+    
+    
     
     
 
@@ -1667,7 +1716,7 @@ template <typename T> void Solver<T>::learnConflict(NewExplanation<T> &e) {
   ClauseAdded.trigger(conflict);
 
 //  assert(propagationLevel(conflict[0]) >= propagationLevel(decisions.back()));
-    assert(conflict_indices[0] >= propagationLevel(decisions.back()));
+    assert(literal_lvl[0] >= propagationLevel(decisions.back()));
 
   int jump{1};
    
@@ -1680,7 +1729,7 @@ template <typename T> void Solver<T>::learnConflict(NewExplanation<T> &e) {
 //      ++jump;
 //    }
       
-      auto uip_lvl{conflict_indices[1]};
+      auto uip_lvl{literal_lvl[1]};
       for (auto d{decisions.rbegin() + jump};
            d != decisions.rend() and propagationLevel(*d) > uip_lvl; ++d) {
         ++jump;
