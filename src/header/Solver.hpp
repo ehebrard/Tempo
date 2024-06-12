@@ -502,6 +502,7 @@ public:
   void branchRight();
   void learnConflict(NewExplanation<T> &e);
   void analyze(NewExplanation<T> &e);
+//    void minimize();
 
   //    bool visited(const Literal<T> l) const {
   //        if(l.isNumeric()) {
@@ -655,6 +656,9 @@ private:
   SparseSet<> changed;
   //    std::vector<Literal<T>> lit_buffer;
   std::vector<Literal<T>> conflict;
+    std::vector<index_t> conflict_indices;
+    std::vector<Literal<T>> learnt_clause;
+//    std::vector<Literal<T>> probe;
 
 #ifdef DBG_TRACE
   void printTrace() const;
@@ -1321,9 +1325,18 @@ bool Solver<T>::entailedByConflict(Literal<T> p, const index_t p_lvl) const {
   return explored[p_lvl]; // boolean.visited(p);
 }
 
+//template <typename T> void Solver<T>::minimize() {
+//    bool minimal{true};
+//    for(auto l : conflict) {
+//        auto p_lvl{propagationLevel(l)};
+//    }
+//}
+
 template <typename T> void Solver<T>::analyze(NewExplanation<T> &e) {
   explored.resize(trail.size(), false);
   conflict.clear();
+    conflict_indices.clear();
+    learnt_clause.clear();
   auto decision_lvl{propagationLevel(decisions.back())};
   auto fact_lvl{propagationLevel(decisions[0])};
 
@@ -1406,8 +1419,10 @@ template <typename T> void Solver<T>::analyze(NewExplanation<T> &e) {
           if (p.isNumeric()) {
             auto idx_p{numeric.getConflictIndex(p)};
             if (idx_p != Constant::NoIndex) {
-              if (conflict[idx_p].value() > p.value())
-                conflict[idx_p].setValue(p.value());
+                if (conflict[idx_p].value() > p.value()) {
+                    conflict[idx_p].setValue(p.value());
+                    conflict_indices[idx_p] = p_lvl;
+                }
               need_add = false;
             } else {
               numeric.setConflictIndex(p, csize);
@@ -1425,6 +1440,8 @@ template <typename T> void Solver<T>::analyze(NewExplanation<T> &e) {
                   explored[p_lvl] = true;
             std::swap(conflict[csize], conflict[i]);
             ++csize;
+              
+              conflict_indices.push_back(p_lvl);
           }
 #ifdef DBG_TRACE
           else if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
@@ -1485,13 +1502,8 @@ template <typename T> void Solver<T>::analyze(NewExplanation<T> &e) {
 
   } while (num_lit > 0); // or l.isNumeric());
 
-  for (auto &p : conflict) {
-    explored[propagationLevel(p)] = false;
+//    std::cout << "\n";
 
-    if (p.isNumeric()) {
-      numeric.setConflictIndex(p, Constant::NoIndex);
-    }
-  }
     
     
 //    for(index_t i{1}; i<trail.size(); ++i) {
@@ -1501,12 +1513,96 @@ template <typename T> void Solver<T>::analyze(NewExplanation<T> &e) {
 //        assert(not explored[i]);
 //    }
 
-  conflict.push_back(l);
+    bool need_add{true};
+    if (l.isNumeric()) {
+      auto idx_l{numeric.getConflictIndex(l)};
+      if (idx_l != Constant::NoIndex) {
+          if (conflict[idx_l].value() > l.value()) {
+              conflict[idx_l].setValue(l.value());
+              conflict_indices[idx_l] = li+1;
+          }
+          need_add = false;
+      }
+    }
+    
+    if(need_add) {
+        conflict.push_back(l);
+        conflict_indices.push_back(li+1);
+    }
+    
+  
+    
+    assert(conflict.size() == conflict_indices.size());
+    
 
-  std::sort(conflict.begin(), conflict.end(),
-            [&](const Literal<T> a, const Literal<T> b) {
-              return propagationLevel(a) > propagationLevel(b);
-            });
+//  std::sort(conflict.begin(), conflict.end(),
+//            [&](const Literal<T> a, const Literal<T> b) {
+//              return propagationLevel(a) > propagationLevel(b);
+//            });
+    
+    std::sort(conflict_indices.begin(), conflict_indices.end(),
+              [&](const index_t a, const index_t b) {
+                return a > b;
+              });
+    
+//    std::cout << "\n";
+    for(size_t i{0}; i<conflict_indices.size(); ++i) {
+//        std::cout << conflict[i] << " " << propagationLevel(conflict[i]) << " " << conflict_indices[i] << std::endl;
+        
+//        assert(propagationLevel(conflict[i]) == conflict_indices[i]);
+        
+        
+        auto p{trail[conflict_indices[i]]};
+        
+//        std::cout << p << std::endl;
+        
+        if(p.isNumeric()) {
+            auto idx_p{numeric.getConflictIndex(p)};
+            
+            
+//            std::cout << idx_p << "/" << conflict.size() << std::endl;
+            
+            if (idx_p != Constant::NoIndex)
+            p = conflict[idx_p];
+        }
+        
+        learnt_clause.push_back(~p);
+        
+    }
+    
+    
+//    std::sort(conflict.begin(), conflict.end(),
+//              [&](const Literal<T> a, const Literal<T> b) {
+//                return propagationLevel(a) > propagationLevel(b);
+//              });
+    
+    
+//    int i{0};
+//  for (auto &p : conflict) {
+//      
+////      std::cout << p << "/" << conflict[i] << " " << propagationLevel(conflict[i]) << " " << conflict_indices[i] << std::endl;
+//      
+//      assert(propagationLevel(p) == conflict_indices[i]);
+//      
+//    explored[propagationLevel(p)] = false;
+//
+//    if (p.isNumeric()) {
+//      numeric.setConflictIndex(p, Constant::NoIndex);
+//    }
+//      
+//      ++i;
+//  }
+    
+    for(auto p : conflict)
+        if (p.isNumeric()) {
+              numeric.setConflictIndex(p, Constant::NoIndex);
+            }
+    
+  for (auto i : conflict_indices) {
+    explored[i] = false;
+  }
+    
+    
 
 #ifdef DBG_TRACE
   if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
@@ -1570,18 +1666,25 @@ template <typename T> void Solver<T>::learnConflict(NewExplanation<T> &e) {
 
   ClauseAdded.trigger(conflict);
 
-  assert(propagationLevel(conflict[0]) >= propagationLevel(decisions.back()));
+//  assert(propagationLevel(conflict[0]) >= propagationLevel(decisions.back()));
+    assert(conflict_indices[0] >= propagationLevel(decisions.back()));
 
   int jump{1};
    
   if (conflict.size() == 1 or decisions.size() == 1) {
     jump = static_cast<int>(decisions.size());
   } else {
-    auto uip_lvl{propagationLevel(conflict[1])};
-    for (auto d{decisions.rbegin() + jump};
-         d != decisions.rend() and propagationLevel(*d) > uip_lvl; ++d) {
-      ++jump;
-    }
+//    auto uip_lvl{propagationLevel(conflict[1])};
+//    for (auto d{decisions.rbegin() + jump};
+//         d != decisions.rend() and propagationLevel(*d) > uip_lvl; ++d) {
+//      ++jump;
+//    }
+      
+      auto uip_lvl{conflict_indices[1]};
+      for (auto d{decisions.rbegin() + jump};
+           d != decisions.rend() and propagationLevel(*d) > uip_lvl; ++d) {
+        ++jump;
+      }
   }
 
   restoreState(env.level() - jump);
@@ -1594,9 +1697,16 @@ template <typename T> void Solver<T>::learnConflict(NewExplanation<T> &e) {
 
   decisions.resize(decisions.size() - jump);
 
-  for (auto &p : conflict) {
-    p = ~p;
-  }
+//  for (auto &p : conflict) {
+//    p = ~p;
+//  }
+    
+//    for(auto i{0}; i<conflict.size(); ++i) {
+//        if(conflict[i] != learnt_clause[i])
+//        std::cout << num_fails << ": " << conflict[i] << " " << learnt_clause[i] << std::endl;
+//        assert(conflict[i] == learnt_clause[i]);
+//    }
+    
 
 #ifdef DBG_TRACE
   if (DBG_BOUND and (DBG_TRACE & SEARCH)) {
@@ -1614,7 +1724,7 @@ template <typename T> void Solver<T>::learnConflict(NewExplanation<T> &e) {
 //              << numeric.upper(conflict[0].variable()) << "]\n";
 //  }
 
-    assert(isAssertive(conflict));
+    assert(isAssertive(learnt_clause));
 
     //  assert(not conflict[0].isNumeric() or not
     //  numeric.falsified(conflict[0]));
@@ -1646,7 +1756,7 @@ template <typename T> void Solver<T>::learnConflict(NewExplanation<T> &e) {
 #ifdef DBG_TRACE
   auto cl =
 #endif
-      clauses.add(conflict.begin(), conflict.end(), true);
+      clauses.add(learnt_clause.begin(), learnt_clause.end(), true);
 
 #ifdef DBG_TRACE
   if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
