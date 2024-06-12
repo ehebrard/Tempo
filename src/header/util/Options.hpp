@@ -1,4 +1,4 @@
-
+#include <limits>
 
 #ifndef __CMDLINE_HPP
 #define __CMDLINE_HPP
@@ -75,6 +75,8 @@ public:
   int restart_base;
   std::string restart_policy;
   std::string input_format;
+
+  double fail_limit = std::numeric_limits<double>::infinity();
 };
 
 Options parse(int argc, char *argv[]);

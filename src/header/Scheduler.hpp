@@ -2177,8 +2177,9 @@ template <typename T> boolean_state Scheduler<T>::search() {
 
   init_level = env.level();
   boolean_state satisfiability{Unknown};
-  while (satisfiability == Unknown and
-         not KillHandler::instance().signalReceived()) {
+  while (satisfiability == Unknown 
+          and num_choicepoints <= options.fail_limit
+          and not KillHandler::instance().signalReceived()) {
 
     ++num_choicepoints;
     try {
