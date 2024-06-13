@@ -11,10 +11,10 @@ namespace tempo {
 using var_t = uint32_t;
 using info_t = uint32_t;
 
-#define DBG_BOUND (num_choicepoints >= 51470)
-#define DBG_CBOUND (solver.num_choicepoints >= 51470)
-#define DBG_BBOUND (sched.num_choicepoints >= 51470) //(sched.num_fails >= 236)
-#define DBG_TRACE  1 //243 // 55                             // 183 //1+2+4+32+128
+//#define DBG_BOUND (num_choicepoints >= 51470)
+//#define DBG_CBOUND (solver.num_choicepoints >= 51470)
+//#define DBG_BBOUND (sched.num_choicepoints >= 51470) //(sched.num_fails >= 236)
+//#define DBG_TRACE  1 //243 // 55                             // 183 //1+2+4+32+128
 #define SEARCH 1
 #define DOMAINS 2
 #define BRANCH 4

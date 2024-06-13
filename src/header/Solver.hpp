@@ -1999,7 +1999,7 @@ template <typename T> boolean_state Solver<T>::search() {
 
       propagate();
         
-        check_clauses("after propag");
+//        check_clauses("after propag");
 
 
 
