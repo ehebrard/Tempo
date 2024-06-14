@@ -14,7 +14,7 @@
 #include "Objective.hpp"
 #include "Restart.hpp"
 //#include "TemporalNetwork.hpp"
-//#include "constraints/DisjunctiveEdgeFinding.hpp"
+#include "constraints/DisjunctiveEdgeFinding.hpp"
 #include "constraints/EdgeConstraint.hpp"
 //#include "constraints/Transitivity.hpp"
 #include "heuristics/HeuristicManager.hpp"
@@ -504,6 +504,12 @@ public:
     void relax(NewConstraint<T> *);
     void wake_me_on(const Literal<T>, const int);
     template <typename X> void addToSearch(const X &x);
+    
+    
+    template <typename ItTask, typename ItVar>
+    void postEdgeFinding(Job<T>& schedule, const ItTask beg_task, const ItTask end_task,
+                         const ItVar beg_var
+      );
     
     /**
      * @name search
@@ -2449,6 +2455,16 @@ void Solver<T>::wake_me_on(const Literal<T> l, const int c) {
   } else {
     boolean_constraints.add(l, c);
   }
+}
+
+template <typename T>
+template <typename ItTask, typename ItVar>
+void Solver<T>::postEdgeFinding(Job<T>& schedule,  ItTask beg_task,  ItTask end_task,
+                                   const ItVar beg_var
+                                   ) {
+  post(new NewDisjunctiveEdgeFinding<T>(*this, schedule, beg_task, end_task,
+                                  beg_var
+                                  ));
 }
 
 // template <typename T>
