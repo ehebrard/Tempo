@@ -36,7 +36,7 @@ namespace detail {
     class LiteralStorage {
         static constexpr std::uint32_t SignBit = 2;
         static constexpr std::uint32_t TagBit = 1;
-        std::uint32_t info;
+        info_t info;
         union {
             T numericData;
             info_t semanticInfo;
@@ -86,7 +86,7 @@ namespace detail {
          * Gets the id of the literal
          * @return the literal's id
          */
-        [[nodiscard]] constexpr std::uint32_t id() const noexcept {
+        [[nodiscard]] constexpr info_t id() const noexcept {
             return (info & ~TagBit) >> 1;
         }
 
@@ -130,7 +130,7 @@ namespace detail {
      * @return Numeric LiteralStorage
      */
     template<typename T>
-    constexpr auto makeNumericLit(var_t id, T value) noexcept(std::is_nothrow_move_constructible_v<T>) {
+    constexpr auto makeNumericLit(info_t id, T value) noexcept(std::is_nothrow_move_constructible_v<T>) {
         return LiteralStorage<T>(id, NumericValue<T>(std::move(value)));
     }
 
@@ -142,7 +142,7 @@ namespace detail {
      * @return Semantic LiteralStorage
      */
     template<typename T>
-    constexpr auto makeSemanticLit(var_t id, info_t semantic) noexcept {
+    constexpr auto makeSemanticLit(info_t id, info_t semantic) noexcept {
         return LiteralStorage<T>(id, semantic);
     }
 }
@@ -152,6 +152,7 @@ namespace detail {
 template<typename T>
 struct Literal : public detail::LiteralStorage<T> {
     constexpr Literal() noexcept: detail::LiteralStorage<T>(Constant::NoVarx, Constant::NoSemantic) {}
+
     constexpr Literal(bool sign, var_t x, T v) noexcept;
     constexpr Literal(bool sign, var_t x, info_t v) noexcept;
     using detail::LiteralStorage<T>::LiteralStorage;
@@ -159,20 +160,19 @@ struct Literal : public detail::LiteralStorage<T> {
     [[nodiscard]] constexpr bool isBoolean() const noexcept;
     [[nodiscard]] constexpr bool hasSemantic() const noexcept;
 
-    //    operator int() const;
-    constexpr operator std::uint32_t() const noexcept;
+    constexpr operator info_t() const noexcept;
 
     [[nodiscard]] constexpr var_t variable() const noexcept;
 
     constexpr bool sameVariable(const Literal<T> &l) const noexcept;
     constexpr bool operator==(const Literal<T> &l) const noexcept;
 
-    [[nodiscard]] constexpr info_t constraint() const noexcept;
+    [[nodiscard]] constexpr info_t constraint() const;
     std::ostream& display(std::ostream &os) const;
     
-    static constexpr std::uint32_t index(bool sign, var_t x) noexcept;
+    static constexpr info_t index(bool sign, var_t x) noexcept;
     static constexpr var_t var(info_t l) noexcept;
-    static constexpr bool sgn(std::uint32_t l) noexcept;
+    static constexpr bool sgn(info_t l) noexcept;
 };
 
 template <typename T>
@@ -198,7 +198,7 @@ constexpr bool Literal<T>::operator==(const Literal<T> &l) const noexcept {
 }
 
 template <typename T>
-constexpr std::uint32_t Literal<T>::index(const bool sign, const var_t x) noexcept {
+constexpr info_t Literal<T>::index(const bool sign, const var_t x) noexcept {
     return 2 * x + sign;
 }
 
@@ -206,12 +206,12 @@ template <typename T>
 constexpr var_t Literal<T>::var(info_t l) noexcept { return l / 2; }
 
 template<typename T>
-constexpr bool Literal<T>::sgn(std::uint32_t l) noexcept {
+constexpr bool Literal<T>::sgn(info_t l) noexcept {
     return l & 1;
 }
 
 template <typename T>
-constexpr Literal<T>::operator std::uint32_t() const noexcept { return this->id(); }
+constexpr Literal<T>::operator info_t() const noexcept { return this->id(); }
 
 template<typename T>
 constexpr var_t Literal<T>::variable() const noexcept{
@@ -219,7 +219,7 @@ constexpr var_t Literal<T>::variable() const noexcept{
 }
 
 template<typename T>
-constexpr info_t Literal<T>::constraint() const noexcept {
+constexpr info_t Literal<T>::constraint() const {
     return this->semantic() + this->sign();
 }
 
