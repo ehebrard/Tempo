@@ -66,7 +66,7 @@ protected:
 
 template<typename T>
 Literal<T> BooleanVar<T>::operator==(const bool t) const {
-  return Literal<T>(t, _id_, Constant::NoSemantic);
+  return makeBooleanLiteral<T>(t, _id_, Constant::NoSemantic);
 }
 
 
@@ -89,7 +89,7 @@ private:
 
 template<typename T>
 Literal<T> DisjunctVar<T>::operator==(const bool t) const {
-  return Literal<T>(t, BooleanVar<T>::_id_, _edge_id_ + t);
+  return makeBooleanLiteral<T>(t, BooleanVar<T>::_id_, _edge_id_ + t);
 }
 
 template<typename T=int>

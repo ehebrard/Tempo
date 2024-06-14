@@ -1383,7 +1383,7 @@ void NewClauseBase<T>::post(const int idx) {
 template <typename T>
 void NewClauseBase<T>::propagate() {
     for(auto b : triggered_bounds) {
-      auto p{solver.numeric.strongestLiteral(Literal<T>::sign(b),
+      auto p{solver.numeric.strongestLiteral(Literal<T>::sgn(b),
                                              Literal<T>::var(b))};
 //      std::cout << " --> unitprop " << solver.pretty(p) << std::endl;
       unit_propagate(p);
