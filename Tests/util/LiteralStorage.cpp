@@ -11,17 +11,17 @@
 
 TEST(util, LiteralStorage_Ctor) {
     using namespace tempo::detail;
-    LiteralStorage ls(17, NumericValue(0.25f));
+    LiteralStorage ls(17, 0.25, Numeric{});
     EXPECT_TRUE(ls.isNumeric());
     EXPECT_TRUE(ls.sign());
     EXPECT_EQ(ls.id(), 17);
     EXPECT_EQ(ls.value(), 0.25f);
-    ls = {1168623114, 14};
+    ls = {1168623114, 14, Boolean{}};
     EXPECT_FALSE(ls.isNumeric());
     EXPECT_FALSE(ls.sign());
     EXPECT_EQ(ls.id(), 1168623114);
     EXPECT_EQ(ls.semantic(), 14);
-    LiteralStorage<std::uint16_t> smallLit(29, NumericValue<std::uint16_t>(14));
+    LiteralStorage<std::uint16_t> smallLit(29, 14, Numeric{});
     EXPECT_TRUE(smallLit.sign());
     EXPECT_EQ(smallLit.id(), 29);
     EXPECT_EQ(smallLit.value(), 14);
@@ -36,13 +36,13 @@ TEST(util, LiteralStorage_memory) {
 
 TEST(util, LiteralStorage_access) {
     using namespace tempo::detail;
-    LiteralStorage ls(13, NumericValue(1.4f));
+    LiteralStorage ls(13, 1.4f, Numeric{});
     EXPECT_TRUE(ls.isNumeric());
     EXPECT_EQ(ls.value(), 1.4f);
     ls.setValue(0.75f);
     EXPECT_EQ(ls.id(), 13);
     EXPECT_EQ(ls.value(), 0.75);
-    ls = {18, 14};
+    ls = {18, 14, Boolean{}};
     EXPECT_FALSE(ls.isNumeric());
     EXPECT_EQ(ls.semantic(), 14);
     ls.setValue(0.34f);
@@ -52,9 +52,9 @@ TEST(util, LiteralStorage_access) {
 
 TEST(util, LiteralStorage_invalid_access) {
     using namespace tempo::detail;
-    LiteralStorage ls(13, NumericValue(0.17f));
+    LiteralStorage ls(13, 0.17f, Numeric{});
     EXPECT_THROW((void)ls.semantic(), std::bad_variant_access);
-    ls = {13, 14};
+    ls = {13, 14, Boolean{}};
     EXPECT_THROW((void)ls.value(), std::bad_variant_access);
 }
 
