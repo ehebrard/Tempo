@@ -2,10 +2,10 @@
 #ifndef __TEMPO_LITERAL_HPP
 #define __TEMPO_LITERAL_HPP
 
-#include <stdint.h>
 #include <variant>
 
 #include "Constant.hpp"
+#include "Global.hpp"
 
 namespace tempo {
 
@@ -15,6 +15,150 @@ namespace tempo {
 **********************************************/
 
 enum bound { lower = 0, upper = 1 };
+
+namespace detail {
+    /**
+     * Tag class to resolve ctor ambiguity
+     * @tparam value held
+     */
+    template<typename T>
+    struct NumericValue {
+        explicit constexpr NumericValue(T val) noexcept: val(val) {}
+
+        T val;
+    };
+
+    /**
+     * Tagged union class that holds a variable ID and either numeric data or constraint info
+     * @tparam T data ype
+     */
+    template<typename T>
+    class LiteralStorage {
+        static constexpr std::uint32_t SignBit = 0x0002;
+        static constexpr std::uint32_t TagBit = 0x0001;
+        std::uint32_t info;
+        union {
+            T numericData;
+            info_t semanticInfo;
+
+        };
+
+    public:
+        /**
+         * Ctor
+         * constructs a constraint literal
+         * @param sign sign of the literal
+         * @param literalId identifier of the literal (not of the variable!)
+         * @param semanticInfo constraint information
+         * @note the id of the corresponding variable should be litId / 2. See also makeSemanticLit
+         */
+        constexpr LiteralStorage(var_t literalId, info_t semanticInfo) noexcept:
+                info(literalId << 1), semanticInfo(semanticInfo) {}
+
+        /**
+         * Ctor
+         * constructs a numeric literal
+         * @param sign sign of the literal
+         * @param literalId identifier of the literal (not of the variable!)
+         * @param numericVal numeric value stored in the literal
+         * @note see also makeNumericLit
+         */
+        constexpr LiteralStorage(var_t literalId, NumericValue<T> numericVal) noexcept: info(
+                (literalId << 1) | TagBit), numericData(std::move(numericVal.val)) {}
+
+        /**
+         * Checks whether the storage holds a numeric value
+         * @return true if storage holds a numeric value, false otherwise
+         */
+        [[nodiscard]] constexpr bool isNumeric() const noexcept {
+            return info & TagBit;
+        }
+
+        /**
+         * Gets the sign of the literal
+         * @return returns the sign of the literal
+         */
+        [[nodiscard]] constexpr bool sign() const noexcept {
+            return info & SignBit;
+        }
+
+        /**
+         * Gets the id of the literal
+         * @return the literal's id
+         */
+        [[nodiscard]] constexpr std::uint32_t id() const noexcept {
+            return (info & 0xFFFE) >> 1;
+        }
+
+        /**
+         * Access to the stored value
+         * @return the stored value
+         * @throws std::bad_variant_access if storage does not contain numeric value
+         */
+        constexpr T &value() {
+            if (not isNumeric()) {
+                throw std::bad_variant_access();
+            }
+
+            return numericData;
+        }
+
+        /**
+         * Access to the stored constraint information
+         * @return the stored constraint information
+         * @throws std::bad_variant_access if storage does not contain constraint information
+         */
+        constexpr info_t &constraint() {
+            if (isNumeric()) {
+                throw std::bad_variant_access();
+            }
+
+            return semanticInfo;
+        }
+
+
+        /**
+         * const value access
+         * @copydoc value()
+         */
+        [[nodiscard]] constexpr const T &value() const {
+            return const_cast<LiteralStorage *>(this)->value();
+        }
+
+        /**
+         * const constraint access
+         * @copydoc constraint()
+         */
+        [[nodiscard]] constexpr const info_t &constraint() const {
+            return const_cast<LiteralStorage *>(this)->constraint();
+        }
+
+    };
+
+    /**
+     * Helper function for constructing numeric literal storage
+     * @tparam T data type
+     * @param id identifier of the literal
+     * @param value numeric value
+     * @return Numeric LiteralStorage
+     */
+    template<typename T>
+    constexpr auto makeNumericLit(var_t id, T value) noexcept(std::is_nothrow_move_constructible_v<T>) {
+        return LiteralStorage<T>(id, NumericValue<T>(std::move(value)));
+    }
+
+    /**
+     * Helper function for constructing constraint literal storage
+     * @tparam T data type
+     * @param id identifier of the literal
+     * @param semantic constraint information
+     * @return Semantic LiteralStorage
+     */
+    template<typename T>
+    constexpr auto makeSemanticLit(var_t id, info_t semantic) noexcept {
+        return LiteralStorage<T>(id, semantic);
+    }
+}
 
 
 
