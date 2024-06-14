@@ -39,23 +39,23 @@ TEST(util, LiteralStorage_access) {
     LiteralStorage ls(13, NumericValue(1.4f));
     EXPECT_TRUE(ls.isNumeric());
     EXPECT_EQ(ls.value(), 1.4f);
-    ls.value() = 0.75;
+    ls.setValue(0.75f);
     EXPECT_EQ(ls.id(), 13);
     EXPECT_EQ(ls.value(), 0.75);
     ls = {18, 14};
     EXPECT_FALSE(ls.isNumeric());
     EXPECT_EQ(ls.constraint(), 14);
-    ls.constraint() = 17;
-    EXPECT_EQ(ls.constraint(), 17);
-    EXPECT_EQ(ls.id(), 18);
+    ls.setValue(0.34f);
+    EXPECT_TRUE(ls.isNumeric());
+    EXPECT_EQ(ls.value(), 0.34f);
 }
 
 TEST(util, LiteralStorage_invalid_access) {
     using namespace tempo::detail;
     LiteralStorage ls(13, NumericValue(0.17f));
-    EXPECT_THROW(ls.constraint(), std::bad_variant_access);
+    EXPECT_THROW((void)ls.constraint(), std::bad_variant_access);
     ls = {13, 14};
-    EXPECT_THROW(ls.value(), std::bad_variant_access);
+    EXPECT_THROW((void)ls.value(), std::bad_variant_access);
 }
 
 TEST(util, LiteralStorage_creator_functions) {

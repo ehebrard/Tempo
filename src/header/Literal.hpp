@@ -52,7 +52,7 @@ namespace detail {
          * @param semanticInfo constraint information
          * @note the id of the corresponding variable should be litId / 2. See also makeSemanticLit
          */
-        constexpr LiteralStorage(var_t literalId, info_t semanticInfo) noexcept:
+        constexpr LiteralStorage(info_t literalId, info_t semanticInfo) noexcept:
                 info(literalId << 1), semanticInfo(semanticInfo) {}
 
         /**
@@ -63,7 +63,7 @@ namespace detail {
          * @param numericVal numeric value stored in the literal
          * @note see also makeNumericLit
          */
-        constexpr LiteralStorage(var_t literalId, NumericValue<T> numericVal) noexcept: info(
+        constexpr LiteralStorage(info_t literalId, NumericValue<T> numericVal) noexcept: info(
                 (literalId << 1) | TagBit), numericData(std::move(numericVal.val)) {}
 
         /**
@@ -95,7 +95,7 @@ namespace detail {
          * @return the stored value
          * @throws std::bad_variant_access if storage does not contain numeric value
          */
-        constexpr T &value() {
+        [[nodiscard]] constexpr T value() const {
             if (not isNumeric()) {
                 throw std::bad_variant_access();
             }
@@ -108,7 +108,7 @@ namespace detail {
          * @return the stored constraint information
          * @throws std::bad_variant_access if storage does not contain constraint information
          */
-        constexpr info_t &constraint() {
+        [[nodiscard]] constexpr info_t constraint() const {
             if (isNumeric()) {
                 throw std::bad_variant_access();
             }
@@ -116,23 +116,10 @@ namespace detail {
             return semanticInfo;
         }
 
-
-        /**
-         * const value access
-         * @copydoc value()
-         */
-        [[nodiscard]] constexpr const T &value() const {
-            return const_cast<LiteralStorage *>(this)->value();
+        void setValue(T value) noexcept {
+            numericData = value;
+            info |= TagBit;
         }
-
-        /**
-         * const constraint access
-         * @copydoc constraint()
-         */
-        [[nodiscard]] constexpr const info_t &constraint() const {
-            return const_cast<LiteralStorage *>(this)->constraint();
-        }
-
     };
 
     /**
