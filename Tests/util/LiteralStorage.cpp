@@ -16,10 +16,10 @@ TEST(util, LiteralStorage_Ctor) {
     EXPECT_TRUE(ls.sign());
     EXPECT_EQ(ls.id(), 17);
     EXPECT_EQ(ls.value(), 0.25f);
-    ls = {168, 14};
+    ls = {1168623114, 14};
     EXPECT_FALSE(ls.isNumeric());
     EXPECT_FALSE(ls.sign());
-    EXPECT_EQ(ls.id(), 168);
+    EXPECT_EQ(ls.id(), 1168623114);
     EXPECT_EQ(ls.constraint(), 14);
     LiteralStorage<std::uint16_t> smallLit(29, NumericValue<std::uint16_t>(14));
     EXPECT_TRUE(smallLit.sign());

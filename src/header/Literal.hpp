@@ -34,8 +34,8 @@ namespace detail {
      */
     template<typename T>
     class LiteralStorage {
-        static constexpr std::uint32_t SignBit = 0x0002;
-        static constexpr std::uint32_t TagBit = 0x0001;
+        static constexpr std::uint32_t SignBit = 2;
+        static constexpr std::uint32_t TagBit = 1;
         std::uint32_t info;
         union {
             T numericData;
@@ -87,7 +87,7 @@ namespace detail {
          * @return the literal's id
          */
         [[nodiscard]] constexpr std::uint32_t id() const noexcept {
-            return (info & 0xFFFE) >> 1;
+            return (info & ~TagBit) >> 1;
         }
 
         /**
