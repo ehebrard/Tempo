@@ -235,8 +235,8 @@ public:
     T minDuration() const;
     T maxDuration() const;
 
-    event getStart() const;
-    event getEnd() const;
+    var_t getStart() const;
+    var_t getEnd() const;
 
     int id() const;
     bool operator==(const Job<T> &t) const;
@@ -322,9 +322,9 @@ template <typename T> T Job<T>::minDuration() const { return min_duration; }
 
 template <typename T> T Job<T>::maxDuration() const { return max_duration; }
 
-template <typename T> event Job<T>::getStart() const { return start.id(); }
+template <typename T> var_t Job<T>::getStart() const { return start.id(); }
 
-template <typename T> event Job<T>::getEnd() const { return end.id(); }
+template <typename T> var_t Job<T>::getEnd() const { return end.id(); }
 
 template <typename T> ostream &Job<T>::display(ostream &os) const {
   os << "t" << id(); //<< ": [" << start.earliest(solver) << ".." <<

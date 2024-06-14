@@ -50,7 +50,7 @@ struct Literal {
 
     void setValue(T v);
 
-    var_t _id_{0};
+    info_t _id_{0};
     std::variant<info_t,T> _data_;
 };
 
@@ -84,13 +84,13 @@ template <typename T> bool Literal<T>::operator==(const Literal<T> &l) const {
   return _id_ == l._id_;
 }
 
-template <typename T> var_t Literal<T>::index(const bool sign, const var_t x) {
+template <typename T> info_t Literal<T>::index(const bool sign, const var_t x) {
     return 2 * x + sign;
 }
 
-template <typename T> var_t Literal<T>::var(const var_t x) { return x / 2; }
+template <typename T> var_t Literal<T>::var(const info_t x) { return x / 2; }
 
-template <typename T> bool Literal<T>::sign(const var_t x) { return x & 1; }
+template <typename T> bool Literal<T>::sign(const info_t x) { return x & 1; }
 
 template <typename T> Literal<T>::operator info_t() const { return _id_; }
 // template <typename T> Literal<T>::operator int() const { return
