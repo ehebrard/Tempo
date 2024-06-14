@@ -3,13 +3,14 @@
 
 #include <string>
 #include <limits>
+#include <cstdint>
 #include <sys/resource.h>
 
 
 namespace tempo {
 
-using var_t = uint32_t;
-using info_t = uint32_t;
+using var_t = std::uint32_t;
+using info_t = std::uint32_t;
 
 //#define DBG_BOUND (num_choicepoints >= 51470)
 //#define DBG_CBOUND (solver.num_choicepoints >= 51470)
@@ -58,7 +59,7 @@ constexpr auto to_underlying(E e) noexcept {
 }
 
 // using index_t = size_t;
-using index_t = uint32_t;
+using index_t = std::uint32_t;
 
 using event = int;
 #define NOEVENT -1
