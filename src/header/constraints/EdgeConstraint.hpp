@@ -290,9 +290,33 @@ template <typename T> int NewEdgeConstraint<T>::getType() const {
 template <typename T>
 void NewEdgeConstraint<T>::xplain(const Literal<T>, const hint,
                                   std::vector<Literal<T>> &Cl) {
+    
+    
+//    std::cout << "explain " << m_solver.pretty(p) << " by (" << edge << ") i.e, " << m_solver.getLiteral(r_lb) << " & " << m_solver.getLiteral(r_ub) << std::endl;
+//    
+    
+    if(r_lb < r_ub) {
+        
+        auto p{m_solver.getLiteral(r_lb)};
+        auto q{Literal<T>(bound::upper, edge.to, edge.distance - p.value())};
+        
+//        std::cout << " * or by " << p << " & " << q << std::endl << std::endl;
+        
+        Cl.push_back(p);
+        Cl.push_back(q);
+    } else {
+        
+        auto q{m_solver.getLiteral(r_ub)};
+        auto p{Literal<T>(bound::lower, edge.from, edge.distance - q.value())};
+        
+//        std::cout << " * or by " << p << " & " << q << std::endl << std::endl;
+        
+        Cl.push_back(p);
+        Cl.push_back(q);
+    }
 
-  Cl.push_back(m_solver.getLiteral(r_lb));
-  Cl.push_back(m_solver.getLiteral(r_ub));
+//  Cl.push_back(m_solver.getLiteral(r_lb));
+//  Cl.push_back(m_solver.getLiteral(r_ub));
 }
 
 template <typename T>

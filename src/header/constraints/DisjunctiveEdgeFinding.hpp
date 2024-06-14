@@ -1248,7 +1248,7 @@ private:
   //  std::vector<task> m_tasks;
     Job<T> schedule;
   std::vector<Job<T> *> the_tasks;
-  std::vector<std::vector<lit>> disjunct;
+  std::vector<std::vector<Literal<T>>> disjunct;
 
   // helpers
   std::vector<unsigned> est_order;
@@ -1728,7 +1728,7 @@ template <typename T> void NewDisjunctiveEdgeFinding<T>::propagateForward() {
     for (auto ai{lct_order.rbegin()}; ai != (lct_order.rend() - 1); ++ai) {
         auto a{*ai};
         
-        //
+        // deadline without the gray task
         auto deadline_omega{lct(*(ai + 1))};
         TT.paint_gray(theta_rank[a], a);
         
@@ -1741,13 +1741,22 @@ template <typename T> void NewDisjunctiveEdgeFinding<T>::propagateForward() {
             << ", bound=" << ect_ << std::endl;
         }
 #endif
+        
+        // record the tasks that should be pruned (pruning online can mess up with the ordering and is error-prone)
         while (ect_ > deadline_omega) {
             auto r{TT.getResponsible()};
             pruned_tasks.push_back(r);
+            
+            // the upper bound of the tasks' windows
             omegas.push_back(ai + 1);
+            
+            // the lower bound of the tasks' windows
             relevant_starts.push_back(TT.grayEst());
+            
+            // the new lower bound for r
             bound_omegas.push_back(ect_);
             
+            // actually remove r
             TT.remove(theta_rank[r]);
             ect_ = TT.grayBound();
 #ifdef DBG_EDGEFINDING
@@ -1762,6 +1771,7 @@ template <typename T> void NewDisjunctiveEdgeFinding<T>::propagateForward() {
         }
     }
     
+    // do the pruning
     while (not pruned_tasks.empty()) {
         auto r{pruned_tasks.back()};
         auto ai{omegas.back()};
@@ -1771,17 +1781,9 @@ template <typename T> void NewDisjunctiveEdgeFinding<T>::propagateForward() {
         omegas.pop_back();
         relevant_starts.pop_back();
         bound_omegas.pop_back();
-        
-        //#ifdef DBG_EDGEFINDING
-        //        if (DBG_EDGEFINDING) {
-        //          std::cout << "add precedences w.r.t. " << prettyTask(r) <<
-        //          std::endl;
-        //        }
-        //#endif
-
-        //        auto l{m_tasks[r]};
+    
         auto tl{the_tasks[r]};
-        ph = NoHint;
+        ph = Constant::NoHint;
         for (auto j{ai}; j != lct_order.rend(); ++j) {
             
             if (not m_solver.boolean.satisfied(disjunct[r][*j])) {
@@ -1796,6 +1798,15 @@ template <typename T> void NewDisjunctiveEdgeFinding<T>::propagateForward() {
                 
                 // ej < si (ub(si) & lb(ej))
                 if (m_solver.boolean.falsified(disjunct[*j][r])) {
+                    // the precedence is trivially implied because r >> *j
+                    // not clear if we should just let the edge constraints handle that
+                    auto eji{m_solver.boolean.getEdge(disjunct[r][*j])};
+                    auto idx_j{m_solver.numeric.litIndex(eji.from)};
+                    auto idx_i{m_solver.numeric.litIndex(eji.to)};
+                    auto v{(idx_j < idx_i ?}
+                    
+                    
+                    
 //                    auto h{-1 - static_cast<hint>(m_schedule.getBoundIndex(LOWERBOUND(
 //                                                                                      m_schedule.getEdge(disjunct[r][*j]).from)))};
 
