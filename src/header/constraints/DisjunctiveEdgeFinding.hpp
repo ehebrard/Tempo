@@ -1800,21 +1800,19 @@ template <typename T> void NewDisjunctiveEdgeFinding<T>::propagateForward() {
                 if (m_solver.boolean.falsified(disjunct[*j][r])) {
                     // the precedence is trivially implied because r >> *j
                     // not clear if we should just let the edge constraints handle that
-                    auto eji{m_solver.boolean.getEdge(disjunct[r][*j])};
-                    auto idx_j{m_solver.numeric.litIndex(eji.from)};
-                    auto idx_i{m_solver.numeric.litIndex(eji.to)};
-                    auto v{(idx_j < idx_i ?}
                     
+                    // this is the edge that is satisfied and implies disjunct[r][*j]
+                    auto eij{~m_solver.boolean.getEdge(disjunct[*j][r])};
+                    auto idx_lb{m_solver.numeric.lastLitIndex(bound::lower, edge.from)};
+                    auto idx_ub{m_solver.numeric.lastLitIndex(bound::upper, edge.to)};
                     
                     
 //                    auto h{-1 - static_cast<hint>(m_schedule.getBoundIndex(LOWERBOUND(
 //                                                                                      m_schedule.getEdge(disjunct[r][*j]).from)))};
 
                     
-                    
-                    
                     // ei < sj (ub(ei) & lb(sj))
-                    m_schedule.set(disjunct[r][*j], {this, h});
+                    m_schedule.set(disjunct[r][*j], {this, -1-static_cast<hint>(std::min(idx_lb, idx_ub)});
                     
 #ifdef DBG_EDGEFINDING
                     if (DBG_EDGEFINDING) {
@@ -1840,7 +1838,7 @@ template <typename T> void NewDisjunctiveEdgeFinding<T>::propagateForward() {
         
         if (ect(r) < ect_omega) {
 
-          BoundConstraint<T> bc = tl->end.after(ect_omega);
+                        Literal<T> bc{tl->end.after(ect_omega)};
 
           //          BoundConstraint<T> bc_verif{LOWERBOUND(END(l)),
           //          -ect_omega};
@@ -1887,9 +1885,6 @@ template <typename T> void NewDisjunctiveEdgeFinding<T>::propagateBackward() {
     
     hint ph{NoHint};
     
-    
-    
-    
     std::sort(est_order.begin(), est_order.end(),
               [&](const unsigned a, const unsigned b) -> bool {
                 return est(a) < est(b);
@@ -1899,7 +1894,6 @@ template <typename T> void NewDisjunctiveEdgeFinding<T>::propagateBackward() {
               [&](const unsigned a, const unsigned b) -> bool {
                 return lct(a) < lct(b);
               });
-    
     
     TT.clear();
     
