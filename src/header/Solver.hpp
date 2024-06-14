@@ -713,7 +713,7 @@ public:
     bool initialized{false};
     void initializeSearch();
     
-    static const Literal<T> Contradiction;
+    static constexpr Literal<T> Contradiction = makeBooleanLiteral<T>(false, Constant::NoVarx, 0);
     
     double looseness(const Literal<T> &l) const;
     
@@ -730,9 +730,6 @@ private:
 #endif
 };
 
-template <typename T>
-const Literal<T> Solver<T>::Contradiction = makeBooleanLiteral<T>(false, Constant::NoVarx,
-                                                       info_t(0));
 
 #ifdef DBG_TRACE
 template <typename T> void Solver<T>::printTrace() const {
