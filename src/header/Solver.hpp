@@ -191,7 +191,7 @@ void GraphExplainer<T>::xplain(const Literal<T> l, const hint h,
                                std::vector<Literal<T>> &Cl) {
     
     if (l == Solver<T>::Contradiction) {
-        auto s{Literal<T>::sign(h)};
+        auto s{Literal<T>::sgn(h)};
         auto x{Literal<T>::var(h)};
         //    //        auto lcycle{solver.getLiteral(static_cast<index_t>(h))};
         //    std::cout << "explain contradiction: negative cycle "
@@ -285,10 +285,9 @@ void GraphExplainer<T>::xplain(const Literal<T> l, const hint h,
             //
             //          std::cout << solver.numeric.strongestLiteral(l.sign(),
             //          (l.sign() == bound::lower ? c.to : c.from)) << std::endl;
-            
-            Cl.push_back(Literal<T>(l.sign(),
-                                    (l.sign() == bound::lower ? c.to : c.from),
-                                    l.value() - c.distance));
+
+            Cl.emplace_back(l.sign(), (l.sign() == bound::lower ? c.to : c.from),
+                            l.value() - c.distance, detail::Numeric{});
         }
         
         //      std::cout << std::endl;
@@ -720,7 +719,7 @@ public:
     bool initialized{false};
     void initializeSearch();
     
-    static const Literal<T> Contradiction;
+    static constexpr Literal<T> Contradiction = makeBooleanLiteral<T>(false, Constant::NoVarx, 0);
     
     double looseness(const Literal<T> &l) const;
     
@@ -737,9 +736,6 @@ private:
 #endif
 };
 
-template <typename T>
-const Literal<T> Solver<T>::Contradiction = Literal<T>(false, Constant::NoVarx,
-                                                       info_t(0));
 
 #ifdef DBG_TRACE
 template <typename T> void Solver<T>::printTrace() const {
@@ -752,7 +748,7 @@ template <typename T> void Solver<T>::printTrace() const {
 
 template <typename T>
 Literal<T> BooleanStore<T>::getLiteral(const bool s, const var_t x) const {
-    return Literal<T>(s, x, edge_index[x]);
+    return makeBooleanLiteral<T>(s, x, edge_index[x]);
 }
 
 template <typename T>
@@ -1064,7 +1060,7 @@ propagation_queue(constraints), boolean_constraints(&env),
 numeric_constraints(&env), restartPolicy(*this),
 boolean_search_vars(0, &env), numeric_search_vars(0, &env),
 graph_exp(*this), bound_exp(*this) {
-    trail.emplace_back(Constant::NoVarx, Constant::Infinity<T>);
+    trail.emplace_back(Constant::NoVarx, Constant::Infinity<T>, detail::Numeric{});
     reason.push_back(Constant::Decision<T>);
     seed(options.seed);
     
@@ -2395,7 +2391,7 @@ void Solver<T>::update(const bool bounds, const int s, const G &neighbors) {
           throw NewFailure<T>(
               {&graph_exp, static_cast<hint>(Literal<T>::index(bounds, s))});
         }
-        setNumeric(Literal<T>(bounds, v, shortest_path[u] + w),
+        setNumeric(makeNumericLiteral<T>(bounds, v, shortest_path[u] + w),
                    {&graph_exp,
                     static_cast<hint>((edge.stamp() != Constant::NoIndex
                                            ? edge.stamp()
