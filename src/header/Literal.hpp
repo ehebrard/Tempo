@@ -150,139 +150,109 @@ namespace detail {
 
 
 template<typename T>
-struct Literal {
-    Literal() = default;
-//    Literal(const var_t i, const T d);
-    Literal(const var_t i, const std::variant<info_t,T> d);
-    Literal(const bool sign, const var_t x, const T v);
-    Literal(const bool sign, const var_t x, const info_t v);
+struct Literal : public detail::LiteralStorage<T> {
+    constexpr Literal() noexcept: detail::LiteralStorage<T>(Constant::NoVarx, Constant::NoSemantic) {}
+    constexpr Literal(bool sign, var_t x, T v) noexcept;
+    constexpr Literal(bool sign, var_t x, info_t v) noexcept;
+    using detail::LiteralStorage<T>::LiteralStorage;
 
-    bool isBoolean() const;
-    bool hasSemantic() const;
-    bool isNumeric() const;
+    [[nodiscard]] constexpr bool isBoolean() const noexcept;
+    [[nodiscard]] constexpr bool hasSemantic() const noexcept;
 
     //    operator int() const;
-    operator info_t() const;
+    constexpr operator std::uint32_t() const noexcept;
 
-    bool sign() const;
-    var_t variable() const;
+    [[nodiscard]] constexpr var_t variable() const noexcept;
 
-    bool sameVariable(Literal<T> l) const;
-    bool operator==(const Literal<T> &l) const;
+    constexpr bool sameVariable(const Literal<T> &l) const noexcept;
+    constexpr bool operator==(const Literal<T> &l) const noexcept;
 
-    T value() const;
-    info_t constraint() const;
-    
+    [[nodiscard]] constexpr info_t constraint() const noexcept;
     std::ostream& display(std::ostream &os) const;
     
-    static var_t index(const bool sign, const var_t x) ;
-    static var_t var(const var_t s);
-    static bool sign(const var_t s);
-
-    void setValue(T v);
-
-    info_t _id_{0};
-    std::variant<info_t,T> _data_;
+    static constexpr std::uint32_t index(bool sign, var_t x) noexcept;
+    static constexpr var_t var(info_t l) noexcept;
+    static constexpr bool sgn(std::uint32_t l) noexcept;
 };
 
-template <typename T> Literal<T>::Literal(const var_t i, const std::variant<info_t,T> d) : _id_(i), _data_(d) {}
-
-//template <typename T> Literal<T>::Literal(const var_t i, const T d) : _id_(i), _data_(d) {}
+template <typename T>
+constexpr Literal<T>::Literal(bool sign, var_t x, T v) noexcept:
+        detail::LiteralStorage<T>(index(sign, x), detail::NumericValue<T>(std::move(v))) {}
 
 template <typename T>
-Literal<T>::Literal(const bool sign, const var_t x, const T v)
-    : _id_(index(sign,x)), _data_(v) {
+constexpr Literal<T>::Literal(bool sign, var_t x, const info_t v) noexcept:
+        detail::LiteralStorage<T>(index(sign, x), v) {}
+
+template <typename T>
+constexpr bool Literal<T>::sameVariable(const Literal<T> &l) const noexcept{
+  return this->isNumeric() == l.isNumeric() and variable() == l.variable();
 }
 
 template <typename T>
-Literal<T>::Literal(const bool sign, const var_t x, const info_t v)
-    : _id_(index(sign,x)), _data_(v) {
+constexpr bool Literal<T>::operator==(const Literal<T> &l) const noexcept {
+    if (this->isNumeric()) {
+        return l.isNumeric() and this->id() == l.id() and this->value() == l.value();
+    } else {
+        return not l.isNumeric() and this->id() == l.id();
+    }
 }
 
-template <typename T> void Literal<T>::setValue(T v) { _data_ = v; }
-
-template <typename T> bool Literal<T>::sameVariable(Literal<T> l) const {
-  return isNumeric() == l.isNumeric() and variable() == l.variable();
-}
-
-template <typename T> bool Literal<T>::operator==(const Literal<T> &l) const {
-  if (isNumeric()) {
-    if (not l.isNumeric())
-      return false;
-    return _id_ == l._id_ and value() == l.value();
-  } else if (l.isNumeric())
-    return false;
-  return _id_ == l._id_;
-}
-
-template <typename T> info_t Literal<T>::index(const bool sign, const var_t x) {
+template <typename T>
+constexpr std::uint32_t Literal<T>::index(const bool sign, const var_t x) noexcept {
     return 2 * x + sign;
 }
 
-template <typename T> var_t Literal<T>::var(const info_t x) { return x / 2; }
-
-template <typename T> bool Literal<T>::sign(const info_t x) { return x & 1; }
-
-template <typename T> Literal<T>::operator info_t() const { return _id_; }
-// template <typename T> Literal<T>::operator int() const { return
-// static_cast<int>(_id_); }
-
-template <typename T> bool Literal<T>::sign() const { return (_id_ & 1); }
+template <typename T>
+constexpr var_t Literal<T>::var(info_t l) noexcept { return l / 2; }
 
 template<typename T>
-var_t Literal<T>::variable() const {
-    return _id_ / 2;
+constexpr bool Literal<T>::sgn(std::uint32_t l) noexcept {
+    return l & 1;
+}
+
+template <typename T>
+constexpr Literal<T>::operator std::uint32_t() const noexcept { return this->id(); }
+
+template<typename T>
+constexpr var_t Literal<T>::variable() const noexcept{
+    return this->id() / 2;
 }
 
 template<typename T>
-T Literal<T>::value() const {
-    return std::get<T>(_data_);
+constexpr info_t Literal<T>::constraint() const noexcept {
+    return this->semantic() + this->sign();
 }
 
 template<typename T>
-info_t Literal<T>::constraint() const {
-    return std::get<info_t>(_data_) + sign();
+constexpr bool Literal<T>::isBoolean() const noexcept {
+    return not this->isNumeric();
 }
 
 template<typename T>
-bool Literal<T>::isBoolean() const {
-    return std::holds_alternative<info_t>(_data_);
+constexpr bool Literal<T>::hasSemantic() const noexcept {
+    return this->isNumeric() or this->semantic() != Constant::NoSemantic;
 }
 
-template<typename T>
-bool Literal<T>::isNumeric() const {
-    return not isBoolean();
-}
-
-template<typename T>
-bool Literal<T>::hasSemantic() const {
-    return isNumeric() or std::get<info_t>(_data_) != Constant::NoSemantic;
-}
-
-template <typename T> Literal<T> operator~(const Literal<T> l) {
+template <typename T> Literal<T> operator~(const Literal<T> &l) {
   if (l.isNumeric()) {
-    return Literal<T>(not l.sign(), l.variable(),
-                      -std::get<T>(l._data_) - Gap<T>::epsilon());
+    return Literal<T>(not l.sign(), l.variable(), -l.value() - Gap<T>::epsilon());
   } else {
-//    auto d{std::get<info_t>(l._data_)};
-//    if (d != Constant::NoSemantic)
-//      return Literal<T>(l._id_ ^ 1, d ^ 1);
-    return Literal<T>(l._id_ ^ 1, std::get<info_t>(l._data_));
+    return Literal<T>(l.id() ^ 1, l.semantic());
   }
 }
 
 template <typename T> std::ostream& Literal<T>::display(std::ostream &os) const {
-    if(_id_ == Constant::NoVarx) {
-      if (value() == Constant::Infinity<T>)
+    if(this->id() == Constant::NoVarx) {
+      if (this->value() == Constant::Infinity<T>)
         os << "infinity";
-      else if (value() == -Constant::Infinity<T>)
+      else if (this->value() == -Constant::Infinity<T>)
         os << "-infinity";
       else
-        os << "constant: " << value();
-    } else if(isNumeric()) {
-        os << (sign() ? "x" : "-x") << variable() << " <= " << value();
+        os << "constant: " << this->value();
+    } else if(this->isNumeric()) {
+        os << (this->sign() ? "x" : "-x") << variable() << " <= " << this->value();
     } else {
-      os << (sign() ? "b" : "¬b") << variable() << (hasSemantic() ? "*" : "");
+      os << (this->sign() ? "b" : "¬b") << variable() << (hasSemantic() ? "*" : "");
     }
     return os;
 }

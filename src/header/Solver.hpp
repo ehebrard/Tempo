@@ -191,7 +191,7 @@ void GraphExplainer<T>::xplain(const Literal<T> l, const hint h,
                                std::vector<Literal<T>> &Cl) {
     
     if (l == Solver<T>::Contradiction) {
-        auto s{Literal<T>::sign(h)};
+        auto s{Literal<T>::sgn(h)};
         auto x{Literal<T>::var(h)};
         //    //        auto lcycle{solver.getLiteral(static_cast<index_t>(h))};
         //    std::cout << "explain contradiction: negative cycle "
@@ -1058,7 +1058,7 @@ propagation_queue(constraints), boolean_constraints(&env),
 numeric_constraints(&env), restartPolicy(*this),
 boolean_search_vars(0, &env), numeric_search_vars(0, &env),
 graph_exp(*this), bound_exp(*this) {
-    trail.emplace_back(Constant::NoVarx, Constant::Infinity<T>);
+    trail.emplace_back(Constant::NoVarx, detail::NumericValue(Constant::Infinity<T>));
     reason.push_back(Constant::Decision<T>);
     seed(options.seed);
     
