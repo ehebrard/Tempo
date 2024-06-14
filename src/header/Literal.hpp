@@ -49,7 +49,7 @@ namespace detail {
          * constructs a constraint literal
          * @param sign sign of the literal
          * @param literalId identifier of the literal (not of the variable!)
-         * @param semanticInfo constraint information
+         * @param semanticInfo semantic information
          * @note the id of the corresponding variable should be litId / 2. See also makeSemanticLit
          */
         constexpr LiteralStorage(info_t literalId, info_t semanticInfo) noexcept:
@@ -104,11 +104,11 @@ namespace detail {
         }
 
         /**
-         * Access to the stored constraint information
-         * @return the stored constraint information
-         * @throws std::bad_variant_access if storage does not contain constraint information
+         * Access to the stored semantic information
+         * @return the stored semantic information
+         * @throws std::bad_variant_access if storage does not contain semantic information
          */
-        [[nodiscard]] constexpr info_t constraint() const {
+        [[nodiscard]] constexpr info_t semantic() const {
             if (isNumeric()) {
                 throw std::bad_variant_access();
             }
@@ -135,10 +135,10 @@ namespace detail {
     }
 
     /**
-     * Helper function for constructing constraint literal storage
+     * Helper function for constructing semantic literal storage
      * @tparam T data type
      * @param id identifier of the literal
-     * @param semantic constraint information
+     * @param semantic semantic information
      * @return Semantic LiteralStorage
      */
     template<typename T>

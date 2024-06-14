@@ -20,7 +20,7 @@ TEST(util, LiteralStorage_Ctor) {
     EXPECT_FALSE(ls.isNumeric());
     EXPECT_FALSE(ls.sign());
     EXPECT_EQ(ls.id(), 1168623114);
-    EXPECT_EQ(ls.constraint(), 14);
+    EXPECT_EQ(ls.semantic(), 14);
     LiteralStorage<std::uint16_t> smallLit(29, NumericValue<std::uint16_t>(14));
     EXPECT_TRUE(smallLit.sign());
     EXPECT_EQ(smallLit.id(), 29);
@@ -44,7 +44,7 @@ TEST(util, LiteralStorage_access) {
     EXPECT_EQ(ls.value(), 0.75);
     ls = {18, 14};
     EXPECT_FALSE(ls.isNumeric());
-    EXPECT_EQ(ls.constraint(), 14);
+    EXPECT_EQ(ls.semantic(), 14);
     ls.setValue(0.34f);
     EXPECT_TRUE(ls.isNumeric());
     EXPECT_EQ(ls.value(), 0.34f);
@@ -53,7 +53,7 @@ TEST(util, LiteralStorage_access) {
 TEST(util, LiteralStorage_invalid_access) {
     using namespace tempo::detail;
     LiteralStorage ls(13, NumericValue(0.17f));
-    EXPECT_THROW((void)ls.constraint(), std::bad_variant_access);
+    EXPECT_THROW((void)ls.semantic(), std::bad_variant_access);
     ls = {13, 14};
     EXPECT_THROW((void)ls.value(), std::bad_variant_access);
 }
@@ -63,7 +63,7 @@ TEST(util, LiteralStorage_creator_functions) {
     auto ls = makeSemanticLit<float>(17, 4);
     EXPECT_TRUE(ls.sign());
     EXPECT_FALSE(ls.isNumeric());
-    EXPECT_EQ(ls.constraint(), 4);
+    EXPECT_EQ(ls.semantic(), 4);
     EXPECT_EQ(ls.id(), 17);
     ls = makeNumericLit(12, 0.3f);
     EXPECT_FALSE(ls.sign());
