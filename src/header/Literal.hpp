@@ -19,14 +19,13 @@ enum bound { lower = 0, upper = 1 };
 namespace detail {
     /**
      * Tag class to resolve ctor ambiguity
-     * @tparam value held
      */
-    template<typename T>
-    struct NumericValue {
-        explicit constexpr NumericValue(T val) noexcept: val(val) {}
+    struct Numeric {};
 
-        T val;
-    };
+    /**
+     * Tag class to resolve ctor ambiguity
+     */
+    struct Boolean {};
 
     /**
      * Tagged union class that holds a variable ID and either numeric data or constraint info
@@ -46,25 +45,25 @@ namespace detail {
     public:
         /**
          * Ctor
-         * constructs a constraint literal
+         * constructs a boolean literal storage
          * @param sign sign of the literal
          * @param literalId identifier of the literal (not of the variable!)
          * @param semanticInfo semantic information
          * @note the id of the corresponding variable should be litId / 2. See also makeSemanticLit
          */
-        constexpr LiteralStorage(info_t literalId, info_t semanticInfo) noexcept:
+        constexpr LiteralStorage(info_t literalId, info_t semanticInfo, Boolean) noexcept:
                 info(literalId << 1), semanticInfo(semanticInfo) {}
 
         /**
          * Ctor
-         * constructs a numeric literal
+         * constructs a numeric literal storage
          * @param sign sign of the literal
          * @param literalId identifier of the literal (not of the variable!)
          * @param numericVal numeric value stored in the literal
          * @note see also makeNumericLit
          */
-        constexpr LiteralStorage(info_t literalId, NumericValue<T> numericVal) noexcept: info(
-                (literalId << 1) | TagBit), numericData(std::move(numericVal.val)) {}
+        constexpr LiteralStorage(info_t literalId, T numericVal, Numeric) noexcept: info(
+                (literalId << 1) | TagBit), numericData(std::move(numericVal)) {}
 
         /**
          * Checks whether the storage holds a numeric value
@@ -131,7 +130,7 @@ namespace detail {
      */
     template<typename T>
     constexpr auto makeNumericLit(info_t id, T value) noexcept(std::is_nothrow_move_constructible_v<T>) {
-        return LiteralStorage<T>(id, NumericValue<T>(std::move(value)));
+        return LiteralStorage<T>(id, std::move(value), Numeric{});
     }
 
     /**
@@ -143,7 +142,7 @@ namespace detail {
      */
     template<typename T>
     constexpr auto makeSemanticLit(info_t id, info_t semantic) noexcept {
-        return LiteralStorage<T>(id, semantic);
+        return LiteralStorage<T>(id, semantic, Boolean{});
     }
 }
 
@@ -151,10 +150,27 @@ namespace detail {
 
 template<typename T>
 struct Literal : public detail::LiteralStorage<T> {
-    constexpr Literal() noexcept: detail::LiteralStorage<T>(Constant::NoVarx, Constant::NoSemantic) {}
+    constexpr Literal() noexcept: detail::LiteralStorage<T>(Constant::NoVarx,Constant::NoSemantic, detail::Boolean{}) {}
 
-    constexpr Literal(bool sign, var_t x, T v) noexcept;
-    constexpr Literal(bool sign, var_t x, info_t v) noexcept;
+    /**
+     * Ctor
+     * constructs a NUMERIC literal
+     * @param sign sign of the literal
+     * @param x variable identifier
+     * @param v numeric value
+     * @note see also makeNumericLiteral()
+     */
+    constexpr Literal(bool sign, var_t x, T v, detail::Numeric) noexcept;
+
+    /**
+     * Ctor
+     * constructs a BOOLEAN literal
+     * @param sign sign of the literal
+     * @param x variable identifier
+     * @param v semantic information
+     * @note see also makeBooleanLiteral()
+     */
+    constexpr Literal(bool sign, var_t x, info_t info, detail::Boolean) noexcept;
     using detail::LiteralStorage<T>::LiteralStorage;
 
     [[nodiscard]] constexpr bool isBoolean() const noexcept;
@@ -176,12 +192,37 @@ struct Literal : public detail::LiteralStorage<T> {
 };
 
 template <typename T>
-constexpr Literal<T>::Literal(bool sign, var_t x, T v) noexcept:
-        detail::LiteralStorage<T>(index(sign, x), detail::NumericValue<T>(std::move(v))) {}
+constexpr Literal<T>::Literal(bool sign, var_t x, T v, detail::Numeric) noexcept:
+        detail::LiteralStorage<T>(index(sign, x), std::move(v), detail::Numeric{}) {}
 
 template <typename T>
-constexpr Literal<T>::Literal(bool sign, var_t x, const info_t v) noexcept:
-        detail::LiteralStorage<T>(index(sign, x), v) {}
+constexpr Literal<T>::Literal(bool sign, var_t x, info_t info, detail::Boolean) noexcept:
+        detail::LiteralStorage<T>(index(sign, x), info, detail::Boolean{}) {}
+
+
+/**
+ * Helper function to generate numeric Literals
+ * @param sign sign of the literal
+ * @param variableId id of the variable (not the index of the literal)
+ * @param value numeric value to store
+ * @note prefer using this function when constructing numeric literals over the constructor
+ */
+template<typename T>
+constexpr auto makeNumericLiteral(bool sign, var_t variableId, T value) noexcept(std::is_nothrow_move_constructible_v<T>) {
+    return Literal<T>(sign, variableId, std::move(value), detail::Numeric{});
+}
+
+/**
+ * Helper function to generate boolean Literals
+ * @param sign sign of the literal
+ * @param variableId id of the variable (not the index of the literal)
+ * @param info semantic info
+ * @note prefer using this function when constructing boolean literals over the constructor
+ */
+template<typename T>
+constexpr auto makeBooleanLiteral(bool sign, var_t variableId, info_t info) noexcept {
+    return Literal<T>(sign, variableId, info, detail::Boolean{});
+}
 
 template <typename T>
 constexpr bool Literal<T>::sameVariable(const Literal<T> &l) const noexcept{
@@ -233,12 +274,13 @@ constexpr bool Literal<T>::hasSemantic() const noexcept {
     return this->isNumeric() or this->semantic() != Constant::NoSemantic;
 }
 
-template <typename T> Literal<T> operator~(const Literal<T> &l) {
-  if (l.isNumeric()) {
-    return Literal<T>(not l.sign(), l.variable(), -l.value() - Gap<T>::epsilon());
-  } else {
-    return Literal<T>(l.id() ^ 1, l.semantic());
-  }
+template<typename T>
+Literal<T> operator~(const Literal<T> &l) {
+    if (l.isNumeric()) {
+        return makeNumericLiteral(not l.sign(), l.variable(), -l.value() - Gap<T>::epsilon());
+    } else {
+        return Literal<T>(l.id() ^ 1, l.semantic(), detail::Boolean{});
+    }
 }
 
 template <typename T> std::ostream& Literal<T>::display(std::ostream &os) const {
@@ -263,41 +305,41 @@ std::ostream &operator<<(std::ostream &os, const Literal<T> &x) {
 }
 
 template <typename T> Literal<T> ub(const var_t x) {
-  return Literal<T>(true, x, Constant::Infinity<T>);
+  return makeNumericLiteral(true, x, Constant::Infinity<T>);
 }
 
 template <typename T> Literal<T> lb(const var_t x) {
-  return Literal<T>(false, x, Constant::Infinity<T>);
+  return makeNumericLiteral(false, x, Constant::Infinity<T>);
 }
 
 template<typename T>
 Literal<T> leq(const var_t x, const T v) {
-    return Literal<T>(true, x, v);
+    return makeNumericLiteral(true, x, v);
 }
 
 template<typename T>
 Literal<T> gt(const var_t x, const T v) {
-    return Literal<T>(false, x, -v-Gap<T>::epsilon());
+    return makeNumericLiteral(false, x, -v-Gap<T>::epsilon());
 }
 
 template<typename T>
 Literal<T> lt(const var_t x, const T v) {
-    return Literal<T>(true, x, v-Gap<T>::epsilon());
+    return makeNumericLiteral(true, x, v-Gap<T>::epsilon());
 }
 
 template<typename T>
 Literal<T> geq(const var_t x, const T v) {
-    return Literal<T>(false, x, -v);
+    return makeNumericLiteral(false, x, -v);
 }
 
 template<typename T>
 Literal<T> pos(const var_t x, const info_t d=0) {
-    return Literal<T>(true, x, d);
+    return makeBooleanLiteral<T>(true, x, d);
 }
 
 template<typename T>
 Literal<T> neg(const var_t x, const info_t d=0) {
-    return Literal<T>(false, x, d);
+    return makeBooleanLiteral<T>(false, x, d);
 }
 
 
