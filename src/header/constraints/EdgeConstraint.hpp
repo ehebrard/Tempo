@@ -298,7 +298,7 @@ void NewEdgeConstraint<T>::xplain(const Literal<T>, const hint,
     if(r_lb < r_ub) {
         
         auto p{m_solver.getLiteral(r_lb)};
-        auto q{Literal<T>(bound::upper, edge.to, edge.distance - p.value())};
+        auto q{makeNumericLiteral(bound::upper, edge.to, edge.distance - p.value())};
         
 //        std::cout << " * or by " << p << " & " << q << std::endl << std::endl;
         
@@ -307,7 +307,7 @@ void NewEdgeConstraint<T>::xplain(const Literal<T>, const hint,
     } else {
         
         auto q{m_solver.getLiteral(r_ub)};
-        auto p{Literal<T>(bound::lower, edge.from, edge.distance - q.value())};
+        auto p{makeNumericLiteral(bound::lower, edge.from, edge.distance - q.value())};
         
 //        std::cout << " * or by " << p << " & " << q << std::endl << std::endl;
         
