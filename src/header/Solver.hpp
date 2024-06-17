@@ -1370,20 +1370,38 @@ template <typename T> void Solver<T>::minimize() {
     minimal_clause.push_back(learnt_clause[0]);
     
 #ifdef DBG_MINIMIZATION
+    if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
         std::cout << std::endl << ~learnt_clause[0] << " (UIP:" << decisionLevel(~learnt_clause[0]) << "/" << propagationLevel(~learnt_clause[0]) << "\n";
+    }
 #endif
+    
+    
+    if(learnt_clause[0].isNumeric())
+        numeric.setConflictIndex(~learnt_clause[0], Constant::NoIndex);
+    explored[literal_lvl[0]] = false;
     
     for(index_t i{0}; ++i<learnt_clause.size();) {
         auto p_lvl{literal_lvl[i]};
+        
+ 
+        
         auto r{reason[p_lvl]};
         bool relevant{true};
         
 #ifdef DBG_MINIMIZATION
-                std::cout << ~learnt_clause[i] << "(" << decisionLevel(~learnt_clause[i]) << "/" << propagationLevel(~learnt_clause[i]) << ")" << ":";
+        if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+            std::cout << ~learnt_clause[i] << "(" << decisionLevel(~learnt_clause[i]) << "/" << propagationLevel(~learnt_clause[i]) << ")" << ":";
+        }
 #endif
         
         if(r != Constant::Decision<T>) {
             auto p{~learnt_clause[i]};
+            
+            if(learnt_clause[i].isNumeric())
+                numeric.setConflictIndex(p, Constant::NoIndex);
+            explored[p_lvl] = false;
+            
+            
             relevant = false;
             
             lit_buffer.clear();
@@ -1392,41 +1410,61 @@ template <typename T> void Solver<T>::minimize() {
             for(auto q : lit_buffer) {
                 
 #ifdef DBG_MINIMIZATION
-                                std::cout << " " << q;
+                if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+                    std::cout << " " << q;
+                }
 #endif
                 
                 auto q_lvl{propagationLevel(q)};
+                
+
+                
                 if(q_lvl >= fact_lvl and not entailedByConflict(q, q_lvl))
                 {
                     relevant = true;
                     break;
                 }
+#ifdef DBG_MINIMIZATION
+                else if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+                    std::cout << " (";
+                    if(q_lvl < fact_lvl)
+                        std::cout << "f";
+                    if(entailedByConflict(q, q_lvl))
+                        std::cout << "e";
+                    std::cout << ")";
+                }
+#endif
             }
         }
         
 #ifdef DBG_MINIMIZATION
-                else {
+        else if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
                     std::cout << " (decision)";
                 }
 #endif
         
         if(relevant) {
-            literal_lvl[minimal_clause.size()] = literal_lvl[i];
+            assert(p_lvl == literal_lvl[i]);
+            
+            literal_lvl[minimal_clause.size()] = p_lvl; //literal_lvl[i];
             minimal_clause.push_back(learnt_clause[i]);
-        } else {
-            if(learnt_clause[i].isNumeric())
-                numeric.setConflictIndex(~learnt_clause[i], Constant::NoIndex);
-            explored[literal_lvl[i]] = false;
-        }
+        } 
+//        else {
+//
+//        }
         
 #ifdef DBG_MINIMIZATION
-                std::cout << (relevant ? " ==> relevant\n" : " ==> useless\n");
+        if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+            std::cout << (relevant ? " ==> relevant\n" : " ==> useless\n");
+        }
 #endif
     }
     
 #ifdef DBG_MINIMIZATION
-    if(minimal_clause.size() < learnt_clause.size()) {
-        std::cout << "minimized away " << (learnt_clause.size() - minimal_clause.size()) << " literals\n" ;
+    if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+        if(minimal_clause.size() < learnt_clause.size()) {
+            std::cout << "minimized away " << (learnt_clause.size() - minimal_clause.size()) << " literals\n" ;
+        }
     }
 #endif
     
@@ -1434,8 +1472,10 @@ template <typename T> void Solver<T>::minimize() {
     literal_lvl.resize(learnt_clause.size());
     
 #ifdef DBG_MINIMIZATION
-    for(size_t i{0}; i<learnt_clause.size(); ++i) {
-        assert(propagationLevel(~(learnt_clause[i])) == literal_lvl[i]);
+    if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+        for(size_t i{0}; i<learnt_clause.size(); ++i) {
+            assert(propagationLevel(~(learnt_clause[i])) == literal_lvl[i]);
+        }
     }
 #endif
     
@@ -1682,22 +1722,6 @@ template <typename T> void Solver<T>::analyze(NewExplanation<T> &e) {
         learnt_clause.push_back(~p);
     }
     
-    if (options.minimization > 0)
-        minimize();
-    
-    for (auto p : learnt_clause)
-        if (p.isNumeric()) {
-            numeric.setConflictIndex(~p, Constant::NoIndex);
-        }
-    
-    for (auto i : literal_lvl) {
-        explored[i] = false;
-    }
-    
-    //  for (index_t i{1}; i < trail.size(); ++i) {
-    //    assert(explored[i] == false);
-    //    assert(entailedByConflict(trail[i], i) == false);
-    //  }
     
 #ifdef DBG_TRACE
     if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
@@ -1718,6 +1742,48 @@ template <typename T> void Solver<T>::analyze(NewExplanation<T> &e) {
         std::cout << std::endl; //<< *this << std::endl;
     }
 #endif
+    
+    
+    if (options.minimization > 0) {
+        minimize();
+    }
+    
+    
+#ifdef DBG_TRACE
+    if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+        //    std::cout << "levels:";
+        //    for (auto d : decisions) {
+        //      std::cout << " " << propagationLevel(d);
+        //    }
+        std::cout << "\nminimized clause\n";
+        for (auto l : learnt_clause) {
+            std::cout << " " << pretty(l) << " @" << propagationLevel(~l);
+            //      if (l.isNumeric()) {
+            //        std::cout << " t =";
+            //        numeric.displayLiteralTrail(std::cout, l.sign(), l.variable());
+            //      }
+            std::cout << std::endl;
+            //            << "/[" << fact_lvl << ".." << decision_lvl << "]\n";
+        }
+        std::cout << std::endl; //<< *this << std::endl;
+    }
+#endif
+    
+    for (auto p : learnt_clause)
+        if (p.isNumeric()) {
+            numeric.setConflictIndex(~p, Constant::NoIndex);
+        }
+    
+    for (auto i : literal_lvl) {
+        explored[i] = false;
+    }
+    
+    //  for (index_t i{1}; i < trail.size(); ++i) {
+    //    assert(explored[i] == false);
+    //    assert(entailedByConflict(trail[i], i) == false);
+    //  }
+    
+
     
 #ifdef DBG_CL
     if (cl_file != NULL) {
@@ -1784,35 +1850,8 @@ template <typename T> void Solver<T>::learnConflict(NewExplanation<T> &e) {
 //        std::cout << "backjump b/c " << pretty(learnt) <<
     }
     
-#ifdef DBG_TRACE
-    if (DBG_BOUND and (DBG_TRACE & SEARCH)) {
-        std::cout << "before backjump (lvl=" << env.level() << ", |trail|=" << trail.size() << ")\n";
-          check_clause(3053);
-        std::cout << "x30 >= " << numeric.lower(30) ;
-        if(numeric.lower(30) > 170) {
-            std::cout << " (" << propagationLevel(geq<T>(30,171)) << "/" << propagationLevel(decisions[10]) << "-" << propagationLevel(decisions[11]) << ")";
-        }
-        std::cout << std::endl;
-    }
-#endif
-    
     restoreState(env.level() - jump);
     
-    
-    
-    
-#ifdef DBG_TRACE
-    if (DBG_BOUND and (DBG_TRACE & SEARCH)) {
-        std::cout << "backjump " << jump << " levels to (level=" << env.level() << ",|trail|=" << trail.size() << ")\n";
-        
-          check_clause(3053);
-          std::cout << "x30 >= " << numeric.lower(30) ;
-        if(numeric.lower(30) > 170) {
-            std::cout << " (" << propagationLevel(geq<T>(30,171)) << "/" << propagationLevel(decisions[10]) << "-" << propagationLevel(decisions[11]) << ")";
-        }
-        std::cout << std::endl;
-    }
-#endif
     
     decisions.resize(decisions.size() - jump);
     
@@ -1886,8 +1925,10 @@ template <typename T> void Solver<T>::learnConflict(NewExplanation<T> &e) {
 #endif
     
 #ifdef DBG_CL
-    if (++num_clauses > DBG_CL)
+    if (++num_clauses > DBG_CL) {
+        std::cout << "exit because of dbg clause limit (#fails = " << num_fails << ", #cpts = " << num_choicepoints << ")\n";
         exit(1);
+    }
 #endif
 }
 
@@ -2051,12 +2092,6 @@ template <typename T> boolean_state Solver<T>::search() {
     try {
 #ifdef DBG_TRACE
       if (DBG_BOUND) {
-          check_clause(3053);
-          std::cout << "x30 >= " << numeric.lower(30) ;
-          if(numeric.lower(30) > 170) {
-              std::cout << " (" << propagationLevel(geq<T>(30,171)) << "/" << propagationLevel(decisions[10]) << "-" << propagationLevel(decisions[11]) << ")";
-          }
-          std::cout << std::endl;
         std::cout << "--- propag [i=" << num_choicepoints << "] ---\n";
           printTrace();
       }
@@ -2101,12 +2136,6 @@ template <typename T> boolean_state Solver<T>::search() {
 
 #ifdef DBG_TRACE
         if (DBG_BOUND) {
-            check_clause(3053);
-            std::cout << "x30 >= " << numeric.lower(30) ;
-            if(numeric.lower(30) > 170) {
-                std::cout << " (" << propagationLevel(geq<T>(30,171)) << "/" << propagationLevel(decisions[10]) << "-" << propagationLevel(decisions[11]) << ")";
-            }
-            std::cout << std::endl;
           std::cout << "--- search node (lvl=" << env.level() << "/"
                     << init_level << ") [i=" << num_choicepoints << "] (|trail|=" << trail.size() << ")---\n";
           std::cout << " ** take decision " << d << ": " << pretty(d)
@@ -2119,17 +2148,6 @@ template <typename T> boolean_state Solver<T>::search() {
 //              std::cout << "before dec " << num_choicepoints << std::endl;
           
         set(d);
-          
-#ifdef DBG_TRACE
-      if (DBG_BOUND) {
-          check_clause(3053);
-          std::cout << "x30 >= " << numeric.lower(30) ;
-          if(numeric.lower(30) > 170) {
-              std::cout << " (" << propagationLevel(geq<T>(30,171)) << "/" << propagationLevel(decisions[10]) << "-" << propagationLevel(decisions[11]) << ")";
-          }
-          std::cout  << std::endl;
-      }
-#endif
           
 //          check_clauses("after decision");
           
@@ -2150,17 +2168,6 @@ template <typename T> boolean_state Solver<T>::search() {
 //              std::cout << "before backtrack " << num_choicepoints << std::endl;
 //          
         backtrack(f.reason);
-          
-#ifdef DBG_TRACE
-      if (DBG_BOUND) {
-          check_clause(3053);
-          std::cout << "x30 >= " << numeric.lower(30);
-          if(numeric.lower(30) > 170) {
-              std::cout << " (" << propagationLevel(geq<T>(30,171)) << "/" << propagationLevel(decisions[10]) << "-" << propagationLevel(decisions[11]) << ")";
-          }
-          std::cout << std::endl;
-      }
-#endif
           
 //          check_clauses("after backtrack");
           
