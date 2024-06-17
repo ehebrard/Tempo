@@ -195,7 +195,7 @@ ProblemInstance read_instance(const std::string &fn) {
 
 
 
-template <typename M, typename J, typename R> void parse(const std::string &fn, M &model, J& schedule, std::vector<J>& jobs,  std::vector<R>& resources) {
+template <typename M, typename J, typename R> void parse(const std::string &fn, M &solver, J& schedule, std::vector<J>& jobs,  std::vector<R>& resources) {
     using std::cerr;
     try {
         std::ifstream ifs(fn);
@@ -216,8 +216,12 @@ template <typename M, typename J, typename R> void parse(const std::string &fn, 
         std::cout << "makespan\n";
         //        auto schedule{model.newJob()};
         //        schedule = model.newJob();
-        model.set(schedule.start.after(0));
-        model.set(schedule.start.before(0));
+        
+//        model.add(schedule.start.after(0));
+        
+        
+        solver.set(schedule.start.after(0));
+        solver.set(schedule.start.before(0));
         
 //        int job{0};
         for (std::string line; getline(ifs, line); ++ln) {
@@ -258,14 +262,14 @@ template <typename M, typename J, typename R> void parse(const std::string &fn, 
                 }
 
                 std::cout << "new task (" << dur << ")\n";
-                auto j{model.newJob(dur, dur)};
+                auto j{solver.newJob(dur, dur)};
 
                 if (mach == 0) {
-                  model.set(j.start.after(schedule.start));
+                  solver.set(j.start.after(schedule.start));
                 } else {
-                  model.set(jobs.back().end.before(j.start));
+                  solver.set(jobs.back().end.before(j.start));
                   if (mach == nm - 1) {
-                    model.set(j.end.before(schedule.end));
+                    solver.set(j.end.before(schedule.end));
                   }
                 }
 
