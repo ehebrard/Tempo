@@ -1355,7 +1355,7 @@ bool Solver<T>::entailedByConflict(Literal<T> p, const index_t p_lvl) const {
     if (p.isNumeric()) {
         auto p_idx{numeric.getConflictIndex(p)};
         if (p_idx != Constant::NoIndex) {
-            return conflict[p_idx].value() <= p.value();
+            return conflict[p_idx].value() <= p.value_unsafe();
         }
     }
     return explored[p_lvl]; // boolean.visited(p);
@@ -1682,8 +1682,8 @@ template <typename T> void Solver<T>::analyze(NewExplanation<T> &e) {
     if (l.isNumeric()) {
         auto idx_l{numeric.getConflictIndex(l)};
         if (idx_l != Constant::NoIndex) {
-            if (conflict[idx_l].value() > l.value()) {
-                conflict[idx_l].setValue(l.value());
+            if (conflict[idx_l].value() > l.value_unsafe()) {
+                conflict[idx_l].setValue(l.value_unsafe());
                 literal_lvl[idx_l] = li + 1;
             }
             need_add = false;
@@ -2498,7 +2498,7 @@ template <typename T> double Solver<T>::looseness(const Literal<T> &l) const {
       
 
     if (l.sign() == bound::lower) {
-      auto b{-l.value()};
+      auto b{-l.value_unsafe()};
 //        std::cout << "lower bound (" << ub << " - " << b << ")\n";
 ////      assert(b >= lb);
 //        std::cout << l << " -> " << (static_cast<double>(ub - b) / static_cast<double>(ub - lb)) << std::endl;
@@ -2513,7 +2513,7 @@ template <typename T> double Solver<T>::looseness(const Literal<T> &l) const {
         
         return ls / static_cast<double>(ub - lb);
     } else {
-      auto b{l.value()};
+      auto b{l.value_unsafe()};
 //        std::cout << "upper bound (" << b << " - " << lb << ")\n";
 ////      assert(b <= ub);
 //        std::cout << l << " -> " << (static_cast<double>(b - lb) / static_cast<double>(ub - lb)) << std::endl;

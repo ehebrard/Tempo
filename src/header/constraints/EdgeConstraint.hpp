@@ -295,33 +295,55 @@ void NewEdgeConstraint<T>::xplain(const Literal<T>, const hint,
 //    std::cout << "explain " << m_solver.pretty(p) << " by (" << edge << ") i.e, " << m_solver.getLiteral(r_lb) << " & " << m_solver.getLiteral(r_ub) << std::endl;
 //    
     
-//    if(r_lb < r_ub) {
-//        
-//        auto p{m_solver.getLiteral(r_lb)};
-////        auto q{Literal<T>(bound::upper, edge.to, edge.distance - p.value())};
-////        auto q{geq<T>(edge.to, p.value() - edge.distance)};
-//        auto q{makeNumericLiteral(bound::upper, edge.to, edge.distance - p.value())};
-//        
-////        std::cout << " * or by " << p << " & " << q << std::endl << std::endl;
-//        
-//        Cl.push_back(p);
-//        Cl.push_back(q);
-//    } else {
-//        
-//        auto q{m_solver.getLiteral(r_ub)};
-////        auto p{Literal<T>(bound::lower, edge.from, edge.distance - q.value())};
-////        auto p{leq<T>(edge.from, edge.distance - q.value())};
-//        
-//        auto p{makeNumericLiteral(bound::lower, edge.from, edge.distance - q.value())};
-//        
-////        std::cout << " * or by " << p << " & " << q << std::endl << std::endl;
-//        
-//        Cl.push_back(p);
-//        Cl.push_back(q);
-//    }
-
-  Cl.push_back(m_solver.getLiteral(r_lb));
-  Cl.push_back(m_solver.getLiteral(r_ub));
+//<<<<<<< HEAD
+////    if(r_lb < r_ub) {
+////        
+////        auto p{m_solver.getLiteral(r_lb)};
+//////        auto q{Literal<T>(bound::upper, edge.to, edge.distance - p.value())};
+//////        auto q{geq<T>(edge.to, p.value() - edge.distance)};
+////        auto q{makeNumericLiteral(bound::upper, edge.to, edge.distance - p.value())};
+////        
+//////        std::cout << " * or by " << p << " & " << q << std::endl << std::endl;
+////        
+////        Cl.push_back(p);
+////        Cl.push_back(q);
+////    } else {
+////        
+////        auto q{m_solver.getLiteral(r_ub)};
+//////        auto p{Literal<T>(bound::lower, edge.from, edge.distance - q.value())};
+//////        auto p{leq<T>(edge.from, edge.distance - q.value())};
+////        
+////        auto p{makeNumericLiteral(bound::lower, edge.from, edge.distance - q.value())};
+////        
+//////        std::cout << " * or by " << p << " & " << q << std::endl << std::endl;
+////        
+////        Cl.push_back(p);
+////        Cl.push_back(q);
+////    }
+//=======
+    if(r_lb < r_ub) {
+        
+        auto p{m_solver.getLiteral(r_lb)};
+        auto q{makeNumericLiteral(bound::upper, edge.to, edge.distance - p.value())};
+        
+//        std::cout << " * or by " << p << " & " << q << std::endl << std::endl;
+        
+        Cl.push_back(p);
+        Cl.push_back(q);
+    } else {
+        
+        auto q{m_solver.getLiteral(r_ub)};
+        auto p{makeNumericLiteral(bound::lower, edge.from, edge.distance - q.value())};
+        
+//        std::cout << " * or by " << p << " & " << q << std::endl << std::endl;
+        
+        Cl.push_back(p);
+        Cl.push_back(q);
+    }
+//>>>>>>> 83891036076eb25d8d738038e8b2807c802515a5
+//
+//  Cl.push_back(m_solver.getLiteral(r_lb));
+//  Cl.push_back(m_solver.getLiteral(r_ub));
 }
 
 template <typename T>
