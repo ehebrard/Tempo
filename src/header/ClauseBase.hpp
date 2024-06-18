@@ -900,20 +900,16 @@ template <typename T> void ClauseBase<T>::forget() {
     for (auto idx{free_cl_indices.bbegin()}; idx != free_cl_indices.bend();
          ++idx) {
       score[*idx] = 0;
-        
-        
-        
       for (auto l : *base[*idx]) {
         score[*idx] += looseness(l);
       }
     }
   } else if (caller.getOptions().forget_strategy ==
              Options::LiteralScore::LoosenessOverActivity) {
+
     for (auto idx{free_cl_indices.bbegin()}; idx != free_cl_indices.bend();
          ++idx) {
       score[*idx] = 0;
-        
-        
       for (auto l : *base[*idx]) {
         score[*idx] += loosenessOverActivity(l);
       }
@@ -1772,9 +1768,12 @@ template <typename T> void NewClauseBase<T>::forget() {
   verifyWatchers("before forget");
 #endif
 
+  //    std::cout << "option: " << solver.getOptions().forget_strategy <<
+  //    std::endl;
+
   if (solver.getOptions().forget_strategy == Options::LiteralScore::Looseness or
-      ( // solver.getActivityMap() == NULL and
-          solver.getOptions().forget_strategy != Options::LiteralScore::Size)) {
+      (solver.getActivityMap() == NULL and
+       solver.getOptions().forget_strategy != Options::LiteralScore::Size)) {
     for (auto idx{free_cl_indices.bbegin()}; idx != free_cl_indices.bend();
          ++idx) {
       score[*idx] = 0;
@@ -1787,6 +1786,9 @@ template <typename T> void NewClauseBase<T>::forget() {
     }
   } else if (solver.getOptions().forget_strategy ==
              Options::LiteralScore::LoosenessOverActivity) {
+
+    //  std::cout << "forget with l/a\n";
+
     for (auto idx{free_cl_indices.bbegin()}; idx != free_cl_indices.bend();
          ++idx) {
       score[*idx] = 0;
@@ -1825,12 +1827,23 @@ template <typename T> void NewClauseBase<T>::forget() {
 
   free_cl_indices.re_index(free_cl_indices.bbegin(), free_cl_indices.bend());
 
+  //
+  //    std::cout << "ordering, from worst to best:\n";
+  //    for(auto i{free_cl_indices.bbegin()}; i!=free_cl_indices.bend(); ++i) {
+  //        std::cout << *base[*i] << std::endl;
+  //    }
+  //
   auto target_size = static_cast<size_t>(
       static_cast<double>(numLearnt()) * (1.0 - solver.getOptions().forgetfulness));
 
   while (numLearnt() > target_size) {
     forget_worst();
   }
+  //
+  //    std::cout << "\n===>\n";
+  //    for(auto i{free_cl_indices.bbegin()}; i!=free_cl_indices.bend(); ++i) {
+  //        std::cout << *base[*i] << std::endl;
+  //    }
 
 #ifdef DBG_WATCHERS
   verifyWatchers("after forget");

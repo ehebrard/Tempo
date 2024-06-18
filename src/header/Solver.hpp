@@ -1960,7 +1960,24 @@ template <typename T> boolean_state Solver<T>::search() {
 //          Literal<T> d = heuristic->branch(*this);
           
         var_t x = heuristic->nextChoicePoint(*this);
-        Literal<T> d{boolean.getLiteral((random() % 2), x)};
+        Literal<T> d;
+        if (random() % 10) {
+          auto p{boolean.getLiteral(true, x)};
+          auto n{boolean.getLiteral(false, x)};
+
+          auto prec_a{boolean.getEdge(p)};
+          auto prec_b{boolean.getEdge(n)};
+
+          auto gap_a = numeric.upper(prec_a.from) -
+                       numeric.lower(prec_a.to);
+          auto gap_b = numeric.upper(prec_b.from) -
+                       numeric.lower(prec_b.to);
+
+          d = boolean.getLiteral((gap_a > gap_b), x);
+        } else {
+          d = boolean.getLiteral(random() % 2, x);
+        }
+
         decisions.push_back(d);
 
 #ifdef DBG_TRACE

@@ -80,14 +80,31 @@ template<typename T>
 //            DistanceConstraint<T> right{sched.getEdge(NEG(x))};
 //            return activity[left.from] + activity[left.to] + activity[right.from] + activity[right.to];
         }
-        
-        
-        constexpr double get(const var_t x, const Solver<T>& solver) const noexcept {
-            auto a{boolean_activity[x]};
-            if(solver.boolean.hasSemantic(x)) {
-                a += get(solver.boolean.getEdge(true,x));
-                a += get(solver.boolean.getEdge(false,x));
+
+        constexpr double get(const Literal<T> l,
+                             const Solver<T> &solver) const noexcept {
+          double a{0};
+
+          if (l.isNumeric()) {
+            a = numeric_activity[l.variable()];
+          } else {
+            a = boolean_activity[l.variable()];
+            if (l.hasSemantic()) {
+              a += get(solver.boolean.getEdge(l));
+              a += get(solver.boolean.getEdge(~l));
             }
+          }
+          return a;
+        }
+
+        constexpr double get(const var_t x, const Solver<T>& solver) const noexcept {
+          double a{boolean_activity[x]};
+          //            double a{0};
+          if (solver.boolean.hasSemantic(x)) {
+            a += get(solver.boolean.getEdge(true, x)) / 1000;
+            a += get(solver.boolean.getEdge(false, x)) / 1000;
+          }
+
             return a;
         }
 
@@ -121,11 +138,23 @@ template<typename T>
          */
 //        template<typename T>
         std::ostream& display(std::ostream& os) {
-            for(auto i{0}; i<numeric_activity.size(); ++i) {
-                if(numeric_activity[i] > 1)
-                    os << " " << i << ":" << numeric_activity[i];
-            }
-            return os;
+          //            for(auto i{0}; i<numeric_activity.size(); ++i) {
+          //                if(numeric_activity[i] > 1)
+          //                    os << " x" << i << ":" << numeric_activity[i];
+          //            }
+          //            for(auto i{0}; i<boolean_activity.size(); ++i) {
+          //                if(boolean_activity[i] > 1)
+          //                    os << " b" << i << ":" << boolean_activity[i];
+          //            }
+          for (size_t i{0}; i < numeric_activity.size(); ++i) {
+            os << std::setprecision(7) << std::setw(10) << numeric_activity[i];
+          }
+          os << " |";
+          for (size_t i{0}; i < boolean_activity.size(); ++i) {
+            os << std::setprecision(7) << std::setw(10) << boolean_activity[i];
+          }
+          os << "\n";
+          return os;
         }
 
     protected:

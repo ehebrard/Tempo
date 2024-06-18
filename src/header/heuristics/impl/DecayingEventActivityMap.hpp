@@ -74,16 +74,12 @@ template<typename T>
          */
         template<class Iterable>
         void update(Iterable &clause, const Scheduler<T>& sched) noexcept {
-//            static_assert(traits::is_iterable_v<Clause>, "Expected iterable for Clause type");
-//            static_assert(traits::is_same_template_v<DistanceConstraint, traits::value_type_t<Clause>>,
-//                          "clause must contain DistanceConstraints");
-            bool normalize = false;
-            
-//            std::cout << "update (" << clause.size() << ")\n";
-            
-//            conflict.explain(NoLit, clause);
-            for (const auto gl : clause) {
-                
+          //            static_assert(traits::is_iterable_v<Clause>, "Expected
+          //            iterable for Clause type");
+          bool normalize = false;
+
+          for (const auto gl : clause) {
+
 #ifdef DEBUG_HEURISTICS
                 std::cout << " increment activity because of " << sched.prettyLiteral(gl) << std::endl;
 #endif
@@ -95,9 +91,8 @@ template<typename T>
                     normalize |= incrementActivity(bc.from);
                     normalize |= incrementActivity(bc.to);
                 }
-                
-            }
-            
+          }
+
 #ifdef DEBUG_HEURISTICS
             for(event x{0}; x<static_cast<event>(EventActivityMap<T>::activity.size()); ++x) {
                 std::cout << std::setw(6) << prettyEvent(x);
@@ -124,19 +119,11 @@ template<typename T>
             }
 
             increment /= decay;
-            
-//            clause.clear();
-//            this->display(std::cout);
-//            std::cout << std::endl;
         }
         
         template<class Iterable>
         void update(Iterable &clause, const Solver<T>& solver) noexcept {
-         
-//            if(solver.num_fails >= 20901)
-//                std::cout << "beg update " << (solver.num_fails) << "\n";
-//            
-            
+
             bool normalize = false;
 
             
@@ -206,7 +193,8 @@ template<typename T>
             
 //            if(solver.num_fails >= 20901)
 //                std::cout << "end update (" << solver.num_fails <<")\n";
-            
+
+            //            this->display(std::cout);
         }
 
     private:
