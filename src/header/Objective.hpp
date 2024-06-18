@@ -95,7 +95,7 @@ public:
     os << "[" << std::left << std::setw(5) << std::setfill('.') << dualBound()
        << std::setfill(' ');
     auto pb{primalBound()};
-    if (pb < INFTY)
+    if (pb < Constant::Infinity<T>)
       os << std::right << std::setw(6) << std::setfill('.') << pb
          << std::setfill(' ');
     else
@@ -108,7 +108,7 @@ private:
   Job<T> &job;
     Solver<T> &solver;
   T d_b{0};
-  T p_b;
+    T p_b{Constant::Infinity<T>};
 };
 
 template <typename T> class MaximumCardinality {

@@ -114,7 +114,7 @@ template <typename T> size_t NewClause<T>::watch_index(const bool r) const {
 
 template <typename T>
 std::ostream &NewClause<T>::display(std::ostream &os) const {
-//    os << id << ":";
+  os << id << ":";
   if (this->size() == 0)
     os << "()";
   else {

@@ -198,7 +198,8 @@ public:
 
   // notifies constraint 'cons' of the new lit 'change' (of type "event"), @
   // position 'rank' in its scope
-  void triggers(const Literal<T> l, const int rank, const int cons);
+  void triggers(const Literal<T> l, const int rank, NewConstraint<T>* cons);
+    void activate(const NewConstraint<T>* cons);
 
   //  // notifies constraint 'cons' of the new lit 'change' (of type "edge"), @
   //  // position 'rank' in its scope
@@ -243,12 +244,25 @@ void NewConstraintQueue<T, N>::resize(const size_t n) {
 // triggers
 template <typename T, int N>
 void NewConstraintQueue<T, N>::triggers(const Literal<T> l, const int rank,
-                                        const int cons_id) {
+                                         NewConstraint<T>* cons) {
 
-  auto cons = constraints[cons_id];
+//  auto cons = constraints[cons_id];
 
-  if (cons->notify(l, rank) and
-      not active[to_underlying(cons->priority)].has(cons_id)) {
+//  if (cons->notify(l, rank) and
+//      not active[to_underlying(cons->priority)].has(cons_id)) {
+//    active[to_underlying(cons->priority)].add(cons_id);
+//    ++count;
+//  }
+    if (cons->notify(l, rank)) {
+        activate(cons);
+    }
+    
+}
+
+template <typename T, int N>
+void NewConstraintQueue<T, N>::activate(const NewConstraint<T>* cons) {
+    auto cons_id{cons->id()};
+  if (not active[to_underlying(cons->priority)].has(cons_id)) {
     active[to_underlying(cons->priority)].add(cons_id);
     ++count;
   }

@@ -3,7 +3,7 @@
 
 #include <iostream>
 
-#include "Constant.hpp"
+//#include "Constant.hpp"
 #include "Global.hpp"
 
 namespace tempo {

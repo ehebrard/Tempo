@@ -154,13 +154,13 @@ tempo::Options tempo::parse(int argc, char *argv[]) {
       false, 0.999, "double");
 
   cmd.add<ValueArg<double>>(opt.forgetfulness, "", "forgetfulness",
-                            "clause base reduction factor (0.1)", false, 0.3,
+                            "clause base reduction factor (0.3)", false, 0.3,
                             "double");
 
   cmd.add<ValueArg<int>>(
       opt.minimization, "", "clause-minimization",
-      "depth for clause minimization (default 3)",
-      false, 3, "int");
+      "depth for clause minimization (default 1)",
+      false, 1, "int");
 
   cmd.add<ValueArg<int>>(opt.forget_strategy, "", "forget-strategy",
                          "strategy for clause forgetting "

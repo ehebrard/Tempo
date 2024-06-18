@@ -11,12 +11,12 @@ namespace tempo {
 
 class Constant {
 public:
-  const static hint DecisionHint;
-  const static hint FactHint;
-  const static index_t NoIndex;
-  const static var_t NoVarx;
-  const static index_t InfIndex;
-  const static info_t NoSemantic;
+  static constexpr auto DecisionHint = static_cast<hint>(0);
+  static constexpr auto FactHint = static_cast<hint>(-1);
+  static constexpr auto NoIndex = static_cast<index_t>(-1);
+  static constexpr auto NoVarx = static_cast<var_t>(-1);
+  static constexpr index_t InfIndex = 0;
+  static constexpr info_t NoSemantic = 0;
   //      const static index_t IndexOfMax;
   template <typename T> const static T Infinity;
   //    template <typename T> const static T minvalue;
