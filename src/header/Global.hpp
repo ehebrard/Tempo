@@ -46,6 +46,11 @@ enum class Priority {
     High
 };
 
+enum class VariableType {
+    Boolean,
+    Numeric
+};
+
 /**
  * Converts enum to underlying type
  * @tparam E enum type

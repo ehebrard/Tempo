@@ -2093,7 +2093,7 @@ template <typename T> boolean_state Solver<T>::search() {
       } else {
         //        ++num_choicepoints;
 
-        var_t x = heuristic->nextChoicePoint(*this);
+        auto [x, type] = heuristic->nextVariable(*this);
         //        var_t x = *(boolean_search_vars.begin());
         //        //        lit d = valueHeuristic->choosePolarity(x, *this);
         Literal<T> d{boolean.getLiteral((random() % 2), x)};
