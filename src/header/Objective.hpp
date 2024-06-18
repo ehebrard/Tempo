@@ -3,7 +3,7 @@
 #define _TEMPO_OBJECTIVE_HPP
 
 //#include "util/parsing/format.hpp"
-#include "constraints/Cardinality.hpp"
+//#include "constraints/Cardinality.hpp"
 
 namespace tempo {
 
@@ -111,49 +111,49 @@ private:
     T p_b{Constant::Infinity<T>};
 };
 
-template <typename T> class MaximumCardinality {
-public:
-  template <typename Iter>
-  MaximumCardinality(Scheduler<T> &s, Iter beg_lit, Iter end_lit)
-      : schedule(s) {
-    for (auto l{beg_lit}; l != end_lit; ++l)
-      literals.push_back(*l);
-    card = new CardinalityGeq<T>(schedule, beg_lit, end_lit, 0);
-    schedule.post(card);
-  }
-  ~MaximumCardinality() = default;
-
-  T gap() { return p_b - d_b; }
-  //  void closeGap() { d_b = p_b; }
-  T dualBound() const { return d_b; }
-  T primalBound() const { return p_b; }
-
-  size_t value() {
-    size_t c{0};
-    for (auto l : literals) {
-      c += schedule.satisfied(l);
-    }
-    return c;
-  }
-
-  void setDual(const T v) { d_b = v; }
-
-  void setPrimal(const T v) {
-    p_b = v;
-    if (gap()) {
-      apply(p_b + Gap<T>::epsilon());
-    }
-  }
-
-  void apply(const int target) { card->setBound(target); }
-
-private:
-  Scheduler<T> &schedule;
-  std::vector<lit> literals;
-  CardinalityGeq<T> *card;
-  T d_b;
-  T p_b;
-};
+//template <typename T> class MaximumCardinality {
+//public:
+//  template <typename Iter>
+//  MaximumCardinality(Scheduler<T> &s, Iter beg_lit, Iter end_lit)
+//      : schedule(s) {
+//    for (auto l{beg_lit}; l != end_lit; ++l)
+//      literals.push_back(*l);
+//    card = new CardinalityGeq<T>(schedule, beg_lit, end_lit, 0);
+//    schedule.post(card);
+//  }
+//  ~MaximumCardinality() = default;
+//
+//  T gap() { return p_b - d_b; }
+//  //  void closeGap() { d_b = p_b; }
+//  T dualBound() const { return d_b; }
+//  T primalBound() const { return p_b; }
+//
+//  size_t value() {
+//    size_t c{0};
+//    for (auto l : literals) {
+//      c += schedule.satisfied(l);
+//    }
+//    return c;
+//  }
+//
+//  void setDual(const T v) { d_b = v; }
+//
+//  void setPrimal(const T v) {
+//    p_b = v;
+//    if (gap()) {
+//      apply(p_b + Gap<T>::epsilon());
+//    }
+//  }
+//
+//  void apply(const int target) { card->setBound(target); }
+//
+//private:
+//  Scheduler<T> &schedule;
+//  std::vector<lit> literals;
+//  CardinalityGeq<T> *card;
+//  T d_b;
+//  T p_b;
+//};
 
 template <typename T> class NoObj {
 public:

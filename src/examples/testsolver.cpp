@@ -182,7 +182,7 @@ void test2(Options& opt) {
       S.set(X[2] == true);
 
       std::cout << S << std::endl;
-    } catch (NewFailure<int> &f) {
+    } catch (Failure<int> &f) {
       std::cout << "fail -> backtrack";
       S.restoreState(s3);
 

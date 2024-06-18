@@ -144,7 +144,7 @@ private:
     std::vector<index_t> conflict_index[2];
 };
 
-template <typename T = int> class GraphExplainer : public NewExplainer<T> {
+template <typename T = int> class GraphExplainer : public Explainer<T> {
     
 public:
     GraphExplainer(Solver<T> &s);
@@ -156,7 +156,7 @@ private:
     Solver<T> &solver;
 };
 
-template <typename T = int> class BoundExplainer : public NewExplainer<T> {
+template <typename T = int> class BoundExplainer : public Explainer<T> {
     
 public:
     BoundExplainer(Solver<T> &s);
@@ -196,7 +196,7 @@ public:
     ///@{
     mutable SubscribableEvent<const std::vector<Literal<T>> &>
     ClauseAdded; ///< triggered when a new clause is learned
-    mutable SubscribableEvent<NewExplanation<T> &>
+    mutable SubscribableEvent<Explanation<T> &>
     ConflictEncountered; ///< triggered when a conflict is encountered
     mutable SubscribableEvent<> SearchRestarted; ///< triggered on restart
     //    mutable SubscribableEvent<T, T, std::function<T(event, event)>,
@@ -234,10 +234,10 @@ public:
     Literal<T> getImplicant(const Literal<T> l) const;
     
     // get the explanation for the i-th literal
-    NewExplanation<T> getReason(const index_t i) const;
+    Explanation<T> getReason(const index_t i) const;
     
     // get the explanation for the i-th literal
-    NewExplanation<T> getReason(const Literal<T> l) const;
+    Explanation<T> getReason(const Literal<T> l) const;
     
     // get the index in the propagation queue of the last Literal involving
     // variable x (to be used parcimoniously, not so efficient)
@@ -250,7 +250,7 @@ public:
     bool entailedByConflict(Literal<T>, const index_t) const;
     
     // set literal l true with explanation e
-    void set(Literal<T> l, const NewExplanation<T> &e = Constant::Decision<T>);
+    void set(Literal<T> l, const Explanation<T> &e = Constant::Decision<T>);
 
     void set(const DistanceConstraint<T> &c, const index_t r = Constant::NoIndex);
     void boundClosure(const var_t x, const var_t y, const T d, const index_t r);
@@ -258,8 +258,8 @@ public:
     void update(const bool bt, const int s, const G &neighbors);
     //@}
     
-    void post(NewConstraint<T> *);
-    void relax(NewConstraint<T> *);
+    void post(Constraint<T> *);
+    void relax(Constraint<T> *);
     void wake_me_on(const Literal<T>, const int);
     template <typename X> void addToSearch(const X &x);
     
@@ -281,10 +281,10 @@ public:
     template <typename S> void optimize(S &objective);
     
     void restart(const bool on_solution = false);
-    void backtrack(NewExplanation<T> &e);
+    void backtrack(Explanation<T> &e);
     void branchRight();
-    void learnConflict(NewExplanation<T> &e);
-    void analyze(NewExplanation<T> &e);
+    void learnConflict(Explanation<T> &e);
+    void analyze(Explanation<T> &e);
     void minimize();
     
     const SparseSet<var_t, Reversible<size_t>> &getBranch() const {
@@ -329,7 +329,7 @@ public:
     NumericStore<T> numeric;
     
     // all the clauses (learnt or from the base problem)
-    NewClauseBase<T> clauses;
+    ClauseBase<T> clauses;
     
     // graph with all the known edges
     DirectedGraph<StampedLabeledEdge<T, index_t>> core;
@@ -346,7 +346,7 @@ private:
     // the stack of Literals reprensenting all the changes so far
     std::vector<Literal<T>> trail;
     // the reason for each propagation event
-    std::vector<NewExplanation<T>> reason;
+    std::vector<Explanation<T>> reason;
     
     /**
      * @name domains
@@ -366,9 +366,9 @@ private:
     //@{
     // data structure used to implement the overall propagation (parameter is
     // the number of priority classes)
-    NewConstraintQueue<T, 3> propagation_queue;
+    ConstraintQueue<T, 3> propagation_queue;
     // all of the posted constraints
-    std::vector<NewConstraint<T> *> constraints;
+    std::vector<Constraint<T> *> constraints;
     // dependency graph variables/constraints
     DirectedGraph<int> boolean_constraints;
     DirectedGraph<int> numeric_constraints;
@@ -413,10 +413,10 @@ private:
     
     
     void setNumeric(Literal<T> l,
-                    const NewExplanation<T> &e = Constant::Decision<T>,
+                    const Explanation<T> &e = Constant::Decision<T>,
                     const bool do_update = true);
     void setBoolean(Literal<T> l,
-                    const NewExplanation<T> &e = Constant::Decision<T>);
+                    const Explanation<T> &e = Constant::Decision<T>);
     
     
 #ifdef DBG_TRACE
@@ -548,7 +548,7 @@ void BoundExplainer<T>::xplain(const Literal<T> l, const hint h,
 #endif
         
         Literal<T> le;
-        NewExplanation<T> exp;
+        Explanation<T> exp;
         
         if (lidx < uidx) {
             le = solver.getLiteral(lidx);
@@ -939,8 +939,8 @@ DisjunctVar<T> Solver<T>::newDisjunct(const DistanceConstraint<T> &d1,
     clauses.newBooleanVar(x.id());
     boolean_constraints.resize(std::max(numConstraint(), 2 * boolean.size()));
     
-    post(new NewEdgeConstraint<T>(*this, boolean.getLiteral(true, x)));
-    post(new NewEdgeConstraint<T>(*this, boolean.getLiteral(false, x)));
+    post(new EdgeConstraint<T>(*this, boolean.getLiteral(true, x)));
+    post(new EdgeConstraint<T>(*this, boolean.getLiteral(false, x)));
     
     return x;
 }
@@ -974,12 +974,12 @@ size_t Solver<T>::numLiteral() const {
 }
 
 template <typename T>
-NewExplanation<T> Solver<T>::getReason(const index_t i) const {
+Explanation<T> Solver<T>::getReason(const index_t i) const {
     return reason[i];
 }
 
 template <typename T>
-NewExplanation<T> Solver<T>::getReason(const Literal<T> l) const {
+Explanation<T> Solver<T>::getReason(const Literal<T> l) const {
     return reason[getReason(propagationLevel(l))];
 }
 
@@ -1001,7 +1001,7 @@ void Solver<T>::set(const DistanceConstraint<T> &c, const index_t r) {
 }
 
 template <typename T>
-void Solver<T>::set(Literal<T> l, const NewExplanation<T> &e) {
+void Solver<T>::set(Literal<T> l, const Explanation<T> &e) {
     
     if (l.isNumeric()) {
         setNumeric(l, e);
@@ -1011,7 +1011,7 @@ void Solver<T>::set(Literal<T> l, const NewExplanation<T> &e) {
 }
 
 template <typename T>
-void Solver<T>::setNumeric(Literal<T> l, const NewExplanation<T> &e,
+void Solver<T>::setNumeric(Literal<T> l, const Explanation<T> &e,
                            const bool do_update) {
     
     //#ifdef DBG_TRACE
@@ -1041,7 +1041,7 @@ void Solver<T>::setNumeric(Literal<T> l, const NewExplanation<T> &e,
             }
 #endif
             
-            throw NewFailure<T>({&bound_exp, static_cast<hint>(l.variable())});
+            throw Failure<T>({&bound_exp, static_cast<hint>(l.variable())});
         }
         
         if (do_update) {
@@ -1057,7 +1057,7 @@ void Solver<T>::setNumeric(Literal<T> l, const NewExplanation<T> &e,
 }
 
 template <typename T>
-void Solver<T>::setBoolean(Literal<T> l, const NewExplanation<T> &e) {
+void Solver<T>::setBoolean(Literal<T> l, const Explanation<T> &e) {
     
     //#ifdef DBG_TRACE
     //  if (DBG_BOUND and (DBG_TRACE & PROPAGATION)) {
@@ -1076,7 +1076,7 @@ void Solver<T>::setBoolean(Literal<T> l, const NewExplanation<T> &e) {
         }
 #endif
         
-        throw NewFailure<T>(e);
+        throw Failure<T>(e);
     }
     
 #ifdef DBG_TRACE
@@ -1098,7 +1098,7 @@ void Solver<T>::boundClosure(const var_t x, const var_t y, const T d,
                              const index_t r) {
     // closure w.r.t. 0 (0 -> x -(d)-> y -> 0)
     
-    NewExplanation<T> e{&graph_exp, static_cast<hint>(r)};
+    Explanation<T> e{&graph_exp, static_cast<hint>(r)};
     if (r == Constant::NoIndex)
         e = Constant::Decision<T>;
     
@@ -1131,7 +1131,7 @@ template <typename T> void Solver<T>::restart(const bool on_solution) {
     }
 }
 
-template <typename T> void Solver<T>::backtrack(NewExplanation<T> &e) {
+template <typename T> void Solver<T>::backtrack(Explanation<T> &e) {
     
     ++num_fails;
     
@@ -1156,7 +1156,7 @@ template <typename T> void Solver<T>::backtrack(NewExplanation<T> &e) {
             learnConflict(e);
         else
             branchRight();
-    } catch (NewFailure<T> &f) {
+    } catch (Failure<T> &f) {
         backtrack(f.reason);
     }
 }
@@ -1315,7 +1315,7 @@ template <typename T> void Solver<T>::minimize() {
     //    }
 }
 
-template <typename T> void Solver<T>::analyze(NewExplanation<T> &e) {
+template <typename T> void Solver<T>::analyze(Explanation<T> &e) {
     explored.resize(trail.size(), false);
     conflict.clear();
     literal_lvl.clear();
@@ -1334,7 +1334,7 @@ template <typename T> void Solver<T>::analyze(NewExplanation<T> &e) {
     }
 #endif
     
-    NewExplanation<T> &exp = e;
+    Explanation<T> &exp = e;
     do {
         int csize{static_cast<int>(conflict.size())};
         
@@ -1474,10 +1474,11 @@ template <typename T> void Solver<T>::analyze(NewExplanation<T> &e) {
         while (not explored[li--])
             ;
         
-        if (li + 1 < decision_lvl) {
-            std::cout << env.level() << " " << num_fails << " " << li << std::endl;
-        }
+//        if (li + 1 < decision_lvl) {
+//            std::cout << env.level() << " " << num_fails << " " << li << std::endl;
+//        }
         
+        // not always true if we do not unit-propagate numeric literals systematically
         assert(li + 1 >= decision_lvl);
         
         l = trail[li + 1];
@@ -1649,7 +1650,7 @@ template <typename T> bool Solver<T>::isAssertive(std::vector<Literal<T>> &conf)
     return true;
 }
 
-template <typename T> void Solver<T>::learnConflict(NewExplanation<T> &e) {
+template <typename T> void Solver<T>::learnConflict(Explanation<T> &e) {
     
     analyze(e);
     
@@ -1663,36 +1664,16 @@ template <typename T> void Solver<T>::learnConflict(NewExplanation<T> &e) {
     if (learnt_clause.size() == 1 or decisions.size() == 1) {
         jump = static_cast<int>(decisions.size());
     } else {
-        //    auto uip_lvl{propagationLevel(conflict[1])};
-        //    for (auto d{decisions.rbegin() + jump};
-        //         d != decisions.rend() and propagationLevel(*d) > uip_lvl; ++d) {
-        //      ++jump;
-        //    }
-        
         auto uip_lvl{literal_lvl[1]};
         for (auto d{decisions.rbegin() + jump};
              d != decisions.rend() and propagationLevel(*d) > uip_lvl; ++d) {
             ++jump;
         }
-        
-//        std::cout << "backjump b/c " << pretty(learnt) <<
     }
     
     restoreState(env.level() - jump);
     
-    
     decisions.resize(decisions.size() - jump);
-    
-    //  for (auto &p : conflict) {
-    //    p = ~p;
-    //  }
-    
-    //    for(auto i{0}; i<conflict.size(); ++i) {
-    //        if(conflict[i] != learnt_clause[i])
-    //        std::cout << num_fails << ": " << conflict[i] << " " << learnt_clause[i] << std::endl;
-    //        assert(conflict[i] == learnt_clause[i]);
-    //    }
-    
     
 #ifdef DBG_TRACE
     if (DBG_BOUND and (DBG_TRACE & SEARCH)) {
@@ -1897,7 +1878,7 @@ void Solver<T>::optimize(S &objective) {
       restart(true);
       try {
         objective.setPrimal(best);
-      } catch (NewFailure<T> &f) {
+      } catch (Failure<T> &f) {
         objective.setDual(objective.primalBound());
       }
     } else if (satisfiability == False) {
@@ -2007,7 +1988,7 @@ template <typename T> boolean_state Solver<T>::search() {
 //        }
 //#endif
       }
-    } catch (NewFailure<T> &f) {
+    } catch (Failure<T> &f) {
       try {
           
 //          if(numeric.lower(30) > 170)
@@ -2048,6 +2029,7 @@ template <typename T> void tempo::Solver<T>::propagate() {
 
   clauses.clearTriggers();
 
+//    bool up_done{false};
   while (not propagation_queue.empty() or trail.size() > p_index) {
 
     while (trail.size() > p_index) {
@@ -2063,20 +2045,21 @@ template <typename T> void tempo::Solver<T>::propagate() {
 #endif
 
         //TODO: not sure why it is better to do it like this than with the standard constraint queue system (PRIORITY?)
-//        if() {
             if (not l.isNumeric())
                 clauses.unit_propagate(l);
-            else if(clauses.notify(l, 0)) {
-                
-#ifdef DBG_TRACE
-        if (DBG_BOUND and (DBG_TRACE & QUEUE)) {
-          std::cout << " -" << clauses << " (" << clauses.id() << ")" << std::endl;
-        }
-#endif
-                
-                propagation_queue.activate(&clauses);
-            }
+//        else
+//            clauses.notify(l, 0);
+//            else if(clauses.notify(l, 0)) {
+//                
+//#ifdef DBG_TRACE
+//        if (DBG_BOUND and (DBG_TRACE & QUEUE)) {
+//          std::cout << " -" << clauses << " (" << clauses.id() << ")" << std::endl;
 //        }
+//#endif
+//                
+//                propagation_queue.activate(&clauses);
+//            }
+
 
 
       //              std::cout << "propagate " << info_t(l) << std::endl;
@@ -2138,9 +2121,14 @@ template <typename T> void tempo::Solver<T>::propagate() {
 //          if(u.value() != Constant::Infinity<T>)
 //              clauses.unit_propagate(u);
 //      }
-      
+     
+//      if(not up_done and propagation_queue.empty() and trail.size() == p_index) {
+//          clauses.propagate();
+//          up_done = true;
+//      }
   }
 
+    
   propag_pointer = p_index;
 }
 
@@ -2241,7 +2229,7 @@ void Solver<T>::update(const bool bounds, const int s, const G &neighbors) {
           //            edge.label() << ")-> " << v << "\n"; std::cout << "i.e.,
           //            " << getLiteral(edge.stamp()) << std::endl;
 
-          throw NewFailure<T>(
+          throw Failure<T>(
               {&graph_exp, static_cast<hint>(Literal<T>::index(bounds, s))});
         }
         setNumeric(makeNumericLiteral<T>(bounds, v, shortest_path[u] + w),
@@ -2263,7 +2251,7 @@ void Solver<T>::update(const bool bounds, const int s, const G &neighbors) {
   }
 }
 
-template <typename T> void Solver<T>::post(NewConstraint<T> *con) {
+template <typename T> void Solver<T>::post(Constraint<T> *con) {
 
   constraints.push_back(con);
   propagation_queue.resize(constraints.size());
@@ -2274,7 +2262,7 @@ template <typename T> void Solver<T>::post(NewConstraint<T> *con) {
   con->post(numConstraint() - 1);
 }
 
-template <typename T> void Solver<T>::relax(NewConstraint<T> *con) {
+template <typename T> void Solver<T>::relax(Constraint<T> *con) {
 
   if (boolean_constraints.indegree(con->id()) > 0)
     boolean_constraints.remove(con->id(), IN);
@@ -2311,7 +2299,7 @@ template <typename ItTask, typename ItVar>
 void Solver<T>::postEdgeFinding(Job<T>& schedule,  ItTask beg_task,  ItTask end_task,
                                    const ItVar beg_var
                                    ) {
-  post(new NewDisjunctiveEdgeFinding<T>(*this, schedule, beg_task, end_task,
+  post(new DisjunctiveEdgeFinding<T>(*this, schedule, beg_task, end_task,
                                   beg_var
                                   ));
 }

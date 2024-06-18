@@ -10,9 +10,7 @@
 //#include "Scheduler.hpp"
 
 namespace tempo {
-    template<typename T>
-    class Scheduler;
-
+ 
 template<typename T>
 class Solver;
 }
@@ -30,14 +28,6 @@ template<typename T>
          * @param scheduler scheduler for which to construct the ActivityMap
          */
         
-        explicit EventActivityMap(Scheduler<T> &scheduler) 
-//        : sched(scheduler)
-        {
-//            numNodes = scheduler.numEvent();
-            numeric_activity.resize(scheduler.numEvent(), 1);
-            scheduler.setActivityMap(this);
-        }
-        
         explicit EventActivityMap(Solver<T> &solver)
 //        : sched(scheduler)
         {
@@ -48,15 +38,6 @@ template<typename T>
         }
 
         
-        /**
-         * Gets the activity for a given choice point
-         * @tparam T
-         * @param bound constraint
-         * @return
-         */
-        constexpr double get(const BoundConstraint<T>& c) const noexcept {
-            return numeric_activity[EVENT(c.l)];
-        }
         
         /**
          * Gets the activity for a given choice point
@@ -68,19 +49,6 @@ template<typename T>
             return numeric_activity[c.from] + numeric_activity[c.to];
         }
         
-        /**
-         * Gets the activity for a given choice point
-         * @tparam T
-         * @param variable
-         * @return
-         */
-        constexpr double get(const var x, const Scheduler<T>& sched) const noexcept {
-            return get(sched.getEdge(POS(x))) + get(sched.getEdge(NEG(x)));
-//            DistanceConstraint<T> left{sched.getEdge(POS(x))};
-//            DistanceConstraint<T> right{sched.getEdge(NEG(x))};
-//            return activity[left.from] + activity[left.to] + activity[right.from] + activity[right.to];
-        }
-
         constexpr double get(const Literal<T> l,
                              const Solver<T> &solver) const noexcept {
           double a{0};
@@ -101,8 +69,8 @@ template<typename T>
           double a{boolean_activity[x]};
           //            double a{0};
           if (solver.boolean.hasSemantic(x)) {
-            a += get(solver.boolean.getEdge(true, x)) / 1000;
-            a += get(solver.boolean.getEdge(false, x)) / 1000;
+              a += get(solver.boolean.getEdge(true, x));// / 1000;
+              a += get(solver.boolean.getEdge(false, x));// / 1000;
           }
 
             return a;

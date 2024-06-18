@@ -22,9 +22,9 @@ public:
   //    template <typename T> const static T minvalue;
   //    template <typename T> const static T maxvalue;
 
-  static Explanation NoReason;
-  template <typename T> static NewExplanation<T> Decision;
-  template <typename T> static NewExplanation<T> GroundFact;
+//  static Explanation NoReason;
+  template <typename T> static Explanation<T> Decision;
+  template <typename T> static Explanation<T> GroundFact;
 
   template <typename T> static DistanceConstraint<T> NoEdge;
 
@@ -39,12 +39,12 @@ DistanceConstraint<T> Constant::NoEdge = DistanceConstraint<T>(NOEVENT, NOEVENT,
 // std::variant<info_t,T>(static_cast<info_t>(0)));
 
 template <typename T>
-NewExplanation<T> Constant::Decision =
-    NewExplanation<T>(new NewExplainer<T>(), Constant::DecisionHint);
+Explanation<T> Constant::Decision =
+    Explanation<T>(new Explainer<T>(), Constant::DecisionHint);
 
 template <typename T>
-NewExplanation<T> Constant::GroundFact =
-    NewExplanation<T>(new NewExplainer<T>(), Constant::FactHint);
+Explanation<T> Constant::GroundFact =
+    Explanation<T>(new Explainer<T>(), Constant::FactHint);
 
 //template <typename T>
 //const index_t Constant::no_index = static_cast<index_t>(-1);
