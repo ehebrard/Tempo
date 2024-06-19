@@ -315,7 +315,7 @@ public:
     std::ostream &displayConstraints(std::ostream &os) const;
     
     std::ostream &displayProgress(std::ostream &os) const;
-    std::ostream &displayHeader(std::ostream &os, const int width = 59) const;
+    std::ostream &displayHeader(std::ostream &os, const int width = 69) const;
     std::ostream &displaySummary(std::ostream &os, std::string msg) const;
     
     void check_clauses(const char* msg);
@@ -445,6 +445,8 @@ public:
     long unsigned int num_edge_prunings{0};
     long unsigned int num_cons_prunings{0};
     long unsigned int learnt_size{0};
+    
+    double avg_fail_level{0};
     
     int init_level{0};
     bool initialized{false};
@@ -1126,14 +1128,16 @@ template <typename T> void Solver<T>::restart(const bool on_solution) {
     SearchRestarted.trigger();
     
     if (options.verbosity > Options::NORMAL) {
-        std::cout << std::setw(13) << "restart ";
+        std::cout << std::setw(10) << "restart ";
         displayProgress(std::cout);
     }
 }
 
 template <typename T> void Solver<T>::backtrack(Explanation<T> &e) {
     
+    avg_fail_level = (avg_fail_level * num_fails + env.level()) / (num_fails + 1);
     ++num_fails;
+    
     
 #ifdef DBG_TRACE
     if (DBG_BOUND and (DBG_TRACE & SEARCH)) {
@@ -1378,6 +1382,7 @@ template <typename T> void Solver<T>::analyze(Explanation<T> &e) {
             if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
                 std::cout << " ** " << pretty(p) << " (" << fact_lvl << "/" << p_lvl
                 << "/" << decision_lvl << ") i.e., " << getLiteral(p_lvl);
+                std::cout.flush();
             }
 #endif
             
@@ -1415,7 +1420,8 @@ template <typename T> void Solver<T>::analyze(Explanation<T> &e) {
                         
 #ifdef DBG_TRACE
                         if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
-                            std::cout << " => add to confict[";
+                            std::cout << " => add to confict [";
+                            std::cout.flush();
                         }
 #endif
                         
@@ -1424,17 +1430,22 @@ template <typename T> void Solver<T>::analyze(Explanation<T> &e) {
                         std::swap(conflict[csize], conflict[i]);
                         ++csize;
                         
+//                        std::cout << "csize: " << csize << "/" << conflict.size() << std::endl;
+                        
                         literal_lvl.push_back(p_lvl);
                     }
 #ifdef DBG_TRACE
                     else if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
-                        std::cout << " => update confict[";
+                        std::cout << " => update confict [";
                     }
                     if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
                         for (int z{0}; z < csize; ++z) {
-                            std::cout << " " << conflict[z];
+                            std::cout << " " << z << " " << conflict[z];
+                            std::cout.flush();
                         }
                         std::cout << " ]\n";
+                        
+//                        std::cout << "hello\n";
                     }
 #endif
                 }
@@ -1451,8 +1462,10 @@ template <typename T> void Solver<T>::analyze(Explanation<T> &e) {
                 if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
                     std::cout << " => to explore [ ";
                     for (index_t z{li - 1}; z >= decision_lvl; --z) {
-                        if (explored[z] or z == p_lvl)
+                        if (explored[z] or z == p_lvl) {
                             std::cout << " " << trail[z];
+                            std::cout.flush();
+                        }
                     }
                     std::cout << "]\n";
                 }
@@ -1469,22 +1482,38 @@ template <typename T> void Solver<T>::analyze(Explanation<T> &e) {
             
         }
         
+        
         conflict.resize(csize);
         
-        while (not explored[li--])
-            ;
         
-//        if (li + 1 < decision_lvl) {
-//            std::cout << env.level() << " " << num_fails << " " << li << std::endl;
+//#ifdef DBG_TRACE
+//        if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+//            std::cout << "hi " << li << "/" << explored.size() << "/" << trail.size() << "/" << reason.size() << "\n";
 //        }
+//#endif
         
-        // not always true if we do not unit-propagate numeric literals systematically
-        assert(li + 1 >= decision_lvl);
-        
-        l = trail[li + 1];
-        exp = reason[li + 1];
-        
-        explored[li + 1] = false;
+        if(num_lit > 0) {
+            while (not explored[li--])
+                ;
+            
+//#ifdef DBG_TRACE
+//            if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+//                std::cout << "hey " << li << "/" << explored.size() << "/" << trail.size() << "/" << reason.size() << "\n";
+//            }
+//#endif
+            
+            //        if (li + 1 < decision_lvl) {
+            //            std::cout << env.level() << " " << num_fails << " " << li << std::endl;
+            //        }
+            
+            // not always true if we do not unit-propagate numeric literals systematically
+            //assert(li + 1 >= decision_lvl);
+            
+            l = trail[li + 1];
+            exp = reason[li + 1];
+            
+            explored[li + 1] = false;
+        }
         
         --num_lit;
         
@@ -1492,6 +1521,11 @@ template <typename T> void Solver<T>::analyze(Explanation<T> &e) {
     
     //    std::cout << "\n";
     
+    
+//    if(num_lit < 0) {
+//        std::cout << "here\n";
+//        //exit(1);
+//    }
     
     
     //    for(index_t i{1}; i<trail.size(); ++i) {
@@ -1503,37 +1537,39 @@ template <typename T> void Solver<T>::analyze(Explanation<T> &e) {
     
 #ifdef DBG_TRACE
     if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
-        std::cout << "hello\n";
+        std::cout << "num_lit: " << num_lit << std::endl;
     }
 #endif
     
-    bool need_add{true};
-    if (l.isNumeric()) {
-        auto idx_l{numeric.getConflictIndex(l)};
-        if (idx_l != Constant::NoIndex) {
-            if (conflict[idx_l].value() > l.value_unsafe()) {
-                conflict[idx_l].setValue(l.value_unsafe());
-                literal_lvl[idx_l] = li + 1;
+    if(num_lit >= 0) {
+        bool need_add{true};
+        if (l.isNumeric()) {
+            auto idx_l{numeric.getConflictIndex(l)};
+            if (idx_l != Constant::NoIndex) {
+                if (conflict[idx_l].value() > l.value_unsafe()) {
+                    conflict[idx_l].setValue(l.value_unsafe());
+                    literal_lvl[idx_l] = li + 1;
+                }
+                need_add = false;
+                
+#ifdef DBG_TRACE
+                if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+                    std::cout << " UIP (updated): " << conflict[idx_l] << std::endl;
+                }
+#endif
             }
-            need_add = false;
+        }
+        
+        if (need_add) {
+            conflict.push_back(l);
+            literal_lvl.push_back(li + 1);
             
 #ifdef DBG_TRACE
             if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
-                std::cout << " UIP (updated): " << conflict[idx_l] << std::endl;
+                std::cout << " UIP (added): " << l << std::endl;
             }
 #endif
         }
-    }
-    
-    if (need_add) {
-        conflict.push_back(l);
-        literal_lvl.push_back(li + 1);
-        
-#ifdef DBG_TRACE
-        if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
-            std::cout << " UIP (added): " << l << std::endl;
-        }
-#endif
     }
     
     assert(conflict.size() == literal_lvl.size());
@@ -1652,12 +1688,18 @@ template <typename T> bool Solver<T>::isAssertive(std::vector<Literal<T>> &conf)
 
 template <typename T> void Solver<T>::learnConflict(Explanation<T> &e) {
     
+//#ifdef DBG_TRACE
+//    if (num_fails >= 7039 and (DBG_TRACE & SEARCH)) {
+//        std::cout << num_fails << std::endl;
+//    }
+//#endif
+    
     analyze(e);
     
     ClauseAdded.trigger(conflict);
     
     //  assert(propagationLevel(conflict[0]) >= propagationLevel(decisions.back()));
-    assert(literal_lvl[0] >= propagationLevel(decisions.back()));
+//    assert(literal_lvl[0] >= propagationLevel(decisions.back()));
     
     int jump{1};
     
@@ -1691,7 +1733,7 @@ template <typename T> void Solver<T>::learnConflict(Explanation<T> &e) {
     //              << numeric.upper(conflict[0].variable()) << "]\n";
     //  }
     
-    assert(isAssertive(learnt_clause));
+//    assert(isAssertive(learnt_clause));
     
     //  assert(not conflict[0].isNumeric() or not
     //  numeric.falsified(conflict[0]));
@@ -1871,7 +1913,7 @@ void Solver<T>::optimize(S &objective) {
     if (satisfiability == True) {
       auto best{objective.value()};
       if (options.verbosity >= Options::NORMAL) {
-        std::cout << std::setw(13) << best;
+        std::cout << std::setw(10) << best;
         displayProgress(std::cout);
       }
         boolean.saveBestSolution();
@@ -1924,9 +1966,10 @@ template <typename T> boolean_state Solver<T>::search() {
       saveState();
 
       // all resource constraints are accounted for => a solution has been found
-      if (boolean_search_vars.empty()) {
+      if (boolean_search_vars.empty() /* and numeric_search_vars.empty()*/) {
         satisfiability = True;
 
+//          best_solution = boolean.polarity;
 #ifdef DBG_TRACE
         if (DBG_BOUND) {
           std::cout << "--- new solution [i=" << num_choicepoints << "] ---\n";
@@ -2029,9 +2072,12 @@ template <typename T> void tempo::Solver<T>::propagate() {
 
   clauses.clearTriggers();
 
+//    bool need_up_num;
+//    
 //    bool up_done{false};
   while (not propagation_queue.empty() or trail.size() > p_index) {
 
+//      need_up_num = false;
     while (trail.size() > p_index) {
       ++num_literals;
       Literal<T> l{trail[p_index]};
@@ -2047,40 +2093,41 @@ template <typename T> void tempo::Solver<T>::propagate() {
         //TODO: not sure why it is better to do it like this than with the standard constraint queue system (PRIORITY?)
             if (not l.isNumeric())
                 clauses.unit_propagate(l);
-//        else
-//            clauses.notify(l, 0);
-//            else if(clauses.notify(l, 0)) {
-//                
+//            else if (clauses.notify(l, 0)) {
+//
 //#ifdef DBG_TRACE
-//        if (DBG_BOUND and (DBG_TRACE & QUEUE)) {
-//          std::cout << " -" << clauses << " (" << clauses.id() << ")" << std::endl;
-//        }
+//              if (DBG_BOUND and (DBG_TRACE & QUEUE)) {
+//                std::cout << " -" << clauses << " (" << clauses.id() << ")"
+//                          << std::endl;
+//              }
 //#endif
-//                
-//                propagation_queue.activate(&clauses);
+//
+////                need_up_num = true;
+//              propagation_queue.activate(&clauses);
 //            }
+        
+//        clauses.unit_propagate(l);
 
+            //              std::cout << "propagate " << info_t(l) << std::endl;
+            //
+            //        std::cout << boolean_constraints << std::endl;
 
+            const std::vector<int> &cid =
+                (l.isNumeric() ? numeric_constraints[l]
+                               : boolean_constraints[l]);
+            const std::vector<unsigned> &rank =
+                (l.isNumeric() ? numeric_constraints.rank(l)
+                               : boolean_constraints.rank(l));
 
-      //              std::cout << "propagate " << info_t(l) << std::endl;
-      //
-      //        std::cout << boolean_constraints << std::endl;
+            //              std::cout << cons.size() << std::endl;
+            //              exit(1);
 
-      const std::vector<int> &cid =
-          (l.isNumeric() ? numeric_constraints[l] : boolean_constraints[l]);
-      const std::vector<unsigned> &rank =
-          (l.isNumeric() ? numeric_constraints.rank(l)
-                         : boolean_constraints.rank(l));
-
-      //              std::cout << cons.size() << std::endl;
-      //              exit(1);
-
-      for (auto i{cid.size()}; i-- > 0;) {
-        auto cons{constraints[cid[i]]};
-          if (cons->idempotent and culprit == cons) {
-//              std::cout << "idempotency\n";
-              continue;
-          }
+            for (auto i{cid.size()}; i-- > 0;) {
+              auto cons{constraints[cid[i]]};
+              if (cons->idempotent and culprit == cons) {
+                //              std::cout << "idempotency\n";
+                continue;
+              }
 
 #ifdef DBG_TRACE
         if (DBG_BOUND and (DBG_TRACE & QUEUE)) {
@@ -2089,7 +2136,7 @@ template <typename T> void tempo::Solver<T>::propagate() {
 #endif
 
         propagation_queue.triggers(l, rank[i], cons);
-      }
+            }
 
       ++p_index;
     }
@@ -2122,7 +2169,7 @@ template <typename T> void tempo::Solver<T>::propagate() {
 //              clauses.unit_propagate(u);
 //      }
      
-//      if(not up_done and propagation_queue.empty() and trail.size() == p_index) {
+//      if(need_up_num and not up_done and propagation_queue.empty() and trail.size() == p_index) {
 //          clauses.propagate();
 //          up_done = true;
 //      }
@@ -2380,7 +2427,7 @@ template <typename T>
 std::ostream &Solver<T>::displayHeader(std::ostream &os,
                                           const int width) const {
   os << std::right << std::setw(width)
-    << " objective   failures   branches   clauses    size   cpu" << std::endl;
+    << " objective   failures   branches    nds/s    lvl   clauses  size   cpu" << std::endl;
 //     << std::left;
 //  os << std::setfill('=') << std::setw(width) << "=" << std::setfill(' ')
 //     << std::endl << std::right;
@@ -2395,7 +2442,7 @@ std::ostream &Solver<T>::displaySummary(std::ostream &os,
   //    auto offset{msg.size()/2};
   //    os << std::setfill('=') << std::setw(36 + offset) << msg << std::setw(36
   //    - offset)<< "\n" << std::setfill(' ');
-  os << std::setw(13) << msg;
+  os << std::setw(10) << msg;
   displayProgress(os);
 //  os << std::setfill('=') << std::setw(60) << "\n" << std::setfill(' ');
   return os;
@@ -2403,26 +2450,33 @@ std::ostream &Solver<T>::displaySummary(std::ostream &os,
 
 template <typename T>
 std::ostream &Solver<T>::displayProgress(std::ostream &os) const {
+    
+    auto cpu{(cpu_time() - start_time)};
 
   os << "  " << std::setw(9) << num_fails << "  " << std::setw(9)
      << num_choicepoints
      << "  "
+    << std::setw(7) << static_cast<unsigned long>(static_cast<double>(num_choicepoints)/cpu)
+    << "  "
+    << std::setw(5) << static_cast<unsigned>(avg_fail_level)
+    << "  "
      //<< std::setw(12) << num_literals << "  "
      << std::setw(8) << clauses.size();
   if (clauses.size() == 0)
-    os << "    n/a ";
+    os << "   n/a";
   else
-    os << "  " << std::setw(6) << std::setprecision(4)
-       << static_cast<double>(clauses.volume()) /
-              static_cast<double>(clauses.size());
+    os << "  " << std::setw(4) //<< std::setprecision(4)
+       << static_cast<unsigned>(static_cast<double>(clauses.volume()) /
+              static_cast<double>(clauses.size()));
   //      << clauses.volume() << " " << clauses.size();
 
   //    os << "  " << std::setw(6) << std::setprecision(4) << (gap_ratio /
   //    static_cast<double>(num_choicepoints)) ; os << "  " << std::setw(6) <<
   //    std::setprecision(4) << (static_cast<double>(num_tight) /
   //    static_cast<double>(num_choicepoints)) ;
-  os << "   " << std::left << (cpu_time() - start_time) << std::right
-     << std::endl;
+  os << "   " << std::left << cpu << std::right
+//     << " " << clauses.num_miss << "/" << clauses.num_up
+    << std::endl;
 
   return os;
 }

@@ -10,6 +10,7 @@
 #include "Failure.hpp"
 #include "Global.hpp"
 #include "constraints/Constraint.hpp"
+#include "util/Heap.hpp"
 #include "util/Options.hpp"
 #include "util/SparseSet.hpp"
 #include "util/SubscribableEvent.hpp"
@@ -39,6 +40,7 @@ public:
 
   //    void unit_propagate(const var l);
   void set_watcher(const int r, const index_t i, Clause<T> *cl);
+    void set_watcher_numeric(const int r, const index_t i, Clause<T> *cl);
 
   // "learn" makes several assumptions about the added clause, too lazy to write
   // the robust version yet
@@ -50,6 +52,9 @@ public:
                     const bool learnt = false);
 
   void unit_propagate(const Literal<T> l);
+  void unit_propagate_numeric(const Literal<T> l);
+  void unit_propagate_boolean(const Literal<T> l);
+    void unit_propagate_beta(const Literal<T> l);
 
   void clearTriggers();
 
@@ -143,15 +148,24 @@ public:
     //    ////////////////////////////////////////
 
     SparseSet<var_t> triggered_bounds;
+    std::vector<int> search_stack;
+    
+    unsigned lazyness{3};
+    std::vector<unsigned> count;
 
-  // statistics
-  size_t total_size{0};
-  int num_units{0};
+  public:
+    unsigned long num_prop{0};
+    unsigned long num_up{0};
+    unsigned long num_miss{0};
 
-  static const bool BOOLEAN{false};
-  static const bool NUMERIC{true};
+    // statistics
+    size_t total_size{0};
+    int num_units{0};
 
-  static bool litType(Literal<T> l) { return l.isNumeric(); }
+    static const bool BOOLEAN{false};
+    static const bool NUMERIC{true};
+
+    static bool litType(Literal<T> l) { return l.isNumeric(); }
 
 #ifdef DBG_WATCHERS
   void verifyWatchers(const char *msg) const;
@@ -190,11 +204,15 @@ void ClauseBase<T>::post(const int idx) {
 // propagate the constraint
 template <typename T>
 void ClauseBase<T>::propagate() {
+    
+    ++num_prop;
+    
     for(auto b : triggered_bounds) {
       auto p{solver.numeric.strongestLiteral(Literal<T>::sgn(b),
                                              Literal<T>::var(b))};
 //      std::cout << " --> unitprop " << solver.pretty(p) << std::endl;
       unit_propagate(p);
+//        unit_propagate_numeric(p);
     }
     clearTriggers();
     //    std::cout << triggered_bounds << std::endl;
@@ -210,7 +228,17 @@ bool ClauseBase<T>::notify(const Literal<T> l, const int) {
 //        unit_propagate(l);
     
     assert(l.isNumeric());
-    if(not triggered_bounds.has(l)) {
+    
+    
+    if(solver.num_choicepoints - count[l] > lazyness) { //and not triggered_bounds.has(l)) {
+        
+        if(triggered_bounds.has(l))
+        {
+            std::cout << "weird\n";
+            exit(1);
+        }
+        count[l] = solver.num_choicepoints;
+        
         triggered_bounds.add(l);
         return true;
 //        std::cout << triggered_bounds << std::endl;
@@ -248,7 +276,8 @@ template <typename T> void ClauseBase<T>::newBooleanVar(const var_t x) {
 }
 
 template <typename T> void ClauseBase<T>::newNumericVar(const var_t x) {
-  watch[NUMERIC].resize(static_cast<size_t>(2 * x + 2));
+    watch[NUMERIC].resize(static_cast<size_t>(2 * x + 2));
+    count.resize(static_cast<size_t>(2 * x + 2), 0);
 }
 
 template <typename T>
@@ -339,7 +368,9 @@ template <typename T> Clause<T> *ClauseBase<T>::consistent() {
 }
 
 template <typename T>
-void ClauseBase<T>::unit_propagate(const Literal<T> l) {
+void ClauseBase<T>::unit_propagate_beta(const Literal<T> l) {
+
+  ++num_up;
 
 #ifdef DBG_WATCHERS
   verifyWatchers("before UP");
@@ -350,6 +381,27 @@ void ClauseBase<T>::unit_propagate(const Literal<T> l) {
     std::cout << "unit propagate true lit " << l << "\n";
   }
 #endif
+
+  if (l.isNumeric()) {
+    unit_propagate_numeric(l);
+  } else {
+    unit_propagate_boolean(l);
+  }
+//    unit_propagate_generic(l);
+
+#ifdef DBG_WATCHERS
+  verifyWatchers("after UP");
+#endif
+}
+
+template <typename T>
+void ClauseBase<T>::unit_propagate(const Literal<T> l) {
+    
+    ++num_up;
+
+  #ifdef DBG_WATCHERS
+    verifyWatchers("before UP");
+  #endif
 
   auto lt{litType(l)};
 
@@ -371,40 +423,31 @@ void ClauseBase<T>::unit_propagate(const Literal<T> l) {
     index_t idx{cl->watched_index[watch_rank]};
     Literal<T> other{cl->watched(1 - watch_rank)};
     Literal<T> c_lit{(*cl)[idx]};
-      
-//      std::cout << " self = " << c_lit << std::endl;
-//      std::cout << "other = " << other << std::endl;
-      
-      assert(c_lit.sameVariable(l));
-      assert(c_lit.sign() != l.sign());
 
-//      if(l.sign() == c_lit.sign()) {
-//          std::cout << l << " is watched by " << *cl << " @" << idx << std::endl;
-//          exit(1);
-//      }
-      
-//      std::cout << "==> " << c_lit << std::endl;
+    assert(c_lit.sameVariable(l));
+    assert(c_lit.sign() != l.sign());
 
-      if (lt == NUMERIC) {
-          if(c_lit.value() + l.value() >= 0) {
-              
+    if (lt == NUMERIC) {
+      if (c_lit.value() + l.value() >= 0) {
+
 #ifdef DBG_TRACE
-              if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
-                  std::cout << " false trigger (" << c_lit << " is not falsified)\n";
-              }
+        if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
+                    std::cout << " false trigger (" << c_lit << " is not falsified)\n";
+        }
 #endif
-              
-              continue;
-          } else {
-              
+
+        ++num_miss;
+        continue;
+      } else {
+
 #ifdef DBG_TRACE
-              if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
-                  std::cout << " true trigger (" << c_lit << " and " << l << " are contradictory)\n";
-              }
+        if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
+          std::cout << " true trigger (" << c_lit << " and " << l
+                    << " are contradictory)\n";
+        }
 #endif
-              
-          }
       }
+    }
 
     if (satisfied(other)) {
 
@@ -420,9 +463,9 @@ void ClauseBase<T>::unit_propagate(const Literal<T> l) {
     index_t i{idx};
 
 #ifdef DBG_TRACE
-      if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
-        std::cout << "search another literal to watch" ;
-      }
+    if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
+      std::cout << "search another literal to watch";
+    }
 #endif
     while (true) {
 
@@ -489,32 +532,221 @@ void ClauseBase<T>::unit_propagate(const Literal<T> l) {
       assert(cl == base[cl->id]);
     }
   }
-
+    
+    
 #ifdef DBG_WATCHERS
   verifyWatchers("after UP");
 #endif
 }
 
+template <typename T>
+void ClauseBase<T>::unit_propagate_numeric(const Literal<T> l) {
 
-//template <typename T>
-//void ClauseBase<T>::unit_propagate_num(const Literal<T> l) {
+  // watch[lt][l] contains all clauses watched by ~l.
+  // unless l is a numeric literal x <= k, in which case watch[lt][l] contains
+  // clauses watched by some literal -x <= v therefore the trigger is "real"
+  // only if k+v < 0
+
+  //  std::vector<int> search_stack;
+
+  if (watch[NUMERIC][l].empty())
+    return;
+
+  search_stack.clear();
+
+  search_stack.push_back(0);
+  while (not search_stack.empty()) {
+
+#ifdef DBG_TRACE
+    if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
+      for (index_t i{0}; i < watch[NUMERIC][l].size(); ++i) {
+        std::cout << std::setw(3) << i << " "
+                  << watch[NUMERIC][l][i]->watched(
+                         watch[NUMERIC][l][i]->watch_rank(l))
+                  << " " << *(watch[NUMERIC][l][i]) << std::endl;
+      }
+      std::cout << "stack:";
+      for (auto i : search_stack) {
+        std::cout << " " << i;
+      }
+      std::cout << std::endl;
+    }
+#endif
+
+    auto k{search_stack.back()};
+
+    if (static_cast<size_t>(k) >= watch[NUMERIC][l].size()) {
+      search_stack.pop_back();
+      continue;
+    }
+
+    auto cl{watch[NUMERIC][l][k]};
+
+    bool watch_rank{cl->watch_rank(l)};
+    index_t idx{cl->watched_index[watch_rank]};
+    Literal<T> other{cl->watched(1 - watch_rank)};
+    Literal<T> c_lit{(*cl)[idx]};
+
+#ifdef DBG_TRACE
+    if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
+      std::cout << "explore clause " << *cl << " (" << c_lit << ")\n";
+    }
+#endif
+
+    if (c_lit.value() + l.value() >= 0) {
+
+#ifdef DBG_TRACE
+      if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
+        std::cout << " false trigger (" << c_lit << " is not falsified)\n";
+      }
+#endif
+
+      ++num_miss;
+
+      // false trigger, all descendant in the heap are also false trigger
+      search_stack.pop_back();
+      continue;
+    }
+
+    if (satisfied(other)) {
+
+#ifdef DBG_TRACE
+      if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
+        std::cout << ": satisfied by " << other << std::endl;
+      }
+#endif
+
+      // no unit from this clause, but descendant are not necessarily false
+      // triggers
+      search_stack.pop_back();
+      auto child{heap::left(k)};
+      int end_list{static_cast<int>(watch[NUMERIC][l].size())};
+      if (child < end_list) {
+        search_stack.push_back(child);
+        child = heap::right(k);
+        if (child < end_list)
+          search_stack.push_back(child);
+      }
+      continue;
+    }
+
+    index_t i{idx};
+
+#ifdef DBG_TRACE
+    if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
+      std::cout << "search another literal to watch";
+    }
+#endif
+    while (true) {
+
+      if (++i == cl->size())
+        i = 0;
+      if (i == idx)
+        break;
+
+      // look for a replacement
+      auto p = (*cl)[i];
+
+#ifdef DBG_TRACE
+      if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
+        std::cout << "  " << p;
+      }
+#endif
+
+      if (p != other) {
+        if (not falsified(p)) {
+
+#ifdef DBG_TRACE
+          if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
+            std::cout << ": replace by " << p << " (" << i << ") as "
+                      << watch_rank << "-th watcher ";
+          }
+#endif
+
+            if(p.isNumeric())
+                set_watcher_numeric(watch_rank, i, cl);
+            else
+                set_watcher(watch_rank, i, cl);
+
+#ifdef DBG_TRACE
+          if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
+            std::cout << " and rm from " << l << "'s watches\n";
+          }
+#endif
+
+          // remove clause from l's watch list
+          swap(*(watch[NUMERIC][l].begin() + k), *watch[NUMERIC][l].rbegin());
+          watch[NUMERIC][l].pop_back();
+
+          if (static_cast<size_t>(k) < watch[NUMERIC][l].size()) {
+            //                std::cout << "precolated down from cl[" << k << "]
+            //                = " << *watch[NUMERIC][l][k] << std::endl;
+
+            heap::percolate_down(
+                watch[NUMERIC][l].begin(), watch[NUMERIC][l].end(), k,
+                [l](const Clause<T> *c1, const Clause<T> *c2) {
+                  return c1->watched(c1->watch_rank(l)).value() <
+                         c2->watched(c2->watch_rank(l)).value();
+                });
+          }
+
+          // resume search from the same point in the heap, no need to change
+          // anything
+          break;
+        }
+      }
+#ifdef DBG_TRACE
+      else if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
+        std::cout << "*";
+      }
+#endif
+    }
+
+    if (i == idx) {
+
+#ifdef DBG_TRACE
+      if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
+        std::cout << ": new unit " << other << std::endl;
+      }
+#endif
+
+#ifdef DBG_WATCHERS
+      verifyWatchers("at assign");
+#endif
+
+      solver.set(other, {this, cl->id});
+      // there was pruning, descendant might trigger
+      search_stack.pop_back();
+      auto child{heap::left(k)};
+      int end_list{static_cast<int>(watch[NUMERIC][l].size())};
+      if (child < end_list) {
+        search_stack.push_back(child);
+        child = heap::right(k);
+        if (child < end_list)
+          search_stack.push_back(child);
+      }
+
+      assert(cl == base[cl->id]);
+    }
+  }
+}
+
+// template <typename T>
+// void ClauseBase<T>::unit_propagate_numeric(const Literal<T> l) {
 //
-//#ifdef DBG_WATCHERS
-//  verifyWatchers("before UP");
-//#endif
 //
-//#ifdef DBG_TRACE
-//  if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
-//    std::cout << "unit propagate true lit " << l << "\n";
-//  }
-//#endif
+//   // watch[lt][l] contains all clauses watched by ~l.
+//   // unless l is a numeric literal x <= k, in which case watch[lt][l]
+//   contains
+//   // clauses watched by some literal -x <= v therefore the trigger is "real"
+//   // only if k+v < 0
 //
+////    std::vector<index_t> search_stack;
+////
+////    search_stack.
 //
-//  // watch[lt][l] contains all clauses watched by ~l.
-//  // unless l is a numeric literal x <= k, in which case watch[lt][l] contains
-//  // clauses watched by some literal -x <= v therefore the trigger is "real"
-//  // only if k+v < 0
-//  for (auto c{watch[NUMERIC][l].rbegin()}; c != watch[NUMERIC][l].rend(); ++c) {
+//  for (auto c{watch[NUMERIC][l].rbegin()}; c != watch[NUMERIC][l].rend(); ++c)
+//  {
 //
 //    auto cl{*c};
 //
@@ -528,40 +760,40 @@ void ClauseBase<T>::unit_propagate(const Literal<T> l) {
 //    index_t idx{cl->watched_index[watch_rank]};
 //    Literal<T> other{cl->watched(1 - watch_rank)};
 //    Literal<T> c_lit{(*cl)[idx]};
-//      
+//
 ////      std::cout << " self = " << c_lit << std::endl;
 ////      std::cout << "other = " << other << std::endl;
-//      
+//
 //      assert(c_lit.sameVariable(l));
 //      assert(c_lit.sign() != l.sign());
 //
 ////      if(l.sign() == c_lit.sign()) {
-////          std::cout << l << " is watched by " << *cl << " @" << idx << std::endl;
-////          exit(1);
-////      }
-//      
+////          std::cout << l << " is watched by " << *cl << " @" << idx <<
+/// std::endl; /          exit(1); /      }
+//
 ////      std::cout << "==> " << c_lit << std::endl;
 //
-//      if (lt == NUMERIC) {
+//
 //          if(c_lit.value() + l.value() >= 0) {
-//              
+//
 //#ifdef DBG_TRACE
 //              if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
-//                  std::cout << " false trigger (" << c_lit << " is not falsified)\n";
+//                  std::cout << " false trigger (" << c_lit << " is not
+//                  falsified)\n";
 //              }
 //#endif
-//              
+//
 //              continue;
 //          } else {
-//              
+//
 //#ifdef DBG_TRACE
 //              if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
-//                  std::cout << " true trigger (" << c_lit << " and " << l << " are contradictory)\n";
+//                  std::cout << " true trigger (" << c_lit << " and " << l << "
+//                  are contradictory)\n";
 //              }
 //#endif
-//              
+//
 //          }
-//      }
 //
 //    if (satisfied(other)) {
 //
@@ -616,8 +848,12 @@ void ClauseBase<T>::unit_propagate(const Literal<T> l) {
 //#endif
 //
 //          // remove clause from l's watch list
-//          swap(*c, *watch[lt][l].rbegin());
-//          watch[lt][l].pop_back();
+//          swap(*c, *watch[NUMERIC][l].rbegin());
+//          watch[NUMERIC][l].pop_back();
+//            heap::percolate_down(watch[NUMERIC][l].begin(),
+//            watch[NUMERIC][l].end(), 0, [l](const Clause<T>* c1, const
+//            Clause<T>* c2) {return c1->watched(c1->watch_rank(l)).value() >
+//            c2->watched(c2->watch_rank(l)).value(); });
 //
 //          break;
 //        }
@@ -647,131 +883,114 @@ void ClauseBase<T>::unit_propagate(const Literal<T> l) {
 //    }
 //  }
 //
-//#ifdef DBG_WATCHERS
-//  verifyWatchers("after UP");
-//#endif
 //}
 
-//template <typename T>
-//void ClauseBase<T>::unit_propagate_bool(const Literal<T> l) {
-//
-//#ifdef DBG_WATCHERS
-//  verifyWatchers("before UP");
-//#endif
-//
-//#ifdef DBG_TRACE
-//  if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
-//    std::cout << "unit propagate true lit " << l << "\n";
-//  }
-//#endif
-//
-//  // watch[lt][l] contains all clauses watched by ~l.
-//  // unless l is a numeric literal x <= k, in which case watch[lt][l] contains
-//  // clauses watched by some literal -x <= v therefore the trigger is "real"
-//  // only if k+v < 0
-//  for (auto c{watch[BOOLEAN][l].rbegin()}; c != watch[BOOLEAN][l].rend(); ++c) {
-//
-//    auto cl{*c};
-//
-//#ifdef DBG_TRACE
-//    if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
-//      std::cout << " watched by " << *cl << std::endl;
-//    }
-//#endif
-//
-//    bool watch_rank{cl->watch_rank(l)};
-//    index_t idx{cl->watched_index[watch_rank]};
-//    Literal<T> other{cl->watched(1 - watch_rank)};
-//    Literal<T> c_lit{(*cl)[idx]};
-//  
-//    if (satisfied(other)) {
-//
-//#ifdef DBG_TRACE
-//      if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
-//        std::cout << ": satisfied by " << other << std::endl;
-//      }
-//#endif
-//
-//      continue;
-//    }
-//
-//    index_t i{idx};
-//
-//#ifdef DBG_TRACE
-//      if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
-//        std::cout << "search another literal to watch" ;
-//      }
-//#endif
-//    while (true) {
-//
-//      if (++i == cl->size())
-//        i = 0;
-//      if (i == idx)
-//        break;
-//
-//      // look for a replacement
-//      auto p = (*cl)[i];
-//
-//#ifdef DBG_TRACE
-//      if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
-//        std::cout << "  " << p;
-//      }
-//#endif
-//
-//      if (p != other) {
-//        if (not falsified(p)) {
-//
-//#ifdef DBG_TRACE
-//          if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
-//            std::cout << ": replace by " << p << " (" << i << ") as "
-//                      << watch_rank << "-th watcher ";
-//          }
-//#endif
-//
-//          set_watcher(watch_rank, i, cl);
-//
-//#ifdef DBG_TRACE
-//          if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
-//            std::cout << " and rm from " << l << "'s watches\n";
-//          }
-//#endif
-//
-//          // remove clause from l's watch list
-//          swap(*c, *watch[BOOLEAN][l].rbegin());
-//          watch[BOOLEAN][l].pop_back();
-//
-//          break;
-//        }
-//      }
-//#ifdef DBG_TRACE
-//      else if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
-//        std::cout << "*";
-//      }
-//#endif
-//    }
-//
-//    if (i == idx) {
-//
-//#ifdef DBG_TRACE
-//      if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
-//        std::cout << ": new unit " << other << std::endl;
-//      }
-//#endif
-//
-//#ifdef DBG_WATCHERS
-//      verifyWatchers("at assign");
-//#endif
-//
-//      solver.set(other, {this, cl->id});
-//
-//      assert(cl == base[cl->id]);
-//    }
-//  }
-//
-//#ifdef DBG_WATCHERS
-//  verifyWatchers("after UP");
-//#endif
-//}
+template <typename T>
+void ClauseBase<T>::unit_propagate_boolean(const Literal<T> l) {
+
+  // watch[lt][l] contains all clauses watched by ~l.
+  // unless l is a numeric literal x <= k, in which case watch[lt][l] contains
+  // clauses watched by some literal -x <= v therefore the trigger is "real"
+  // only if k+v < 0
+  for (auto c{watch[BOOLEAN][l].rbegin()}; c != watch[BOOLEAN][l].rend(); ++c) {
+
+    auto cl{*c};
+
+#ifdef DBG_TRACE
+    if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
+      std::cout << " watched by " << *cl << std::endl;
+    }
+#endif
+
+    bool watch_rank{cl->watch_rank(l)};
+    index_t idx{cl->watched_index[watch_rank]};
+    Literal<T> other{cl->watched(1 - watch_rank)};
+    //    Literal<T> c_lit{(*cl)[idx]};
+
+    if (satisfied(other)) {
+
+#ifdef DBG_TRACE
+      if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
+        std::cout << ": satisfied by " << other << std::endl;
+      }
+#endif
+
+      continue;
+    }
+
+    index_t i{idx};
+
+#ifdef DBG_TRACE
+    if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
+      std::cout << "search another literal to watch";
+    }
+#endif
+    while (true) {
+
+      if (++i == cl->size())
+        i = 0;
+      if (i == idx)
+        break;
+
+      // look for a replacement
+      auto p = (*cl)[i];
+
+#ifdef DBG_TRACE
+      if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
+        std::cout << "  " << p;
+      }
+#endif
+
+      if (p != other) {
+        if (not falsified(p)) {
+
+#ifdef DBG_TRACE
+          if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
+            std::cout << ": replace by " << p << " (" << i << ") as "
+                      << watch_rank << "-th watcher ";
+          }
+#endif
+
+          set_watcher(watch_rank, i, cl);
+
+#ifdef DBG_TRACE
+          if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
+            std::cout << " and rm from " << l << "'s watches\n";
+          }
+#endif
+
+          // remove clause from l's watch list
+          swap(*c, *watch[BOOLEAN][l].rbegin());
+          watch[BOOLEAN][l].pop_back();
+
+          break;
+        }
+      }
+#ifdef DBG_TRACE
+      else if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
+        std::cout << "*";
+      }
+#endif
+    }
+
+    if (i == idx) {
+
+#ifdef DBG_TRACE
+      if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
+        std::cout << ": new unit " << other << std::endl;
+      }
+#endif
+
+#ifdef DBG_WATCHERS
+      verifyWatchers("at assign");
+#endif
+
+      solver.set(other, {this, cl->id});
+
+      assert(cl == base[cl->id]);
+    }
+  }
+}
 
 template <typename T>
 void ClauseBase<T>::set_watcher(const int r, const index_t i,
@@ -790,7 +1009,39 @@ void ClauseBase<T>::set_watcher(const int r, const index_t i,
 //    
 //    std::cout << "new watchers: " << cl->watched(0) << " & " << cl->watched(1) << std::endl;
 
-  watch[l.isNumeric()][l].push_back(cl);
+//  if (l.isNumeric()) {
+//    auto i{watch[NUMERIC][l].size()};
+//    watch[NUMERIC][l].push_back(cl);
+//    heap::percolate_up(watch[NUMERIC][l].begin(), i,
+//                       [l](const Clause<T> *c1, const Clause<T> *c2) {
+//                         return c1->watched(c1->watch_rank(l)).value() <
+//                                c2->watched(c2->watch_rank(l)).value();
+//                       });
+//  } else {
+//    watch[BOOLEAN][l].push_back(cl);
+//  }
+    
+    watch[l.isNumeric()][l].push_back(cl);
+}
+
+template <typename T>
+void ClauseBase<T>::set_watcher_numeric(const int r, const index_t i,
+                                   Clause<T> *cl) {
+    
+
+  cl->watched_index[r] = i;
+
+  Literal<T> l{~((*cl)[i])};
+
+    assert(l.isNumeric());
+    
+    auto j{watch[NUMERIC][l].size()};
+    watch[NUMERIC][l].push_back(cl);
+    heap::percolate_up(watch[NUMERIC][l].begin(), j,
+                       [l](const Clause<T> *c1, const Clause<T> *c2) {
+                         return c1->watched(c1->watch_rank(l)).value() <
+                                c2->watched(c2->watch_rank(l)).value();
+                       });
 }
 
 template <typename T> void ClauseBase<T>::forget(Clause<T> *cl) {
