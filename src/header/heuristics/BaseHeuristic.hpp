@@ -12,9 +12,7 @@
 #include "util/crtp.hpp"
 
 namespace tempo {
-    template<typename T>
-    class Scheduler;
-
+  
 template<typename T>
 class Solver;
 }
@@ -27,7 +25,7 @@ namespace tempo::heuristics {
  * @tparam Impl
  */
 template <typename Impl, typename T>
-concept HeuristicImplementation = requires(Impl instance, var x, const Scheduler<T>& s) {
+concept HeuristicImplementation = requires(Impl instance, var_t x, const Solver<T>& s) {
   { instance.getCost(x,s) } -> std::convertible_to<double>;
 };
 
@@ -48,40 +46,40 @@ public:
    * @return selected choice point or DistanceConstraint::none if no further
    * choices can be made
    */
-  template <typename T>
-  requires(HeuristicImplementation<Impl,T>) auto nextChoicePoint(
-      const Scheduler<T> &scheduler) {
-    var best_var{NoVar};
-    auto &indexSequence = scheduler.getBranch();
-    double minCost = std::numeric_limits<double>::infinity();
-
-    assert(not indexSequence.empty());
-
-    for (auto x : indexSequence) {
-        
-      const auto cost = this->getImpl().getCost(x, scheduler);
-
-#ifdef DEBUG_HEURISTICS_CHOICE
-                std::cout << scheduler.getEdge(POS(x)) << "<>" << scheduler.getEdge(NEG(x)) << ": " << cost;
-#endif
-                
-                if (cost < minCost) {
-                    minCost = cost;
-                    best_var = x;
-                    
-#ifdef DEBUG_HEURISTICS_CHOICE
-                    std::cout << "*";
-#endif
-                }
-                
-#ifdef DEBUG_HEURISTICS_CHOICE
-                std::cout << std::endl;
-#endif
-    }
-
-            assert(best_var != NoVar);
-            return best_var;
-  }
+//  template <typename T>
+//  requires(HeuristicImplementation<Impl,T>) auto nextChoicePoint(
+//      const Scheduler<T> &scheduler) {
+//    var best_var{NoVar};
+//    auto &indexSequence = scheduler.getBranch();
+//    double minCost = std::numeric_limits<double>::infinity();
+//
+//    assert(not indexSequence.empty());
+//
+//    for (auto x : indexSequence) {
+//        
+//      const auto cost = this->getImpl().getCost(x, scheduler);
+//
+//#ifdef DEBUG_HEURISTICS_CHOICE
+//                std::cout << scheduler.getEdge(POS(x)) << "<>" << scheduler.getEdge(NEG(x)) << ": " << cost;
+//#endif
+//                
+//                if (cost < minCost) {
+//                    minCost = cost;
+//                    best_var = x;
+//                    
+//#ifdef DEBUG_HEURISTICS_CHOICE
+//                    std::cout << "*";
+//#endif
+//                }
+//                
+//#ifdef DEBUG_HEURISTICS_CHOICE
+//                std::cout << std::endl;
+//#endif
+//    }
+//
+//            assert(best_var != NoVar);
+//            return best_var;
+//  }
     
     
     template <typename T>

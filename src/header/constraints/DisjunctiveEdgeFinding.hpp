@@ -20,7 +20,7 @@ private:
   Solver<T> &m_solver;
   //  std::vector<task> m_tasks;
     Job<T> schedule;
-  std::vector<Job<T> *> the_tasks;
+  std::vector<Job<T>> the_tasks;
   std::vector<std::vector<Literal<T>>> disjunct;
 
   // helpers
@@ -56,9 +56,9 @@ private:
 
 public:
   template <typename ItTask, typename ItVar>
-  DisjunctiveEdgeFinding(Solver<T> &solver, Job<T>& sched, const ItTask beg_task,
-                         const ItTask end_task,
-                         const ItVar beg_var
+  DisjunctiveEdgeFinding(Solver<T> &solver, Job<T>& sched, ItTask beg_task,
+                        ItTask end_task,
+                          ItVar beg_var
     );
   virtual ~DisjunctiveEdgeFinding();
 
@@ -234,7 +234,7 @@ template <typename T>
 template <typename ItTask, typename ItVar>
 DisjunctiveEdgeFinding<T>::DisjunctiveEdgeFinding(
                                                         Solver<T> &solver, Job<T>& sched,  ItTask beg_task,  ItTask end_task,
-                                                  const ItVar beg_var
+                                                   ItVar beg_var
                                                   )
     : m_solver(solver), TT(std::distance(beg_task, end_task)),
       num_explanations(0, &(m_solver.getEnv())) {
@@ -244,7 +244,7 @@ DisjunctiveEdgeFinding<T>::DisjunctiveEdgeFinding(
           Constraint<T>::priority = Priority::Medium;
 
   for (auto j{beg_task}; j != end_task; ++j) {
-    the_tasks.push_back(j);
+    the_tasks.push_back(*j);
   }
 
   disjunct.resize(the_tasks.size());

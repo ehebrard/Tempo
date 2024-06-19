@@ -32,7 +32,7 @@ public:
 };
 
 template <typename T>
-DistanceConstraint<T> Constant::NoEdge = DistanceConstraint<T>(NOEVENT, NOEVENT, INFTY);
+DistanceConstraint<T> Constant::NoEdge = DistanceConstraint<T>(Constant::NoVarx, Constant::NoVarx, Constant::Infinity<T>);
 
 // template <typename T>
 // Literal<T> Constant::NoLiteral = Literal<T>(Constant::NoVarx,

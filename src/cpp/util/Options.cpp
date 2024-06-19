@@ -87,7 +87,7 @@ tempo::Options tempo::parse(int argc, char *argv[]) {
   cmd.add<ValueArg<int>>(opt.seed, "", "seed", "random seed", false, 12345,
                          "int");
     
-    cmd.add<ValueArg<int>>(opt.ub, "", "ub", "initial ub", false, INFTY,
+    cmd.add<ValueArg<int>>(opt.ub, "", "ub", "initial ub", false, std::numeric_limits<int>::max(),
                            "int");
 
   cmd.add<SwitchArg>(opt.print_sol, "", "print-sol",

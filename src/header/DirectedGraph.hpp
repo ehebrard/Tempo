@@ -3,6 +3,7 @@
 #define _TEMPO_DIRECTEDGRAPH_HPP
 
 #include "Global.hpp"
+#include "Constant.hpp"
 #include "ReversibleObject.hpp"
 #include "util/SparseSet.hpp"
 #include <boost/dynamic_bitset.hpp>
@@ -36,7 +37,7 @@ public:
     
 protected:
     int endpoint_{-1};
-    T label_{INFTY};
+    T label_{Constant::Infinity<T>};
 
 };
 
@@ -63,7 +64,7 @@ public:
     
 protected:
     int endpoint_{-1};
-    T label_{INFTY};
+    T label_{Constant::Infinity<T>};
     S stamp_{0};
 
 };

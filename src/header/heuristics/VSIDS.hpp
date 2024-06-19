@@ -31,12 +31,12 @@ namespace tempo::heuristics {
          * @param scheduler
          * @param options command line options
          */
-        explicit VSIDS(Scheduler<T> &scheduler) :
-//                sched(scheduler),
-                activity(scheduler, scheduler.getOptions().vsids_decay),
-                handlerToken(scheduler.ClauseAdded.subscribe_handled(
-                        [this,&scheduler](const auto &arg) { this->activity.update(arg, scheduler); })) {}
-        
+//        explicit VSIDS(Scheduler<T> &scheduler) :
+////                sched(scheduler),
+//                activity(scheduler, scheduler.getOptions().vsids_decay),
+//                handlerToken(scheduler.ClauseAdded.subscribe_handled(
+//                        [this,&scheduler](const auto &arg) { this->activity.update(arg, scheduler); })) {}
+//        
         
         explicit VSIDS(Solver<T> &solver) :
 //                solver(s),
@@ -58,13 +58,13 @@ namespace tempo::heuristics {
          * @return maximum of the distance between from and to in both directions in the temporal network divided by
          * the choice points activity
          */
-        [[nodiscard]] double getCost(const var x, const Scheduler<T>& sched) const {
-          auto prec_a{sched.getEdge(POS(x))};
-          auto prec_b{sched.getEdge(NEG(x))};
-          auto gap_a = sched.upper(prec_a.from) - sched.lower(prec_a.to);
-          auto gap_b = sched.upper(prec_b.from) - sched.lower(prec_b.to);
-          return static_cast<double>(std::max(gap_a, gap_b)) / activity.get(x, sched);
-        }
+//        [[nodiscard]] double getCost(const var x, const Scheduler<T>& sched) const {
+//          auto prec_a{sched.getEdge(POS(x))};
+//          auto prec_b{sched.getEdge(NEG(x))};
+//          auto gap_a = sched.upper(prec_a.from) - sched.lower(prec_a.to);
+//          auto gap_b = sched.upper(prec_b.from) - sched.lower(prec_b.to);
+//          return static_cast<double>(std::max(gap_a, gap_b)) / activity.get(x, sched);
+//        }
         
         [[nodiscard]] double getCost(const var_t x, const Solver<T>& solver) const {
 

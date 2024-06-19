@@ -13,14 +13,12 @@
 #include "Model.hpp"
 #include "Objective.hpp"
 #include "Restart.hpp"
-//#include "TemporalNetwork.hpp"
 #include "constraints/DisjunctiveEdgeFinding.hpp"
 #include "constraints/EdgeConstraint.hpp"
 //#include "constraints/Transitivity.hpp"
 #include "heuristics/HeuristicManager.hpp"
-#include "heuristics/ValueHeuristicsManager.hpp"
+//#include "heuristics/ValueHeuristicsManager.hpp"
 #include "heuristics/impl/DecayingEventActivityMap.hpp"
-//#include "util/Heap.hpp"
 #include "util/KillHandler.hpp"
 #include "util/Options.hpp"
 #include "util/SubscribableEvent.hpp"
@@ -381,7 +379,7 @@ private:
     // the set of variables remaining to fix
     
     std::optional<heuristics::HeuristicManager<T>> heuristic;
-    std::optional<heuristics::ValueHeuristicsManager> valueHeuristic;
+//    std::optional<heuristics::ValueHeuristicsManager> valueHeuristic;
     //  RestartPolicy *restart_policy = nullptr;
     //  unsigned int restart_limit{static_cast<unsigned int>(-1)};
     RestartManager<Solver<T>> restartPolicy;

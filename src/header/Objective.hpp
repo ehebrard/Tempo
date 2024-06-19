@@ -14,56 +14,6 @@ template <typename T> class Scheduler;
 template <typename T> class Job;
 
 
-template <typename T> class Makespan {
-public:
-  Makespan(Scheduler<T> &s) : schedule(s) {}
-  Makespan(Scheduler<T> &s, const T u) : schedule(s) { setPrimal(u); }
-  ~Makespan() = default;
-
-  //  void updatedualBound() { Objective<T>::d_b = schedule.lower(HORIZON); }
-  //
-  //  void updateprimalBound() { Objective<T>::p_b = schedule.lower(HORIZON); }
-  T value() { return schedule.lower(HORIZON); }
-
-  T gap() { return p_b - d_b; }
-  //  void closeGap() { d_b = p_b; }
-  T dualBound() const { return d_b; }
-  T primalBound() const { return p_b; }
-
-  void setDual(const T v) { d_b = v; }
-  void initDual() { d_b = schedule.lower(HORIZON); }
-
-  void setPrimal(const T v) {
-    p_b = v;
-    if (gap()) {
-      apply(p_b - Gap<T>::epsilon());
-    }
-  }
-
-  void apply(const T target) {
-    schedule.newMaximumLag(ORIGIN, HORIZON, target);
-  }
-
-  std::ostream &display(std::ostream &os) const {
-    os << "[" << std::left << std::setw(5) << std::setfill('.') << dualBound()
-       << std::setfill(' ');
-    auto pb{primalBound()};
-    if (pb < INFTY)
-      os << std::right << std::setw(6) << std::setfill('.') << pb
-         << std::setfill(' ');
-    else
-      os << ".infty";
-    os << "]";
-    return os;
-  }
-
-private:
-  Scheduler<T> &schedule;
-  T d_b{0};
-  T p_b;
-};
-
-
 
 template <typename T> class MakespanObjective {
 public:

@@ -54,42 +54,7 @@ namespace tempo::heuristics {
         * @throws std::runtime_error if an unknown heuristics type was given in
         * options
         */
-       HeuristicManager(Scheduler<T> &scheduler, const Options &options) {
-         switch (options.choice_point_heuristics) {
-         case Options::ChoicePointHeuristics::Tightest:
-           impl.emplace(std::in_place_type<Tightest<T>>);
-           break;
-         case Options::ChoicePointHeuristics::VSIDS:
-           if (options.learning) {
-             impl.emplace(std::in_place_type<VSIDS<T>>, scheduler);
-           } else // closest thing if not learning
-             impl.emplace(std::in_place_type<WeightedDegree<T>>, scheduler);
-           break;
-         case Options::ChoicePointHeuristics::WeightedDegree:
-           impl.emplace(std::in_place_type<WeightedDegree<T>>, scheduler);
-           break;
-//         case Options::ChoicePointHeuristics::WeightedCriticalPath:
-//           impl.emplace(std::in_place_type<WeightedDegree<T>>, scheduler, true);
-//           break;
-           //                case Options::ChoicePointHeuristics::EG_VSIDS:
-           //                  impl.emplace(std::in_place_type<EpsilonGreedyVSIDS>,
-           //                               options.vsids_epsilon, scheduler,
-           //                               options, scheduler);
-           //                  break;
-           //
-           //#if __TORCH_ENABLED__
-           //                case Options::ChoicePointHeuristics::GNN_HeatMap:
-           //                    impl.emplace(std::in_place_type<HeatMap>,
-           //                    options.gnn_model_location,
-           //                    options.feature_extractor_conf,
-           //                                 scheduler);
-           //                    break;
-           //#endif
-         default:
-           throw std::runtime_error("unknown heuristic type");
-         }
-       }
-        
+   
         
         HeuristicManager(Solver<T> &solver, const Options &options) {
           switch (options.choice_point_heuristics) {
@@ -136,9 +101,6 @@ namespace tempo::heuristics {
          * @param scheduler scheduler for which to select the next choice point
          * @return choice point selected by the internal heuristic
          */
-        auto nextChoicePoint(Scheduler<T> &scheduler) {
-            return std::visit([&scheduler](auto &heuristic) { return heuristic.nextChoicePoint(scheduler); }, *impl);
-        }
         
         auto nextChoicePoint(Solver<T> &solver) {
             return std::visit([&solver](auto &heuristic) { return heuristic.nextChoicePoint(solver); }, *impl);

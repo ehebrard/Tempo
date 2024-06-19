@@ -61,19 +61,6 @@ constexpr auto to_underlying(E e) noexcept {
 // using index_t = size_t;
 using index_t = std::uint32_t;
 
-using event = int;
-#define NOEVENT -1
-#define ORIGIN 0
-#define HORIZON 1
-
-using task = int;
-
-using var = int;
-#define NoVar -1
-
-using genlit = int;
-using lit = int;
-#define NoLit -1
 
 using boolean_state = int;
 #define True 1
@@ -82,10 +69,6 @@ using boolean_state = int;
 
 using hint = int;
 #define NoHint -1
-
-using lit_type = int;
-#define BOUND_LIT 0
-#define EDGE_LIT 1
 
 #define CARDEXPL 7
 #define TRANSITIVITYEXPL 7
@@ -101,51 +84,9 @@ using lit_type = int;
 //#define POSITIVE 1
 //#define NEGATIVE 0
 
-#define INFTY std::numeric_limits<int32_t>::max()
-
 #define OUT 0
 #define IN 1
 
-#define LOWER 0
-#define UPPER 1
-
-
-task TASK(event x);
-event START(task x);
-event END(task x);
-
-lit LIT(const var x, boolean_state v);
-lit POS(const var x);
-lit NEG(const var x);
-lit NOT(const lit l);
-genlit GNOT(const genlit l);
-
-var VAR(const lit l);
-
-lit LOWERBOUND(const event x);
-lit UPPERBOUND(const event x);
-
-event EVENT(const lit l);
-
-boolean_state SIGN(const lit l);
-
-lit_type LTYPE(const genlit h);
-genlit BOUND(const lit l);
-genlit EDGE(const lit l);
-lit FROM_GEN(const genlit h);
-
-int TODIMACS(const lit l);
-
-
-template<typename T>
-bool finite(const T x) {
-    return x < INFTY/4;
-}
-
-char etype(const event x);
-std::string prettyEvent(const event e);
-std::string prettyEventLit(const lit el);
-//std::string prettyLiteral(const genlit el);
 
 
 template <class T> class Gap {

@@ -14,14 +14,12 @@ namespace tempo {
 template <typename T> class DistanceConstraint {
 
 public:
-  DistanceConstraint(const event f, const event t, const T d)
-      : from(f), to(t), distance(d) {}
 
   DistanceConstraint(const var_t f, const var_t t, const T d)
-      : from(static_cast<event>(f)), to(static_cast<event>(t)), distance(d) {}
+      : from(f), to(t), distance(d) {}
 
-  event from;
-  event to;
+  var_t from;
+  var_t to;
 
   T distance;
 

@@ -32,22 +32,6 @@ public:
    * @param choicePoint choice point to evaluate
    * @return maximum of the Distances in both directions between the nodes
    */
-  T getCost(var x, const Scheduler<T>& sched) const {
-
-    // to - from <= d // e_i - s_j <= 0
-
-    auto prec_a{sched.getEdge(POS(x))};
-    auto prec_b{sched.getEdge(NEG(x))};
-    T gap_a{0};
-    if (prec_a != Constant::NoEdge<T>)
-      gap_a = sched.upper(prec_a.from) - sched.lower(prec_a.to) +
-              prec_a.distance;
-    T gap_b{0};
-    if (prec_b != Constant::NoEdge<T>)
-      gap_b = sched.upper(prec_b.from) - sched.lower(prec_b.to) +
-              prec_b.distance;
-    return std::max(gap_a, gap_b);
-  }
     
     T getCost(var_t x, const Solver<T>& solver) const {
         double dom{1};
