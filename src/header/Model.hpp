@@ -125,6 +125,12 @@ T NumericVar<T>::min(Solver<T>& s) const {
 
 template<typename T>
 T NumericVar<T>::max(Solver<T>& s) const {
+    
+//    auto r{s.numeric.upper(_id_)};
+//    std::cout << "\nmax:" << r << std::endl;
+//    return r;
+    
+    
   return s.numeric.upper(_id_);
 }
 
@@ -151,12 +157,25 @@ Literal<T> NumericVar<T>::operator>(const T t) const {
 
 template<typename T>
 T TemporalVar<T>::earliest(Solver<T>& s) const {
-  return NumericVar<T>::min(s) + _offset;
+    auto v{NumericVar<T>::min(s)};
+    if(v == -Constant::Infinity<T>)
+        return v;
+    return v + _offset;
+    
+//  return NumericVar<T>::min(s) + _offset;
 }
 
 template<typename T>
 T TemporalVar<T>::latest(Solver<T>& s) const {
-  return NumericVar<T>::max(s) + _offset;
+//    auto r{NumericVar<T>::max(s)};
+//    std::cout << "\nlatest:" << r << " + " << _offset << std::endl;
+//    return r + _offset;
+    
+//  return NumericVar<T>::max(s) + _offset;
+    auto v{NumericVar<T>::max(s)};
+    if(v == Constant::Infinity<T>)
+        return v;
+    return v + _offset;
 }
 
 template<typename T>
@@ -279,7 +298,7 @@ Job<T>::Job(Solver<T> &solver, const T mindur, const T maxdur)
     : start(solver.newTemporal()),
       end((mindur == maxdur ? TemporalVar(start.id(), mindur)
                             : solver.newTemporal())),
-      optional(Constant::NoVarx) {
+      optional(Constant::NoVar) {
   min_duration = mindur;
   max_duration = maxdur;
 
@@ -309,6 +328,12 @@ template <typename T> T Job<T>::getEarliestEnd(Solver<T> &solver) const {
 }
 
 template <typename T> T Job<T>::getLatestEnd(Solver<T> &solver) const {
+    
+//    auto r{end.latest(solver)};
+//    std::cout << "\ngetlatestend:" << r << std::endl;
+//    
+//    return r;
+    
   return end.latest(solver);
 }
 

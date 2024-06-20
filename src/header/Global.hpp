@@ -12,10 +12,10 @@ namespace tempo {
 using var_t = std::uint32_t;
 using info_t = std::uint32_t;
 
-//#define DBG_BOUND (num_fails >= 19625)
-//#define DBG_CBOUND (solver.num_fails >= 19625)
-//#define DBG_BBOUND (sched.num_fails >= 19625) //(sched.num_fails >= 236)
-//#define DBG_TRACE 35                     // 183 //1+2+4+32+128
+//#define DBG_BOUND (num_fails >= 0)
+//#define DBG_CBOUND (solver.num_fails >= 0)
+//#define DBG_BBOUND (sched.num_fails >= 0) //(sched.num_fails >= 236)
+//#define DBG_TRACE 51                     // 183 //1+2+4+32+128
 #define SEARCH 1
 #define DOMAINS 2
 #define BRANCH 4
@@ -26,7 +26,7 @@ using info_t = std::uint32_t;
 #define UNITPROPAGATION 128
 
 //#define DBG_MINIMIZATION
-//#define DBG_EDGEFINDING (m_schedule.num_cons_propagations >= 55553)
+//#define DBG_EDGEFINDING (m_solver.num_cons_propagations >= 0)
 //#define DBG_EXPLEF true      //(m_schedule.num_fails > 236)
 //#define DBG_THETA (m_schedule.num_fails >= 481)
 //#define DBG_BELLMAN true //(sched.num_choicepoints >= 1045)

@@ -449,9 +449,10 @@ public:
     int init_level{0};
     bool initialized{false};
     void initializeSearch();
-    
-    static constexpr Literal<T> Contradiction = makeBooleanLiteral<T>(false, Constant::NoVarx, 0);
-    
+
+    static constexpr Literal<T> Contradiction =
+        makeBooleanLiteral<T>(false, Constant::NoVar, 0);
+
     double looseness(const Literal<T> &l) const;
     
     bool isAssertive(std::vector<Literal<T>> &conf) const;
@@ -914,10 +915,10 @@ propagation_queue(constraints), boolean_constraints(&env),
 numeric_constraints(&env), restartPolicy(*this),
 boolean_search_vars(0, &env), numeric_search_vars(0, &env),
 graph_exp(*this), bound_exp(*this) {
-    trail.emplace_back(Constant::NoVarx, Constant::Infinity<T>, detail::Numeric{});
-    reason.push_back(Constant::Decision<T>);
-    seed(options.seed);
-    
+  trail.emplace_back(Constant::NoVar, Constant::Infinity<T>, detail::Numeric{});
+  reason.push_back(Constant::Decision<T>);
+  seed(options.seed);
+
 #ifdef DBG_CL
     if (options.dbg_file != "")
         cl_file = new std::ofstream(options.dbg_file, std::ofstream::out);
@@ -2090,25 +2091,22 @@ template <typename T> void tempo::Solver<T>::propagate() {
 
         //TODO: not sure why it is better to do it like this than with the standard constraint queue system (PRIORITY?)
             if (not l.isNumeric())
-                clauses.unit_propagate(l);
-//            else if (clauses.notify(l, 0)) {
-//
-//#ifdef DBG_TRACE
-//              if (DBG_BOUND and (DBG_TRACE & QUEUE)) {
-//                std::cout << " -" << clauses << " (" << clauses.id() << ")"
-//                          << std::endl;
-//              }
-//#endif
-//
-////                need_up_num = true;
-//              propagation_queue.activate(&clauses);
-//            }
-        
-//        clauses.unit_propagate(l);
-
-            //              std::cout << "propagate " << info_t(l) << std::endl;
+              clauses.unit_propagate_boolean(l);
+            //            else if (2*env.level() <
+            //            static_cast<int>(avg_fail_level) and clauses.notify(l,
+            //            0)) {
             //
-            //        std::cout << boolean_constraints << std::endl;
+            //#ifdef DBG_TRACE
+            //              if (DBG_BOUND and (DBG_TRACE & QUEUE)) {
+            //                std::cout << " -" << clauses << " (" <<
+            //                clauses.id() << ")"
+            //                          << std::endl;
+            //              }
+            //#endif
+            //
+            ////                need_up_num = true;
+            //              propagation_queue.activate(&clauses);
+            //            }
 
             const std::vector<int> &cid =
                 (l.isNumeric() ? numeric_constraints[l]

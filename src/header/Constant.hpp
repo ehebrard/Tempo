@@ -14,7 +14,7 @@ public:
   static constexpr auto DecisionHint = static_cast<hint>(0);
   static constexpr auto FactHint = static_cast<hint>(-1);
   static constexpr auto NoIndex = static_cast<index_t>(-1);
-  static constexpr auto NoVarx = static_cast<var_t>(-1);
+  static constexpr auto NoVar = static_cast<var_t>(-1);
   static constexpr index_t InfIndex = 0;
   static constexpr info_t NoSemantic = 0;
   //      const static index_t IndexOfMax;
@@ -32,10 +32,12 @@ public:
 };
 
 template <typename T>
-DistanceConstraint<T> Constant::NoEdge = DistanceConstraint<T>(Constant::NoVarx, Constant::NoVarx, Constant::Infinity<T>);
+DistanceConstraint<T>
+    Constant::NoEdge = DistanceConstraint<T>(Constant::NoVar, Constant::NoVar,
+                                             Constant::Infinity<T>);
 
 // template <typename T>
-// Literal<T> Constant::NoLiteral = Literal<T>(Constant::NoVarx,
+// Literal<T> Constant::NoLiteral = Literal<T>(Constant::NoVar,
 // std::variant<info_t,T>(static_cast<info_t>(0)));
 
 template <typename T>

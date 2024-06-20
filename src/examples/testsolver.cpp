@@ -292,10 +292,11 @@ void test5(Options &opt) {
     std::vector<BooleanVar<>> X;
     for(auto &R : resources) {
 //        auto disjuncts{X.end()};
-        R.createOrderVariables(S, X);
-//        if(opt.edge_finding) {
-//            S.postEdgeFinding(schedule, R.begin(), R.end(), disjuncts);
-//        }
+auto s{X.size()};
+R.createOrderVariables(S, X);
+if (opt.edge_finding) {
+  S.postEdgeFinding(schedule, R.begin(), R.end(), X.begin() + s);
+}
     }
         
     for (auto x : X)
