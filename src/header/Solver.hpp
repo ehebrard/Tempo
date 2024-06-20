@@ -15,7 +15,7 @@
 #include "Restart.hpp"
 #include "constraints/DisjunctiveEdgeFinding.hpp"
 #include "constraints/EdgeConstraint.hpp"
-//#include "constraints/Transitivity.hpp"
+#include "constraints/Transitivity.hpp"
 #include "heuristics/HeuristicManager.hpp"
 //#include "heuristics/ValueHeuristicsManager.hpp"
 #include "heuristics/impl/DecayingEventActivityMap.hpp"
@@ -264,6 +264,11 @@ public:
     
     template <typename ItTask, typename ItVar>
     void postEdgeFinding(Job<T>& schedule, const ItTask beg_task, const ItTask end_task,
+                         const ItVar beg_var
+      );
+    
+    template <typename ItTask, typename ItVar>
+    void postTransitivity(Job<T>& schedule, const ItTask beg_task, const ItTask end_task,
                          const ItVar beg_var
       );
     
@@ -1067,7 +1072,9 @@ void Solver<T>::setBoolean(Literal<T> l, const Explanation<T> &e) {
     //  }
     //#endif
     
-    assert(not boolean.satisfied(l));
+//    assert(not boolean.satisfied(l));
+    if(boolean.satisfied(l))
+        return;
     
     if (boolean.falsified(l)) {
         
@@ -1085,6 +1092,7 @@ void Solver<T>::setBoolean(Literal<T> l, const Explanation<T> &e) {
         std::cout << "set " << pretty(l) << " b/c " << e << std::endl;
     }
 #endif
+    
     
     reason.emplace_back(e);
     trail.push_back(l);
@@ -2343,6 +2351,16 @@ void Solver<T>::postEdgeFinding(Job<T>& schedule,  ItTask beg_task,  ItTask end_
                                    const ItVar beg_var
                                    ) {
   post(new DisjunctiveEdgeFinding<T>(*this, schedule, beg_task, end_task,
+                                  beg_var
+                                  ));
+}
+
+template <typename T>
+template <typename ItTask, typename ItVar>
+void Solver<T>::postTransitivity(Job<T>& schedule,  ItTask beg_task,  ItTask end_task,
+                                   const ItVar beg_var
+                                   ) {
+  post(new Transitivity<T>(*this, schedule, beg_task, end_task,
                                   beg_var
                                   ));
 }

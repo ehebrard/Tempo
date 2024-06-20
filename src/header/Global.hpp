@@ -15,7 +15,7 @@ using info_t = std::uint32_t;
 //#define DBG_BOUND (num_fails >= 0)
 //#define DBG_CBOUND (solver.num_fails >= 0)
 //#define DBG_BBOUND (sched.num_fails >= 0) //(sched.num_fails >= 236)
-//#define DBG_TRACE 51                     // 183 //1+2+4+32+128
+//#define DBG_TRACE 1                     // 183 //1+2+4+32+128
 #define SEARCH 1
 #define DOMAINS 2
 #define BRANCH 4
