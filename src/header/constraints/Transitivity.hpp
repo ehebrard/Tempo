@@ -45,6 +45,8 @@ private:
   std::vector<int> new_succ_of_x;
   std::vector<int> new_pred_of_y;
 
+  std::vector<int> task_map;
+
   bool change_flag{false};
 
   bool transition_flag{false};
@@ -111,8 +113,16 @@ Transitivity<T>::Transitivity(Solver<T> &solver, Job<T> &sched,
 //    task t{*jp};
 //    m_tasks.push_back(t);
 //  }
-          
+
+          task_map.resize(m_solver.numeric.size(), -1);
+
           for (auto jp{beg_task}; jp != end_task; ++jp) {
+
+            //              int t{static_cast<int>(std::distance(jp,
+            //              beg_task))};
+            int t{static_cast<int>(the_tasks.size())};
+            task_map[jp->start.id()] = t;
+            task_map[jp->end.id()] = t;
             the_tasks.push_back(*jp);
           }
 
@@ -645,189 +655,136 @@ template <typename T> int Transitivity<T>::getType() const {
 }
 
 template <typename T>
-void Transitivity<T>::xplain(const Literal<T> l, const hint,
+void Transitivity<T>::xplain(const Literal<T> l, const hint h,
                              std::vector<Literal<T>> &Cl) {
+
+    auto l_lvl{m_solver.propagationLevel(l)};
     
-    if(l != Solver<T>::Contradiction)
-        Cl.push_back(l);
-    return;
+  if (l.isNumeric()) {
 
-  std::cout << "TODO!\n";
-  exit(1);
+#ifdef DBG_EXPL_TRANS
+    std::cout << "explain " << l << " with transitivity constraint (hint=" << h
+              << ")\n";
+#endif
 
-  //#ifdef DBG_EXPL_TRANS
-  //  std::cout << "explain " << l
-  //            << " with transitivity constraint (h=" << h << ")\n";
-  //#endif
-  //
-  //  if (LTYPE(l) == EDGE_LIT) {
-  //
-  //    int i{scopex[h]};
-  //    int j{scopey[h]};
-  //    auto r{disjunct[i][j]};
-  //
-  //#ifdef DBG_EXPL_TRANS
-  //    std::cout << " reason was d[" << i << "][" << j << "] = ";
-  //    std::cout << r;
-  //#endif
-  //
-  //    Cl.push_back(EDGE(r));
-  //    auto el{m_solver.boolean.getEdge(l)};
-  //    auto er{m_solver.boolean.getEdge(r)};
-  //    if (el.from != er.from) {
-  //
-  //
-  //        std::cout << "TODO!\n";
-  //        exit(1);
-  //
-  ////        lit p{m_solver.getEdgeLit({el.from, er.from})};
-  ////
-  ////#ifdef DBG_EXPL_TRANS
-  ////      std::cout << " and " << m_solver.prettyLiteral(EDGE(p));
-  ////      std::cout.flush();
-  ////#endif
-  ////
-  ////      Cl.push_back(EDGE(p));
-  //    }
-  //    if (el.to != er.to) {
-  //
-  //        std::cout << "TODO!\n";
-  //        exit(1);
-  //
-  ////      //lit p{m_solver.getEdgeLit({NOT(er.to), el.to})};
-  ////        lit p{m_solver.getEdgeLit({er.to, el.to})};
-  ////
-  ////#ifdef DBG_EXPL_TRANS
-  ////      std::cout << " and " << m_solver.prettyLiteral(EDGE(p));
-  ////      std::cout.flush();
-  ////#endif
-  ////
-  ////      Cl.push_back(EDGE(p));
-  //    }
-  //
-  //#ifdef DBG_EXPL_TRANS
-  //    std::cout << std::endl;
-  //#endif
-  //
-  //  } else {
-  //
-  ////    auto bc{m_solver.getBound(FROM_GEN(l))};
-  //
-  //
-  //
-  //    if (SIGN(l) == bound::lower) {
-  //
-  //#ifdef DBG_EXPL_TRANS
-  //      std::cout << " reason was all predecessors before " << h << std::endl;
-  //#endif
-  //
-  //        std::cout << "TODO!\n";
-  //        exit(1);
-  //
-  ////        Task<T>& t{m_solver.getTask(EVENT(bc.l))};
-  ////      task x{-1};
-  ////      for (unsigned i{0}; i < the_tasks.size(); ++i) {
-  ////        if (the_tasks[i].id() == t.id()) {
-  ////          x = i;
-  ////          break;
-  ////        }
-  ////      }
-  //
-  //      for (auto yp{DAG[x].fbegin()}; yp != DAG[x].fend(); ++yp) {
-  //          Literal<T> p{the_tasks[*yp].start.after(h)};
-  //
-  //          std::cout << "TODO!\n";
-  //          exit(1);
-  //
-  ////#ifdef DBG_EXPL_TRANS
-  ////        std::cout << " implicant of " << yc << ": ";
-  ////#endif
-  ////
-  ////        auto p{m_solver.getImplicant(yc)};
-  //
-  ////        if (p != Constant::NoLit) {
-  ////          if (p < FROM_GEN(l) and
-  ////              m_solver.getBound(p).distance <= yc.distance) {
-  ////
-  ////#ifdef DBG_EXPL_TRANS
-  ////            std::cout << m_solver.prettyLiteral(BOUND(p)) << " ("
-  //////                      << m_solver.minDuration(
-  //////                             TASK(EVENT(m_solver.getBound(p).l)))
-  ////              <<
-  /// m_solver.getTask(EVENT(m_solver.getBound(p).l)).minDuration() / << ") & "
-  ////                      << m_solver.prettyLiteral(EDGE(disjunct[x][*yp]))
-  ////                      << std::endl;
-  ////#endif
-  ////
-  ////            assert(m_solver.getBound(p).distance <= yc.distance);
-  ////            Cl.push_back(BOUND(p));
-  ////            Cl.push_back(EDGE(disjunct[x][*yp]));
-  ////          }
-  ////#ifdef DBG_EXPL_TRANS
-  ////          else {
-  ////            std::cout << "none\n";
-  ////          }
-  ////#endif
-  ////        }
-  //      }
-  //    } else {
-  //
-  //#ifdef DBG_EXPL_TRANS
-  //      std::cout << " reason was all predecessors after " << h << std::endl;
-  //#endif
-  //
-  //        Task<T>& t{m_solver.getTask(EVENT(bc.l))};
-  ////      auto t{TASK(EVENT(bc.l))};
-  //      task y{-1};
-  //      for (unsigned i{0}; i < the_tasks.size(); ++i) {
-  //        if (the_tasks[i]->id() == t.id()) {
-  //          y = i;
-  //          break;
-  //        }
-  //      }
-  //      for (auto xp{DAG[y].bbegin()}; xp != DAG[y].bend(); ++xp) {
-  ////        BoundConstraint<T> xc_old{LIT(END(m_tasks[*xp]), UPPER),
-  /// bc.distance + h}; /          BoundConstraint<T>
-  /// xc{the_tasks[*xp]->end.before(bc.distance + h)};
-  //          BoundConstraint<T> xc{the_tasks[*xp]->end.before(h)};
-  //
-  ////          assert(xc_old == xc);
-  //
-  //#ifdef DBG_EXPL_TRANS
-  //        std::cout << " implicant of " << xc << ": ";
-  //#endif
-  //
-  //        auto p{m_solver.getImplicant(xc)};
-  //
-  //        if (p != NoLit) {
-  //          if (p < FROM_GEN(l) and
-  //              m_solver.getBound(p).distance <= xc.distance) {
-  //
-  //#ifdef DBG_EXPL_TRANS
-  //            std::cout << m_solver.prettyLiteral(BOUND(p)) << " ("
-  ////                      << m_solver.minDuration(
-  ////                             TASK(EVENT(m_solver.getBound(p).l)))
-  //              <<
-  //              m_solver.getTask(EVENT(m_solver.getBound(p).l)).minDuration()
-  //                      << ") & "
-  //                      << m_solver.prettyLiteral(EDGE(disjunct[*xp][y]))
-  //                      << std::endl;
-  //#endif
-  //
-  //            assert(m_solver.getBound(p).distance <= xc.distance);
-  //            Cl.push_back(BOUND(p));
-  //            Cl.push_back(EDGE(disjunct[*xp][y]));
-  //          }
-  //
-  //#ifdef DBG_EXPL_TRANS
-  //          else {
-  //            std::cout << "none\n";
-  //          }
-  //#endif
-  //        }
-  //      }
-  //    }
-  //  }
+    
+#ifdef DBG_EXPL_TRANS
+    std::cout << " reason was: the "
+              << (l.sign() == bound::lower ? "predecessors" : "successors")
+              << " of " << the_tasks[task_map[l.variable()]] << " that were "
+              << (l.sign() == bound::lower ? "above " : "below ") << h
+              << " @lvl " << l_lvl << std::endl;
+#endif
+      
+    auto x{task_map[l.variable()]};
+    if (l.sign() == bound::lower) {
+#ifdef DBG_EXPL_TRANS
+      std::cout << "lb of " << the_tasks[x]
+                << " dur=" << the_tasks[x].minDuration() << std::endl;
+#endif
+      for (auto yp{DAG[x].bbegin()}; yp != DAG[x].bend(); ++yp) {
+        auto p{disjunct[*yp][x]};
+          auto b{the_tasks[*yp].start.after(h)};
+        if (m_solver.propagationLevel(p) < l_lvl and m_solver.numeric.satisfied(b)) {
+          
+            if(m_solver.propagationLevel(b) < l_lvl) {
+                Cl.push_back(p);
+                Cl.push_back(b);
+                
+#ifdef DBG_EXPL_TRANS
+                std::cout << " - " << m_solver.pretty(p) << " & " << b << " (" << the_tasks[*yp].minDuration() << ") @" << m_solver.propagationLevel(p) << " & " << m_solver.propagationLevel(b) << std::endl;
+#endif
+            }
+        }
+      }
+    } else {
+#ifdef DBG_EXPL_TRANS
+      std::cout << "ub of " << the_tasks[x]
+                << " dur=" << the_tasks[x].minDuration() << std::endl;
+#endif
+      for (auto yp{DAG[x].fbegin()}; yp != DAG[x].fend(); ++yp) {
+        auto p{disjunct[x][*yp]};
+          auto b{the_tasks[*yp].end.before(h)};
+        if (m_solver.propagationLevel(p) < l_lvl and m_solver.numeric.satisfied(b)) {
+          
+            if(m_solver.propagationLevel(b) < l_lvl) {
+                Cl.push_back(p);
+                Cl.push_back(b);
+                
+                
+                //            assert(m_solver.propagationLevel(b) < l_lvl);
+                
+#ifdef DBG_EXPL_TRANS
+                std::cout << " - " << m_solver.pretty(p) << " & " << b << " (" << the_tasks[*yp].minDuration() << ") @" << m_solver.propagationLevel(p) << " & " << m_solver.propagationLevel(b) << std::endl;
+#endif
+            }
+        }
+      }
+    }
+
+  } else {
+
+#ifdef DBG_EXPL_TRANS
+    std::cout << "explain " << m_solver.pretty(l)
+              << " with transitivity constraint (hint=" << h << ")\n";
+#endif
+
+    int i{scopex[h]};
+    int j{scopey[h]};
+    auto r{disjunct[i][j]};
+
+#ifdef DBG_EXPL_TRANS
+    std::cout << " reason was d[" << i << "][" << j
+              << "] = " << m_solver.pretty(r) << std::endl;
+#endif
+
+    auto lc{m_solver.boolean.getEdge(l)};
+    auto rc{m_solver.boolean.getEdge(r)};
+      Cl.push_back(r);
+      
+      assert(m_solver.propagationLevel(r) < l_lvl);
+
+#ifdef DBG_EXPL_TRANS
+    std::cout << rc.from << " -> " << rc.to;
+#endif
+
+    if (lc.from != rc.from) {
+
+      auto x{task_map[lc.from]};
+      auto y{task_map[rc.from]};
+      Cl.push_back(disjunct[y][x]);
+        
+        assert(m_solver.propagationLevel(disjunct[y][x]) < l_lvl);
+
+#ifdef DBG_EXPL_TRANS
+      std::cout << " & " << lc.from << " -> " << rc.from << " (" << the_tasks[x]
+                << " -> " << the_tasks[y] << "/"
+                << m_solver.pretty(disjunct[y][x]) << ")";
+#endif
+    }
+
+    if (lc.to != rc.to) {
+
+      auto x{task_map[lc.to]};
+      auto y{task_map[rc.to]};
+      Cl.push_back(disjunct[x][y]);
+        
+        assert(m_solver.propagationLevel(disjunct[x][y]) < l_lvl);
+
+#ifdef DBG_EXPL_TRANS
+      std::cout << " & " << rc.to << " -> " << lc.to << " (" << the_tasks[x]
+                << " -> " << the_tasks[y] << "/"
+                << m_solver.pretty(disjunct[x][y]) << ")";
+#endif
+    }
+
+#ifdef DBG_EXPL_TRANS
+    std::cout << " ===> " << lc.from << " -> " << lc.to << std::endl;
+#endif
+
+    //        if(lc.to != rc.to)
+    //        exit(1);
+  }
 }
 
 template <typename T>

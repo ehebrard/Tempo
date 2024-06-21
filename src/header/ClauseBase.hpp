@@ -208,9 +208,8 @@ void ClauseBase<T>::propagate() {
     ++num_prop;
     
     for(auto b : triggered_bounds) {
-      auto p{solver.numeric.strongestLiteral(Literal<T>::sgn(b),
-                                             Literal<T>::var(b))};
-//      std::cout << " --> unitprop " << solver.pretty(p) << std::endl;
+      auto p{solver.numeric.getLiteral(Literal<T>::sgn(b), Literal<T>::var(b))};
+      //      std::cout << " --> unitprop " << solver.pretty(p) << std::endl;
       unit_propagate(p);
 //        unit_propagate_numeric(p);
     }
