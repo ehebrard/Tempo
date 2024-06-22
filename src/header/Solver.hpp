@@ -1821,13 +1821,13 @@ template <typename T> void Solver<T>::initializeSearch() {
         heuristic.emplace(*this, options);
         post(&clauses);
         initialized = true;
+        if(options.verbosity >= Options::QUIET)
+            displayHeader(std::cout);
     }
     restartPolicy.initialize();
 }
 
 template <typename T> boolean_state Solver<T>::satisfiable() {
-    if(options.verbosity >= Options::QUIET)
-        displayHeader(std::cout);
     initializeSearch();
     auto satisfiability{search()};
     if(options.verbosity >= Options::QUIET)
@@ -1915,8 +1915,8 @@ template <typename S>
 void Solver<T>::optimize(S &objective) {
 
   initializeSearch();
-    if(options.verbosity >= Options::QUIET)
-    displayHeader(std::cout);
+//    if(options.verbosity >= Options::QUIET)
+//    displayHeader(std::cout);
 
   while (objective.gap() and not KillHandler::instance().signalReceived()) {
     auto satisfiability = search();
@@ -2085,6 +2085,9 @@ template <typename T> void tempo::Solver<T>::propagate() {
 //    bool need_up_num;
 //    
 //    bool up_done{false};
+    
+//    std::cout << trail.size() << " > " << p_index << std::endl;
+    
   while (not propagation_queue.empty() or trail.size() > p_index) {
 
 //      need_up_num = false;
@@ -2127,13 +2130,9 @@ template <typename T> void tempo::Solver<T>::propagate() {
                 (l.isNumeric() ? numeric_constraints.rank(l)
                                : boolean_constraints.rank(l));
 
-            //              std::cout << cons.size() << std::endl;
-            //              exit(1);
-
             for (auto i{cid.size()}; i-- > 0;) {
               auto cons{constraints[cid[i]]};
               if (cons->idempotent and culprit == cons) {
-                //              std::cout << "idempotency\n";
                 continue;
               }
 
@@ -2144,7 +2143,7 @@ template <typename T> void tempo::Solver<T>::propagate() {
 #endif
 
         propagation_queue.triggers(l, rank[i], cons);
-            }
+        }
 
       ++p_index;
     }

@@ -180,12 +180,12 @@ T TemporalVar<T>::latest(Solver<T>& s) const {
 
 template<typename T>
 Literal<T> TemporalVar<T>::after(const T t) const {
-  return geq<T>(NumericVar<T>::_id_, t - _offset);
+  return geq<T>(NumericVar<T>::_id_, (t == Constant::Infinity<T> ? t : t - _offset));
 }
 
 template<typename T>
 Literal<T> TemporalVar<T>::before(const T t) const {
-  return leq<T>(NumericVar<T>::_id_, t - _offset);
+  return leq<T>(NumericVar<T>::_id_, (t == Constant::Infinity<T> ? t : t - _offset));
 }
 
 template<typename T>
@@ -195,7 +195,7 @@ DistanceConstraint<T> TemporalVar<T>::after(const TemporalVar<T>& e, const T t) 
 
 template<typename T>
 DistanceConstraint<T> TemporalVar<T>::before(const TemporalVar<T>& e, const T t) const {
-  return {e.id(), NumericVar<T>::_id_, e.offset() - _offset - t};
+  return {e.id(), NumericVar<T>::_id_, (t == Constant::Infinity<T> ? t : e.offset() - _offset - t)};
 }
 
 template<typename T>
@@ -268,7 +268,7 @@ public:
   private:
     T min_duration{0};
     T max_duration{Constant::Infinity<T>};
-    BooleanVar<T> optional;
+    BooleanVar<T> optional{Constant::NoVar};
 };
 
 template <typename T=int> class DisjunctiveResource : public vector<Job<T>> {

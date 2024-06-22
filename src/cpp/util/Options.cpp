@@ -161,6 +161,11 @@ tempo::Options tempo::parse(int argc, char *argv[]) {
       opt.minimization, "", "clause-minimization",
       "depth for clause minimization (default 1)",
       false, 1, "int");
+    
+    cmd.add<ValueArg<int>>(
+        opt.greedy_runs, "", "greedy-runs",
+        "number of randomized greedy runs (default 1)",
+        false, 1, "int");
 
   cmd.add<ValueArg<int>>(opt.forget_strategy, "", "forget-strategy",
                          "strategy for clause forgetting "

@@ -57,6 +57,8 @@ public:
   //  enum class Minimization { None = 0, Greedy, QuickXplain };
 
   int minimization;
+    
+    int greedy_runs;
 
   enum class LiteralScore {
     Size = 0,
