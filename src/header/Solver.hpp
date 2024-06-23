@@ -319,6 +319,7 @@ public:
     std::ostream &displayBranches(std::ostream &os) const;
     std::ostream &displayVariables(std::ostream &os) const;
     std::ostream &displayConstraints(std::ostream &os) const;
+    std::ostream &displayPrecedences(std::ostream &os) const;
     
     std::ostream &displayProgress(std::ostream &os) const;
     std::ostream &displayHeader(std::ostream &os, const int width = 69) const;
@@ -1957,20 +1958,8 @@ template <typename T> boolean_state Solver<T>::search() {
           printTrace();
       }
 #endif
-//        check_clauses("before propag");
-        
-        
-  
 
       propagate();
-        
-//        check_clauses("after propag");
-
-
-
-//      assert(clauses.consistent() == NULL);
-
-
 
       // make a checkpoint
       saveState();
@@ -1988,14 +1977,10 @@ template <typename T> boolean_state Solver<T>::search() {
 #endif
 
       } else {
-        //        ++num_choicepoints;
-
-          
-//          Literal<T> d = heuristic->branch(*this);
           
         var_t x = heuristic->nextChoicePoint(*this);
         Literal<T> d;
-        if (random() % 10) {
+        if (random() % 100) {
           auto p{boolean.getLiteral(true, x)};
           auto n{boolean.getLiteral(false, x)};
 
@@ -2566,6 +2551,19 @@ std::ostream &Solver<T>::displayVariables(std::ostream &os) const {
 template <typename T>
 std::ostream &Solver<T>::displayConstraints(std::ostream &os) const {
   return os;
+}
+
+template <typename T>
+std::ostream &Solver<T>::displayPrecedences(std::ostream &os) const {
+//    for(auto x : core) {
+//        std::cout << x << ":";
+//        for(auto y : core.backward()[x]) {
+//            std::cout << " " << y;
+//        }
+//        std::cout << std::endl;
+//    }
+    os << core;
+    return os;
 }
 
 template <typename T>
