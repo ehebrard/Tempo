@@ -1980,7 +1980,7 @@ template <typename T> boolean_state Solver<T>::search() {
           
         var_t x = heuristic->nextChoicePoint(*this);
         Literal<T> d;
-        if (random() % 100) {
+        if (numeric.size() > 0 and random() % 100) {
           auto p{boolean.getLiteral(true, x)};
           auto n{boolean.getLiteral(false, x)};
 
