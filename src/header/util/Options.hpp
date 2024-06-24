@@ -35,6 +35,8 @@ public:
 
   bool dichotomy;
 
+  bool full_up;
+
   enum class ChoicePointHeuristics {
     Tightest = 0,
     WeightedDegree,

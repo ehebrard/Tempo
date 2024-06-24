@@ -128,6 +128,9 @@ tempo::Options tempo::parse(int argc, char *argv[]) {
   cmd.add<SwitchArg>(opt.dichotomy, "", "dichotomy", "use dichotomic search",
                      false);
 
+  cmd.add<SwitchArg>(opt.full_up, "", "full-up",
+                     "unit-propagate bound literals", false);
+
   cmd.add<ValueArg<int>>(
       opt.choice_point_heuristics, "", "cp-heuristic",
       "type of heuristic used for choice point selection (0: Tightest "

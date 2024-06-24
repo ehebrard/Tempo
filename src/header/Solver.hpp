@@ -2019,6 +2019,9 @@ template <typename T> void tempo::Solver<T>::propagate() {
         //TODO: not sure why it is better to do it like this than with the standard constraint queue system (PRIORITY?)
             if (not l.isNumeric())
               clauses.unit_propagate_boolean(l);
+//            else if(options.full_up and ) {
+//                
+//            }
             //            else if (2*env.level() <
             //            static_cast<int>(avg_fail_level) and clauses.notify(l,
             //            0)) {

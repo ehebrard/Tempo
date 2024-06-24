@@ -1,4 +1,22 @@
-
+/************************************************
+ * Tempo ClauseBase.hpp
+ *
+ * Copyright 2024 Emmanuel Hebrard
+ *
+ * Tempo is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation, either version 3 of the License, or (at your
+ *  option) any later version.
+ *
+ * Tempo is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Tempo.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ ***********************************************/
 
 #ifndef _TEMPO_CLAUSEBASE_HPP
 #define _TEMPO_CLAUSEBASE_HPP
@@ -21,151 +39,189 @@ namespace tempo {
 
 template <typename T> class Solver;
 
+//! ClauseBase
+/*!
+ CNF formula with unit-propagation method (two-watched literals)
+*/
 template <class T> class ClauseBase : public Constraint<T> {
 
 public:
-  //    std::vector<Clause *> base;
-  //    std::vector<Clause *> learnt;
-
+  /**
+   * @name constructors
+   */
+  //@{
   ClauseBase(Solver<T> &);
   ~ClauseBase() = default;
 
-  //  void resize(const size_t n, const size_t m);
+  // notify that the solver has Boolean variable x
   void newBooleanVar(const var_t x);
+
+  // notify that the solver has numeric variable x
   void newNumericVar(const var_t x);
+  //@}
+
+  /**
+   * @name accessors
+   */
+  //@{
+  // number of clauses
   size_t size() const;
-    size_t numLearnt() const;
-
+  // current number of clauses that have been learnt
+  size_t numLearnt() const;
+  // total number of literals in the clauses
   size_t volume() const;
+  // returns the clause with id i
+  Clause<T> *operator[](const index_t i);
+  // returns the last clause to have been added
+  Clause<T> *back();
 
-  //    void unit_propagate(const var l);
-  void set_watcher(const int r, const index_t i, Clause<T> *cl);
-    void set_watcher_numeric(const int r, const index_t i, Clause<T> *cl);
-
-  // "learn" makes several assumptions about the added clause, too lazy to write
-  // the robust version yet
-  //    template <typename iter>
-  //    void add(const iter first, const iter last);
-
+  // create and add a clause from a list of literals (and returns it) 'learnt'
+  // flag distinguished constraints from cuts
   template <typename iter>
-  Clause<T> *add(const iter first, const iter last,
-                    const bool learnt = false);
-
-  void unit_propagate(const Literal<T> l);
-  void unit_propagate_numeric(const Literal<T> l);
-  void unit_propagate_boolean(const Literal<T> l);
-    void unit_propagate_beta(const Literal<T> l);
-
-  void clearTriggers();
-
-  void assign(const Literal<T> l, const Explanation<T> &e);
-
-  std::ostream &display(std::ostream &os) const;
-  std::ostream &displayWatchStruct(std::ostream &os) const;
-
-  //  std::ostream &displayClause(std::ostream &os, const Clause<T> *c)
-  //  const;
-
+  Clause<T> *add(const iter first, const iter last, const bool learnt = false);
+  // helpers to handle any type of literal
   bool satisfied(const Literal<T>) const;
   bool falsified(const Literal<T>) const;
+  //@}
 
-  //  lit newNegLiteral(const lit l);
-  //  lit getReasonLit(const lit l) const;
+  /**
+   * @name unit propagation
+   */
+  //@{
+  // post the clause base as a constraint (to use only if 'propagate()' is to be
+  // used)
+  virtual void post(const int idx);
 
-  //  bool sameVar(const Literal<T>, const Literal<T>) const;
-  //    lit getVarInClause(const lit l) const;
-  //    lit getVarInTrigger(const lit l) const;
+  // notify a change (with the literal and it's variable rank in the scope)
+  virtual bool notify(const Literal<T>, const int);
 
-  // explanation stuff
+  // set the 'r'-th watcher of clause 'cl' to be its 'i'-th literal
+  void set_watcher(const int r, const index_t i, Clause<T> *cl);
+
+  // set the 'r'-th watcher of clause 'cl' to be its 'i'-th literal (and order
+  // the watch-list of this literal)
+  void set_watcher_numeric(const int r, const index_t i, Clause<T> *cl);
+
+  // works for both numeric and Boolean, does not order numeric watch-lists
+  void unit_propagate(const Literal<T> l);
+
+  // works only for Boolean literals
+  void unit_propagate_boolean(const Literal<T> l);
+
+  // works only for numeric literals, orders numeric watch-lists
+  void unit_propagate_numeric(const Literal<T> l);
+
+  // works for both numeric and Boolean, orders numeric watch-lists
+  void unit_propagate_beta(const Literal<T> l);
+
+  // unit propagates all the numeric triggers in 'triggered_bounds'
+  virtual void propagate();
+
+  // clears the set of numeric triggers ('triggered_bounds')
+  void clearTriggers();
+
+  // assigns literal 'l' with explanation 'e'
+  void assign(const Literal<T> l, const Explanation<T> &e);
+  //@}
+
+  /**
+   * @name printing
+   */
+  //@{
+  std::ostream &display(std::ostream &os) const;
+  std::ostream &displayWatchStruct(std::ostream &os) const;
+  //@}
+
+  /**
+   * @name explanation
+   */
+  //@{
   void xplain(const Literal<T> l, const hint h, std::vector<Literal<T>> &Cl);
   std::ostream &print_reason(std::ostream &, const hint) const;
   int getType() const;
+  //@}
 
-  //  void notifyRemoval(const Literal<T> l);
+  /**
+   * @name clause forgetting
+   */
+  //@{
+  // forgets a learnt clause
   void forget(Clause<T> *cl);
+  // forgets the last learnt clause (worst if they have been sorted)
   void forget_worst();
+  // forgets according to the forgetting policy in solver.getOptions()
   void forget();
+  // forgets all learnt clauses
   void forgetAll();
+  // literal score based on its semantic
   double looseness(const Literal<T> l);
+  // literal score based on its activity
   double inverseActivity(const Literal<T> l);
+  // literal score based on both its semantic and its activity
   double loosenessOverActivity(const Literal<T> l);
+  //@}
 
-  Clause<T> *operator[](const index_t i) {
+  /**
+   * @name debug
+   */
+  //@{
+  Clause<T> *consistent();
+  //@}
 
-    //        std::cout << i << std::endl << free_cl_indices << std::endl;
+private:
+  Solver<T> &solver;
 
-    if (i >= free_cl_indices.capacity() or free_cl_indices.has(i))
-      return NULL;
-    return base[i];
-  }
+  SubscriberHandle handlerToken;
 
-  Clause<T> *back() {
-    //
-    //    std::cout << base.size() << " / "
-    //              << static_cast<size_t>(free_cl_indices.bbegin() -
-    //                                     free_cl_indices.fbegin())
-    //              << std::endl;
+  /**
+   * @name clause memory store
+   */
+  //@{
+  // a vector containing all the clauses [the id of a clause is its rank in this
+  // vector]
+  std::vector<Clause<T> *> base;
+  // a score vector [same indexing as 'base']
+  std::vector<double> score;
+  // free indices in the vector base (so that we can remove clauses)
+  // - contain the indices in 'base' that are available (no current clause has
+  // this id)
+  // - at the back of the sparse set are the indices used by learnt clauses
+  // - at the front of the sparse set are the indices used by other clauses
+  SparseSet<int> free_cl_indices;
+  // the watch lists for every literel (watch[BOOLEAN] and watch[NUMERIC])
+  std::vector<std::vector<Clause<T> *>> watch[2];
+  //@}
 
-    return base[*(free_cl_indices.bbegin())];
-  }
+  // the bounds literals that need unit-propagation
+  SparseSet<var_t> triggered_bounds;
+  // helper to unit-propagate ordered watch lists
+  std::vector<int> search_stack;
 
-  //    std::string prettyLiteral(const genlit l) const;
+  //    unsigned lazyness{3};
+  //    std::vector<unsigned> count;
 
-    //
-    virtual void post(const int idx);
-    // propagate the constraint
-    virtual void propagate();
-    // notify a change (with the literal and it's variable rank in the scope)
-    virtual bool notify(const Literal<T>, const int);
+public:
+  /**
+   * @name statistics
+   */
+  //@{
+  // number of calls to bound literals propagation
+  unsigned long num_prop{0};
+  // number of calls to unit-progation
+  unsigned long num_up{0};
+  // number of misses when unit-propagating bound literals
+  unsigned long num_miss{0};
+  // total number of literals in the clauses
+  size_t total_size{0};
+  //@}
 
-    Clause<T> *consistent();
+  // indexing helper for the watch lists
+  static const bool BOOLEAN{false};
+  static const bool NUMERIC{true};
 
-  private:
-    Solver<T> &solver;
-
-    SubscriberHandle handlerToken;
-
-    /// Clause memory store ///
-    /// The set of clauses
-    std::vector<Clause<T> *> base;
-    std::vector<double> score;
-    /// free indices in the vector base (so that we can remove clauses)
-    SparseSet<int> free_cl_indices;
-    // clauses, watch struct watch[BOUND_LIT] for bound literals,
-    // watch[EDGE_LIT] for edges
-    std::vector<std::vector<Clause<T> *>> watch[2];
-    ////////////////////////////////////////
-
-    //    /// Literal memory store ///
-    //    // store the set of bound constraints appearing in a literal
-    //    std::vector<BoundConstraint<T>> constraint;
-    //    // the number of clauses in which this bound-constraint appears
-    //    std::vector<int> cardinality;
-    //    // free indices in the vector constraints (so that we can remove
-    //    constraints when they are not used) SparseSet<int> free_lit_indices;
-    //    // for every event-lit, the set of (pointers to) constraints ordered
-    //    by bound std::vector<std::vector<int>> cons_list;
-    //    ////////////////////////////////////////
-
-    SparseSet<var_t> triggered_bounds;
-    std::vector<int> search_stack;
-    
-    unsigned lazyness{3};
-    std::vector<unsigned> count;
-
-  public:
-    unsigned long num_prop{0};
-    unsigned long num_up{0};
-    unsigned long num_miss{0};
-
-    // statistics
-    size_t total_size{0};
-    int num_units{0};
-
-    static const bool BOOLEAN{false};
-    static const bool NUMERIC{true};
-
-    static bool litType(Literal<T> l) { return l.isNumeric(); }
+  // type helper for the literals -> return l.isNumeric() == NUMERIC is l is
+  // numeric
+  static bool litType(Literal<T> l) { return l.isNumeric(); }
 
 #ifdef DBG_WATCHERS
   void verifyWatchers(const char *msg) const;
@@ -180,25 +236,25 @@ template <typename T>
 ClauseBase<T>::ClauseBase(Solver<T> &c)
     : solver(c), handlerToken(solver.SearchRestarted.subscribe_handled(
                      [this]() { this->forget(); })) {
-        
-        Constraint<T>::priority = Priority::Low;
-//        Constraint<T>::idempotent = true;
+
+  Constraint<T>::priority = Priority::Low;
     }
 
 
 template <typename T>
 void ClauseBase<T>::post(const int idx) {
     Constraint<T>::cons_id = idx;
-//    for(var_t x{0}; x<solver.boolean.size(); ++x) {
-//        solver.wake_me_on(solver.boolean.getLiteral(true, x), Constraint<T>::cons_id);
-//        solver.wake_me_on(solver.boolean.getLiteral(false, x), Constraint<T>::cons_id);
-//    }
-    
-//        for(var_t x{0}; x<solver.numeric.size(); ++x) {
-//            solver.wake_me_on(lb<T>(x), Constraint<T>::cons_id);
-//            solver.wake_me_on(ub<T>(x), Constraint<T>::cons_id);
-//        }
-    triggered_bounds.reserve(2 * solver.numeric.size());
+    if(solver.getOptions().full_up) {
+        //    for(var_t x{0}; x<solver.boolean.size(); ++x) {
+        //        solver.wake_me_on(solver.boolean.getLiteral(true, x), Constraint<T>::cons_id);
+        //        solver.wake_me_on(solver.boolean.getLiteral(false, x), Constraint<T>::cons_id);
+        //    }
+        for(var_t x{0}; x<solver.numeric.size(); ++x) {
+            solver.wake_me_on(lb<T>(x), Constraint<T>::cons_id);
+            solver.wake_me_on(ub<T>(x), Constraint<T>::cons_id);
+        }
+        triggered_bounds.reserve(2 * solver.numeric.size());
+    }
 }
 
 // propagate the constraint
@@ -223,25 +279,28 @@ template <typename T> void ClauseBase<T>::clearTriggers() {
 
 template <typename T>
 bool ClauseBase<T>::notify(const Literal<T> l, const int) {
-//    if(not l.isNumeric())
-//        unit_propagate(l);
-    
+
     assert(l.isNumeric());
-    
-    
-    if(solver.num_choicepoints - count[l] > lazyness) { //and not triggered_bounds.has(l)) {
-        
-        if(triggered_bounds.has(l))
-        {
-            std::cout << "weird\n";
-            exit(1);
-        }
-        count[l] = solver.num_choicepoints;
-        
-        triggered_bounds.add(l);
-        return true;
-//        std::cout << triggered_bounds << std::endl;
+
+    //    if(solver.num_choicepoints - count[l] > lazyness) { //and not
+    //    triggered_bounds.has(l)) {
+    //
+    //        if(triggered_bounds.has(l))
+    //        {
+    //            std::cout << "weird\n";
+    //            exit(1);
+    //        }
+    //        count[l] = solver.num_choicepoints;
+    //
+    //        triggered_bounds.add(l);
+    //        return true;
+    //    }
+
+    if (not triggered_bounds.has(l)) {
+      triggered_bounds.add(l);
+      return true;
     }
+
     return false;
 }
 
@@ -270,13 +329,23 @@ template <typename T> size_t ClauseBase<T>::volume() const {
 //   watch[NUMERIC].resize(2 * m);
 // }
 
+template <typename T> Clause<T> *ClauseBase<T>::operator[](const index_t i) {
+  if (i >= free_cl_indices.capacity() or free_cl_indices.has(i))
+    return NULL;
+  return base[i];
+}
+
+template <typename T> Clause<T> *ClauseBase<T>::back() {
+  return base[*(free_cl_indices.bbegin())];
+}
+
 template <typename T> void ClauseBase<T>::newBooleanVar(const var_t x) {
   watch[BOOLEAN].resize(static_cast<size_t>(2 * x + 2));
 }
 
 template <typename T> void ClauseBase<T>::newNumericVar(const var_t x) {
     watch[NUMERIC].resize(static_cast<size_t>(2 * x + 2));
-    count.resize(static_cast<size_t>(2 * x + 2), 0);
+    //    count.resize(static_cast<size_t>(2 * x + 2), 0);
 }
 
 template <typename T>
