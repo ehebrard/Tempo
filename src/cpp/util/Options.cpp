@@ -84,11 +84,10 @@ tempo::Options tempo::parse(int argc, char *argv[]) {
       "verbosity level (0:silent,1:quiet,2:improvements only,3:verbose", false,
       2, "int");
 
-  cmd.add<ValueArg<int>>(opt.seed, "", "seed", "random seed", false, 12345,
-                         "int");
-    
-    cmd.add<ValueArg<int>>(opt.ub, "", "ub", "initial ub", false, std::numeric_limits<int>::max(),
-                           "int");
+  cmd.add<ValueArg<int>>(opt.seed, "", "seed", "random seed", false, 1, "int");
+
+  cmd.add<ValueArg<int>>(opt.ub, "", "ub", "initial ub", false,
+                         std::numeric_limits<int>::max(), "int");
 
   cmd.add<SwitchArg>(opt.print_sol, "", "print-sol",
                      "print the best found schedule", false);
@@ -130,6 +129,9 @@ tempo::Options tempo::parse(int argc, char *argv[]) {
 
   cmd.add<SwitchArg>(opt.full_up, "", "full-up",
                      "unit-propagate bound literals", false);
+
+  cmd.add<SwitchArg>(opt.order_bound_watch, "", "order-watched",
+                     "order bound watched lists", false);
 
   cmd.add<ValueArg<int>>(
       opt.choice_point_heuristics, "", "cp-heuristic",

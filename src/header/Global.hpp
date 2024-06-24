@@ -1,3 +1,23 @@
+/************************************************
+ * Tempo Global.hpp
+ *
+ * Copyright 2024 Emmanuel Hebrard
+ *
+ * Tempo is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation, either version 3 of the License, or (at your
+ *  option) any later version.
+ *
+ * Tempo is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Tempo.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ ***********************************************/
+
 #ifndef _TEMPO_GLOBAL_HPP
 #define _TEMPO_GLOBAL_HPP
 
@@ -6,11 +26,23 @@
 #include <cstdint>
 #include <sys/resource.h>
 
-
+//! Global definitions
 namespace tempo {
 
+// primitive type for variables (variables are essentially indices)
 using var_t = std::uint32_t;
+// primitive type for the datafield of literals (type, sign, variable)
 using info_t = std::uint32_t;
+// primitive type for indexing anything except variables
+using index_t = std::uint32_t;
+// for Boolean variables that can be undefined [used only for the output of solver.satisfiable()?]
+using boolean_state = int;
+#define True 1
+#define False 0
+#define Unknown -1
+// primitive type given to an explanation algorithm together with the literal to explain [used to encode the relevant info to be able to explain]
+using hint = int;
+#define NoHint -1
 
 //#define DBG_BOUND (num_fails >= 0)
 //#define DBG_CBOUND (solver.num_fails >= 0)
@@ -40,6 +72,7 @@ using info_t = std::uint32_t;
 //#define DBG_EXPL_TRANS true
 //#define DBG_SOL
 
+// priority values for constraint propagation
 enum class Priority {
     Low = 0,
     Medium,
@@ -58,17 +91,6 @@ constexpr auto to_underlying(E e) noexcept {
     return static_cast<std::underlying_type_t<E>>(e);
 }
 
-// using index_t = size_t;
-using index_t = std::uint32_t;
-
-
-using boolean_state = int;
-#define True 1
-#define False 0
-#define Unknown -1
-
-using hint = int;
-#define NoHint -1
 
 #define CARDEXPL 7
 #define TRANSITIVITYEXPL 7
@@ -81,14 +103,12 @@ using hint = int;
 #define NOEXPL 0
 
 
-//#define POSITIVE 1
-//#define NEGATIVE 0
-
+// arbitrary system to index both directions in a directed graph
 #define OUT 0
 #define IN 1
 
 
-
+// the numeric gap between two values in numeric types
 template <class T> class Gap {
 public:
   static constexpr T epsilon() noexcept { return T(); }
@@ -155,6 +175,7 @@ public:
   }
 };
 
+//
 double cpu_time(void);
 
 void seed(const unsigned long s);

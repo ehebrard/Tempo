@@ -275,6 +275,7 @@ public:
      * @name constructors
      */
     //@{
+    Solver();
     Solver(Options opt);
     ~Solver() = default;
     //@}
@@ -1006,6 +1007,21 @@ bool NumericStore<T>::falsified(const Literal<T> l) const {
 template <typename T>
 bool NumericStore<T>::satisfied(const Literal<T> l) const {
     return l.value() >= bound[l.sign()][l.variable()];
+}
+
+/*!
+ Solver implementation
+*/
+template <typename T>
+Solver<T>::Solver()
+    : ReversibleObject(&env), boolean(*this), numeric(*this), clauses(*this),
+      core(&env), boolean_search_vars(0, &env), numeric_search_vars(0, &env), propag_pointer(1, &env),
+      propagation_queue(constraints), boolean_constraints(&env),
+      numeric_constraints(&env), restartPolicy(*this), graph_exp(*this),
+      bound_exp(*this) {
+  trail.emplace_back(Constant::NoVar, Constant::Infinity<T>, detail::Numeric{});
+  reason.push_back(Constant::Decision<T>);
+  seed(options.seed);
 }
 
 /*!

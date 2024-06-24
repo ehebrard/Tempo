@@ -98,9 +98,10 @@ public:
   // set the 'r'-th watcher of clause 'cl' to be its 'i'-th literal
   void set_watcher(const int r, const index_t i, Clause<T> *cl);
 
-  // set the 'r'-th watcher of clause 'cl' to be its 'i'-th literal (and order
-  // the watch-list of this literal)
-  void set_watcher_numeric(const int r, const index_t i, Clause<T> *cl);
+  //  // set the 'r'-th watcher of clause 'cl' to be its 'i'-th literal (and
+  //  order
+  //  // the watch-list of this literal)
+  //  void set_watcher_numeric(const int r, const index_t i, Clause<T> *cl);
 
   // works for both numeric and Boolean, does not order numeric watch-lists
   void unit_propagate(const Literal<T> l);
@@ -111,8 +112,8 @@ public:
   // works only for numeric literals, orders numeric watch-lists
   void unit_propagate_numeric(const Literal<T> l);
 
-  // works for both numeric and Boolean, orders numeric watch-lists
-  void unit_propagate_beta(const Literal<T> l);
+  //  // works for both numeric and Boolean, orders numeric watch-lists
+  //  void unit_propagate_beta(const Literal<T> l);
 
   // unit propagates all the numeric triggers in 'triggered_bounds'
   virtual void propagate();
@@ -266,7 +267,11 @@ void ClauseBase<T>::propagate() {
     for(auto b : triggered_bounds) {
       auto p{solver.numeric.getLiteral(Literal<T>::sgn(b), Literal<T>::var(b))};
       //      std::cout << " --> unitprop " << solver.pretty(p) << std::endl;
-      unit_propagate(p);
+      if (solver.getOptions().order_bound_watch) {
+        unit_propagate_numeric(p);
+      } else {
+        unit_propagate(p);
+      }
 //        unit_propagate_numeric(p);
     }
     clearTriggers();
@@ -435,32 +440,32 @@ template <typename T> Clause<T> *ClauseBase<T>::consistent() {
   return NULL;
 }
 
-template <typename T>
-void ClauseBase<T>::unit_propagate_beta(const Literal<T> l) {
-
-  ++num_up;
-
-#ifdef DBG_WATCHERS
-  verifyWatchers("before UP");
-#endif
-
-#ifdef DBG_TRACE
-  if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
-    std::cout << "unit propagate true lit " << l << "\n";
-  }
-#endif
-
-  if (l.isNumeric()) {
-    unit_propagate_numeric(l);
-  } else {
-    unit_propagate_boolean(l);
-  }
-//    unit_propagate_generic(l);
-
-#ifdef DBG_WATCHERS
-  verifyWatchers("after UP");
-#endif
-}
+// template <typename T>
+// void ClauseBase<T>::unit_propagate_beta(const Literal<T> l) {
+//
+//   ++num_up;
+//
+//#ifdef DBG_WATCHERS
+//   verifyWatchers("before UP");
+//#endif
+//
+//#ifdef DBG_TRACE
+//   if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
+//     std::cout << "unit propagate true lit " << l << "\n";
+//   }
+//#endif
+//
+//   if (l.isNumeric()) {
+//     unit_propagate_numeric(l);
+//   } else {
+//     unit_propagate_boolean(l);
+//   }
+////    unit_propagate_generic(l);
+//
+//#ifdef DBG_WATCHERS
+//  verifyWatchers("after UP");
+//#endif
+//}
 
 template <typename T>
 void ClauseBase<T>::unit_propagate(const Literal<T> l) {
@@ -731,10 +736,10 @@ void ClauseBase<T>::unit_propagate_numeric(const Literal<T> l) {
           }
 #endif
 
-            if(p.isNumeric())
-                set_watcher_numeric(watch_rank, i, cl);
-            else
-                set_watcher(watch_rank, i, cl);
+          //            if(p.isNumeric())
+          //                set_watcher_numeric(watch_rank, i, cl);
+          //            else
+          set_watcher(watch_rank, i, cl);
 
 #ifdef DBG_TRACE
           if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
@@ -1061,56 +1066,41 @@ void ClauseBase<T>::unit_propagate_boolean(const Literal<T> l) {
 }
 
 template <typename T>
-void ClauseBase<T>::set_watcher(const int r, const index_t i,
-                                   Clause<T> *cl) {
-    
-    
-//    std::cout << *cl << std::endl << "current watchers: " << cl->watched(0) << " & " << cl->watched(1) << std::endl;
-
+void ClauseBase<T>::set_watcher(const int r, const index_t i, Clause<T> *cl) {
   cl->watched_index[r] = i;
-
   Literal<T> l{~((*cl)[i])};
-
-//      std::cout << "make " << *cl << " (" << cl->id << ") watch " << l << " (" << info_t(l) << ") because it contains " <<
-//    (*cl)[i] << " (" << info_t((*cl)[i]) << ")"
-//    << std::endl;
-//    
-//    std::cout << "new watchers: " << cl->watched(0) << " & " << cl->watched(1) << std::endl;
-
-//  if (l.isNumeric()) {
-//    auto i{watch[NUMERIC][l].size()};
-//    watch[NUMERIC][l].push_back(cl);
-//    heap::percolate_up(watch[NUMERIC][l].begin(), i,
-//                       [l](const Clause<T> *c1, const Clause<T> *c2) {
-//                         return c1->watched(c1->watch_rank(l)).value() <
-//                                c2->watched(c2->watch_rank(l)).value();
-//                       });
-//  } else {
-//    watch[BOOLEAN][l].push_back(cl);
-//  }
-    
-    watch[l.isNumeric()][l].push_back(cl);
-}
-
-template <typename T>
-void ClauseBase<T>::set_watcher_numeric(const int r, const index_t i,
-                                   Clause<T> *cl) {
-    
-
-  cl->watched_index[r] = i;
-
-  Literal<T> l{~((*cl)[i])};
-
-    assert(l.isNumeric());
-    
-    auto j{watch[NUMERIC][l].size()};
+  if (l.isNumeric()) {
     watch[NUMERIC][l].push_back(cl);
-    heap::percolate_up(watch[NUMERIC][l].begin(), j,
-                       [l](const Clause<T> *c1, const Clause<T> *c2) {
-                         return c1->watched(c1->watch_rank(l)).value() <
-                                c2->watched(c2->watch_rank(l)).value();
-                       });
+    if (solver.getOptions().order_bound_watch) {
+      heap::percolate_up(watch[NUMERIC][l].begin(),
+                         watch[NUMERIC][l].size() - 1,
+                         [l](const Clause<T> *c1, const Clause<T> *c2) {
+                           return c1->watched(c1->watch_rank(l)).value() <
+                                  c2->watched(c2->watch_rank(l)).value();
+                         });
+    }
+  } else {
+    watch[BOOLEAN][l].push_back(cl);
+  }
 }
+
+// template <typename T>
+// void ClauseBase<T>::set_watcher_numeric(const int r, const index_t i,
+//                                    Clause<T> *cl) {
+//
+//   cl->watched_index[r] = i;
+//   Literal<T> l{~((*cl)[i])};
+//
+//     assert(l.isNumeric());
+//
+//     auto j{watch[NUMERIC][l].size()};
+//     watch[NUMERIC][l].push_back(cl);
+//     heap::percolate_up(watch[NUMERIC][l].begin(), j,
+//                        [l](const Clause<T> *c1, const Clause<T> *c2) {
+//                          return c1->watched(c1->watch_rank(l)).value() <
+//                                 c2->watched(c2->watch_rank(l)).value();
+//                        });
+// }
 
 template <typename T> void ClauseBase<T>::forget(Clause<T> *cl) {
   for (auto r{0}; r < 2; ++r) {
