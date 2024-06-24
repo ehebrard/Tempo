@@ -20,9 +20,9 @@ namespace tempo {
 template <typename T> class Transitivity : public Constraint<T> {
 private:
   Solver<T> &m_solver;
-  Job<T> schedule;
+  Interval<T> schedule;
   //  std::vector<task> m_tasks;
-  std::vector<Job<T>> the_tasks;
+  std::vector<Interval<T>> the_tasks;
   //    std::vector<int> task_from; // for each disjunct (in the order they are
   //    declared as triggers, the 'from' event) std::vector<int> task_to; // for
   //    each disjunct (in the order they are declared as triggers, the 'to'
@@ -65,7 +65,7 @@ private:
 
 public:
   template <typename ItTask, typename ItVar>
-  Transitivity(Solver<T> &solver, Job<T> &sched, const ItTask beg_task,
+  Transitivity(Solver<T> &solver, Interval<T> &sched, const ItTask beg_task,
                const ItTask end_task, const ItVar beg_var);
   virtual ~Transitivity();
 
@@ -92,7 +92,7 @@ public:
 
 template <typename T>
 template <typename ItTask, typename ItVar>
-Transitivity<T>::Transitivity(Solver<T> &solver, Job<T> &sched,
+Transitivity<T>::Transitivity(Solver<T> &solver, Interval<T> &sched,
                               const ItTask beg_task, const ItTask end_task,
                               const ItVar beg_var)
     : m_solver(solver), schedule(sched),
@@ -100,11 +100,11 @@ Transitivity<T>::Transitivity(Solver<T> &solver, Job<T> &sched,
                                std::distance(beg_task, end_task),
                            &m_solver.getEnv()) {
 
-          Constraint<T>::priority = Priority::Low;
+  Constraint<T>::priority = Priority::Low;
 
-//  auto n{std::distance(beg_task, end_task)};
-//  auto m{std::distance(beg_var, end_var)};
-//  assert(m = n * (n - 1) / 2);
+  //  auto n{std::distance(beg_task, end_task)};
+  //  auto m{std::distance(beg_var, end_var)};
+  //  assert(m = n * (n - 1) / 2);
 
   // get all tasks with non-zero duration
   //  size_t i{0}, j{0};

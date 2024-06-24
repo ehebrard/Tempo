@@ -19,8 +19,8 @@ template <typename T> class DisjunctiveEdgeFinding : public Constraint<T> {
 private:
   Solver<T> &m_solver;
   //  std::vector<task> m_tasks;
-  Job<T> schedule;
-  std::vector<Job<T>> the_tasks;
+  Interval<T> schedule;
+  std::vector<Interval<T>> the_tasks;
   std::vector<std::vector<Literal<T>>> disjunct;
 
   // helpers
@@ -30,7 +30,7 @@ private:
   ThetaTree TT;
 
   //  std::vector<std::vector<task>> explanation_tasks;
-  std::vector<std::vector<Job<T> *>> the_explanation_tasks;
+  std::vector<std::vector<Interval<T> *>> the_explanation_tasks;
   std::vector<T> explanation_lb;
   std::vector<T> explanation_ub;
 
@@ -54,7 +54,7 @@ private:
 
 public:
   template <typename ItTask, typename ItVar>
-  DisjunctiveEdgeFinding(Solver<T> &solver, Job<T> &sched, ItTask beg_task,
+  DisjunctiveEdgeFinding(Solver<T> &solver, Interval<T> &sched, ItTask beg_task,
                          ItTask end_task, ItVar beg_var);
   virtual ~DisjunctiveEdgeFinding();
 
@@ -225,7 +225,7 @@ T DisjunctiveEdgeFinding<T>::maxduration(const unsigned i) const {
 template <typename T>
 template <typename ItTask, typename ItVar>
 DisjunctiveEdgeFinding<T>::DisjunctiveEdgeFinding(Solver<T> &solver,
-                                                  Job<T> &sched,
+                                                  Interval<T> &sched,
                                                   ItTask beg_task,
                                                   ItTask end_task,
                                                   ItVar beg_var)

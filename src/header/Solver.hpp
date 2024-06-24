@@ -1,3 +1,22 @@
+/************************************************
+ * Tempo Solver.hpp
+ *
+ * Copyright 2024 Emmanuel Hebrard
+ *
+ * Tempo is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation, either version 3 of the License, or (at your
+ *  option) any later version.
+ *
+ * Tempo is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Tempo.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ ***********************************************/
 
 #ifndef _TEMPO_SOLVER_HPP
 #define _TEMPO_SOLVER_HPP
@@ -26,13 +45,17 @@
 #include "util/Options.hpp"
 #include "util/SubscribableEvent.hpp"
 
-
-//#define DBG_MINIMIZATION
-
 namespace tempo {
 
+//! T is the numeric variable domain type
 template<typename T> class Solver;
 
+//! Boolean variables and literals manager
+/*!
+ Responsible for:
+Storage (memory)
+Read/write access
+*/
 template<typename T>
 class BooleanStore {
     
@@ -220,8 +243,10 @@ public:
     NumericVar<T> newNumeric();
     // create an internal temporal variable and return a model object pointing to it
     TemporalVar<T> newTemporal(const T offset = 0);
-    // create the internal variables (depending on the type of job) and return a model object pointing to them
-    Job<T> newJob(const T mindur = 0, const T maxdur = Constant::Infinity<T>);
+    // create the internal variables (depending on the type of Interval) and
+    // return a model object pointing to them
+    Interval<T> newInterval(const T mindur = 0,
+                            const T maxdur = Constant::Infinity<T>);
     //@}
     
     /**
@@ -263,18 +288,15 @@ public:
     void relax(Constraint<T> *);
     void wake_me_on(const Literal<T>, const int);
     template <typename X> void addToSearch(const X &x);
-    
-    
+
     template <typename ItTask, typename ItVar>
-    void postEdgeFinding(Job<T>& schedule, const ItTask beg_task, const ItTask end_task,
-                         const ItVar beg_var
-      );
-    
+    void postEdgeFinding(Interval<T> &schedule, const ItTask beg_task,
+                         const ItTask end_task, const ItVar beg_var);
+
     template <typename ItTask, typename ItVar>
-    void postTransitivity(Job<T>& schedule, const ItTask beg_task, const ItTask end_task,
-                         const ItVar beg_var
-      );
-    
+    void postTransitivity(Interval<T> &schedule, const ItTask beg_task,
+                          const ItTask end_task, const ItVar beg_var);
+
     /**
      * @name search
      */
@@ -968,8 +990,9 @@ template <typename T> TemporalVar<T> Solver<T>::newTemporal(const T offset) {
     return x;
 }
 
-template <typename T> Job<T> Solver<T>::newJob(const T mindur, const T maxdur) {
-    return Job<T>(*this, mindur, maxdur);
+template <typename T>
+Interval<T> Solver<T>::newInterval(const T mindur, const T maxdur) {
+  return Interval<T>(*this, mindur, maxdur);
 }
 
 template <typename T>
@@ -2336,9 +2359,8 @@ void Solver<T>::wake_me_on(const Literal<T> l, const int c) {
 
 template <typename T>
 template <typename ItTask, typename ItVar>
-void Solver<T>::postEdgeFinding(Job<T>& schedule,  ItTask beg_task,  ItTask end_task,
-                                   const ItVar beg_var
-                                   ) {
+void Solver<T>::postEdgeFinding(Interval<T> &schedule, ItTask beg_task,
+                                ItTask end_task, const ItVar beg_var) {
   post(new DisjunctiveEdgeFinding<T>(*this, schedule, beg_task, end_task,
                                   beg_var
                                   ));
@@ -2346,9 +2368,8 @@ void Solver<T>::postEdgeFinding(Job<T>& schedule,  ItTask beg_task,  ItTask end_
 
 template <typename T>
 template <typename ItTask, typename ItVar>
-void Solver<T>::postTransitivity(Job<T>& schedule,  ItTask beg_task,  ItTask end_task,
-                                   const ItVar beg_var
-                                   ) {
+void Solver<T>::postTransitivity(Interval<T> &schedule, ItTask beg_task,
+                                 ItTask end_task, const ItVar beg_var) {
   post(new Transitivity<T>(*this, schedule, beg_task, end_task,
                                   beg_var
                                   ));

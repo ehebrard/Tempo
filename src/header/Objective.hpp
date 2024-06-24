@@ -11,24 +11,25 @@ template <typename T> class Scheduler;
 
 //template <typename T> class Solver;
 
-template <typename T> class Job;
-
-
+template <typename T> class Interval;
 
 template <typename T> class MakespanObjective {
 public:
-    MakespanObjective(Job<T> &j, Solver<T>& s) : job(j), solver(s) {}
-    MakespanObjective(Job<T> &j, Solver<T>& s, const T u) : job(j), solver(s) { setPrimal(u); }
+  MakespanObjective(Interval<T> &j, Solver<T> &s) : Interval(j), solver(s) {}
+  MakespanObjective(Interval<T> &j, Solver<T> &s, const T u)
+      : Interval(j), solver(s) {
+    setPrimal(u);
+  }
   ~MakespanObjective() = default;
 
-  T value() { return job.getEarliestEnd(solver); }
+  T value() { return Interval.getEarliestEnd(solver); }
 
   T gap() { return p_b - d_b; }
   T dualBound() const { return d_b; }
   T primalBound() const { return p_b; }
 
   void setDual(const T v) { d_b = v; }
-  void initDual() { d_b = job.getEarliestEnd(solver); }
+  void initDual() { d_b = Interval.getEarliestEnd(solver); }
 
   void setPrimal(const T v) {
     p_b = v;
@@ -37,9 +38,7 @@ public:
     }
   }
 
-  void apply(const T target) {
-      solver.set(job.end.before(target));
-  }
+  void apply(const T target) { solver.set(Interval.end.before(target)); }
 
   std::ostream &display(std::ostream &os) const {
     os << "[" << std::left << std::setw(5) << std::setfill('.') << dualBound()
@@ -55,8 +54,8 @@ public:
   }
 
 private:
-  Job<T> &job;
-    Solver<T> &solver;
+  Interval<T> &Interval;
+  Solver<T> &solver;
   T d_b{0};
     T p_b{Constant::Infinity<T>};
 };

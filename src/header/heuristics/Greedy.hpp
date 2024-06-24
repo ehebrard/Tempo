@@ -16,34 +16,34 @@ template <typename T> class Greedy  {
 public:
     
     Greedy(Solver<T>& s) : solver(s) {
-        job_map.resize(solver.numeric.size(), -1);
+      Interval_map.resize(solver.numeric.size(), -1);
     }
-    
-    void addJobs(std::vector<Job<T>>& J) {
-        jobs = J;
-        unscheduled_jobs.reserve(jobs.size());
-        unscheduled_jobs.fill();
-        precedences.resize(jobs.size());
-        int i{0};
-        for(auto& j : jobs) {
-            job_map[j.start.id()] = i;
-            job_map[j.end.id()] = i;
-            ++i;
-        }
+
+    void addIntervals(std::vector<Interval<T>> &J) {
+      Intervals = J;
+      unscheduled_Intervals.reserve(Intervals.size());
+      unscheduled_Intervals.fill();
+      precedences.resize(Intervals.size());
+      int i{0};
+      for (auto &j : Intervals) {
+        Interval_map[j.start.id()] = i;
+        Interval_map[j.end.id()] = i;
+        ++i;
+      }
     }
-    
+
     void addResource(/*DisjunctiveResource<T>& R,*/ std::vector<BooleanVar<>>::iterator bx, std::vector<BooleanVar<>>::iterator ex) {
-//        unscheduled_jobs_of.resize(unscheduled_jobs_of.size()+1);
-//        unscheduled_jobs_of.
-        for(auto xi{bx}; xi!=ex; ++xi) {
-            auto l{solver.boolean.getLiteral(true, *xi)};
-            auto c{solver.boolean.getEdge(l)};
-            precedences[job_map[c.to]].push_back(l);
-            precedences[job_map[c.from]].push_back(~l);
-        }
-//        for(auto& job : R) {
-//            unscheduled_jobs_of.back().add()
-//        }
+      //        unscheduled_Intervals_of.resize(unscheduled_Intervals_of.size()+1);
+      //        unscheduled_Intervals_of.
+      for (auto xi{bx}; xi != ex; ++xi) {
+        auto l{solver.boolean.getLiteral(true, *xi)};
+        auto c{solver.boolean.getEdge(l)};
+        precedences[Interval_map[c.to]].push_back(l);
+        precedences[Interval_map[c.from]].push_back(~l);
+      }
+      //        for(auto& Interval : R) {
+      //            unscheduled_Intervals_of.back().add()
+      //        }
     }
     
     bool runEarliestStart();
@@ -51,13 +51,12 @@ public:
     
 private:
     Solver<T>& solver;
-    std::vector<Job<T>> jobs;
-    SparseSet<> unscheduled_jobs;
-    std::vector<int> job_map;
+    std::vector<Interval<T>> Intervals;
+    SparseSet<> unscheduled_Intervals;
+    std::vector<int> Interval_map;
     std::vector<std::vector<Literal<T>>> precedences;
-    
-//    std::vector<SparseSet<>> unscheduled_jobs_of;
-    
+
+    //    std::vector<SparseSet<>> unscheduled_Intervals_of;
 };
 
 
@@ -67,51 +66,58 @@ bool Greedy<T>::runEarliestStart() {
     solver.propagate();
     
 //    std::cout << solver << std::endl;
-    
-    while(not unscheduled_jobs.empty()) {
-        ++solver.num_choicepoints;
-        
-        int next{-1};
-        for(auto j : unscheduled_jobs) {
-            if(next == -1) {
-                next = j;
-            }
-            else if(jobs[next].getEarliestStart(solver) > jobs[j].getEarliestStart(solver)) {
-                next = j;
-            }
-             else if(jobs[next].getEarliestStart(solver) == jobs[j].getEarliestStart(solver) and jobs[next].getLatestEnd(solver) > jobs[j].getLatestEnd(solver)) {
-                next = j;
-            } 
-             else if(jobs[next].getEarliestStart(solver) == jobs[j].getEarliestStart(solver) and jobs[next].getLatestEnd(solver) == jobs[j].getLatestEnd(solver) and (random() % 2) == 1) {
-                next = j;
-            }
-        }
-        
-        try {
-            
-//            std::cout << std::endl << "next="<< jobs[next] << std::endl;
-            
-            unscheduled_jobs.remove_back(next);
-            for(auto p : precedences[next]) {
-                if(solver.boolean.isUndefined(p.variable())) {
-                    solver.set(p);
-                }
-            }
-            if(unscheduled_jobs.backsize() == 1)
-                solver.set(jobs[next].end.before(jobs[next].getEarliestEnd(solver)));
 
-            solver.propagate();
-            
-//            std::cout << solver << std::endl;
-            
-        } catch(Failure<T>& f) {
-//            std::cout << "FAILED!\n";
-            break;
+    while (not unscheduled_Intervals.empty()) {
+      ++solver.num_choicepoints;
+
+      int next{-1};
+      for (auto j : unscheduled_Intervals) {
+        if (next == -1) {
+          next = j;
+        } else if (Intervals[next].getEarliestStart(solver) >
+                   Intervals[j].getEarliestStart(solver)) {
+          next = j;
+        } else if (Intervals[next].getEarliestStart(solver) ==
+                       Intervals[j].getEarliestStart(solver) and
+                   Intervals[next].getLatestEnd(solver) >
+                       Intervals[j].getLatestEnd(solver)) {
+          next = j;
+        } else if (Intervals[next].getEarliestStart(solver) ==
+                       Intervals[j].getEarliestStart(solver) and
+                   Intervals[next].getLatestEnd(solver) ==
+                       Intervals[j].getLatestEnd(solver) and
+                   (random() % 2) == 1) {
+          next = j;
         }
+      }
+
+      try {
+
+        //            std::cout << std::endl << "next="<< Intervals[next] <<
+        //            std::endl;
+
+        unscheduled_Intervals.remove_back(next);
+        for (auto p : precedences[next]) {
+          if (solver.boolean.isUndefined(p.variable())) {
+            solver.set(p);
+          }
+        }
+        if (unscheduled_Intervals.backsize() == 1)
+          solver.set(Intervals[next].end.before(
+              Intervals[next].getEarliestEnd(solver)));
+
+        solver.propagate();
+
+        //            std::cout << solver << std::endl;
+
+      } catch (Failure<T> &f) {
+        //            std::cout << "FAILED!\n";
+        break;
+      }
     }
-    
-    bool r{unscheduled_jobs.empty()};
-    unscheduled_jobs.fill();
+
+    bool r{unscheduled_Intervals.empty()};
+    unscheduled_Intervals.fill();
     return r;
 }
 
@@ -123,51 +129,58 @@ bool Greedy<T>::runLatestEnd() {
     solver.propagate();
     
 //    std::cout << solver << std::endl;
-    
-    while(not unscheduled_jobs.empty()) {
-        ++solver.num_choicepoints;
-        
-        int next{-1};
-        for(auto j : unscheduled_jobs) {
-            if(next == -1) {
-                next = j;
-            }
-            else if(jobs[next].getLatestEnd(solver) > jobs[j].getLatestEnd(solver)) {
-               next = j;
-           }
-            else if(jobs[next].getLatestEnd(solver) == jobs[j].getLatestEnd(solver) and jobs[next].getEarliestStart(solver) > jobs[j].getEarliestStart(solver)) {
-               next = j;
-           }
-             else if(jobs[next].getEarliestStart(solver) == jobs[j].getEarliestStart(solver) and jobs[next].getLatestEnd(solver) == jobs[j].getLatestEnd(solver) and (random() % 2) == 1) {
-                next = j;
-            }
-        }
-        
-        try {
-            
-//            std::cout << std::endl << "next="<< jobs[next] << std::endl;
-            
-            unscheduled_jobs.remove_back(next);
-            for(auto p : precedences[next]) {
-                if(solver.boolean.isUndefined(p.variable())) {
-                    solver.set(p);
-                }
-            }
-            if(unscheduled_jobs.backsize() == 1)
-                solver.set(jobs[next].end.before(jobs[next].getEarliestEnd(solver)));
 
-            solver.propagate();
-            
-//            std::cout << solver << std::endl;
-            
-        } catch(Failure<T>& f) {
-            std::cout << "FAILED!\n";
-            break;
+    while (not unscheduled_Intervals.empty()) {
+      ++solver.num_choicepoints;
+
+      int next{-1};
+      for (auto j : unscheduled_Intervals) {
+        if (next == -1) {
+          next = j;
+        } else if (Intervals[next].getLatestEnd(solver) >
+                   Intervals[j].getLatestEnd(solver)) {
+          next = j;
+        } else if (Intervals[next].getLatestEnd(solver) ==
+                       Intervals[j].getLatestEnd(solver) and
+                   Intervals[next].getEarliestStart(solver) >
+                       Intervals[j].getEarliestStart(solver)) {
+          next = j;
+        } else if (Intervals[next].getEarliestStart(solver) ==
+                       Intervals[j].getEarliestStart(solver) and
+                   Intervals[next].getLatestEnd(solver) ==
+                       Intervals[j].getLatestEnd(solver) and
+                   (random() % 2) == 1) {
+          next = j;
         }
+      }
+
+      try {
+
+        //            std::cout << std::endl << "next="<< Intervals[next] <<
+        //            std::endl;
+
+        unscheduled_Intervals.remove_back(next);
+        for (auto p : precedences[next]) {
+          if (solver.boolean.isUndefined(p.variable())) {
+            solver.set(p);
+          }
+        }
+        if (unscheduled_Intervals.backsize() == 1)
+          solver.set(Intervals[next].end.before(
+              Intervals[next].getEarliestEnd(solver)));
+
+        solver.propagate();
+
+        //            std::cout << solver << std::endl;
+
+      } catch (Failure<T> &f) {
+        std::cout << "FAILED!\n";
+        break;
+      }
     }
-    
-    bool r{unscheduled_jobs.empty()};
-    unscheduled_jobs.fill();
+
+    bool r{unscheduled_Intervals.empty()};
+    unscheduled_Intervals.fill();
     return r;
 }
 
