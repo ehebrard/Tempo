@@ -1,3 +1,23 @@
+/************************************************
+ * Tempo DisjunctiveEdgeFinding.hpp
+ *
+ * Copyright 2024 Emmanuel Hebrard
+ *
+ * Tempo is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation, either version 3 of the License, or (at your
+ *  option) any later version.
+ *
+ * Tempo is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Tempo.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ ***********************************************/
+
 #ifndef TEMPO_DISJUNCTIVEEDGEFINDING_HPP
 #define TEMPO_DISJUNCTIVEEDGEFINDING_HPP
 
@@ -18,7 +38,6 @@ namespace tempo {
 template <typename T> class DisjunctiveEdgeFinding : public Constraint<T> {
 private:
   Solver<T> &m_solver;
-  //  std::vector<task> m_tasks;
   Interval<T> schedule;
   std::vector<Interval<T>> the_tasks;
   std::vector<std::vector<Literal<T>>> disjunct;
@@ -29,7 +48,6 @@ private:
   std::vector<unsigned> theta_rank;
   ThetaTree TT;
 
-  //  std::vector<std::vector<task>> explanation_tasks;
   std::vector<std::vector<Interval<T> *>> the_explanation_tasks;
   std::vector<T> explanation_lb;
   std::vector<T> explanation_ub;
@@ -46,8 +64,6 @@ private:
   hint lowerBoundExplanation(Iter b, Iter e, const T lb);
   template <typename Iter>
   hint upperBoundExplanation(Iter b, Iter e, const T ub);
-
-  //  bool falsified(const lit e);
 
   void propagateForward();
   void propagateBackward();
@@ -83,11 +99,6 @@ public:
   void printLBExplanation(const hint ph);
   void printUBExplanation(const hint ph);
   void printTrivialExplanation(const Literal<T> l);
-
-  //  static std::vector<int> task_map;
-  //#ifdef DBG_EDGEFINDING
-  //  int debug_flag{0};
-  //#endif
 
   template <typename Iter>
   bool checklbpruning(const unsigned r, const T lb, const Iter b, const Iter e);

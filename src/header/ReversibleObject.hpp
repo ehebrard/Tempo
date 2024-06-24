@@ -1,5 +1,5 @@
 /************************************************
- * Tempo Objective.hpp
+ * Tempo ReversibleObject.hpp
  *
  * Copyright 2024 Emmanuel Hebrard
  *
