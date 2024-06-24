@@ -1900,7 +1900,7 @@ void Solver<T>::optimize(S &objective) {
   while (objective.gap() and not KillHandler::instance().signalReceived()) {
     auto satisfiability = search();
     if (satisfiability == True) {
-      auto best{objective.value()};
+      auto best{objective.value(*this)};
       if (options.verbosity >= Options::NORMAL) {
         std::cout << std::setw(10) << best;
         displayProgress(std::cout);
@@ -1908,7 +1908,7 @@ void Solver<T>::optimize(S &objective) {
       boolean.saveSolution();
       restart(true);
       try {
-        objective.setPrimal(best);
+        objective.setPrimal(best, *this);
       } catch (Failure<T> &f) {
         objective.setDual(objective.primalBound());
       }

@@ -1,3 +1,22 @@
+/************************************************
+ * Tempo Objective.hpp
+ *
+ * Copyright 2024 Emmanuel Hebrard
+ *
+ * Tempo is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation, either version 3 of the License, or (at your
+ *  option) any later version.
+ *
+ * Tempo is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Tempo.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ ***********************************************/
 
 #ifndef _TEMPO_REVOBJECT_HPP
 #define _TEMPO_REVOBJECT_HPP
@@ -8,27 +27,34 @@
 #include <cmath>
 #include <cassert>
 
-#include "Global.hpp"
-
-
 namespace tempo {
-
-
 
 class ReversibleObject;
 
+//! Reference all reversible object
+/*!
+Manage the trail of every reversible object in that environment
+ For multithreading, use multiple environments
+*/
 class BacktrackEnvironment {
 
 public:
   BacktrackEnvironment();
 
+  // the number of saved states
   [[nodiscard]] int level() const;
+  // notify the environment that object 'o''s 'undo()' method needs to be called
+  // when reverting to the previous saved state
   void save(ReversibleObject *o);
+  // save a new state
   void save();
 
+  // restore to state lvl
   void restore(int lvl);
+  // restore to the previous state
   void restore();
-
+  // add object 'o' to the list of object that want to be called once on every
+  // restore
   void subscribe(ReversibleObject *o);
 
   void print() const;
@@ -46,10 +72,12 @@ protected:
   // "save()"
   std::vector<size_t> stamps;
 
+  // for reversible object that want to be called on every restore, but only
+  // once
   std::vector<ReversibleObject *> subscribers;
 };
 
-
+//! Interface for reversible object
 class ReversibleObject {
     
 protected:
@@ -63,8 +91,11 @@ public:
   ReversibleObject &operator=(const ReversibleObject &) = default;
   ReversibleObject &operator=(ReversibleObject &&) noexcept = default;
 
+  // the backtracking method
   virtual void undo() = 0;
+  // calls env->save(this)
   void save();
+  // called when environment is saved
   virtual void checkpoint();
     
     void setEnv(BacktrackEnvironment *e) {local_env = e;}
@@ -72,6 +103,7 @@ public:
   static BacktrackEnvironment *env;
 };
 
+//! primitive type
 template<typename T>
 class Reversible : public ReversibleObject {
 
@@ -132,7 +164,7 @@ private:
   std::vector<int> lvl;
 };
 
-
+//! ???
 template<typename T>
 class ReversibleReference : public ReversibleObject {
 
@@ -196,7 +228,7 @@ private:
 //    boolean_state value{Unknown};
 //};
 
-
+//! Reversible vector
 template <typename T>
 class ReversibleVector : public ReversibleObject, public std::vector<T> {
 
