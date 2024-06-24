@@ -1917,6 +1917,7 @@ template <typename T> void Solver<T>::initializeSearch() {
     if(not initialized) {
         start_time = cpu_time();
         heuristic.emplace(*this, options);
+        valueHeuristic.emplace(*this);
         post(&clauses);
         initialized = true;
     }
@@ -2093,10 +2094,10 @@ template <typename T> boolean_state Solver<T>::search() {
       } else {
         //        ++num_choicepoints;
 
-        auto [x, type] = heuristic->nextVariable(*this);
+        auto varSelection = heuristic->nextVariable(*this);
         //        var_t x = *(boolean_search_vars.begin());
         //        //        lit d = valueHeuristic->choosePolarity(x, *this);
-        Literal<T> d{boolean.getLiteral((random() % 2), x)};
+        Literal<T> d = valueHeuristic->valueDecision(varSelection, *this);//{boolean.getLiteral((random() % 2), x)};
         decisions.push_back(d);
 
 #ifdef DBG_TRACE

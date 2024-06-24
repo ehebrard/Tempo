@@ -18,7 +18,7 @@ auto valHeuristicTypeToString(Options::PolarityHeuristic type) -> std::string {
   case SolutionGuided:
     return "SolutionGuided";
   case Random:
-    return "RandomValue";
+    return "RandomBinaryValue";
   default:
     throw std::runtime_error("unknown value heuristic type");
   }

@@ -9,7 +9,7 @@
 #include <optional>
 #include <string>
 
-#include "RandomValue.hpp"
+#include "RandomBinaryValue.hpp"
 #include "SolutionGuided.hpp"
 #include "TightestValue.hpp"
 #include "util/Options.hpp"
@@ -17,7 +17,7 @@
 #include "util/traits.hpp"
 
 namespace tempo {
-template <typename T> class Scheduler;
+template <typename T> class Solver;
 }
 
 namespace tempo::heuristics {
@@ -25,7 +25,7 @@ namespace tempo::heuristics {
 auto valHeuristicTypeToString(Options::PolarityHeuristic type) -> std::string;
 
 MAKE_FACTORY_PATTERN(ValueHeuristic, ValueHeuristicConfig, TightestValue,
-                     SolutionGuided, RandomValue)
+                     /*SolutionGuided,*/ RandomBinaryValue)
 
 class ValueHeuristicsManager {
   std::optional<ValueHeuristic> impl;
@@ -35,20 +35,19 @@ class ValueHeuristicsManager {
 
 public:
   template <concepts::scalar T>
-  explicit ValueHeuristicsManager(const Scheduler<T> &scheduler) {
+  explicit ValueHeuristicsManager(const Solver<T> &scheduler) {
     impl.emplace(ValueHeuristicFactory::getInstance().create(
         valHeuristicTypeToString(scheduler.getOptions().polarity_heuristic),
         ValueHeuristicConfig{.epsilon =
                                  scheduler.getOptions().polarity_epsilon}));
   }
 
-  template <typename Sched> lit choosePolarity(var cp, const Sched &scheduler) {
+  template <typename Sched>
+  auto valueDecision(const VariableSelection &selection, const Sched &scheduler) {
     static_assert(FactoryChecker<Sched>::template __ValueHeuristic_tester__<
                       ValueHeuristic>::value,
                   "At least one heuristic has an invalid signature");
-    return std::visit(
-        [cp, &scheduler](auto &h) { return h.choosePolarity(cp, scheduler); },
-        *impl);
+    return std::visit([&](auto &h) { return h.valueDecision(selection, scheduler); }, *impl);
   }
 };
 

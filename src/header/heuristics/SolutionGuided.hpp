@@ -9,7 +9,7 @@
 
 #include <vector>
 
-#include "BaseValueHeuristic.hpp"
+#include "BaseBooleanHeuristic.hpp"
 #include "TightestValue.hpp"
 #include "util/SubscribableEvent.hpp"
 
@@ -29,14 +29,14 @@ concept solution_provider = requires(const Sched &s, var x) {
  * Performs the first decent using tempo::heuristics::TightestValue. After that
  * follows the most recent solution
  */
-class SolutionGuided : public BaseValueHeuristic<SolutionGuided> {
+class SolutionGuided : public BaseBooleanHeuristic<SolutionGuided> {
 public:
   /**
    * Ctor.
    * @param epsilon see tempo::heuristics::BaseValueHeuristic
    */
   explicit SolutionGuided(double epsilon)
-      : BaseValueHeuristic<SolutionGuided>(epsilon) {}
+      : BaseBooleanHeuristic<SolutionGuided>(epsilon) {}
 
   /**
    * heuristic interface

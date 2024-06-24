@@ -7,84 +7,68 @@
 #ifndef TEMPO_TIGHTESTVALUE_HPP
 #define TEMPO_TIGHTESTVALUE_HPP
 
-#include "BaseValueHeuristic.hpp"
+#include "BaseBooleanHeuristic.hpp"
 #include "Constant.hpp"
 #include "DistanceConstraint.hpp"
 #include "Global.hpp"
+#include "Literal.hpp"
 #include "util/factory_pattern.hpp"
 #include "util/traits.hpp"
 
-namespace tempo {
-template <typename T> class Scheduler;
-}
 
 namespace tempo::heuristics {
 
-namespace detail {
-template <typename Sched>
-concept distance_provider = requires(const Sched &s, lit l, event e) {
-  requires traits::is_same_template_v<DistanceConstraint,
-                                      decltype(s.getEdge(l))>;
-  { s.upper(e) } -> concepts::scalar;
-  { s.lower(e) } -> concepts::scalar;
-};
-}
+    namespace detail {
+        template<typename Solver, typename T>
+        concept distance_provider = requires(const Solver s, Literal<T> l, event e) {
+            { s.boolean.getEdge(l) } -> concepts::same_template<DistanceConstraint>;
+            { s.numeric.upper(e) } -> concepts::scalar;
+            { s.numeric.lower(e) } -> concepts::scalar;
+        };
+    }
 
 /**
  * @brief Tightest value selection heuristic.
  * @details @copybrief
  * Chooses the polarity that would leave the most slack in the timing network
  */
-class TightestValue : public BaseValueHeuristic<TightestValue> {
-public:
-  /**
-   * Ctor
-   * @param epsilon see tempo::heuristics::BaseValueHeuristic
-   */
-  explicit TightestValue(double epsilon)
-      : BaseValueHeuristic<TightestValue>(epsilon) {}
+    class TightestValue : public BaseBooleanHeuristic<TightestValue> {
+    public:
+        /**
+         * Ctor
+         * @param epsilon see tempo::heuristics::BaseValueHeuristic
+         */
+        explicit TightestValue(double epsilon)
+                : BaseBooleanHeuristic<TightestValue>(epsilon) {}
 
-  /**
-   * heuristic interface
-   * @tparam Sched class that provides distances between events and a mapping
-   * from literals to edges
-   * @param cp choice point
-   * @param scheduler scheduler instance
-   * @return either POS(cp) or NEG(cp)
-   */
-  template <detail::distance_provider Sched>
-  static lit choose(var cp, const Sched &scheduler) {
-    using T = decltype(scheduler.lower(tempo::event(0)));
-    lit d = NoVar;
-    auto prec_a{scheduler.getEdge(POS(cp))};
-    auto prec_b{scheduler.getEdge(NEG(cp))};
+        /**
+         * heuristic interface
+         * @tparam Solver class that provides distances between events and a mapping
+         * from literals to edges
+         * @param cp choice point
+         * @param solver scheduler instance
+         * @return either POS(cp) or NEG(cp)
+         */
+        template<concepts::scalar T, typename Solver>
+        static bool choose(Literal<T> lit, const Solver &solver) {
+            static_assert(detail::distance_provider<Solver, T>);
+            // @TODO no gap info available -> what should I return?
+            if (not lit.hasSemantic()) {
+                return true;
+            }
 
-    T gap_a{0};
-    if (prec_a != Constant::NoEdge<T>) {
-      gap_a = scheduler.upper(prec_a.from) - scheduler.lower(prec_a.to);
-    }
+            auto edgePos = solver.boolean.getEdge(lit);
+            auto edgeNeg = solver.boolean.getEdge(~lit);
+            auto gapPos = solver.numeric.upper(edgePos.from) - solver.numeric.lower(edgePos.to);
+            auto gapNeg = solver.numeric.upper(edgeNeg.from) - solver.numeric.lower(edgeNeg.to);
+            return gapPos <= gapNeg;
+        }
+    };
 
-    T gap_b{0};
-    if (prec_b != Constant::NoEdge<T>) {
-      gap_b = scheduler.upper(prec_b.from) - scheduler.lower(prec_b.to);
-    }
-    d = (gap_a < gap_b ? NEG(cp) : POS(cp));
-
-//#ifdef DBG_TRACE
-//    if (DBG_BOUND and (DBG_TRACE & SEARCH)) {
-//      std::cout << scheduler << "\n-- new decision: " << prettyLiteral(EDGE(d))
-//                << std::endl;
-//    }
-//#endif
-
-    return d;
-  }
-};
-
-MAKE_FACTORY(TightestValue, const ValueHeuristicConfig &config) {
-  return TightestValue(config.epsilon);
-}
-};
+    MAKE_FACTORY(TightestValue, const ValueHeuristicConfig &config) {
+            return TightestValue(config.epsilon);
+        }
+    };
 }
 
 #endif // TEMPO_TIGHTESTVALUE_HPP
