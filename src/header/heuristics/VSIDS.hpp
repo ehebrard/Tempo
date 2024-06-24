@@ -5,6 +5,7 @@
 #ifndef TEMPO_VSIDS_HPP
 #define TEMPO_VSIDS_HPP
 
+#include "Global.hpp"
 #include "RankingHeuristic.hpp"
 #include "heuristics/impl/DecayingEventActivityMap.hpp"
 #include "util/SubscribableEvent.hpp"
@@ -65,7 +66,7 @@ namespace tempo::heuristics {
          * @param solver
          * @todo currently only selects boolean variables
          */
-        auto nextVariable(const Solver<T> &solver) const -> std::pair<var_t, VariableType> {
+        auto nextVariable(const Solver<T> &solver) const -> VariableSelection {
             return {this->bestVariable(solver.getBranch(), solver), VariableType::Boolean};
         }
 

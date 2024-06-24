@@ -6,6 +6,7 @@
 #define TEMPO_TIGHTEST_HPP
 
 #include "RankingHeuristic.hpp"
+#include "Global.hpp"
 
 namespace tempo::heuristics {
 
@@ -41,7 +42,7 @@ namespace tempo::heuristics {
          * @todo currently only selects boolean variables
          */
         template<concepts::scalar T>
-        [[nodiscard]] auto nextVariable(const Solver<T> &solver) const -> std::pair<var_t, VariableType> {
+        [[nodiscard]] auto nextVariable(const Solver<T> &solver) const -> VariableSelection {
             return {this->bestVariable(solver.getBranch(), solver), VariableType::Boolean};
         }
 

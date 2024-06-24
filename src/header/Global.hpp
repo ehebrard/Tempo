@@ -51,6 +51,8 @@ enum class VariableType {
     Numeric
 };
 
+using VariableSelection = std::pair<var_t, VariableType>;
+
 /**
  * Converts enum to underlying type
  * @tparam E enum type

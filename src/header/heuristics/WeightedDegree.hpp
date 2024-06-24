@@ -5,11 +5,11 @@
 #ifndef TEMPO_WEIGHTEDDEGREE_HPP
 #define TEMPO_WEIGHTEDDEGREE_HPP
 
+#include "Global.hpp"
 #include "util/Options.hpp"
 #include "util/SubscribableEvent.hpp"
 #include "heuristics/RankingHeuristic.hpp"
 #include "heuristics/impl/DecayingEventActivityMap.hpp"
-//#include <array>
 
 namespace tempo::heuristics {
 /**
@@ -65,7 +65,7 @@ namespace tempo::heuristics {
          * @param solver
          * @todo currently only selects boolean variables
          */
-        auto nextVariable(const Solver<T> &solver) const -> std::pair<var_t, VariableType> {
+        auto nextVariable(const Solver<T> &solver) const -> VariableSelection {
             return {this->bestVariable(solver.getBranch(), solver), VariableType::Boolean};
         }
 
