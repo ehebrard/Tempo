@@ -97,18 +97,34 @@ int main(int argc, char *argv[]) {
         k = n;
     }
     
+    auto trivial_ub{0};
+    for(auto& j : jobs)
+        trivial_ub += j.minDuration();
+    
     // set the user defined ub
-    auto ub{opt.ub};
+    auto ub{std::min(opt.ub, trivial_ub)};
+    
+//    std::cout << ub << std::endl;
+    
+    
     S.set(schedule.end.before(ub));
     
     S.initializeSearch();
     
     S.propagate();
+    
+//    std::cout << S << std::endl;
+    
+//    exit(1);
+    
         
     // find a ub
     for(auto i{0}; i<opt.greedy_runs; ++i) {
         auto st{S.saveState()};
-        if(greedy_insertion.run()) {
+//        auto sat{((tempo::random()%2) ? greedy_insertion.runEarliestStart() : greedy_insertion.runLatestEnd())};
+//        auto sat{greedy_insertion.runLatestEnd()};
+        auto sat{greedy_insertion.runEarliestStart()};
+        if(sat) {
             if(schedule.getEarliestEnd(S) <= ub) {
                 ub = schedule.getEarliestEnd(S) - 1;
                 std::cout << std::setw(10) << (ub+1);

@@ -28,8 +28,10 @@ template <typename M, typename J, typename R> void parse(const std::string &fn, 
         
         bool gotheader{false};
         bool gotsecondheader{false};
+        bool stupid{true};
         
         std::string lt;
+        std::string dump;
         int ln{1};
         size_t nj{0}, nm{0};
         int dur;
@@ -52,7 +54,7 @@ template <typename M, typename J, typename R> void parse(const std::string &fn, 
                 continue;
             
             std::istringstream iss(line);
-
+            
             if (!gotheader) {
                 iss >> nj;
                 iss >> nm;
@@ -61,58 +63,77 @@ template <typename M, typename J, typename R> void parse(const std::string &fn, 
                     cerr << "ERROR: could not parse header at line " << ln << "\n";
                     exit(1);
                 }
-                                
+                
                 resources.resize(nm);
                 
                 gotheader = true;
+                
+//                std::cout << nj << " " << nm << std::endl;
+                
             } else if (jobs.size() < nj * nm) {
-
-              for (size_t m{0}; m < nm; ++m) {
-                  iss >> mach;
-                  iss >> dur;
-
-                if (!iss) {
-                  cerr << "ERROR: line count at line " << ln << "\n";
-                  exit(1);
+                
+                for (size_t m{0}; m < nm; ++m) {
+                    iss >> mach;
+                    iss >> dur;
+                    
+                    if (!iss) {
+                        cerr << "ERROR: line count at line " << ln << "\n";
+                        exit(1);
+                    }
+                    
+                    auto j{solver.newJob(dur, dur)};
+                    
+//                    std::cout << j << std::endl;
+                    
+                    jobs.push_back(j);
+                    resources[mach].push_back(j);
                 }
-
-                auto j{solver.newJob(dur, dur)};
-
-                if (m == 0) {
-                  solver.set(j.start.after(schedule.start));
-                } else {
-                  solver.set(jobs.back().end.before(j.start));
-                  if (m == nm - 1) {
-                    solver.set(j.end.before(schedule.end));
-                  }
-                }
-
-                jobs.push_back(j);
-                resources[mach].push_back(j);
-              }
             }  else if (not gotsecondheader and jobs.size() == nj * nm) {
                 iss >> lt;
                 assert(lt == "RES=");
-
+                
                 iss >> optimalSolution;
-
+                
                 gotsecondheader = true;
             } else {
                 
                 for (size_t m{0}; m < nm; ++m) {
-                  iss >> min_tl;
-                  iss >> max_tl;
-
-                  if (!iss) {
-                    cerr << "ERROR: line count at line " << ln << "\n";
-                    exit(1);
-                  }
-
-                  if (m < (nm - 1)) {
-                      solver.set(jobs[k+1].start.before(jobs[k].end, max_tl));
-                  }
+                    if(stupid) {
+                        iss >> dump;
+                        assert(dump == "TL=0");
+                        min_tl = 0;
+                        stupid = false;
+                    } else {
+                        iss >> min_tl;
+                    }
+                    iss >> max_tl;
+                    
+                    if (!iss) {
+                        cerr << "ERROR: line count at line " << ln << "\n";
+                        exit(1);
+                    }
+                    
+                    if (m == 0) {
+                        auto l{jobs[k].start.after(schedule.start)};
+//                        std::cout << l << std::endl;
+                        solver.set(l);
+                    } else {
+                        auto l{jobs[k-1].end.before(jobs[k].start, min_tl)};
+//                        std::cout << l << std::endl;
+                        solver.set(l);
+                        if (m == nm - 1) {
+                            l = jobs[k].end.before(schedule.end);
+//                            std::cout << l << std::endl;
+                            solver.set(l);
+                        }
+                    }
+                    if (m < (nm - 1)) {
+                        auto l{jobs[k+1].start.before(jobs[k].end, -max_tl)};
+//                        std::cout << l << std::endl;
+                        solver.set(l);
+                    }
+                    ++k;
                 }
-                ++k;
             }
         }
     } catch (std::exception &e) {
