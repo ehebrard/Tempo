@@ -21,8 +21,6 @@
 #ifndef __TEMPO_LITERAL_HPP
 #define __TEMPO_LITERAL_HPP
 
-//#include <variant>
-
 #include "Constant.hpp"
 #include "Global.hpp"
 #include "util/traits.hpp"

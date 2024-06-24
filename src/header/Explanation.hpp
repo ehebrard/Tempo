@@ -1,3 +1,22 @@
+/************************************************
+ * Tempo Explanation.hpp
+ *
+ * Copyright 2024 Emmanuel Hebrard
+ *
+ * Tempo is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation, either version 3 of the License, or (at your
+ *  option) any later version.
+ *
+ * Tempo is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Tempo.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ ***********************************************/
 
 #ifndef _TEMPO_EXPLANATION_HPP
 #define _TEMPO_EXPLANATION_HPP
@@ -10,19 +29,13 @@ namespace tempo {
 
 template <typename T> struct Literal;
 
-/* Explanation system:
 
-An Explainer is a class with the methods 'xplain(const lit l, const hint h, std::vector<lit> &Cl)' that inserts an explanation for the literal l to the clause Cl
+//! Explainer interface
+/*!
+ An Explainer is a class with the methods 'xplain(const lit l, const hint h, std::vector<lit> &Cl)' that inserts an explanation for the literal l to the clause Cl
 
-Typically, each constraint is an explainer, and must store the info necessary to access/compute the reason 'h' can be used to store or access the explanation
-
-TemporalGraph are also explainers, for bounds
-
-The static object "NoReason" is the empty reason
-
-*/
-
-
+ Typically, each constraint is an explainer, and must store the info necessary to access/compute the reason 'h' can be used to store or access the explanation
+ */
 template <typename T> class Explainer {
 protected:
   int cons_id{-1};
@@ -45,6 +58,11 @@ public:
   int id() const { return cons_id; }
 };
 
+//! Explanation class
+/*!
+ An Explanation is a pointer to an Explainer  and a 'hint' to help it explain
+  - e.g., it can hold the index of the explantion in a precomputed list, or it can give the necessary info to recompute it
+ */
 template <typename T> class Explanation {
 
 public:

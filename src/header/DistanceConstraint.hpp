@@ -1,16 +1,37 @@
+/************************************************
+ * Tempo DistanceConstraint.hpp
+ *
+ * Copyright 2024 Emmanuel Hebrard
+ *
+ * Tempo is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation, either version 3 of the License, or (at your
+ *  option) any later version.
+ *
+ * Tempo is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Tempo.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ ***********************************************/
+
 #ifndef _TEMPO_DISTANCECONSTRAINT_HPP
 #define _TEMPO_DISTANCECONSTRAINT_HPP
 
 #include <iostream>
 
-//#include "Constant.hpp"
 #include "Global.hpp"
 
 namespace tempo {
 
-// template <typename T> class BoundSystem;
-
-// literals x - y <= k (with x,y pointing to vars and k a constant)
+//! Difference logic constraint
+/*!
+ literals  x - y \leq k (with x,y pointing to vars and k a constant)
+  - the corresponding edge in the temporal graph is y --> x with label k
+ */
 template <typename T> class DistanceConstraint {
 
 public:
@@ -79,8 +100,6 @@ bool DistanceConstraint<T>::contradicts(const DistanceConstraint<T> &e) const {
 
 template <typename T>
 std::ostream &DistanceConstraint<T>::display(std::ostream &os) const {
-  //  os << etype(to) << TASK(to) << " - " << etype(from) << TASK(from)
-  //     << " <= " << distance;
   os << "x" << to << " - x" << from << " <= " << distance;
   return os;
 }

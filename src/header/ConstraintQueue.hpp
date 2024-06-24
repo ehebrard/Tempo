@@ -1,3 +1,23 @@
+/************************************************
+ * Tempo Solver.hpp
+ *
+ * Copyright 2024 Emmanuel Hebrard
+ *
+ * Tempo is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation, either version 3 of the License, or (at your
+ *  option) any later version.
+ *
+ * Tempo is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Tempo.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ ***********************************************/
+
 #ifndef _TEMPO_CONSTRAINTQUEUE_HPP
 #define _TEMPO_CONSTRAINTQUEUE_HPP
 
@@ -7,52 +27,74 @@
 
 namespace tempo {
 
-
-
-
+//! Prioirity queue for constraints
+/*!
+Constraints are triggered ['notify()'] on literal they subscribed to
+ - if they have been successfuly triggered once ('notify()' returned true), they
+are enqueued
+ - they are dequeued on demand in an order compatible with their priority
+declaration
+ - there are N priority levels (N is a parameter)
+*/
 template <typename T, int N> class ConstraintQueue {
 
 public:
+  /**
+   * @name constructors
+   */
+  //@{
+  ConstraintQueue(std::vector<Constraint<T> *> &);
+  void resize(const size_t);
+  //@}
+
+  /**
+   * @name accessors
+   */
+  //@{
+  // notifies constraint 'cons' of the new lit 'change' (of type "event"), @
+  // position 'rank' in its scope
+  void triggers(const Literal<T> l, const int rank, Constraint<T>* cons);
+  // enqueue a constraint (if it is not yet in the queue)
+  void activate(const Constraint<T> *cons);
+
+  // returns the active constraint of highest priority that has been
+  // activated first, return NULL if there are no active constraint
+  Constraint<T> *pop_front();
+
+  // clear the queue
+  void clear();
+
+  // whether there the queue is empty
+  bool empty() const;
+
+  // whether the queue contains the constraint with id 'cons_id'
+  bool has(const int cons_id) const;
+  //@}
+
+  /**
+   * @name printing
+   */
+  //@{
+  std::ostream &display(std::ostream &os) const;
+  //@}
+
+private:
+  // pointer to the constraint list
   std::vector<Constraint<T> *> &constraints;
 
   // which ones need to be propagated
   SparseSet<> active[N]; // alows for N levels of priority
 
-  ConstraintQueue(std::vector<Constraint<T> *> &);
-  void resize(const size_t);
-
-  //  void initialize(std::vector<Constraint *> *c);
-
-  // notifies constraint 'cons' of the new lit 'change' (of type "event"), @
-  // position 'rank' in its scope
-  void triggers(const Literal<T> l, const int rank, Constraint<T>* cons);
-    void activate(const Constraint<T>* cons);
-
-  //  // notifies constraint 'cons' of the new lit 'change' (of type "edge"), @
-  //  // position 'rank' in its scope
-  //  void edge_triggers(const lit var_id, const int rank, const int cons);
-
-  // returns the active constraint of highest priority that has been
-  // activated first, return NULL if there are no active constraint
-  Constraint<T> *pop_front();
-  // bool empty() const;
-
-  void clear();
-  bool empty() const;
-  bool has(const int cons_id) const;
-
-  std::ostream &display(std::ostream &os) const;
-
-private:
+  // to speed-up the call to 'empty()' when there are many priority levels
   size_t count{0};
 };
 
+/*!
+ Implementation
+*/
 template <typename T, int N>
-ConstraintQueue<T, N>::ConstraintQueue(
-    std::vector<Constraint<T> *> &cons)
-    : constraints(cons) {
-  //    resize(constraints.size());
-}
+ConstraintQueue<T, N>::ConstraintQueue(std::vector<Constraint<T> *> &cons)
+    : constraints(cons) {}
 
 template <typename T, int N>
 void ConstraintQueue<T, N>::resize(const size_t n) {
