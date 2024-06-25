@@ -25,7 +25,7 @@ namespace tempo::heuristics {
 auto valHeuristicTypeToString(Options::PolarityHeuristic type) -> std::string;
 
 MAKE_FACTORY_PATTERN(ValueHeuristic, ValueHeuristicConfig, TightestValue,
-                     /*SolutionGuided,*/ RandomBinaryValue)
+                     SolutionGuided, RandomBinaryValue)
 
 class ValueHeuristicsManager {
   std::optional<ValueHeuristic> impl;

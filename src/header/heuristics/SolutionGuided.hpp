@@ -40,19 +40,14 @@ public:
 
   /**
    * heuristic interface
-   * @tparam Sched class that provides previously encountered solutions
-   * @param cp choice point
-   * @param scheduler scheduler instance
-   * @return either POS(cp) or NEG(cp)
+   * @tparam T timing type
+   * @tparam S class that provides previously encountered solutions
    */
-  template <detail::solution_provider Sched>
-  [[nodiscard]] auto choose(var_t cp, const Sched &scheduler) const {
+  template <concepts::scalar T, typename S>
+  [[nodiscard]] bool choose(Literal<T> lit, const S &solver) const {
       throw std::runtime_error("needs implementation");
-    if (not scheduler.hasSolution()) {
-      return TightestValue::choose(cp, scheduler);
-    }
-    // TODO implement
-    return 0;
+      // something like if solver has not solution yet => return tightest
+      // else lookup corresponding edge in solver.boolean.bestSolution and return a polarity
   }
 };
 
