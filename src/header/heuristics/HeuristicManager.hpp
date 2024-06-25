@@ -1,6 +1,22 @@
-//
-// Created by tim on 16.11.22.
-//
+/************************************************
+ * Tempo HeuristicManager.hpp
+ *
+ * Copyright 2024 Tim Luchterhand  and Emmanuel Hebrard
+ *
+ * Tempo is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation, either version 3 of the License, or (at your
+ *  option) any later version.
+ *
+ * Tempo is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Tempo.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ ***********************************************/
 
 #ifndef TEMPO_HEURISTICMANAGER_HPP
 #define TEMPO_HEURISTICMANAGER_HPP

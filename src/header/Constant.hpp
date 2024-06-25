@@ -31,6 +31,7 @@ class Constant {
 public:
   static constexpr auto DecisionHint = static_cast<hint>(0);
   static constexpr auto FactHint = static_cast<hint>(-1);
+  //    static constexpr auto NoHint = static_cast<hint>(-1);
   static constexpr auto NoIndex = static_cast<index_t>(-1);
   static constexpr auto NoVar = static_cast<var_t>(-1);
   static constexpr index_t InfIndex = 0;

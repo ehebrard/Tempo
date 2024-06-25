@@ -77,7 +77,8 @@ int main(int argc, char *argv[]) {
     S.addToSearch(x);
 
   // the objective
-  MakespanObjective<int> duration(schedule, S);
+  //  MakespanObjective<int> duration(schedule, S);
+  MinimizationObjective<int, TemporalVar<int>> makespan(schedule.end);
 
   // set a trivial (and the user-defined) upper bound
   auto trivial_ub{0};
@@ -116,5 +117,5 @@ int main(int argc, char *argv[]) {
   S.set(schedule.end.before(ub));
 
   // search
-  S.optimize(duration);
+  S.optimize(makespan);
 }

@@ -1,133 +1,92 @@
+/************************************************
+ * Tempo Objective.hpp
+ *
+ * Copyright 2024 Emmanuel Hebrard
+ *
+ * Tempo is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation, either version 3 of the License, or (at your
+ *  option) any later version.
+ *
+ * Tempo is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Tempo.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ ***********************************************/
 
 #ifndef _TEMPO_OBJECTIVE_HPP
 #define _TEMPO_OBJECTIVE_HPP
 
-//#include "util/parsing/format.hpp"
-//#include "constraints/Cardinality.hpp"
-
 namespace tempo {
 
-template <typename T> class Scheduler;
+template <typename T> class Solver;
 
-//template <typename T> class Solver;
-
-template <typename T> class Interval;
-
-template <typename T> class MakespanObjective {
+//! \class Objective
+/*!
+ \brief Wraper for objective
+ Objective is either minimization or maximization of a given numeric variable
+ In order to model fancy objective, add a variable; use constraints to define
+ the objective as this variable; and minimize or maximize it
+*/
+template <typename T, typename Var> class Objective {
 public:
-  MakespanObjective(Interval<T> &j, Solver<T> &s) : Interval(j), solver(s) {}
-  MakespanObjective(Interval<T> &j, Solver<T> &s, const T u)
-      : Interval(j), solver(s) {
-    setPrimal(u);
-  }
-  ~MakespanObjective() = default;
-
-  T value() { return Interval.getEarliestEnd(solver); }
+  Objective(Var &x) : X(x) {}
 
   T gap() { return p_b - d_b; }
   T dualBound() const { return d_b; }
   T primalBound() const { return p_b; }
 
   void setDual(const T v) { d_b = v; }
-  void initDual() { d_b = Interval.getEarliestEnd(solver); }
 
-  void setPrimal(const T v) {
-    p_b = v;
-    if (gap()) {
-      apply(p_b - Gap<T>::epsilon());
+protected:
+  Var &X;
+  T d_b{0};
+  T p_b{Constant::Infinity<T>};
+};
+
+template <typename T, typename Var>
+class MinimizationObjective : public Objective<T, Var> {
+public:
+  MinimizationObjective(Var &x) : Objective<T, Var>(x) {}
+
+  T value(Solver<T> &solver) { return Objective<T, Var>::X.min(solver); }
+
+  void setPrimal(const T v, Solver<T> &solver) {
+    Objective<T, Var>::p_b = v;
+    if (Objective<T, Var>::gap()) {
+      apply(Objective<T, Var>::p_b, solver);
     }
   }
 
-  void apply(const T target) { solver.set(Interval.end.before(target)); }
+private:
+  void apply(const T target, Solver<T> &solver) {
+    solver.set(Objective<T, Var>::X < target);
+  }
+};
 
-  std::ostream &display(std::ostream &os) const {
-    os << "[" << std::left << std::setw(5) << std::setfill('.') << dualBound()
-       << std::setfill(' ');
-    auto pb{primalBound()};
-    if (pb < Constant::Infinity<T>)
-      os << std::right << std::setw(6) << std::setfill('.') << pb
-         << std::setfill(' ');
-    else
-      os << ".infty";
-    os << "]";
-    return os;
+template <typename T, typename Var>
+class MaximizationObjective : public Objective<T, Var> {
+public:
+  MaximizationObjective(Var &x) : Objective<T, Var>(x) {}
+
+  T value(Solver<T> &solver) { return Objective<T, Var>::X.max(solver); }
+
+  void setPrimal(const T v, Solver<T> &solver) {
+    Objective<T, Var>::p_b = v;
+    if (Objective<T, Var>::gap()) {
+      apply(Objective<T, Var>::p_b, solver);
+    }
   }
 
 private:
-  Interval<T> &Interval;
-  Solver<T> &solver;
-  T d_b{0};
-    T p_b{Constant::Infinity<T>};
-};
-
-//template <typename T> class MaximumCardinality {
-//public:
-//  template <typename Iter>
-//  MaximumCardinality(Scheduler<T> &s, Iter beg_lit, Iter end_lit)
-//      : schedule(s) {
-//    for (auto l{beg_lit}; l != end_lit; ++l)
-//      literals.push_back(*l);
-//    card = new CardinalityGeq<T>(schedule, beg_lit, end_lit, 0);
-//    schedule.post(card);
-//  }
-//  ~MaximumCardinality() = default;
-//
-//  T gap() { return p_b - d_b; }
-//  //  void closeGap() { d_b = p_b; }
-//  T dualBound() const { return d_b; }
-//  T primalBound() const { return p_b; }
-//
-//  size_t value() {
-//    size_t c{0};
-//    for (auto l : literals) {
-//      c += schedule.satisfied(l);
-//    }
-//    return c;
-//  }
-//
-//  void setDual(const T v) { d_b = v; }
-//
-//  void setPrimal(const T v) {
-//    p_b = v;
-//    if (gap()) {
-//      apply(p_b + Gap<T>::epsilon());
-//    }
-//  }
-//
-//  void apply(const int target) { card->setBound(target); }
-//
-//private:
-//  Scheduler<T> &schedule;
-//  std::vector<lit> literals;
-//  CardinalityGeq<T> *card;
-//  T d_b;
-//  T p_b;
-//};
-
-template <typename T> class NoObj {
-public:
-  NoObj() = default;
-  ~NoObj() = default;
-
-  T gap() { return 1; }
-  T dualBound() const { return 0; }
-
-  void setDual(const T) {}
-
-  T value() { return 0; }
-
-  std::ostream &display(std::ostream &os) const {
-    os << " no solution ";
-    return os;
+  void apply(const T target, Solver<T> &solver) {
+    solver.set(Objective<T, Var>::X > target);
   }
 };
-
-template <typename T> class No {
-public:
-  static NoObj<T> Obj;
-};
-
-template <typename T> NoObj<T> No<T>::Obj = NoObj<T>();
 
 } // namespace tempo
 

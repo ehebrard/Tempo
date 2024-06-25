@@ -1,3 +1,23 @@
+/************************************************
+ * Tempo EdgeConstraint.hpp
+ *
+ * Copyright 2024 Emmanuel Hebrard
+ *
+ * Tempo is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation, either version 3 of the License, or (at your
+ *  option) any later version.
+ *
+ * Tempo is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Tempo.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ ***********************************************/
+
 #ifndef TEMPO_EDGECONSTRAINT_HPP
 #define TEMPO_EDGECONSTRAINT_HPP
 
@@ -6,9 +26,6 @@
 #include <vector>
 
 #include "constraints/Constraint.hpp"
-//#include "Scheduler.hpp"
-
-//#define DBG_EDGECONS (cons_id == 0)
 
 namespace tempo {
 
@@ -27,12 +44,8 @@ private:
   // the edge itself
   const DistanceConstraint<T> edge;
 
-  //  int cons_id;
-
-  //    Literal<T> r_lb; //{Constant::NoLiteral<T>};
-  //    Literal<T> r_ub; //{Constant::NoLiteral<T>};
-  index_t r_lb{Constant::NoIndex}; //{Constant::NoLiteral<T>};
-  index_t r_ub{Constant::NoIndex}; //{Constant::NoLiteral<T>};
+  index_t r_lb{Constant::NoIndex};
+  index_t r_ub{Constant::NoIndex};
 
 public:
   EdgeConstraint(Solver<T> &, const Literal<T>);
@@ -42,8 +55,6 @@ public:
   void post(const int idx) override;
   void propagate() override;
 
-  // void xplain(const lit l, const hint h, std::vector<lit> &Cl) const
-  // override;
   void xplain(const Literal<T>, const hint, std::vector<Literal<T>> &) override;
   int getType() const override;
 
@@ -55,31 +66,14 @@ public:
 template <typename T>
 EdgeConstraint<T>::EdgeConstraint(Solver<T> &solver, const Literal<T> p_)
     : m_solver(solver), p(p_), edge(~(m_solver.boolean.getEdge(~p)))
-//,  r_lb(m_solver.numeric.strongestLiteral(bound::lower, edge.from))
-//,  r_ub(m_solver.numeric.strongestLiteral(bound::upper, edge.to))
 {
-  // the negation of the
   Constraint<T>::priority = Priority::High;
-
-  //
-  //    std::cout << p << std::endl;
-  //    std::cout << ~p << std::endl;
-  //    std::cout << p.constraint() << std::endl;
-  //    std::cout << (~p).constraint() << std::endl;
-  //    std::cout << m_solver.boolean.getEdge(p) << std::endl;
-  //    std::cout << m_solver.boolean.getEdge(~p) << std::endl;
-  //    std::cout << ~(m_solver.boolean.getEdge(~p)) << std::endl;
 }
 
 template <typename T> void EdgeConstraint<T>::post(const int idx) {
   // p <=> to - from > d
   // lb(to) - ub(from) > d
   Constraint<T>::cons_id = idx;
-
-  //    std::cout << "wake\n" << edge << std::endl;
-  //    std::cout << lb<T>(edge.from) << std::endl;
-  //    std::cout << ub<T>(edge.to) << std::endl;
-
   m_solver.wake_me_on(lb<T>(edge.from), Constraint<T>::cons_id);
   m_solver.wake_me_on(ub<T>(edge.to), Constraint<T>::cons_id);
 }
@@ -99,13 +93,8 @@ bool EdgeConstraint<T>::notify(const Literal<T>, const int) {
 
   if (m_solver.boolean.isUndefined(p.variable())) {
 
-    //    if (m_solver.upper(edge.to) - m_solver.lower(edge.from) <=
-    //        edge.distance) {
     if (edge.satisfied(m_solver)) {
-
-      //          r_lb = m_solver.numeric.strongestLiteral(bound::lower,
-      //          edge.from); r_ub =
-      //          m_solver.numeric.strongestLiteral(bound::upper, edge.to);
+        
       r_lb = m_solver.numeric.lastLitIndex(bound::lower, edge.from);
       r_ub = m_solver.numeric.lastLitIndex(bound::upper, edge.to);
 
@@ -117,13 +106,13 @@ bool EdgeConstraint<T>::notify(const Literal<T>, const int) {
 #endif
 
       m_solver.set(p, {this, NoHint});
-
-      //            m_schedule.relax(this);
     }
   }
-  //    else {
-  //      m_schedule.relax(this);
-  //    }
+//      else {
+//        m_solver.relax(this);
+//          //optimal    4299017    8993174    36868     17    459206    18   243.928
+//          //optimal    3884559    8125410    35409     17    680596    18   229.468
+//      }
 
   // never propagate
   return false;
@@ -139,59 +128,22 @@ template <typename T>
 void EdgeConstraint<T>::xplain(const Literal<T>, const hint,
                                   std::vector<Literal<T>> &Cl) {
     
-    
-//    std::cout << "explain " << m_solver.pretty(p) << " by (" << edge << ") i.e, " << m_solver.getLiteral(r_lb) << " & " << m_solver.getLiteral(r_ub) << std::endl;
-//    
-    
-//<<<<<<< HEAD
-////    if(r_lb < r_ub) {
-////        
-////        auto p{m_solver.getLiteral(r_lb)};
-//////        auto q{Literal<T>(bound::upper, edge.to, edge.distance - p.value())};
-//////        auto q{geq<T>(edge.to, p.value() - edge.distance)};
-////        auto q{makeNumericLiteral(bound::upper, edge.to, edge.distance - p.value())};
-////        
-//////        std::cout << " * or by " << p << " & " << q << std::endl << std::endl;
-////        
-////        Cl.push_back(p);
-////        Cl.push_back(q);
-////    } else {
-////        
-////        auto q{m_solver.getLiteral(r_ub)};
-//////        auto p{Literal<T>(bound::lower, edge.from, edge.distance - q.value())};
-//////        auto p{leq<T>(edge.from, edge.distance - q.value())};
-////        
-////        auto p{makeNumericLiteral(bound::lower, edge.from, edge.distance - q.value())};
-////        
-//////        std::cout << " * or by " << p << " & " << q << std::endl << std::endl;
-////        
-////        Cl.push_back(p);
-////        Cl.push_back(q);
-////    }
-//=======
     if(r_lb < r_ub) {
         
         auto p{m_solver.getLiteral(r_lb)};
         auto q{makeNumericLiteral(bound::upper, edge.to, edge.distance - p.value())};
-        
-//        std::cout << " * or by " << p << " & " << q << std::endl << std::endl;
-        
+         
         Cl.push_back(p);
         Cl.push_back(q);
     } else {
         
         auto q{m_solver.getLiteral(r_ub)};
         auto p{makeNumericLiteral(bound::lower, edge.from, edge.distance - q.value())};
-        
-//        std::cout << " * or by " << p << " & " << q << std::endl << std::endl;
-        
+         
         Cl.push_back(p);
         Cl.push_back(q);
     }
-//>>>>>>> 83891036076eb25d8d738038e8b2807c802515a5
-//
-//  Cl.push_back(m_solver.getLiteral(r_lb));
-//  Cl.push_back(m_solver.getLiteral(r_ub));
+
 }
 
 template <typename T>

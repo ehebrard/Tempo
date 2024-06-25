@@ -1,3 +1,23 @@
+/************************************************
+ * Tempo Transitivity.hpp
+ *
+ * Copyright 2024 Emmanuel Hebrard
+ *
+ * Tempo is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation, either version 3 of the License, or (at your
+ *  option) any later version.
+ *
+ * Tempo is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Tempo.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ ***********************************************/
+
 #ifndef TEMPO_TRANSITIVITY_HPP
 #define TEMPO_TRANSITIVITY_HPP
 
@@ -21,12 +41,7 @@ template <typename T> class Transitivity : public Constraint<T> {
 private:
   Solver<T> &m_solver;
   Interval<T> schedule;
-  //  std::vector<task> m_tasks;
   std::vector<Interval<T>> the_tasks;
-  //    std::vector<int> task_from; // for each disjunct (in the order they are
-  //    declared as triggers, the 'from' event) std::vector<int> task_to; // for
-  //    each disjunct (in the order they are declared as triggers, the 'to'
-  //    event)
 
   // encoding: (y \in front(DAG[x]) && x \in back(y)) <=> edge (x,y)
   std::vector<SparseSet<int, Reversible<size_t>>> DAG;
@@ -102,24 +117,9 @@ Transitivity<T>::Transitivity(Solver<T> &solver, Interval<T> &sched,
 
   Constraint<T>::priority = Priority::Low;
 
-  //  auto n{std::distance(beg_task, end_task)};
-  //  auto m{std::distance(beg_var, end_var)};
-  //  assert(m = n * (n - 1) / 2);
-
-  // get all tasks with non-zero duration
-  //  size_t i{0}, j{0};
-//  for (auto jp{beg_task}; jp != end_task; ++jp) {
-//
-//    task t{*jp};
-//    m_tasks.push_back(t);
-//  }
-
           task_map.resize(m_solver.numeric.size(), -1);
 
           for (auto jp{beg_task}; jp != end_task; ++jp) {
-
-            //              int t{static_cast<int>(std::distance(jp,
-            //              beg_task))};
             int t{static_cast<int>(the_tasks.size())};
             task_map[jp->start.id()] = t;
             task_map[jp->end.id()] = t;
@@ -130,7 +130,7 @@ Transitivity<T>::Transitivity(Solver<T> &solver, Interval<T> &sched,
   sorted_tasks.resize(the_tasks.size());
   offset.resize(the_tasks.size());
 
-  transitive_reduction.fill(); // resize(m_tasks.size() * m_tasks.size());
+  transitive_reduction.fill();
   forest.resize(the_tasks.size());
 
   for (size_t i{0}; i < the_tasks.size(); ++i) {
@@ -254,34 +254,10 @@ bool Transitivity<T>::notify(const Literal<T> l, const int r) {
     }
 
       std::cout << std::endl;
-      
-//      for (size_t i{0}; i < the_tasks.size(); ++i) {
-////        std::cout << the_tasks[i].id() << ":";
-//        for (auto j{DAG[i].fbegin()}; j != DAG[i].fend(); ++j) {
-////          std::cout << " -> t" << the_tasks[*j].id();
-//            assert(m_solver.boolean.isTrue(disjunct[i][*j]));
-//            std::cout << " " << m_solver.pretty(disjunct[i][*j]);
-//        }
-//        std::cout << std::endl;
-//      }
-//
-//      for (size_t i{0}; i < the_tasks.size(); ++i) {
-////        std::cout << the_tasks[i].id() << ":";
-//        for (auto j{DAG[i].bbegin()}; j != DAG[i].bend(); ++j) {
-//            assert(m_solver.boolean.isTrue(disjunct[*j][i]));
-//            std::cout << " " << m_solver.pretty(disjunct[*j][i]);
-////          std::cout << " <- " << the_tasks[*j].id();
-//        }
-//        std::cout << std::endl;
-//      }
-
+ 
       
       for (size_t i{0}; i < the_tasks.size(); ++i) {
         for (size_t j{0}; j < the_tasks.size(); ++j) if (i != j) {
-//            std::cout << i << "," << j << " ";
-//            if(m_solver.boolean.isTrue(disjunct[i][j]))
-//                std::cout << " [" << m_solver.pretty(disjunct[i][j]) << "]" ;
-//            else
                 std::cout << " " << m_solver.pretty(disjunct[i][j])  ;
             std::cout.flush();
             if(m_solver.boolean.satisfied(disjunct[i][j]))
@@ -369,43 +345,6 @@ bool Transitivity<T>::notify(const Literal<T> l, const int r) {
         assert(DAG[*j].isback(i));
       }
     }
-      
-//      std::cout << std::endl;
-//
-//      for (size_t i{0}; i < the_tasks.size(); ++i) {
-//        for (size_t j{0}; j < the_tasks.size(); ++j) if (i != j) {
-////            std::cout << i << "," << j << " ";
-////            if(m_solver.boolean.isTrue(disjunct[i][j]))
-////                std::cout << " [" << m_solver.pretty(disjunct[i][j]) << "]" ;
-////            else
-//                std::cout << " " << m_solver.pretty(disjunct[i][j])  ;
-//            std::cout.flush();
-//            if(m_solver.boolean.satisfied(disjunct[i][j]))
-//                std::cout << "[true]";
-//            if(m_solver.boolean.falsified(disjunct[i][j]))
-//                std::cout << "[false]";
-//        }
-//        std::cout << std::endl;
-//      }
-////      std::cout << std::endl;
-////      
-////      for (size_t i{0}; i < the_tasks.size(); ++i) {
-//////        std::cout << the_tasks[i].id() << ":";
-////        for (auto j{DAG[i].fbegin()}; j != DAG[i].fend(); ++j) {
-//////          std::cout << " -> t" << the_tasks[*j].id();
-////            std::cout << " " << m_solver.pretty(disjunct[i][*j]);
-////        }
-////        std::cout << std::endl;
-////      }
-////
-////      for (size_t i{0}; i < the_tasks.size(); ++i) {
-//////        std::cout << the_tasks[i].id() << ":";
-////        for (auto j{DAG[i].bbegin()}; j != DAG[i].bend(); ++j) {
-////            std::cout << " " << m_solver.pretty(disjunct[*j][i]);
-//////          std::cout << " <- " << the_tasks[*j].id();
-////        }
-////        std::cout << std::endl;
-////      }
   }
 #endif
 
