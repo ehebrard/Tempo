@@ -63,7 +63,7 @@ namespace tempo::traits {
     struct is_same_template<Template, Template<Args...>> : std::true_type {};
 
     template<template<typename ...> typename Template, typename T>
-    constexpr inline bool is_same_template_v = is_same_template<Template, T>::value;
+    constexpr inline bool is_same_template_v = is_same_template<Template, std::remove_cvref_t<T>>::value;
 }
 
 namespace tempo::concepts {
@@ -84,6 +84,9 @@ namespace tempo::concepts {
     template<typename R, typename T>
     concept typed_range = std::ranges::range<R> && std::same_as<std::ranges::range_value_t<R>, T>;
 
+    template<typename R, typename T>
+    concept ctyped_range = std::ranges::range<R>and std::convertible_to<std::ranges::range_value_t<R>, T>;
+
     template<typename R, template<typename> typename T>
     concept ttyped_range = std::ranges::range<R> && traits::is_same_template_v<T, std::ranges::range_value_t<R>>;
 
@@ -91,6 +94,9 @@ namespace tempo::concepts {
     concept printable = requires(const T &obj, std::ostream &os) {
         os << obj;
     };
+
+    template<typename T, template<typename...> typename Template>
+    concept same_template = traits::is_same_template_v<Template, T>;
 }
 
 #endif //TEMPO_TRAITS_HPP
