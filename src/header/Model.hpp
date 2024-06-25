@@ -208,6 +208,14 @@ public:
 };
 
 
+template <typename T = int>
+class SchedulingModel : public std::vector<Interval<T>> {
+public:
+    std::vector<DisjunctiveResource<T>> resources;
+    std::vector<Literal<T>> precedences;
+};
+
+
 //! Variable type exception
 class VarTypeException : public std::exception {
 public:
@@ -234,19 +242,10 @@ template <typename T = int>
 class Expression {
     
 public:
+    Expression() {}
     Expression(ExpressionImpl<T> *i) : impl(i) {}
-    
-    void extract(Solver<T>& solver) {
-        if(impl)
-            impl->extract(solver);
-    }
-    
-    void post(Solver<T>& solver) {
-        if(impl)
-            impl->post(solver);
-    }
   
-private:
+protected:
     ExpressionImpl<T> *impl{NULL};
 };
 
@@ -259,6 +258,16 @@ public:
     BooleanExpression(BooleanVar<T> x) {
         BooleanVar<T>::_id_ = x.id();
     }
+    
+    void extract(Solver<T>& solver) {
+        if(Expression<T>::impl)
+            BooleanVar<T>::_id_ = Expression<T>::impl->extract(solver);
+    }
+    
+    void post(Solver<T>& solver) {
+        if(Expression<T>::impl)
+            Expression<T>::impl->post(solver);
+    }
 
 };
 
@@ -270,16 +279,21 @@ public:
     NumericExpression(NumericVar<T> x) {
         NumericVar<T>::_id_ = x.id();
     }
+    
+    void extract(Solver<T>& solver) {
+        if(Expression<T>::impl)
+            NumericVar<T>::_id_ = Expression<T>::impl->extract(solver);
+    }
 };
 
 template <typename T = int>
 class ExpressionImpl {
 public:
-    void extract(Solver<T>& ) = 0;
-    void post(Solver<T>& ) { throw RootException(); }
+    virtual var_t extract(Solver<T>& ) = 0;
+    virtual void post(Solver<T>& ) { throw RootException(); }
     
-    BooleanVar<T> getBoolean() { throw VarTypeException(); }
-    NumericVar<T> getNumeric() { throw VarTypeException(); }
+//    BooleanVar<T> getBoolean() { throw VarTypeException(); }
+//    NumericVar<T> getNumeric() { throw VarTypeException(); }
 
 };
 
@@ -295,32 +309,33 @@ public:
         }
     }
     
-    LogicalAndExpression(BooleanExpression<T> x, BooleanExpression<T> y) {
-        boolean_arguments.push_back(x);
-        boolean_arguments.push_back(y);
-    }
+//    LogicalAndExpression(BooleanExpression<T> x, BooleanExpression<T> y) {
+//        boolean_arguments.push_back(x);
+//        boolean_arguments.push_back(y);
+//    }
     
-    void extract(Solver<T>& solver) override {
+    var_t extract(Solver<T>& solver) override {
         std::vector<Literal<T>> L;
         for(auto x : boolean_arguments) {
             x.extract(solver);
-            L.push_back(x.getBoolean() == false);
+            L.push_back(x == false);
         }
         self = solver.newBoolean();
         L.push_back(self == true);
         solver.clauses.add(L.begin(), L.end());
         for(auto x : boolean_arguments) {
             L.clear();
-            L.push_back(x.getBoolean() == true);
+            L.push_back(x == true);
             L.push_back(self == false);
             solver.clauses.add(L.begin(), L.end());
         }
+        return self.id();
     }
     
     void post(Solver<T>& solver) override {
         for(auto x : boolean_arguments) {
             x.extract(solver);
-            solver.set(x.getBoolean() == true);
+            solver.set(x == true);
         }
     }
     
@@ -330,9 +345,11 @@ private:
 };
 
 
-//BooleanExpression<T> operator&&(BooleanVar<T> x, BooleanVar<T> y) {
-//    return 
-//}
+template<typename T>
+BooleanExpression<T> operator&&(BooleanVar<T>& x, BooleanVar<T>& y) {
+    std::vector<BooleanExpression<T>> sc{BooleanExpression<T>(x), BooleanExpression<T>(y)};
+    return BooleanExpression<T>(new LogicalAndExpression<T>(sc.begin(), sc.end()));
+}
 
 
 //template <typename T = int>

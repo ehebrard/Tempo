@@ -240,7 +240,7 @@ bool SparseSet<E,T>::safe_has(const E elt) const {
 }
 
 template <typename E, typename T> bool SparseSet<E,T>::has(const E elt) const {
-  return index_[elt] < static_cast<size_t>(end_) and
+  return static_cast<size_t>(elt) < capacity() and index_[elt] < static_cast<size_t>(end_) and
          index_[elt] >= static_cast<size_t>(start_);
 }
 

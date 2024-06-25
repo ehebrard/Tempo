@@ -42,6 +42,9 @@ int main(int argc, char *argv[]) {
   // instance, and collect resources and interval objects
   std::vector<DisjunctiveResource<>> resources;
   std::vector<Interval<>> Intervals;
+    
+//    SchedulingModel<T> model;
+    
   if (opt.input_format == "osp") {
     osp::parse(opt.instance_file, S, schedule, Intervals, resources);
   } else if (opt.input_format == "jsp") {
