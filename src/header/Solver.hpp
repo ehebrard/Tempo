@@ -35,6 +35,7 @@
 #include "Model.hpp"
 #include "Objective.hpp"
 #include "Restart.hpp"
+#include "constraints/Cardinality.hpp"
 #include "constraints/DisjunctiveEdgeFinding.hpp"
 #include "constraints/EdgeConstraint.hpp"
 #include "constraints/Transitivity.hpp"
@@ -72,7 +73,12 @@ public:
    * @name value accessors
    */
   //@{
+  // value in the best solution!! (use 'equal' within search)
+  bool value(const BooleanVar<T> x) const;
+    
+    // value in the current branch
   bool value(const var_t x) const;
+  bool equal(const var_t x, const bool v) const;
   bool isTrue(const var_t x) const;
   bool isFalse(const var_t x) const;
   bool isUndefined(const var_t x) const;
@@ -379,6 +385,11 @@ public:
     // notify the solver that propagator of given id should be called when a
     // literal becomes true
     void wake_me_on(const Literal<T>, const int id);
+
+    // create and post a new cardinality propagator
+    template <typename ItVar>
+    void postCardinality(const ItVar beg_var, const ItVar end_var,
+                         const bool sign, const unsigned bound);
 
     // create and post a new edge-finding propagator
     template <typename ItTask, typename ItVar>
@@ -844,6 +855,19 @@ template <typename T> void BooleanStore<T>::set(Literal<T> l) {
 
 template <typename T> void BooleanStore<T>::undo(Literal<T> l) {
     polarity[l] = false;
+}
+
+template <typename T> bool BooleanStore<T>::value(const BooleanVar<T> x) const {
+  return best_solution[Literal<T>::index(true, x.id())];
+}
+
+template <typename T> bool BooleanStore<T>::value(const var_t x) const {
+  return polarity[Literal<T>::index(true, x)];
+}
+
+template <typename T>
+bool BooleanStore<T>::equal(const var_t x, const bool v) const {
+  return polarity[Literal<T>::index(v, x)];
 }
 
 template <typename T> bool BooleanStore<T>::isTrue(const var_t x) const {
@@ -1809,6 +1833,8 @@ template <typename T> void Solver<T>::initializeSearch() {
 template <typename T> boolean_state Solver<T>::satisfiable() {
     initializeSearch();
     auto satisfiability{search()};
+    if(satisfiability == True)
+        boolean.saveSolution();
     if(options.verbosity >= Options::QUIET)
         displaySummary(std::cout, (satisfiability == True ? "sat " : (satisfiability == False ? "unsat " : "unknown ")));
     return satisfiability;
@@ -2249,6 +2275,13 @@ void Solver<T>::wake_me_on(const Literal<T> l, const int c) {
   } else {
     boolean_constraints.add(l, c);
   }
+}
+
+template <typename T>
+template <typename ItVar>
+void Solver<T>::postCardinality(ItVar beg_var, ItVar end_var, const bool sign,
+                                const unsigned bound) {
+  post(new Cardinality<T>(*this, beg_var, end_var, sign, bound));
 }
 
 template <typename T>

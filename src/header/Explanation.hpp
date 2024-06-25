@@ -76,7 +76,7 @@ public:
 
   // private:
   Explainer<T> *expl{NULL};
-  hint the_hint{NoHint};
+  hint the_hint{static_cast<int>(-1)};
 };
 
 template <typename T>

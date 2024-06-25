@@ -111,20 +111,20 @@ void test2(Options &opt) {
 
   Solver<> S(opt);
 
-  auto schedule{S.newJob(0, 100)};
+  auto schedule{S.newInterval(0, 100)};
 
   S.set(schedule.start.after(0));
   S.set(schedule.start.before(0));
 
-  Job<int> j0{S.newJob(15, 15)};
-  auto j1{S.newJob(7, 10)};
-  auto j2{S.newJob(12, 12)};
-  auto j3{S.newJob(1, 5)};
-  auto j4{S.newJob(10, 10)};
-  auto j5{S.newJob(6, 6)};
-  auto j6{S.newJob(10, 12)};
-  auto j7{S.newJob(7, 7)};
-  auto j8{S.newJob(3, 3)};
+  Interval<int> j0{S.newInterval(15, 15)};
+  auto j1{S.newInterval(7, 10)};
+  auto j2{S.newInterval(12, 12)};
+  auto j3{S.newInterval(1, 5)};
+  auto j4{S.newInterval(10, 10)};
+  auto j5{S.newInterval(6, 6)};
+  auto j6{S.newInterval(10, 12)};
+  auto j7{S.newInterval(7, 7)};
+  auto j8{S.newInterval(3, 3)};
 
   S.set(j0.start.after(schedule.start));
   S.set(j0.end.before(j1.start));
@@ -204,20 +204,20 @@ void test3(Options &options) {
 
   Solver<> S(options);
 
-  auto schedule{S.newJob(0, 100)};
+  auto schedule{S.newInterval(0, 100)};
 
   S.set(schedule.start.after(0));
   S.set(schedule.start.before(0));
 
-  Job<int> j0{S.newJob(15, 15)};
-  auto j1{S.newJob(7, 10)};
-  auto j2{S.newJob(12, 12)};
-  auto j3{S.newJob(1, 5)};
-  auto j4{S.newJob(10, 10)};
-  auto j5{S.newJob(6, 6)};
-  auto j6{S.newJob(10, 12)};
-  auto j7{S.newJob(7, 7)};
-  auto j8{S.newJob(3, 3)};
+  Interval<int> j0{S.newInterval(15, 15)};
+  auto j1{S.newInterval(7, 10)};
+  auto j2{S.newInterval(12, 12)};
+  auto j3{S.newInterval(1, 5)};
+  auto j4{S.newInterval(10, 10)};
+  auto j5{S.newInterval(6, 6)};
+  auto j6{S.newInterval(10, 12)};
+  auto j7{S.newInterval(7, 7)};
+  auto j8{S.newInterval(3, 3)};
 
   S.set(j0.start.after(schedule.start));
   S.set(j0.end.before(j1.start));
@@ -249,9 +249,9 @@ void test3(Options &options) {
 
   //  std::cout << S << std::endl;
 
-  MakespanObjective<int> duration(schedule, S);
+  MinimizationObjective<int, TemporalVar<int>> makespan(schedule.end);
 
-  S.optimize(duration);
+  S.optimize(makespan);
 
   //  std::cout << duration.value() << std::endl;
 }
@@ -279,11 +279,11 @@ void test5(Options &opt) {
 
   Solver<> S(opt);
 
-  auto schedule{S.newJob()};
+  auto schedule{S.newInterval()};
   std::vector<DisjunctiveResource<>> resources;
-  std::vector<Job<>> jobs;
+  std::vector<Interval<>> Intervals;
 
-  osp::parse(opt.instance_file, S, schedule, jobs, resources);
+  osp::parse(opt.instance_file, S, schedule, Intervals, resources);
 
   std::vector<BooleanVar<>> X;
   for (auto &R : resources) {
@@ -303,18 +303,74 @@ void test5(Options &opt) {
 
   //    std::cout << S << std::endl;
 
-  MakespanObjective<int> duration(schedule, S);
+  MinimizationObjective<int, TemporalVar<int>> makespan(schedule.end);
 
   S.set(schedule.end.before(opt.ub));
 
-  S.optimize(duration);
+  S.optimize(makespan);
+}
+
+void bibd(const int v, const int b, const int r, const int k, const int lambda) {
+
+  Solver<> S;
+
+  std::vector<BooleanVar<>> X;
+  for (auto i{0}; i < v*b; ++i)
+    X.push_back(S.newBoolean());
+
+  std::vector<BooleanVar<>> transpX;
+  for (auto i{0}; i < v; ++i) {
+    for (auto j{0}; j < b; ++j) {
+      transpX.push_back(X[j * v + i]);
+    }
+  }
+    
+//    std::vector<BooleanVar<>> rowProduct;
+//    for (auto i{0}; i < v; ++i) {
+//        for (auto j{0}; j < b; ++j) {
+//            for (auto k{i+1}; k < v; ++k) {
+//                rowProduct.push_back(X[i*b+j] and X[i*b+k]);
+//            }
+//        }
+//    }
+
+  // rows
+  auto x{X.begin()};
+  for (auto i{0}; i < v; ++i) {
+    S.postCardinality(x, x + v, true, r);
+    S.postCardinality(x, x + v, false, v-r);
+    x += v;
+  }
+
+  // columns
+  x = transpX.begin();
+  for (auto i{0}; i < b; ++i) {
+    S.postCardinality(x, x + b, true, k);
+    S.postCardinality(x, x + b, false, b-k);
+    x += b;
+  }
+
+  for (auto x : X)
+    S.addToSearch(x);
+
+  //  std::cout << S.clauses << std::endl;
+
+  auto sat{S.satisfiable()};
+
+    for (auto j{0}; j < b; ++j) {
+  for (auto i{0}; i < v; ++i) {
+      std::cout << S.boolean.value(X[j * v + i]);
+    }
+      std::cout << std::endl;
+  }
+    std::cout << std::endl;
+
+  std::cout << "result = " << sat << " #fails = " << S.num_fails << std::endl;
 }
 
 int main(int argc, char *argv[]) {
 
   Options opt = tempo::parse(argc, argv);
 
-  //    test3(opt);
-  //        test4(opt);
-  test5(opt);
+  bibd(7,7,3,3,1);
 }
