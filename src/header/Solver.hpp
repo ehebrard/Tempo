@@ -378,6 +378,9 @@ public:
     //@{
     // add a new constraint to the model
     void post(Constraint<T> *);
+    
+    // add a new expression-tree constraint to the model
+    void post(BooleanExpression<T> con);
 
     // remove a constraint from the model
     void relax(Constraint<T> *);
@@ -2140,6 +2143,14 @@ template <typename T> void Solver<T>::undo() {
   }
 }
 
+//for(auto x : core) {
+//    for(auto e : core[x]) {
+//        auto y{int(e)};
+//        auto d{e.label()};
+////        map[x] -- d --> map[y]
+//    }
+//}
+
 template <typename T>
 template <typename G>
 void Solver<T>::update(const bool bounds, const int s, const G &neighbors) {
@@ -2216,6 +2227,10 @@ void Solver<T>::update(const bool bounds, const int s, const G &neighbors) {
 #endif
     }
   }
+}
+
+template <typename T> void Solver<T>::post(BooleanExpression<T> con) {
+    con.post(*this);
 }
 
 template <typename T> void Solver<T>::post(Constraint<T> *con) {

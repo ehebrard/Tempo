@@ -60,6 +60,7 @@ private:
   std::vector<int> new_succ_of_x;
   std::vector<int> new_pred_of_y;
 
+    // @TODO remove that
   std::vector<int> task_map;
 
   bool change_flag{false};

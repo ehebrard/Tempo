@@ -337,6 +337,8 @@ void bibd(const int v, const int b, const int r, const int k, const int lambda) 
 //    auto sc{X[1], X[2], X[3]};
 //    solver.post(LogicalAndExpression(sc.begin(), sc.end()));
     
+    S.post(X[1] && X[2]);
+    
   // rows
   auto x{X.begin()};
   for (auto i{0}; i < v; ++i) {
