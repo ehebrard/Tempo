@@ -334,6 +334,9 @@ void bibd(const int v, const int b, const int r, const int k, const int lambda) 
 //        }
 //    }
 
+//    auto sc{X[1], X[2], X[3]};
+//    solver.post(LogicalAndExpression(sc.begin(), sc.end()));
+    
   // rows
   auto x{X.begin()};
   for (auto i{0}; i < v; ++i) {
@@ -370,7 +373,7 @@ void bibd(const int v, const int b, const int r, const int k, const int lambda) 
 
 int main(int argc, char *argv[]) {
 
-  Options opt = tempo::parse(argc, argv);
+//  Options opt = tempo::parse(argc, argv);
 
   bibd(7,7,3,3,1);
 }
