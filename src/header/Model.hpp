@@ -209,7 +209,7 @@ public:
 
 
 //! Variable type exception
-template <typename T> class VarTypeException : public std::exception {
+class VarTypeException : public std::exception {
 public:
 
     VarTypeException()  {}
@@ -217,102 +217,122 @@ public:
   virtual const char *what() const throw() { return "Wrong variable type"; }
 };
 
-//
-//template <typename T = int>
-//class ExpressionImpl {
-//public:
-//    void extract(Solver<T>& solver) = 0;
-//    void post(Solver<T>& solver) { throw NonConstraintException(); }
-//    
-//    BooleanVar<T> getBoolean() { throw TypeException(); }
-//    NumericVar<T> getNumeric() { throw TypeException(); }
-//    
-//private:
-//    std::vector<BooleanExpression<T>> boolean_arguments;
-//};
-//
-//
-//template <typename T = int>
-//class Expression {
-//    
-//public:
-//    Expression(ExpressionImpl<T> *i) : impl(i) {}
-//    void extract(Solver<T>& solver) {
-//        if(impl)
-//            impl->extract();
-//    }
-//  
-//private:
-//    ExpressionImpl<T> *impl{NULL};
-//};
-//
-//
-//template <typename T = int>
-//class BooleanExpression : public BooleanVar<T>, public Expression<T> {
-//    
-//public:
-//    BooleanExpression(ExpressionImpl<T> *i) : Expression<T>(i) {}
-//    BooleanExpression(BooleanVar<T> x) {
-//        self._id_ = x.id();
-//    }
-//
-//};
-//
-//template <typename T = int>
-//class NumericExpression : public NumericVar<T>, public Expression<T> {
-//    
-//public:
-//    NumericExpression(ExpressionImpl<T> *i) : Expression<T>(i) {}
-//    NumericExpression(NumericVar<T> x) {
-//        self._id_ = x.id();
-//    }
-//};
-//
-//
-//template <typename T = int>
-//class LogicalAndExpression : public ExpressionImpl<T> {
-//public:
-//    
-//    template <typename Iter>
-//    LogicalAndExpression(Iter beg_var, Iter end_var) {
-//        for(auto x{beg_var}; x!=end_var; ++x) {
-//            boolean_arguments.push_back(*x);
-//        }
-//    }
-//    
-//    LogicalAndExpression(BooleanVar<T> x, BooleanVar<T> y) {
-//        boolean_arguments.push_back(BooleanExpression(x));
-//        boolean_arguments.push_back(BooleanExpression(y));
-//    }
-//    
-//    void extract(Solver<T>& solver) override {
-//        std::vector<Literal<T>> L;
-//        for(auto x : boolean_arguments) {
-//            x.extract(solver);
-//            L.push_back(x.getBoolean() == false);
-//        }
-//        self = solver.newBoolean();
-//        L.push_back(self == true);
-//        solver.clauses.add(L.begin(), L.end());
-//        for(auto x : boolean_arguments) {
-//            L.clear();
-//            L.push_back(x.getBoolean() == true);
-//            L.push_back(self == false);
-//            solver.clauses.add(L.begin(), L.end());
-//        }
-//    }
-//    
-//    void post(Solver<T>& solver) override {
-//        for(auto x : boolean_arguments) {
-//            x.extract(solver);
-//            solver.set(x.getBoolean() == true);
-//        }
-//    }
-//    
-//private:
-//    BooleanVar<T> self;
-//    std::vector<BooleanExpression<T>> arguments;
-//};
+//! "This expression is not a constraint" exception
+class RootException : public std::exception {
+public:
+
+    RootException()  {}
+
+  virtual const char *what() const throw() { return "This expression is not a constraint"; }
+};
+
+
+template <typename T>
+class ExpressionImpl;
+
+template <typename T = int>
+class Expression {
+    
+public:
+    Expression(ExpressionImpl<T> *i) : impl(i) {}
+    
+    void extract(Solver<T>& solver) {
+        if(impl)
+            impl->extract(solver);
+    }
+    
+    void post(Solver<T>& solver) {
+        if(impl)
+            impl->post(solver);
+    }
+  
+private:
+    ExpressionImpl<T> *impl{NULL};
+};
+
+
+template <typename T = int>
+class BooleanExpression : public BooleanVar<T>, public Expression<T> {
+    
+public:
+    BooleanExpression(ExpressionImpl<T> *i) : Expression<T>(i) {}
+    BooleanExpression(BooleanVar<T> x) {
+        BooleanVar<T>::_id_ = x.id();
+    }
+
+};
+
+template <typename T = int>
+class NumericExpression : public NumericVar<T>, public Expression<T> {
+    
+public:
+    NumericExpression(ExpressionImpl<T> *i) : Expression<T>(i) {}
+    NumericExpression(NumericVar<T> x) {
+        NumericVar<T>::_id_ = x.id();
+    }
+};
+
+template <typename T = int>
+class ExpressionImpl {
+public:
+    void extract(Solver<T>& ) = 0;
+    void post(Solver<T>& ) { throw RootException(); }
+    
+    BooleanVar<T> getBoolean() { throw VarTypeException(); }
+    NumericVar<T> getNumeric() { throw VarTypeException(); }
+
+};
+
+
+template <typename T = int>
+class LogicalAndExpression : public ExpressionImpl<T> {
+public:
+    
+    template <typename Iter>
+    LogicalAndExpression(Iter beg_var, Iter end_var) {
+        for(auto x{beg_var}; x!=end_var; ++x) {
+            boolean_arguments.push_back(*x);
+        }
+    }
+    
+    LogicalAndExpression(BooleanExpression<T> x, BooleanExpression<T> y) {
+        boolean_arguments.push_back(x);
+        boolean_arguments.push_back(y);
+    }
+    
+    void extract(Solver<T>& solver) override {
+        std::vector<Literal<T>> L;
+        for(auto x : boolean_arguments) {
+            x.extract(solver);
+            L.push_back(x.getBoolean() == false);
+        }
+        self = solver.newBoolean();
+        L.push_back(self == true);
+        solver.clauses.add(L.begin(), L.end());
+        for(auto x : boolean_arguments) {
+            L.clear();
+            L.push_back(x.getBoolean() == true);
+            L.push_back(self == false);
+            solver.clauses.add(L.begin(), L.end());
+        }
+    }
+    
+    void post(Solver<T>& solver) override {
+        for(auto x : boolean_arguments) {
+            x.extract(solver);
+            solver.set(x.getBoolean() == true);
+        }
+    }
+    
+private:
+    BooleanVar<T> self;
+    std::vector<BooleanExpression<T>> boolean_arguments;
+};
+
+
+//BooleanExpression<T> operator&&(BooleanVar<T> x, BooleanVar<T> y) {
+//    return 
+//}
 
 
 //template <typename T = int>
