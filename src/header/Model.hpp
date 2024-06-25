@@ -1,3 +1,22 @@
+/************************************************
+ * Tempo Model.hpp
+ *
+ * Copyright 2024 Emmanuel Hebrard
+ *
+ * Tempo is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation, either version 3 of the License, or (at your
+ *  option) any later version.
+ *
+ * Tempo is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Tempo.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ ***********************************************/
 
 #ifndef __TEMPO_MODEL_HPP
 #define __TEMPO_MODEL_HPP
@@ -11,10 +30,11 @@ namespace tempo {
 
 template<typename T> class Solver;
 
-/**********************************************
- * Job
- **********************************************/
 
+//! Wrapper/pointer for numeric variables
+/*!
+Stores the id of the actual numeric variable, and implements various helper methods
+ */
 template<typename T=int>
 class NumericVar {
 
@@ -42,7 +62,10 @@ protected:
     var_t _id_{Constant::NoIndex};
 };
 
-
+//! Wrapper/pointer for Boolean variables
+/*!
+Stores the id of the actual Boolean variable, and implements various helper methods
+ */
 template<typename T=int>
 class BooleanVar {
 
@@ -69,7 +92,10 @@ Literal<T> BooleanVar<T>::operator==(const bool t) const {
   return makeBooleanLiteral<T>(t, _id_, Constant::NoSemantic);
 }
 
-
+//! Wrapper/pointer for disjunct variables
+/*!
+Stores the id of the actual Boolean variable with difference logic semantic, and implements various helper methods
+ */
 template<typename T=int>
 class DisjunctVar : public BooleanVar<T> {
 
@@ -92,6 +118,10 @@ Literal<T> DisjunctVar<T>::operator==(const bool t) const {
   return makeBooleanLiteral<T>(t, BooleanVar<T>::_id_, _edge_id_ + t);
 }
 
+//! Wrapper/pointer for temporal variables
+/*!
+Stores the id of the actual numeric variable, an offset (the variable encode for time t=x+offset where x is the numeric variable) and implements various helper methods
+ */
 template<typename T=int>
 class TemporalVar : public NumericVar<T> {
 
@@ -118,6 +148,68 @@ private:
     T _offset{0};
 };
 
+
+//! Wrapper for interval variables
+/*!
+Stores
+ - the id of a  temporal variable standing for the start
+ - the id of a  temporal variable standing for the end
+ - the id of a  Boolean variable standing whether the interval actually is in the schedule
+ */
+template <typename T = int> class Interval {
+public:
+  Interval() {}
+  Interval(Solver<T> &s, const T mindur = 0,
+           const T maxdur = Constant::Infinity<T>);
+
+  //    Interval(const Interval<T>&) = default;
+
+  T getEarliestStart(Solver<T> &s) const;
+  T getLatestStart(Solver<T> &s) const;
+  T getEarliestEnd(Solver<T> &s) const;
+  T getLatestEnd(Solver<T> &s) const;
+
+  bool mustExist(Solver<T> &s) const;
+  bool cannotExist(Solver<T> &s) const;
+
+  T minDuration() const;
+  T maxDuration() const;
+
+  var_t getStart() const;
+  var_t getEnd() const;
+
+  int id() const;
+  bool operator==(const Interval<T> &t) const;
+
+  std::ostream &display(std::ostream &os) const;
+
+  TemporalVar<T> start;
+  TemporalVar<T> end;
+
+private:
+  T min_duration{0};
+  T max_duration{Constant::Infinity<T>};
+  BooleanVar<T> optional{Constant::NoVar};
+};
+
+
+//! Wrapper for disjunctive resources
+/*!
+Contains the list of interval requiring this resource
+ */
+template <typename T = int>
+class DisjunctiveResource : public vector<Interval<T>> {
+public:
+  using vector<Interval<T>>::vector;
+    
+    // create and insert in 'container' the set of disjunctive variables necessary to ensure that this constraint is satisfied
+  template <typename C>
+  void createOrderVariables(Solver<T> &solver, C &container);
+};
+
+/*!
+ NumericVar  implementation
+*/
 template<typename T>
 T NumericVar<T>::min(Solver<T>& s) const {
   return s.numeric.lower(_id_);
@@ -149,24 +241,40 @@ Literal<T> NumericVar<T>::operator>(const T t) const {
 }
 
 
+/*!
+ TemporalVar  implementation
+*/
 template<typename T>
 T TemporalVar<T>::earliest(Solver<T>& s) const {
-  return NumericVar<T>::min(s) + _offset;
+    auto v{NumericVar<T>::min(s)};
+    if(v == -Constant::Infinity<T>)
+        return v;
+    return v + _offset;
+    
+//  return NumericVar<T>::min(s) + _offset;
 }
 
 template<typename T>
 T TemporalVar<T>::latest(Solver<T>& s) const {
-  return NumericVar<T>::max(s) + _offset;
+//    auto r{NumericVar<T>::max(s)};
+//    std::cout << "\nlatest:" << r << " + " << _offset << std::endl;
+//    return r + _offset;
+    
+//  return NumericVar<T>::max(s) + _offset;
+    auto v{NumericVar<T>::max(s)};
+    if(v == Constant::Infinity<T>)
+        return v;
+    return v + _offset;
 }
 
 template<typename T>
 Literal<T> TemporalVar<T>::after(const T t) const {
-  return geq<T>(NumericVar<T>::_id_, t - _offset);
+  return geq<T>(NumericVar<T>::_id_, (t == Constant::Infinity<T> ? t : t - _offset));
 }
 
 template<typename T>
 Literal<T> TemporalVar<T>::before(const T t) const {
-  return leq<T>(NumericVar<T>::_id_, t - _offset);
+  return leq<T>(NumericVar<T>::_id_, (t == Constant::Infinity<T> ? t : t - _offset));
 }
 
 template<typename T>
@@ -176,9 +284,13 @@ DistanceConstraint<T> TemporalVar<T>::after(const TemporalVar<T>& e, const T t) 
 
 template<typename T>
 DistanceConstraint<T> TemporalVar<T>::before(const TemporalVar<T>& e, const T t) const {
-  return {e.id(), NumericVar<T>::_id_, e.offset() - _offset - t};
+  return {e.id(), NumericVar<T>::_id_, (t == Constant::Infinity<T> ? t : e.offset() - _offset - t)};
 }
 
+
+/*!
+ BooleanVar  implementation
+*/
 template<typename T>
 std::ostream &BooleanVar<T>::display(std::ostream &os) const {
   os << "b" << id();
@@ -213,52 +325,9 @@ std::ostream &operator<<(std::ostream &os, const TemporalVar<T> &x) {
 }
 
 
-
-
-template<typename T=int>
-class Job {
-public:
-    
-    Job() {}
-  Job(Solver<T> &s, const T mindur=0, const T maxdur=Constant::Infinity<T>);
-    
-//    Job(const Job<T>&) = default;
-
-    T getEarliestStart(Solver<T> &s) const;
-    T getLatestStart(Solver<T> &s) const;
-    T getEarliestEnd(Solver<T> &s) const;
-    T getLatestEnd(Solver<T> &s) const;
-
-    bool mustExist(Solver<T> &s) const;
-    bool cannotExist(Solver<T> &s) const;
-
-    T minDuration() const;
-    T maxDuration() const;
-
-    var_t getStart() const;
-    var_t getEnd() const;
-
-    int id() const;
-    bool operator==(const Job<T> &t) const;
-
-    std::ostream &display(std::ostream &os) const;
-
-    TemporalVar<T> start;
-    TemporalVar<T> end;
-
-  private:
-    T min_duration{0};
-    T max_duration{Constant::Infinity<T>};
-    BooleanVar<T> optional;
-};
-
-template <typename T=int> class DisjunctiveResource : public vector<Job<T>> {
-public:
-  using vector<Job<T>>::vector;
-  template <typename C>
-  void createOrderVariables(Solver<T> &solver, C &container);
-};
-
+/*!
+ DisjunctiveResource  implementation
+*/
 template <typename T>
 template <typename C>
 void DisjunctiveResource<T>::createOrderVariables(Solver<T> &solver,
@@ -274,12 +343,16 @@ void DisjunctiveResource<T>::createOrderVariables(Solver<T> &solver,
   }
 }
 
+
+/*!
+ Interval  implementation
+*/
 template <typename T>
-Job<T>::Job(Solver<T> &solver, const T mindur, const T maxdur)
+Interval<T>::Interval(Solver<T> &solver, const T mindur, const T maxdur)
     : start(solver.newTemporal()),
       end((mindur == maxdur ? TemporalVar(start.id(), mindur)
                             : solver.newTemporal())),
-      optional(Constant::NoVarx) {
+      optional(Constant::NoVar) {
   min_duration = mindur;
   max_duration = maxdur;
 
@@ -289,50 +362,55 @@ Job<T>::Job(Solver<T> &solver, const T mindur, const T maxdur)
   }
 }
 
-template <typename T> int Job<T>::id() const { return start.id(); }
+template <typename T> int Interval<T>::id() const { return start.id(); }
 
-template<typename T>
-bool Job<T>::operator==(const Job<T>& t) const {
+template <typename T> bool Interval<T>::operator==(const Interval<T> &t) const {
   return id() == t.id();
 }
 
-template <typename T> T Job<T>::getEarliestStart(Solver<T> &solver) const {
+template <typename T> T Interval<T>::getEarliestStart(Solver<T> &solver) const {
   return start.earliest(solver);
 }
 
-template <typename T> T Job<T>::getLatestStart(Solver<T> &solver) const {
+template <typename T> T Interval<T>::getLatestStart(Solver<T> &solver) const {
   return start.latest(solver);
 }
 
-template <typename T> T Job<T>::getEarliestEnd(Solver<T> &solver) const {
+template <typename T> T Interval<T>::getEarliestEnd(Solver<T> &solver) const {
   return end.earliest(solver);
 }
 
-template <typename T> T Job<T>::getLatestEnd(Solver<T> &solver) const {
+template <typename T> T Interval<T>::getLatestEnd(Solver<T> &solver) const {
   return end.latest(solver);
 }
 
-template <typename T> bool Job<T>::mustExist(Solver<T> &) const { return true; }
+template <typename T> bool Interval<T>::mustExist(Solver<T> &) const {
+  return true;
+}
 
-template <typename T> bool Job<T>::cannotExist(Solver<T> &) const {
+template <typename T> bool Interval<T>::cannotExist(Solver<T> &) const {
   return false;
 }
 
-template <typename T> T Job<T>::minDuration() const { return min_duration; }
+template <typename T> T Interval<T>::minDuration() const {
+  return min_duration;
+}
 
-template <typename T> T Job<T>::maxDuration() const { return max_duration; }
+template <typename T> T Interval<T>::maxDuration() const {
+  return max_duration;
+}
 
-template <typename T> var_t Job<T>::getStart() const { return start.id(); }
+template <typename T> var_t Interval<T>::getStart() const { return start.id(); }
 
-template <typename T> var_t Job<T>::getEnd() const { return end.id(); }
+template <typename T> var_t Interval<T>::getEnd() const { return end.id(); }
 
-template <typename T> ostream &Job<T>::display(ostream &os) const {
+template <typename T> ostream &Interval<T>::display(ostream &os) const {
   os << "t" << id(); //<< ": [" << start.earliest(solver) << ".." <<
                      // end.latest(solver) << "]";
   return os;
 }
 
-template <typename T> ostream &operator<<(ostream &os, const Job<T> &x) {
+template <typename T> ostream &operator<<(ostream &os, const Interval<T> &x) {
   return x.display(os);
 }
 }

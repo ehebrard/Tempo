@@ -173,28 +173,28 @@ private:
     T& reference;
 };
 
-class ReversibleBool : public ReversibleObject {
-
-public:
-    ReversibleBool(BacktrackEnvironment *e=ReversibleObject::env);
-
-    ReversibleBool(const ReversibleBool&) = delete;
-    ReversibleBool(ReversibleBool &&) noexcept = default;
-    ReversibleBool &operator=(ReversibleBool &&) noexcept = default;
-  ~ReversibleBool() override = default;
-
-
-  void undo() override;
-
-  ReversibleBool &operator=(const boolean_state &rhs);
-
-    boolean_state val() const;
-
-  std::ostream &display(std::ostream &os) const;
-
-private:
-    boolean_state value{Unknown};
-};
+//class ReversibleBool : public ReversibleObject {
+//
+//public:
+//    ReversibleBool(BacktrackEnvironment *e=ReversibleObject::env);
+//
+//    ReversibleBool(const ReversibleBool&) = delete;
+//    ReversibleBool(ReversibleBool &&) noexcept = default;
+//    ReversibleBool &operator=(ReversibleBool &&) noexcept = default;
+//  ~ReversibleBool() override = default;
+//
+//
+//  void undo() override;
+//
+//  ReversibleBool &operator=(const boolean_state &rhs);
+//
+//    boolean_state val() const;
+//
+//  std::ostream &display(std::ostream &os) const;
+//
+//private:
+//    boolean_state value{Unknown};
+//};
 
 
 template <typename T>

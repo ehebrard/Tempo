@@ -20,7 +20,7 @@ namespace tempo::heuristics {
 
     namespace detail {
         template<typename Solver, typename T>
-        concept distance_provider = requires(const Solver s, Literal<T> l, event e) {
+        concept distance_provider = requires(const Solver s, Literal<T> l, var_t e) {
             { s.boolean.getEdge(l) } -> concepts::same_template<DistanceConstraint>;
             { s.numeric.upper(e) } -> concepts::scalar;
             { s.numeric.lower(e) } -> concepts::scalar;
@@ -49,9 +49,8 @@ namespace tempo::heuristics {
          * @param solver scheduler instance
          * @return either POS(cp) or NEG(cp)
          */
-        template<concepts::scalar T, typename Solver>
+        template<concepts::scalar T, detail::distance_provider<T> Solver>
         static bool choose(Literal<T> lit, const Solver &solver) {
-            static_assert(detail::distance_provider<Solver, T>);
             // @TODO no gap info available -> what should I return?
             if (not lit.hasSemantic()) {
                 return true;

@@ -85,9 +85,6 @@ template<typename E>
 size_t DisjointSet<E>::find(const E elt) {
     auto x{elt};
     while(parent[x] != x) {
-
-      //        std::cout << "p[" << x << "] <- p[" << parent[x] << "]\n";
-
       parent[x] = parent[parent[x]];
       x = parent[x];
     }

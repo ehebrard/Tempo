@@ -139,7 +139,7 @@ public:
 
   E back() const;
 
-  E any(const size_t limit=INFTY) const {
+  E any(const size_t limit=static_cast<size_t>(-1)) const {
     auto m{std::min(limit, size())};
     return list_[start_ + (random() % m)];
   }

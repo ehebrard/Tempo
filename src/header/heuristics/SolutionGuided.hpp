@@ -17,7 +17,7 @@ namespace tempo::heuristics {
 
 namespace detail {
 template <typename Sched>
-concept solution_provider = requires(const Sched &s, var x) {
+concept solution_provider = requires(const Sched &s, var_t x) {
   { s.hasSolution() } -> std::convertible_to<bool>;
   { s.getSolution()[x] } -> std::convertible_to<bool>;
 };
@@ -46,12 +46,13 @@ public:
    * @return either POS(cp) or NEG(cp)
    */
   template <detail::solution_provider Sched>
-  [[nodiscard]] lit choose(var cp, const Sched &scheduler) const {
+  [[nodiscard]] auto choose(var_t cp, const Sched &scheduler) const {
+      throw std::runtime_error("needs implementation");
     if (not scheduler.hasSolution()) {
       return TightestValue::choose(cp, scheduler);
     }
-
-    return scheduler.getSolution()[cp] ? POS(cp) : NEG(cp);
+    // TODO implement
+    return 0;
   }
 };
 

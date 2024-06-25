@@ -13,9 +13,12 @@ namespace tempo::heuristics {
     class Tightest : public RankingHeuristic<Tightest> {
     public:
         /**
-         * @tparam T
-         * @param x
-         * @param solver
+         * Calculates the cost for a boolean variable which is the maximum of the distance
+         * between the nodes in both directions of the associated distance constraint
+         * @tparam T timing type
+         * @param x variable identifier
+         * @param solver solver for which to select a variable
+         * @return maximum of the Distances in both directions between the nodes
          */
         template<concepts::scalar T>
         [[nodiscard]] T getCost(var_t x, const Solver<T> &solver) const {

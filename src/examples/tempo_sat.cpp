@@ -1,5 +1,5 @@
 /************************************************
- * Tempo Failure.hpp
+ * Tempo sat solver
  *
  * Copyright 2024 Emmanuel Hebrard
  *
@@ -18,37 +18,32 @@
  *
  ***********************************************/
 
-#ifndef __TEMPO_FAILURE_HPP
-#define __TEMPO_FAILURE_HPP
+#include <iostream>
+#include <vector>
 
-#include <exception>
+#include "Solver.hpp"
+#include "util/parsing/dimacs.hpp"
 
-#include "Constant.hpp"
-#include "Explanation.hpp"
+using namespace tempo;
 
-namespace tempo {
+// implementation of SAT solver
+int main(int argc, char *argv[]) {
 
-//! Failure exception
-template <typename T> class Failure : public std::exception {
-public:
-  Explanation<T> reason;
+  Options opt = tempo::parse(argc, argv);
+  Solver<> S(opt);
 
-  Failure(Explanation<T> r) : reason(r) {}
+  // parse an input file in dimacs cnf format and collect the variables
+  std::vector<BooleanVar<>> X;
+  dimacs::parse(opt.instance_file, S, X);
 
-  virtual const char *what() const throw() { return "Inconsistency (literal)"; }
-};
+  // notify the solver to assign a value to all variables
+  for (auto x : X)
+    S.addToSearch(x);
 
-//! End-of-search exception
-class SearchExhausted : public std::exception {
-    
-public:
-    
-    SearchExhausted() = default;
-    
-  virtual const char *what() const throw() {
-    return "Complete search tree exhausted";
-  }
-};
+  // search
+  auto sat{S.satisfiable()};
+
+  // output
+  std::cout << (sat ? "SAT" : "UNSAT") << " #fails = " << S.num_fails
+            << std::endl;
 }
-
-#endif // __FAILURE_HPP

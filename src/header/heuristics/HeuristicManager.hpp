@@ -32,6 +32,15 @@ namespace tempo::heuristics {
         using Implementations = std::variant<Tightest, VSIDS<T>, WeightedDegree<T>>;
 
     public:
+        /**
+         * Ctor: Internally constructs the heuristic inferred from the given
+         * arguments
+         * @param solver solver for which to create a heuristic
+         * @param options options specifying the type of heuristic and further
+         * config values
+         * @throws std::runtime_error if an unknown heuristics type was given in
+         * options
+         */
         HeuristicManager(Solver<T> &solver, const Options &options) {
             //@TODO use factory pattern
             switch (options.choice_point_heuristics) {
@@ -56,6 +65,11 @@ namespace tempo::heuristics {
         }
 
 
+        /**
+         * Calls the internally stored heuristic with the given arguments
+         * @param solver solver for which to select the next variable
+         * @return variable choice consisting of the selected variable and its type
+         */
         auto nextVariable(Solver<T> &solver) {
             return std::visit([&solver](auto &heuristic) { return heuristic.nextVariable(solver); }, impl);
         }

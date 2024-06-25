@@ -25,6 +25,10 @@ namespace tempo::heuristics {
     public:
 
 
+        /**
+         * CTor. Infers parameters from given scheduler. Subscribes to events of interest
+         * @param solver target solver
+         */
         explicit VSIDS(Solver<T> &solver) :
                 activity(solver, solver.getOptions().vsids_decay),
                 handlerToken(solver.ClauseAdded.subscribe_handled(

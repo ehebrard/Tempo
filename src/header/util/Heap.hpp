@@ -2,9 +2,11 @@
 #ifndef __HEAP_HPP__
 #define __HEAP_HPP__
 
-// #include <iostream>
-
 namespace heap {
+
+int left(const int i) { return 2 * i + 1; }
+
+int right(const int i) { return 2 * i + 2; }
 
 template <class RandomIt, class Compare>
 int percolate_down(RandomIt begin, RandomIt end, int idx, Compare comp) {

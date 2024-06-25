@@ -84,11 +84,10 @@ tempo::Options tempo::parse(int argc, char *argv[]) {
       "verbosity level (0:silent,1:quiet,2:improvements only,3:verbose", false,
       2, "int");
 
-  cmd.add<ValueArg<int>>(opt.seed, "", "seed", "random seed", false, 12345,
-                         "int");
-    
-    cmd.add<ValueArg<int>>(opt.ub, "", "ub", "initial ub", false, INFTY,
-                           "int");
+  cmd.add<ValueArg<int>>(opt.seed, "", "seed", "random seed", false, 1, "int");
+
+  cmd.add<ValueArg<int>>(opt.ub, "", "ub", "initial ub", false,
+                         std::numeric_limits<int>::max(), "int");
 
   cmd.add<SwitchArg>(opt.print_sol, "", "print-sol",
                      "print the best found schedule", false);
@@ -128,6 +127,12 @@ tempo::Options tempo::parse(int argc, char *argv[]) {
   cmd.add<SwitchArg>(opt.dichotomy, "", "dichotomy", "use dichotomic search",
                      false);
 
+  cmd.add<SwitchArg>(opt.full_up, "", "full-up",
+                     "unit-propagate bound literals", false);
+
+  cmd.add<SwitchArg>(opt.order_bound_watch, "", "order-watched",
+                     "order bound watched lists", false);
+
   cmd.add<ValueArg<int>>(
       opt.choice_point_heuristics, "", "cp-heuristic",
       "type of heuristic used for choice point selection (0: Tightest "
@@ -154,13 +159,18 @@ tempo::Options tempo::parse(int argc, char *argv[]) {
       false, 0.999, "double");
 
   cmd.add<ValueArg<double>>(opt.forgetfulness, "", "forgetfulness",
-                            "clause base reduction factor (0.1)", false, 0.3,
+                            "clause base reduction factor (0.3)", false, 0.3,
                             "double");
 
   cmd.add<ValueArg<int>>(
       opt.minimization, "", "clause-minimization",
-      "depth for clause minimization (default 3)",
-      false, 3, "int");
+      "depth for clause minimization (default 1)",
+      false, 1, "int");
+    
+    cmd.add<ValueArg<int>>(
+        opt.greedy_runs, "", "greedy-runs",
+        "number of randomized greedy runs (default 1)",
+        false, 1, "int");
 
   cmd.add<ValueArg<int>>(opt.forget_strategy, "", "forget-strategy",
                          "strategy for clause forgetting "

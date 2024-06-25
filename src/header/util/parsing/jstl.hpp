@@ -6,23 +6,19 @@
 #include <sstream>
 #include <vector>
 
-#include "format.hpp"
-
 namespace jstl {
 
-template <class DT> DT getUb(const ProblemInstance &data) {
-  DT ub{0};
-  for (auto d : data.durations)
-    ub += d;
-  return ub;
-}
+//template <class DT> DT getUb(const ProblemInstance &data) {
+//  DT ub{0};
+//  for (auto d : data.durations)
+//    ub += d;
+//  return ub;
+//}
 
-ProblemInstance read_instance(const std::string &fn) {
+template <typename M, typename J, typename R>
+void parse(const std::string &fn, M &solver, J &schedule,
+           std::vector<J> &Intervals, std::vector<R> &resources) {
   using std::cerr;
-  ProblemInstance ret;
-  ret.optimalSolution = -1;
-  ret.lowerBound = 0;
-
   try {
     std::ifstream ifs(fn);
     if (!ifs)
@@ -30,27 +26,33 @@ ProblemInstance read_instance(const std::string &fn) {
 
     bool gotheader{false};
     bool gotsecondheader{false};
+    bool stupid{true};
 
-    std::string lt; // line type
+    std::string lt;
+    std::string dump;
     int ln{1};
-    int nj{0}, nm{0};
-
-    int job{0};
-    // int task{0};
+    size_t nj{0}, nm{0};
     int dur;
     int mach;
-    int min_tl;
-    int max_tl;
+
+    int min_tl{0};
+    int max_tl{0};
+
+    int optimalSolution{-1};
+    //        int lowerBound{0};
+
+    int k{0};
+
+    solver.set(schedule.start.after(0));
+    solver.set(schedule.start.before(0));
 
     for (std::string line; getline(ifs, line); ++ln) {
       if (line[0] == '#')
         continue;
 
-      if (line.compare(0, 3, "TL=") == 0)
-        line = line.substr(3);
       std::istringstream iss(line);
 
-      if (not gotheader) {
+      if (!gotheader) {
         iss >> nj;
         iss >> nm;
 
@@ -59,14 +61,15 @@ ProblemInstance read_instance(const std::string &fn) {
           exit(1);
         }
 
-        ret.durations.reserve(nj * nm);
-        ret.resources.resize(nm);
+        resources.resize(nm);
 
         gotheader = true;
-      } else if (not gotsecondheader and job < nj) {
-        // job
 
-        for (auto m = 0; m < nm; ++m) {
+        //                std::cout << nj << " " << nm << std::endl;
+
+      } else if (Intervals.size() < nj * nm) {
+
+        for (size_t m{0}; m < nm; ++m) {
           iss >> mach;
           iss >> dur;
 
@@ -75,22 +78,31 @@ ProblemInstance read_instance(const std::string &fn) {
             exit(1);
           }
 
-          ret.resources[mach].push_back(ret.durations.size());
-          ret.durations.push_back(dur);
-        }
+          auto j{solver.newInterval(dur, dur)};
 
-        ++job;
-      } else if (job == nj) {
+          //                    std::cout << j << std::endl;
+
+          Intervals.push_back(j);
+          resources[mach].push_back(j);
+        }
+      } else if (not gotsecondheader and Intervals.size() == nj * nm) {
         iss >> lt;
         assert(lt == "RES=");
 
-        iss >> ret.optimalSolution;
+        iss >> optimalSolution;
 
-        job = 0;
         gotsecondheader = true;
       } else {
-        for (auto m = 0; m < nm; ++m) {
-          iss >> min_tl;
+
+        for (size_t m{0}; m < nm; ++m) {
+          if (stupid) {
+            iss >> dump;
+            assert(dump == "TL=0");
+            min_tl = 0;
+            stupid = false;
+          } else {
+            iss >> min_tl;
+          }
           iss >> max_tl;
 
           if (!iss) {
@@ -98,50 +110,36 @@ ProblemInstance read_instance(const std::string &fn) {
             exit(1);
           }
 
-          if (m < (nm - 1)) {
-            ret.constraints.push_back(
-                std::make_tuple(tempo::END(job * nm + m),
-                                tempo::START(job * nm + m + 1), min_tl));
-          } else {
-            ret.constraints.push_back(
-                std::make_tuple(tempo::END((job + 1) * nm - 1), HORIZON, 0));
-          }
-
           if (m == 0) {
-            ret.constraints.push_back(
-                std::make_tuple(ORIGIN, tempo::START(job * nm), 0));
-
+            auto l{Intervals[k].start.after(schedule.start)};
+            //                        std::cout << l << std::endl;
+            solver.set(l);
           } else {
-
-            ret.constraints.push_back(
-                std::make_tuple(tempo::START(job * nm + m),
-                                tempo::END(job * nm + m - 1), -max_tl));
+            auto l{Intervals[k - 1].end.before(Intervals[k].start, min_tl)};
+            //                        std::cout << l << std::endl;
+            solver.set(l);
+            if (m == nm - 1) {
+              l = Intervals[k].end.before(schedule.end);
+              //                            std::cout << l << std::endl;
+              solver.set(l);
+            }
           }
+          if (m < (nm - 1)) {
+            auto l{Intervals[k + 1].start.before(Intervals[k].end, -max_tl)};
+            //                        std::cout << l << std::endl;
+            solver.set(l);
+          }
+          ++k;
         }
-        ++job;
       }
     }
-
-    //    for (auto job{0}; job < nj; ++job) {
-    //        ret.constraints.push_back(
-    //            std::make_tuple(ORIGIN, tempo::START(job * nm), 0));
-    //      for (auto m{1}; m < nm; ++m) {
-    //        ret.constraints.push_back(
-    //            std::make_tuple(tempo::END(job * nm + m - 1), tempo::START(job
-    //            * nm + m), 0));
-    //      }
-    //        ret.constraints.push_back(
-    //            std::make_tuple(tempo::END((job+1) * nm - 1), HORIZON, 0));
-    //    }
-
   } catch (std::exception &e) {
     std::cout.flush();
     cerr << "ERROR: " << e.what() << std::endl;
     exit(1);
   }
-
-  return ret;
 }
+
 } // namespace jstl
 
 #endif

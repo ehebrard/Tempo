@@ -1,4 +1,22 @@
-
+/************************************************
+ * Tempo Clause.hpp
+ *
+ * Copyright 2024 Emmanuel Hebrard
+ *
+ * Tempo is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation, either version 3 of the License, or (at your
+ *  option) any later version.
+ *
+ * Tempo is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Tempo.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ ***********************************************/
 
 #ifndef _TEMPO_CLAUSE_HPP
 #define _TEMPO_CLAUSE_HPP
@@ -11,109 +29,76 @@
 
 namespace tempo {
 
-class Clause : public std::vector<lit> { //}, public Explainer {
+//! Clause
+/*!
+ id, vector of literals and two watched
+*/
+template <typename T> class Clause : public std::vector<Literal<T>> {
 
 public:
+  // a constant for the empty clause
+  const static Clause<T> *Empty;
 
-  const static Clause* Empty;
-
+  /**
+   * @name constructors
+   */
+  //@{
   Clause(const int i = -1);
-  virtual ~Clause();
+  //@}
 
+  // a unique clause id
   int id;
-  index_t watcher_index[2];
 
-  lit watcher(const bool) const;
-  bool watch_rank(const lit) const;
-size_t watch_index(const bool) const;
-
-  bool operator<(const Clause &) const;
-  bool operator==(const Clause &) const;
-    
-//    // explanation stuff
-//     void xplain(const lit l, const hint h, std::vector<lit> &Cl) ;
-//     std::ostream &print_reason(std::ostream &, const hint) const;
-//     int getType() const;
-
-  std::ostream& display(std::ostream &) const;
-
-};
-
-std::ostream &operator<<(std::ostream &, const Clause &);
-
-template <typename T> class NewClause : public std::vector<Literal<T>> {
-
-public:
-  const static NewClause<T> *Empty;
-
-  NewClause(const int i = -1);
-
-  int id;
+  /**
+   * @name watch accessors
+   */
+  //@{
+  // the ranks of the two watched literals
   index_t watched_index[2];
 
+  // get the two watched literals (arg in {0,1})
   Literal<T> watched(const bool) const;
+
+  // get the rank of the literal (if it is a watched, otherwise undefined
+  // behavior)
   bool watch_rank(const Literal<T>) const;
+
+  // get the rank of the two watched literals (arg in {0,1})
   size_t watch_index(const bool) const;
+  //@}
 
-  //  bool operator<(const Clause &) const;
-  //  bool operator==(const Clause &) const;
-
-  //    // explanation stuff
-  //     void xplain(const lit l, const hint h, std::vector<lit> &Cl) ;
-  //     std::ostream &print_reason(std::ostream &, const hint) const;
-  //     int getType() const;
-
+  /**
+   * @name printing
+   */
+  //@{
   std::ostream &display(std::ostream &) const;
+  //@}
 };
 
+/*!
+ Implementation
+*/
 template <typename T>
-NewClause<T>::NewClause(const int i) : std::vector<Literal<T>>(), id(i) {
+Clause<T>::Clause(const int i) : std::vector<Literal<T>>(), id(i) {
   watched_index[0] = 0;
   watched_index[1] = 1;
 }
 
-// bool NewClause<T>::operator<(const NewClause &c) const {
-//   if (size() == c.size()) {
-//     for (size_t i{0}; i < size(); ++i) {
-//       if ((*this)[i] < c[i])
-//         return true;
-//       else if ((*this)[i] > c[i])
-//         return false;
-//     }
-//   }
-//   return size() < c.size();
-// }
-//
-// bool NewClause<T>::operator==(const Clause &c) const {
-//   if (size() == c.size()) {
-//     for (size_t i{0}; i < size(); ++i) {
-//       if ((*this)[i] != c[i])
-//         return false;
-//     }
-//     return true;
-//   }
-//   return false;
-// }
-
-template <typename T> Literal<T> NewClause<T>::watched(const bool r) const {
+template <typename T> Literal<T> Clause<T>::watched(const bool r) const {
   return this->operator[](watched_index[r]);
 }
 
-template <typename T> bool NewClause<T>::watch_rank(const Literal<T> l) const {
-  //  return this->operator[](watched_index[1]) == l;
-  //    auto p{this->operator[](watched_index[1])};
-  //    return (p.isNumeric() == l.isNumeric()) and (p.variable() ==
-  //    l.variable());
-    auto p{this->operator[](watched_index[1])};
+template <typename T> bool Clause<T>::watch_rank(const Literal<T> l) const {
+  auto p{this->operator[](watched_index[1])};
   return l.sameVariable(p) and l.sign() != p.sign();
 }
 
-template <typename T> size_t NewClause<T>::watch_index(const bool r) const {
+template <typename T> size_t Clause<T>::watch_index(const bool r) const {
   return watched_index[r];
 }
 
 template <typename T>
-std::ostream &NewClause<T>::display(std::ostream &os) const {
+std::ostream &Clause<T>::display(std::ostream &os) const {
   os << id << ":";
   if (this->size() == 0)
     os << "()";
@@ -129,10 +114,10 @@ std::ostream &NewClause<T>::display(std::ostream &os) const {
 }
 
 template <typename T>
-const NewClause<T> *NewClause<T>::Empty = new NewClause<T>(-1);
+const Clause<T> *Clause<T>::Empty = new Clause<T>(-1);
 
 template <typename T>
-std::ostream &operator<<(std::ostream &os, const NewClause<T> &x) {
+std::ostream &operator<<(std::ostream &os, const Clause<T> &x) {
   return x.display(os);
 }
 }

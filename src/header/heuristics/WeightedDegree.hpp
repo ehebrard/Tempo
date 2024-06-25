@@ -12,16 +12,16 @@
 #include "heuristics/impl/DecayingEventActivityMap.hpp"
 
 namespace tempo::heuristics {
-/**
- * @brief Weighted degree heuristic. Prioritized choice points according to
- * their recent activity
- * @details @copybrief
- * Registers the activity of literals. The activity is a decaying counter which
- * counts the number of times the literal has been involved in a conflict.
- * @note The difference to VSIDS is that the activity of a literal depends on
- * how often it is involved in a conflict and not how often it is contained in a
- * learned clause
- */
+    /**
+     * @brief Weighted degree heuristic. Prioritized choice points according to
+     * their recent activity
+     * @details @copybrief
+     * Registers the activity of literals. The activity is a decaying counter which
+     * counts the number of times the literal has been involved in a conflict.
+     * @note The difference to VSIDS is that the activity of a literal depends on
+     * how often it is involved in a conflict and not how often it is contained in a
+     * learned clause
+     */
     template<typename T>
     class WeightedDegree : public RankingHeuristic<WeightedDegree<T>> {
     public:
@@ -30,9 +30,9 @@ namespace tempo::heuristics {
                 : activity(solver, solver.getOptions().vsids_decay),
                   handlerToken(solver.ConflictEncountered.subscribe_handled(
                           [this, &solver](auto &expl) {
-                              this->nclause.clear();
-                              expl.explain(Solver<T>::Contradiction, this->nclause);
-                              this->activity.update(this->nclause, solver);
+                              this->clause.clear();
+                              expl.explain(Solver<T>::Contradiction, this->clause);
+                              this->activity.update(this->clause, solver);
                           })) {}
 
         WeightedDegree(const WeightedDegree &) = delete;
@@ -42,7 +42,7 @@ namespace tempo::heuristics {
         ~WeightedDegree() = default;
 
 
-        [[nodiscard]] double getCost(const var x, const Solver<T> &solver) const {
+        [[nodiscard]] double getCost(const var_t x, const Solver<T> &solver) const {
             double dom{1};
 
             if (solver.boolean.hasSemantic(x)) {
@@ -69,12 +69,11 @@ namespace tempo::heuristics {
             return {this->bestVariable(solver.getBranch(), solver), VariableType::Boolean};
         }
 
-    private:
-        impl::DecayingEventActivityMap<T> activity;
-        SubscriberHandle handlerToken;
-        std::vector<genlit> clause;
-        std::vector<Literal<T>> nclause;
-    };
+private:
+  impl::DecayingEventActivityMap<T> activity;
+  SubscriberHandle handlerToken;
+  std::vector<Literal<T>> clause;
+};
 }
 
 #endif //SCHEDCL_WEIGHTEDDEGREE_HPP

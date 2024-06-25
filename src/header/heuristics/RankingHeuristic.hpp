@@ -21,7 +21,7 @@ concept BranchProvider = requires(const S solver) {
 };
 
 template <typename Impl, typename S>
-concept CostProvider = requires(Impl instance, var x, const S& solver) {
+concept CostProvider = requires(Impl instance, var_t x, const S& solver) {
     { instance.getCost(x,solver) } -> std::convertible_to<double>;
 };
 
@@ -31,31 +31,19 @@ public:
 
     template<concepts::typed_range<var_t> Variables, BranchProvider S> requires(CostProvider<Impl, S>)
     auto bestVariable(const Variables &variables, const S &solver) const {
-        auto best_var = Constant::NoVarx;
+        auto best_var = Constant::NoVar;
         double minCost = std::numeric_limits<double>::infinity();
         assert(not std::ranges::empty(variables));
         for (auto x: variables) {
             const auto cost = this->getImpl().getCost(x, solver);
 
-#ifdef DEBUG_HEURISTICS_CHOICE
-            std::cout << scheduler.getEdge(POS(x)) << "<>" << scheduler.getEdge(NEG(x)) << ": " << cost;
-#endif
-
             if (cost < minCost) {
                 minCost = cost;
                 best_var = x;
-
-#ifdef DEBUG_HEURISTICS_CHOICE
-                std::cout << "*";
-#endif
             }
-
-#ifdef DEBUG_HEURISTICS_CHOICE
-            std::cout << std::endl;
-#endif
         }
 
-        assert(best_var != Constant::NoVarx);
+        assert(best_var != Constant::NoVar);
         return best_var;
   }
 

@@ -87,6 +87,7 @@ public:
     constexpr auto valueDecision(const VariableSelection &selection, const Solver &solver) {
         assert(selection.second == VariableType::Boolean);
         auto lit = solver.boolean.getLiteral(true, selection.first);
+        assert(lit.isBoolean());
         auto rval = tempo::random();
         if (rval % EpsScale < epsilon) {
             return rval % 2 == 0 ? lit : ~lit;

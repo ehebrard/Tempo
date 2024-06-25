@@ -1,3 +1,23 @@
+/************************************************
+ * Tempo Global.hpp
+ *
+ * Copyright 2024 Emmanuel Hebrard
+ *
+ * Tempo is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation, either version 3 of the License, or (at your
+ *  option) any later version.
+ *
+ * Tempo is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Tempo.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ ***********************************************/
+
 #ifndef _TEMPO_GLOBAL_HPP
 #define _TEMPO_GLOBAL_HPP
 
@@ -6,16 +26,28 @@
 #include <cstdint>
 #include <sys/resource.h>
 
-
+//! Global definitions
 namespace tempo {
 
+// primitive type for variables (variables are essentially indices)
 using var_t = std::uint32_t;
+// primitive type for the datafield of literals (type, sign, variable)
 using info_t = std::uint32_t;
+// primitive type for indexing anything except variables
+using index_t = std::uint32_t;
+// for Boolean variables that can be undefined [used only for the output of solver.satisfiable()?]
+using boolean_state = int;
+#define True 1
+#define False 0
+#define Unknown -1
+// primitive type given to an explanation algorithm together with the literal to explain [used to encode the relevant info to be able to explain]
+using hint = int;
+#define NoHint -1
 
-//#define DBG_BOUND (num_choicepoints >= 51470)
-//#define DBG_CBOUND (solver.num_choicepoints >= 51470)
-//#define DBG_BBOUND (sched.num_choicepoints >= 51470) //(sched.num_fails >= 236)
-//#define DBG_TRACE  1 //243 // 55                             // 183 //1+2+4+32+128
+//#define DBG_BOUND (num_fails >= 0)
+//#define DBG_CBOUND (solver.num_fails >= 0)
+//#define DBG_BBOUND (sched.num_fails >= 0) //(sched.num_fails >= 236)
+//#define DBG_TRACE 87                     // 183 //1+2+4+32+128
 #define SEARCH 1
 #define DOMAINS 2
 #define BRANCH 4
@@ -26,20 +58,21 @@ using info_t = std::uint32_t;
 #define UNITPROPAGATION 128
 
 //#define DBG_MINIMIZATION
-//#define DBG_EDGEFINDING (m_schedule.num_cons_propagations >= 55553)
+//#define DBG_EDGEFINDING (m_solver.num_cons_propagations >= 0)
 //#define DBG_EXPLEF true      //(m_schedule.num_fails > 236)
 //#define DBG_THETA (m_schedule.num_fails >= 481)
 //#define DBG_BELLMAN true //(sched.num_choicepoints >= 1045)
 //#define DBG_BELLMAN_EXPL (sched.num_choicepoints >= 4172)
 //#define DEBUG_HEURISTICS
 //#define DBG_UP
-//#define DBG_CL 1000000
+//#define DBG_CL 10000000
 //#define
 //#define DBG_CLPLUS 1030
 //#define DBG_TRANSITIVITY true //(m_schedule.num_choicepoints >= 4064)
 //#define DBG_EXPL_TRANS true
 //#define DBG_SOL
 
+// priority values for constraint propagation
 enum class Priority {
     Low = 0,
     Medium,
@@ -65,34 +98,6 @@ constexpr auto to_underlying(E e) noexcept {
     return static_cast<std::underlying_type_t<E>>(e);
 }
 
-// using index_t = size_t;
-using index_t = std::uint32_t;
-
-using event = int;
-#define NOEVENT -1
-#define ORIGIN 0
-#define HORIZON 1
-
-using task = int;
-
-using var = int;
-#define NoVar -1
-
-using genlit = int;
-using lit = int;
-#define NoLit -1
-
-using boolean_state = int;
-#define True 1
-#define False 0
-#define Unknown -1
-
-using hint = int;
-#define NoHint -1
-
-using lit_type = int;
-#define BOUND_LIT 0
-#define EDGE_LIT 1
 
 #define CARDEXPL 7
 #define TRANSITIVITYEXPL 7
@@ -105,56 +110,12 @@ using lit_type = int;
 #define NOEXPL 0
 
 
-//#define POSITIVE 1
-//#define NEGATIVE 0
-
-#define INFTY std::numeric_limits<int32_t>::max()
-
+// arbitrary system to index both directions in a directed graph
 #define OUT 0
 #define IN 1
 
-#define LOWER 0
-#define UPPER 1
 
-
-task TASK(event x);
-event START(task x);
-event END(task x);
-
-lit LIT(const var x, boolean_state v);
-lit POS(const var x);
-lit NEG(const var x);
-lit NOT(const lit l);
-genlit GNOT(const genlit l);
-
-var VAR(const lit l);
-
-lit LOWERBOUND(const event x);
-lit UPPERBOUND(const event x);
-
-event EVENT(const lit l);
-
-boolean_state SIGN(const lit l);
-
-lit_type LTYPE(const genlit h);
-genlit BOUND(const lit l);
-genlit EDGE(const lit l);
-lit FROM_GEN(const genlit h);
-
-int TODIMACS(const lit l);
-
-
-template<typename T>
-bool finite(const T x) {
-    return x < INFTY/4;
-}
-
-char etype(const event x);
-std::string prettyEvent(const event e);
-std::string prettyEventLit(const lit el);
-//std::string prettyLiteral(const genlit el);
-
-
+// the numeric gap between two values in numeric types
 template <class T> class Gap {
 public:
   static constexpr T epsilon() noexcept { return T(); }
@@ -221,6 +182,7 @@ public:
   }
 };
 
+//
 double cpu_time(void);
 
 void seed(const unsigned long s);
