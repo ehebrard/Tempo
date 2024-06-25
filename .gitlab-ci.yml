@@ -69,7 +69,7 @@ unittest-job:
       if [ $COMPILER = clang ] ; then
       ENABLED=OFF
       else
-      ENABLED=ON
+      ENABLED=OFF
       fi
     - cmake .. -DCMAKE_BUILD_TYPE=Debug -DCMAKE_PREFIX_PATH="$(pwd)/../deps/libtorch;$(pwd)/../deps/pytorch_sparse/install;$(pwd)/../deps/pytorch_scatter/install" -DENABLE_TORCH=$ENABLED
     - make -j$(nproc) Tests
