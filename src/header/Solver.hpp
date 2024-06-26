@@ -300,6 +300,7 @@ public:
      * @name subscribable events
      */
     ///@{
+    mutable SubscribableEvent<> ChoicePoint; ///< triggered on choicepoints
     mutable SubscribableEvent<const std::vector<Literal<T>> &>
     ClauseAdded; ///< triggered when a new clause is learned
     mutable SubscribableEvent<Explanation<T> &>
@@ -1538,7 +1539,11 @@ template <typename T> void Solver<T>::analyze(Explanation<T> &e) {
 #ifdef DBG_TRACE
                         if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
                             std::cout << " => add to confict [";
-                            std::cout.flush();
+                            for (int z{0}; z < csize; ++z) {
+                              std::cout << " " << z << " " << conflict[z];
+                              std::cout.flush();
+                            }
+                            std::cout << " ]\n";
                         }
 #endif
                         
@@ -1553,8 +1558,7 @@ template <typename T> void Solver<T>::analyze(Explanation<T> &e) {
                         if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
                             std::cout << " => update confict [";
                             for (int z{0}; z < csize; ++z) {
-                                std::cout << " " << z << " " << conflict[z];
-                                std::cout.flush();
+                              std::cout << " " << z << " " << conflict[z];
                             }
                             std::cout << " ]\n";
                         }
@@ -1958,6 +1962,8 @@ template <typename T> boolean_state Solver<T>::search() {
          not KillHandler::instance().signalReceived()) {
 
     ++num_choicepoints;
+    ChoicePoint.trigger();
+
     try {
 #ifdef DBG_TRACE
       if (DBG_BOUND) {
@@ -2273,13 +2279,17 @@ template <typename X>
 void Solver<T>::addToSearch(const X &x) {
   var_t var_id{x.id()};
   if (x.isNumeric()) {
-    numeric_search_vars.reserve(var_id + 1);
-    if (not numeric_search_vars.has(var_id))
-      numeric_search_vars.add(var_id);
+    if (numeric.lower(x) < numeric.upper(x)) {
+      numeric_search_vars.reserve(var_id + 1);
+      if (not numeric_search_vars.has(var_id))
+        numeric_search_vars.add(var_id);
+    }
   } else {
-    boolean_search_vars.reserve(var_id + 1);
-    if (not boolean_search_vars.has(var_id))
-      boolean_search_vars.add(var_id);
+    if (boolean.isUndefined(x)) {
+      boolean_search_vars.reserve(var_id + 1);
+      if (not boolean_search_vars.has(var_id))
+        boolean_search_vars.add(var_id);
+    }
   }
 }
 

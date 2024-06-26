@@ -75,17 +75,24 @@ template <typename T>
 template <typename Iter>
 Cardinality<T>::Cardinality(Solver<T> &solver, const Iter beg_var,
                             const Iter end_var, const bool sign, const unsigned b)
-    : m_solver(solver), bound(b)
+    : m_solver(solver), current_bound(0, &solver.getEnv()), bound(b)
 {
 
   Constraint<T>::priority = Priority::High;
 
+//  std::cout << "cardinality(";
+
   for (auto x{beg_var}; x != end_var; ++x) {
-      literals.push_back(*x == sign);
+    auto l{*x == sign};
+
+//    std::cout << " " << l;
+
+    literals.push_back(l);
   }
-        
-        current_bound = 0;
-        setBound(b);
+//  std::cout << " ) <= " << b << std::endl;
+
+//  current_bound = 0;
+  setBound(b);
 }
 
 template <typename T> Cardinality<T>::~Cardinality() {}

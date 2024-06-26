@@ -348,7 +348,8 @@ private:
 template<typename T>
 BooleanExpression<T> operator&&(BooleanVar<T>& x, BooleanVar<T>& y) {
     std::vector<BooleanExpression<T>> sc{BooleanExpression<T>(x), BooleanExpression<T>(y)};
-    return BooleanExpression<T>(new LogicalAndExpression<T>(sc.begin(), sc.end()));
+    BooleanExpression<T> exp(new LogicalAndExpression<T>(sc.begin(), sc.end()));
+    return exp;
 }
 
 
