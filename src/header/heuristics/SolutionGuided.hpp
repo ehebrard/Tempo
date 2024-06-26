@@ -43,9 +43,10 @@ public:
    * @tparam T timing type
    * @tparam S class that provides previously encountered solutions
    */
-  template <concepts::scalar T, typename S>
-  [[nodiscard]] bool choose(Literal<T> lit, const S &solver) const {
+  template <typename S>
+  [[nodiscard]] auto choose(var_t x, const S &solver) const {
       throw std::runtime_error("needs implementation");
+      return makeBooleanLiteral<int>(true, 0, 0);
       // something like if solver has not solution yet => return tightest
       // else lookup corresponding edge in solver.boolean.bestSolution and return a polarity
   }

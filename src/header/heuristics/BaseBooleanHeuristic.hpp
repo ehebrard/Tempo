@@ -26,6 +26,7 @@
 
 #include "Global.hpp"
 #include "util/crtp.hpp"
+#include "util/traits.hpp"
 #include "Literal.hpp"
 
 namespace tempo::heuristics {
@@ -45,8 +46,8 @@ struct ValueHeuristicConfig {
  * @tparam Solver information provider (usually the Solver)
  */
 template <typename H, typename Solver>
-concept binary_heuristic_implementation = requires(H heuristic, const Solver &solver, Literal<int> l) {
-    { heuristic.choose(l, solver) } -> std::convertible_to<bool>;
+concept binary_heuristic_implementation = requires(H heuristic, const Solver &solver, var_t x) {
+    { heuristic.choose(x, solver) } -> concepts::same_template<Literal>;
 };
 
 /**
@@ -62,6 +63,7 @@ concept value_heuristic = requires(H heuristic, VariableSelection x, const Solve
 template<typename Solver>
 concept boolean_info_provider = requires(const Solver s, var_t x) {
     { s.boolean.getLiteral(true, x) } -> concepts::same_template<Literal>;
+    { s.boolean.hasSemantic(x) } -> std::convertible_to<bool>;
 };
 
 /**
@@ -100,14 +102,14 @@ public:
     requires(binary_heuristic_implementation <Impl, Solver>)
     constexpr auto valueDecision(const VariableSelection &selection, const Solver &solver) {
         assert(selection.second == VariableType::Boolean);
-        auto lit = solver.boolean.getLiteral(true, selection.first);
-        assert(lit.isBoolean());
         auto rval = tempo::random();
         if (rval % EpsScale < epsilon) {
-            return rval % 2 == 0 ? lit : ~lit;
+            auto lit = solver.boolean.getLiteral(rval % 2 == 0, selection.first);
+            assert(lit.isBoolean());
+            return lit;
         }
 
-        return this->getImpl().choose(lit, solver) ? lit : ~lit;
+        return this->getImpl().choose(selection.first, solver);
     }
 };
 } // namespace tempo::heuristics

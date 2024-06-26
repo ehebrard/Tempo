@@ -19,9 +19,9 @@
 namespace tempo::heuristics {
 
     namespace detail {
-        template<typename Solver, typename T>
-        concept distance_provider = requires(const Solver s, Literal<T> l, var_t e) {
-            { s.boolean.getEdge(l) } -> concepts::same_template<DistanceConstraint>;
+        template<typename Solver>
+        concept distance_provider = requires(const Solver s, var_t x, var_t e) {
+            { s.boolean.getEdge(true, x) } -> concepts::same_template<DistanceConstraint>;
             { s.numeric.upper(e) } -> concepts::scalar;
             { s.numeric.lower(e) } -> concepts::scalar;
         };
@@ -49,18 +49,18 @@ namespace tempo::heuristics {
          * @param solver scheduler instance
          * @return either POS(cp) or NEG(cp)
          */
-        template<concepts::scalar T, detail::distance_provider<T> Solver>
-        static bool choose(Literal<T> lit, const Solver &solver) {
+        template<detail::distance_provider Solver> requires(boolean_info_provider<Solver>)
+        static auto choose(var_t x, const Solver &solver) {
             // @TODO no gap info available -> what should I return?
-            if (not lit.hasSemantic()) {
-                return true;
+            if (not solver.boolean.hasSemantic(x)) {
+                return solver.boolean.getLiteral(true, x);
             }
 
-            auto edgePos = solver.boolean.getEdge(lit);
-            auto edgeNeg = solver.boolean.getEdge(~lit);
+            auto edgePos = solver.boolean.getEdge(true, x);
+            auto edgeNeg = solver.boolean.getEdge(false, x);
             auto gapPos = solver.numeric.upper(edgePos.from) - solver.numeric.lower(edgePos.to);
             auto gapNeg = solver.numeric.upper(edgeNeg.from) - solver.numeric.lower(edgeNeg.to);
-            return gapPos <= gapNeg;
+            return solver.boolean.getLiteral(gapPos <= gapNeg, x);
         }
     };
 
