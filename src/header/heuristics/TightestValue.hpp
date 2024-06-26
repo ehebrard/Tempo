@@ -63,7 +63,7 @@ public:
         solver.numeric.upper(edgePos.from) - solver.numeric.lower(edgePos.to);
     auto gapNeg =
         solver.numeric.upper(edgeNeg.from) - solver.numeric.lower(edgeNeg.to);
-    return solver.boolean.getLiteral(gapPos <= gapNeg, x);
+    return solver.boolean.getLiteral(gapPos >= gapNeg, x);
   }
 };
 
