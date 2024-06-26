@@ -59,12 +59,7 @@ public:
   bool full_up{false};
   bool order_bound_watch{false};
 
-  enum class ChoicePointHeuristics {
-    Tightest = 0,
-    WeightedDegree,
-    WeightedCriticalPath,
-    VSIDS
-  };
+  enum class ChoicePointHeuristics { Tightest = 0, WeightedDegree, VSIDS };
   ChoicePointHeuristics choice_point_heuristics{ChoicePointHeuristics::VSIDS};
 
   enum class PolarityHeuristic { Tightest, SolutionGuided, Random };

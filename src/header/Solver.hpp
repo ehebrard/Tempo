@@ -38,6 +38,7 @@
 #include "constraints/Cardinality.hpp"
 #include "constraints/DisjunctiveEdgeFinding.hpp"
 #include "constraints/EdgeConstraint.hpp"
+#include "constraints/PseudoBoolean.hpp"
 #include "constraints/Transitivity.hpp"
 #include "heuristics/HeuristicManager.hpp"
 #include "heuristics/ValueHeuristicsManager.hpp"
@@ -132,6 +133,7 @@ public:
 
   // saves the current solution
   void saveSolution() { best_solution = polarity; }
+  bool hasSolution() const { return not best_solution.empty(); }
   //@}
 
 protected:
@@ -394,6 +396,13 @@ public:
     template <typename ItVar>
     void postCardinality(const ItVar beg_var, const ItVar end_var,
                          const bool sign, const unsigned bound);
+    template <typename ItLit>
+    void postCardinality(const ItLit beg_lit, const ItLit end_lit,
+                         const unsigned bound);
+
+    template <typename ItLit, typename ItW>
+    void postPseudoBoolean(const ItLit beg_lit, const ItLit end_lit, ItW w,
+                           const T bound);
 
     // create and post a new edge-finding propagator
     template <typename ItTask, typename ItVar>
@@ -1961,9 +1970,6 @@ template <typename T> boolean_state Solver<T>::search() {
   while (satisfiability == Unknown and
          not KillHandler::instance().signalReceived()) {
 
-    ++num_choicepoints;
-    ChoicePoint.trigger();
-
     try {
 #ifdef DBG_TRACE
       if (DBG_BOUND) {
@@ -1989,7 +1995,8 @@ template <typename T> boolean_state Solver<T>::search() {
 #endif
 
       } else {
-        //        ++num_choicepoints;
+        ++num_choicepoints;
+        ChoicePoint.trigger();
 
         auto varSelection = heuristic->nextVariable(*this);
         Literal<T> d = valueHeuristic->valueDecision(varSelection, *this);
@@ -2287,10 +2294,24 @@ void Solver<T>::wake_me_on(const Literal<T> l, const int c) {
 }
 
 template <typename T>
+template <typename ItLit>
+void Solver<T>::postCardinality(const ItLit beg_lit, const ItLit end_lit,
+                                const unsigned bound) {
+  post(new Cardinality<T>(*this, beg_lit, end_lit, bound));
+}
+
+template <typename T>
 template <typename ItVar>
 void Solver<T>::postCardinality(ItVar beg_var, ItVar end_var, const bool sign,
                                 const unsigned bound) {
   post(new Cardinality<T>(*this, beg_var, end_var, sign, bound));
+}
+
+template <typename T>
+template <typename ItLit, typename ItW>
+void Solver<T>::postPseudoBoolean(const ItLit beg_lit, const ItLit end_lit,
+                                  ItW w, const T bound) {
+  post(new PseudoBoolean<T>(*this, beg_lit, end_lit, w, bound));
 }
 
 template <typename T>

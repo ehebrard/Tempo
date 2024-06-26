@@ -62,8 +62,12 @@ namespace tempo::heuristics {
 
                 dom = static_cast<double>(std::max(gap_a, gap_b));
             }
+            auto act{activity.get(x, solver)};
 
-            return dom / activity.get(x, solver);
+            //            std::cout << x << ": " << dom << "/" << act << "=" <<
+            //            (dom/act) << std::endl;
+
+            return dom / act;
         }
 
         /**

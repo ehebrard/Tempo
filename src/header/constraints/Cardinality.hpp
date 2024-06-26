@@ -1,5 +1,5 @@
 /************************************************
- * Tempo RandomValue.hpp
+ * Tempo Cardinality.hpp
  *
  * Copyright 2024 Emmanuel Hebrard
  *
@@ -48,19 +48,24 @@ public:
 //  template <typename Iter>
 //  Cardinality(Solver<T> &solver, const Iter beg_lit,
 //               const Iter end_lit, const unsigned lb);
-    template <typename Iter>
-    Cardinality(Solver<T> &solver, const Iter beg_var,
-                 const Iter end_var, const bool sign, const unsigned lb);
+  template <typename Iter>
+  Cardinality(Solver<T> &solver, const Iter beg_var, const Iter end_var,
+              const bool sign, const unsigned lb);
+
+  template <typename Iter>
+  Cardinality(Solver<T> &solver, const Iter beg_lit, const Iter end_lit,
+              const unsigned lb);
   virtual ~Cardinality();
 
   bool notify(const Literal<T>, const int) override;
   void post(const int idx) override;
   void propagate() override;
 
-  void xplain(const Literal<T> l, const hint h, std::vector<Literal<T>> &Cl) override;
+  void xplain(const Literal<T> l, const hint h,
+              std::vector<Literal<T>> &Cl) override;
   int getType() const override;
-    
-    void setBound(const unsigned b);
+
+  void setBound(const unsigned b);
 
   std::ostream &display(std::ostream &os) const override;
 
@@ -92,6 +97,19 @@ Cardinality<T>::Cardinality(Solver<T> &solver, const Iter beg_var,
 //  std::cout << " ) <= " << b << std::endl;
 
 //  current_bound = 0;
+  setBound(b);
+}
+
+template <typename T>
+template <typename Iter>
+Cardinality<T>::Cardinality(Solver<T> &solver, const Iter beg_lit,
+                            const Iter end_lit, const unsigned b)
+    : m_solver(solver), current_bound(0, &solver.getEnv()), bound(b) {
+
+  Constraint<T>::priority = Priority::High;
+  for (auto l{beg_lit}; l != end_lit; ++l) {
+    literals.push_back(*l);
+  }
   setBound(b);
 }
 

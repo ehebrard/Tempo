@@ -45,9 +45,27 @@ public:
    */
   template <concepts::scalar T, typename S>
   [[nodiscard]] bool choose(Literal<T> lit, const S &solver) const {
-      throw std::runtime_error("needs implementation");
-      // something like if solver has not solution yet => return tightest
-      // else lookup corresponding edge in solver.boolean.bestSolution and return a polarity
+    //      throw std::runtime_error("needs implementation");
+    // something like if solver has not solution yet => return tightest
+    // else lookup corresponding edge in solver.boolean.bestSolution and return
+    // a polarity
+
+    auto x{lit.variable()};
+    if (solver.boolean.hasSolution()) {
+      return solver.boolean.value(BooleanVar<T>(x));
+    } else {
+      if (not lit.hasSemantic()) {
+        return true;
+      }
+
+      auto edgePos = solver.boolean.getEdge(lit);
+      auto edgeNeg = solver.boolean.getEdge(~lit);
+      auto gapPos =
+          solver.numeric.upper(edgePos.from) - solver.numeric.lower(edgePos.to);
+      auto gapNeg =
+          solver.numeric.upper(edgeNeg.from) - solver.numeric.lower(edgeNeg.to);
+      return gapPos <= gapNeg;
+    }
   }
 };
 

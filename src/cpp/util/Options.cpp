@@ -133,11 +133,10 @@ tempo::Options tempo::parse(int argc, char *argv[]) {
   cmd.add<SwitchArg>(opt.order_bound_watch, "", "order-watched",
                      "order bound watched lists", false);
 
-  cmd.add<ValueArg<int>>(
-      opt.choice_point_heuristics, "", "cp-heuristic",
-      "type of heuristic used for choice point selection (0: Tightest "
-      "(default), 1: WDEG, 2: WCRITPATH, 3: VSIDS)",
-      false, 3, "int");
+  cmd.add<ValueArg<int>>(opt.choice_point_heuristics, "", "cp-heuristic",
+                         "type of heuristic used for choice point selection "
+                         "(0: Tightest, 1: WDEG, 2: VSIDS (default))",
+                         false, 2, "int");
   cmd.add<ValueArg<int>>(
       opt.polarity_heuristic, "", "polarity-heuristic",
       "type "
@@ -149,8 +148,8 @@ tempo::Options tempo::parse(int argc, char *argv[]) {
       opt.polarity_epsilon, "", "polarity-epsilon",
       "epsilon greedy value for value selection. probability in [0, 1]."
       "0 means that the value selected by the heuristic is always"
-      "chosen, 1 means always random. default: 0",
-      false, 0, "double");
+      "chosen, 1 means always random. default: 0.01",
+      false, 0.01, "double");
 
   cmd.add<ValueArg<double>>(
       opt.vsids_decay, "", "vsids-decay",

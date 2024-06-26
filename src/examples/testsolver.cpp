@@ -371,7 +371,7 @@ BIBD::BIBD(Options &opt, const int v, const int b, const int r, const int k,
   for (auto i{0}; i < v; ++i) {
     for (auto z{i + 1}; z < v; ++z) {
       for (auto j{0}; j < b; ++j) {
-        rowProduct.push_back(X[i * b + j] && X[z * b + j]);
+        rowProduct.push_back(X[i * b + j] and X[z * b + j]);
         rowProduct.back().extract(S);
       }
     }
@@ -379,9 +379,22 @@ BIBD::BIBD(Options &opt, const int v, const int b, const int r, const int k,
 
   //    std::cout << "rows\n";
 
+  std::vector<Literal<int>> scope;
+
   // rows
   auto x{X.begin()};
   for (auto i{0}; i < v; ++i) {
+    //    auto e{x + b};
+    //    while (x != e) {
+    //      scope.push_back(*x == true);
+    //      ++x;
+    //    }
+    //    S.postCardinality(scope.begin(), scope.end(), r);
+    //    for (auto &l : scope) {
+    //      l = ~l;
+    //    }
+    //    S.postCardinality(scope.begin(), scope.end(), b - r);
+    //      scope.clear();
     S.postCardinality(x, x + b, true, r);
     S.postCardinality(x, x + b, false, b - r);
     x += b;
@@ -392,6 +405,18 @@ BIBD::BIBD(Options &opt, const int v, const int b, const int r, const int k,
   // columns
   x = transpX.begin();
   for (auto i{0}; i < b; ++i) {
+    //      auto e{x + v};
+    //      while (x != e) {
+    //        scope.push_back(*x == true);
+    //        ++x;
+    //      }
+    //      S.postCardinality(scope.begin(), scope.end(), k);
+    //      for (auto &l : scope) {
+    //        l = ~l;
+    //      }
+    //      S.postCardinality(scope.begin(), scope.end(), v - k);
+    //        scope.clear();
+
     S.postCardinality(x, x + v, true, k);
     S.postCardinality(x, x + v, false, v - k);
     x += v;
@@ -434,15 +459,48 @@ BIBD::BIBD(Options &opt, const int v, const int b, const int r, const int k,
   std::cout << "result = " << sat << " #fails = " << S.num_fails << std::endl;
 }
 
+void PB() {
+  Solver<float> solver;
+
+  std::vector<BooleanVar<float>> X;
+  for (auto i{0}; i < 10; ++i)
+    X.push_back(solver.newBoolean());
+
+  std::vector<Literal<float>> S{X[0] == true, X[1] == true, X[2] == false};
+  std::vector<float> W{3.5, -5.2, 12.1};
+  solver.postPseudoBoolean(S.begin(), S.end(), W.begin(), 7.1);
+
+  S = {X[0] == true, X[3] == true, X[5] == false, X[7] == false};
+  W = {1.5, 2.2, 2.1, 5.7};
+  solver.postPseudoBoolean(S.begin(), S.end(), W.begin(), 7);
+
+  S = {X[2] == true, X[4] == true, X[6] == false, X[8] == false, X[9] == false};
+  W = {-1.5, -2.2, -2.1, -5.7, -3};
+  solver.postPseudoBoolean(S.begin(), S.end(), W.begin(), -5);
+
+  for (auto x : X)
+    solver.addToSearch(x);
+
+  auto sat{solver.satisfiable()};
+
+  std::cout << "result = " << sat << " #fails = " << solver.num_fails
+            << std::endl;
+
+  for (auto x : X)
+    std::cout << x << " " << solver.boolean.value(x) << std::endl;
+}
+
 int main(int argc, char *argv[]) {
 
-  Options opt = tempo::parse(argc, argv);
+    Options opt = tempo::parse(argc, argv);
+  //
+  //    BIBD t1(opt, 7,7,3,3,1);
+  //
+      BIBD t2(opt, 7, 14, 6, 3, 2);
+  //
+  //  BIBD t3(opt, 6, 10, 5, 3, 2);
+  //
+  //      BIBD t4(opt, 46,69,9,6,1);
 
-    BIBD t1(opt, 7,7,3,3,1);
-
-    BIBD t2(opt, 7, 14, 6, 3, 2);
-
-  BIBD t3(opt, 6, 10, 5, 3, 2);
-
-      BIBD t4(opt, 46,69,9,6,1);
+//  PB();
 }

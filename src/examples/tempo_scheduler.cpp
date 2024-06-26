@@ -108,6 +108,7 @@ int main(int argc, char *argv[]) {
     auto sat{greedy_insertion.runEarliestStart()};
     if (sat) {
       if (schedule.getEarliestEnd(S) <= ub) {
+        S.boolean.saveSolution();
         ub = schedule.getEarliestEnd(S) - 1;
         std::cout << std::setw(10) << (ub + 1);
         S.displayProgress(std::cout);
