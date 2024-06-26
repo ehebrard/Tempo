@@ -9,7 +9,7 @@
 
 #include <vector>
 
-#include "BaseValueHeuristic.hpp"
+#include "BaseBooleanHeuristic.hpp"
 #include "TightestValue.hpp"
 #include "util/SubscribableEvent.hpp"
 
@@ -17,7 +17,7 @@ namespace tempo::heuristics {
 
 namespace detail {
 template <typename Sched>
-concept solution_provider = requires(const Sched &s, var x) {
+concept solution_provider = requires(const Sched &s, var_t x) {
   { s.hasSolution() } -> std::convertible_to<bool>;
   { s.getSolution()[x] } -> std::convertible_to<bool>;
 };
@@ -29,29 +29,25 @@ concept solution_provider = requires(const Sched &s, var x) {
  * Performs the first decent using tempo::heuristics::TightestValue. After that
  * follows the most recent solution
  */
-class SolutionGuided : public BaseValueHeuristic<SolutionGuided> {
+class SolutionGuided : public BaseBooleanHeuristic<SolutionGuided> {
 public:
   /**
    * Ctor.
    * @param epsilon see tempo::heuristics::BaseValueHeuristic
    */
   explicit SolutionGuided(double epsilon)
-      : BaseValueHeuristic<SolutionGuided>(epsilon) {}
+      : BaseBooleanHeuristic<SolutionGuided>(epsilon) {}
 
   /**
    * heuristic interface
-   * @tparam Sched class that provides previously encountered solutions
-   * @param cp choice point
-   * @param scheduler scheduler instance
-   * @return either POS(cp) or NEG(cp)
+   * @tparam T timing type
+   * @tparam S class that provides previously encountered solutions
    */
-  template <detail::solution_provider Sched>
-  [[nodiscard]] lit choose(var cp, const Sched &scheduler) const {
-    if (not scheduler.hasSolution()) {
-      return TightestValue::choose(cp, scheduler);
-    }
-
-    return scheduler.getSolution()[cp] ? POS(cp) : NEG(cp);
+  template <concepts::scalar T, typename S>
+  [[nodiscard]] bool choose(Literal<T> lit, const S &solver) const {
+      throw std::runtime_error("needs implementation");
+      // something like if solver has not solution yet => return tightest
+      // else lookup corresponding edge in solver.boolean.bestSolution and return a polarity
   }
 };
 

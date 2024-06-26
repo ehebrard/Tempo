@@ -6,9 +6,11 @@
 #ifndef TEMPO_GNNEDGEPOLARITYPREDICTOR_HPP
 #define TEMPO_GNNEDGEPOLARITYPREDICTOR_HPP
 
+#include "Global.hpp"
 #include "GNN.hpp"
 #include "GraphBuilder.hpp"
 #include "util/Matrix.hpp"
+#include "util/traits.hpp"
 #include "util/parsing/format.hpp"
 
 namespace tempo::nn::heuristics {
@@ -34,9 +36,13 @@ namespace tempo::nn::heuristics {
          * @param cp choicepoint to evaluate
          * @return cp or ~cp according to the GNN heat map
          */
-        template<concepts::scalar T>
-        auto choosePolarity(const DistanceConstraint<T> &cp) const -> DistanceConstraint<T> {
-            return choosePolarityFromHeatMap(cp.from, cp.to, edgeHeatMap) ? cp : ~cp;
+        template<typename Sched>
+        requires(traits::is_same_template_v<DistanceConstraint, decltype(std::declval<Sched>().getEdge(
+                std::declval<lit>()))>)
+        lit choose(tempo::var cp, const Sched &scheduler) const{
+            // @TODO does not work anymore!!!
+            auto [from, to] = scheduler.getEdge(POS(cp));
+            return choosePolarityFromHeatMap(from, to, edgeHeatMap) ? POS(cp) : NEG(cp);
         }
 
         /**
@@ -45,10 +51,8 @@ namespace tempo::nn::heuristics {
          */
         template<concepts::scalar T>
         void preEvaluation(const Scheduler<T> &scheduler) {
-            auto [choices, implied] = scheduler.getChoices();
-            std::vector<DistanceConstraint<T>> allChoices = std::move(choices);
-            std::copy(implied.begin(), implied.end(), std::back_inserter(allChoices));
-            auto graph = graphBuilder.getGraph(scheduler.distance, allChoices);
+            auto graph = graphBuilder.getGraph(
+                    makeSolverState([&](event from, event to) { return scheduler.distance(from, to); }));
             edgeHeatMap = gnn.getHeatMap(graph);
         }
 

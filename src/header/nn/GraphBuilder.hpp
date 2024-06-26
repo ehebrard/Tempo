@@ -69,25 +69,25 @@ namespace tempo::nn {
         GraphBuilder(const std::filesystem::path &configPath, const ProblemInstance &problemInstance);
 
         /**
-         * Extracts all features and topology information from a given event distance network
-         * @return pair(InputGraph containing topology and feature information, vector containing all edges of the
-         * problem)
+         * Extracts all features and topology information from a given solver state
+         * @tparam EvtFun callable that represents distances between events
+         * @return InputGraph containing topology and feature information
          */
         template<concepts::arbitrary_event_dist_fun EvtFun>
-        auto getGraph(const EvtFun& distances) -> InputGraph {
+        auto getGraph(const SolverState<EvtFun>& state) -> InputGraph {
             static_assert(FactoryChecker<EvtFun>::value,
                           "Not all feature extractors or topology extractors have the correct signature");
             auto topology = std::visit(
-                    [&](auto &extractor) { return extractor.getTopology(makeSolverState(distances)); },
+                    [&](auto &extractor) { return extractor.getTopology(state); },
                     *topologyExtractor);
             auto taskFeats = std::visit(
-                    [t = std::cref(topology), &distances](const auto &extractor) { return extractor(t, distances); },
+                    [t = std::cref(topology), &state](const auto &extractor) { return extractor(t, state.eventNetwork); },
                     taskFeatureExtractor);
             auto edgeFeats = std::visit(
-                    [t = std::cref(topology), &distances](const auto &extractor) { return extractor(t, distances); },
+                    [t = std::cref(topology), &state](const auto &extractor) { return extractor(t, state.eventNetwork); },
                     edgeFeatureExtractor);
             auto resourceFeats = std::visit(
-                    [t = std::cref(topology), &distances](const auto &extractor) { return extractor(t, distances); },
+                    [t = std::cref(topology), &state](const auto &extractor) { return extractor(t, state.eventNetwork); },
                     resourceFeatureExtractor);
             InputGraph ret;
             using K = GraphKeys;
