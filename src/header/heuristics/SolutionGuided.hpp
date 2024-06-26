@@ -43,29 +43,27 @@ public:
    * @tparam T timing type
    * @tparam S class that provides previously encountered solutions
    */
-  template <concepts::scalar T, typename S>
-  [[nodiscard]] bool choose(Literal<T> lit, const S &solver) const {
-    //      throw std::runtime_error("needs implementation");
-    // something like if solver has not solution yet => return tightest
-    // else lookup corresponding edge in solver.boolean.bestSolution and return
-    // a polarity
+  template <typename S>
+  [[nodiscard]] auto choose(var_t x, const S &solver) const {
 
-    auto x{lit.variable()};
-    if (solver.boolean.hasSolution()) {
-      return solver.boolean.value(BooleanVar<T>(x));
-    } else {
-      if (not lit.hasSemantic()) {
-        return true;
-      }
+    //    if (solver.boolean.hasSolution()) {
+    //      return solver.boolean.value(x);
+    //    } else {
+    //      if (not solver.boolean.hasSemantic(x)) {
+    //        return true;
+    //      }
+    //
+    //      auto edgePos = solver.boolean.getEdge(true, x);
+    //      auto edgeNeg = solver.boolean.getEdge(false, x);
+    //      auto gapPos =
+    //          solver.numeric.upper(edgePos.from) -
+    //          solver.numeric.lower(edgePos.to);
+    //      auto gapNeg =
+    //          solver.numeric.upper(edgeNeg.from) -
+    //          solver.numeric.lower(edgeNeg.to);
+    //      return makeBooleanLiteral<T>(gapPos <= gapNeg, x);
 
-      auto edgePos = solver.boolean.getEdge(lit);
-      auto edgeNeg = solver.boolean.getEdge(~lit);
-      auto gapPos =
-          solver.numeric.upper(edgePos.from) - solver.numeric.lower(edgePos.to);
-      auto gapNeg =
-          solver.numeric.upper(edgeNeg.from) - solver.numeric.lower(edgeNeg.to);
-      return gapPos <= gapNeg;
-    }
+    return makeBooleanLiteral<int>(false, 0, 0);
   }
 };
 
