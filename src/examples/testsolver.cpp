@@ -494,11 +494,11 @@ int main(int argc, char *argv[]) {
 
     Options opt = tempo::parse(argc, argv);
   //
-  //    BIBD t1(opt, 7,7,3,3,1);
+      BIBD t1(opt, 7,7,3,3,1);
   //
       BIBD t2(opt, 7, 14, 6, 3, 2);
   //
-  //  BIBD t3(opt, 6, 10, 5, 3, 2);
+    BIBD t3(opt, 6, 10, 5, 3, 2);
   //
   //      BIBD t4(opt, 46,69,9,6,1);
 

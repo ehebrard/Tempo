@@ -23,6 +23,7 @@
 
 
 #include "Literal.hpp"
+#include "constraints/Cardinality.hpp"
 
 using namespace std;
 
@@ -202,9 +203,12 @@ class DisjunctiveResource : public vector<Interval<T>> {
 public:
   using vector<Interval<T>>::vector;
     
-    // create and insert in 'container' the set of disjunctive variables necessary to ensure that this constraint is satisfied
+    // create and insert in 'disjuncts' the set of disjunctive variables necessary to ensure that this constraint is satisfied
   template <typename C>
-  void createOrderVariables(Solver<T> &solver, C &container);
+  void createOrderVariables(Solver<T> &solver, C &disjuncts);
+    // create and insert in 'disjuncts' the set of disjunctive variables necessary to ensure that this constraint is satisfied, according to the options
+    template <typename C>
+    void createOptionalOrderVariables(Solver<T> &solver, C &disjuncts, C &options);
 };
 
 
@@ -351,6 +355,55 @@ BooleanExpression<T> operator&&(BooleanVar<T>& x, BooleanVar<T>& y) {
     BooleanExpression<T> exp(new LogicalAndExpression<T>(sc.begin(), sc.end()));
     return exp;
 }
+
+
+
+template <typename T = int>
+class CardinalityExpression : public ExpressionImpl<T> {
+public:
+    
+    template <typename Iter>
+    CardinalityExpression(Iter beg_var, Iter end_var, const T l=0, const T u=Constant::Infinity<T>) : lb(l), ub(u) {
+        for(auto x{beg_var}; x!=end_var; ++x) {
+            boolean_arguments.push_back(*x);
+        }
+    }
+    
+    var_t extract(Solver<T>& solver) override {
+        std::vector<Literal<T>> L;
+        for(auto x : boolean_arguments) {
+            x.extract(solver);
+            L.push_back(x == true);
+        }
+        self = solver.newNumeric();
+        solver.post( new CardinalityLeqVar<T>>(solver, L.begin(), L.end(), self.id()) );
+        solver.post( new CardinalityGeqVar<T>>(solver, L.begin(), L.end(), self.id()) );
+
+        return self.id();
+    }
+    
+    void post(Solver<T>& solver) override {
+        std::vector<Literal<T>> L;
+        for(auto x : boolean_arguments) {
+            x.extract(solver);
+            L.push_back(x == true);
+        }
+        T n{static_cast<T>(L.size())};
+        if(ub < n) {
+            solver.post( new CardinalityConst<T>>(solver, L.begin(), L.end(), ub) );
+        }
+        if(lb > 0) {
+            for(auto &l : L) l = ~l;
+            solver.post( new CardinalityConst<T>>(solver, L.begin(), L.end(), n-lb) );
+        }
+    }
+    
+private:
+    NumericVar<T> self;
+    T lb{0};
+    T ub{Constant::Infinity<T>};
+    std::vector<BooleanExpression<T>> boolean_arguments;
+};
 
 
 //template <typename T = int>
@@ -518,6 +571,26 @@ void DisjunctiveResource<T>::createOrderVariables(Solver<T> &solver,
   }
 }
 
+/*!
+ DisjunctiveResource  implementation
+*/
+template <typename T>
+template <typename C>
+void DisjunctiveResource<T>::createOptionalOrderVariables(Solver<T> &solver,
+                                                          C &disjuncts,
+                                                          C &options) {
+  for (auto a{this->begin()}; a != this->end(); ++a) {
+    for (auto b{a + 1}; b != this->end(); ++b) {
+      //                  container.insert(container.end(),
+      //                  solver.newDisjunct(a->end.before(b->start),
+      //                  b->end.before(a->start)));
+      options.push_back(solver.newBoolean());
+      disjuncts.push_back(solver.newDisjunct(options.back().id(),
+                                            a->end.before(b->start),
+                                            b->end.before(a->start)));
+    }
+  }
+}
 
 /*!
  Interval  implementation

@@ -15,6 +15,8 @@
 
 namespace tempo::heuristics {
 
+template <typename T> class Solver;
+
 namespace detail {
 template <typename Sched>
 concept solution_provider = requires(const Sched &s, var_t x) {
@@ -29,22 +31,26 @@ concept solution_provider = requires(const Sched &s, var_t x) {
  * Performs the first decent using tempo::heuristics::TightestValue. After that
  * follows the most recent solution
  */
-class SolutionGuided : public BaseBooleanHeuristic<SolutionGuided> {
+template <class BaseHeuristic>
+class SolutionGuided
+    : public BaseBooleanHeuristic<SolutionGuided<BaseHeuristic>> {
 public:
   /**
    * Ctor.
    * @param epsilon see tempo::heuristics::BaseValueHeuristic
    */
-  explicit SolutionGuided(double epsilon)
-      : BaseBooleanHeuristic<SolutionGuided>(epsilon) {}
+  template <class... arguments>
+  explicit SolutionGuided(double epsilon, arguments &&...args)
+      : BaseBooleanHeuristic<SolutionGuided>(epsilon),
+        h(std::forward<arguments>(args)...) {}
 
   /**
    * heuristic interface
    * @tparam T timing type
    * @tparam S class that provides previously encountered solutions
    */
-  template <typename S>
-  [[nodiscard]] auto choose(var_t x, const S &solver) const {
+  template <typename T>
+  [[nodiscard]] auto choose(var_t, const Solver<T> &) const {
 
     //    if (solver.boolean.hasSolution()) {
     //      return solver.boolean.value(x);
@@ -65,12 +71,15 @@ public:
 
     return makeBooleanLiteral<int>(false, 0, 0);
   }
+
+  BaseHeuristic h;
 };
 
-MAKE_FACTORY(SolutionGuided, const ValueHeuristicConfig &config) {
-  return SolutionGuided(config.epsilon);
-}
-};
+// MAKE_FACTORY(SolutionGuided<TightestValue>, const ValueHeuristicConfig
+// &config) {
+//   return SolutionGuided<TightestValue>(config.epsilon);
+// }
+// };
 }
 
 #endif // TEMPO_SOLUTIONGUIDED_HPP

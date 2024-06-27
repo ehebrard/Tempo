@@ -10,7 +10,7 @@
 #include <string>
 
 #include "RandomBinaryValue.hpp"
-#include "SolutionGuided.hpp"
+//#include "SolutionGuided.hpp"
 #include "TightestValue.hpp"
 #include "util/Options.hpp"
 #include "util/factory_pattern.hpp"
@@ -25,7 +25,7 @@ namespace tempo::heuristics {
 auto valHeuristicTypeToString(Options::PolarityHeuristic type) -> std::string;
 
 MAKE_FACTORY_PATTERN(ValueHeuristic, ValueHeuristicConfig, TightestValue,
-                     SolutionGuided, RandomBinaryValue)
+                     /*SolutionGuided<TightestValue>,*/ RandomBinaryValue)
 
 class ValueHeuristicsManager {
   std::optional<ValueHeuristic> impl;

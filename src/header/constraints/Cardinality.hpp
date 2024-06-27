@@ -1,5 +1,5 @@
 /************************************************
- * Tempo Cardinality.hpp
+ * Tempo CardinalityInterface.hpp
  *
  * Copyright 2024 Emmanuel Hebrard
  *
@@ -32,30 +32,31 @@
 namespace tempo {
 
 
+
 // enforce sum(l_i) <= bound
-template <typename T> class Cardinality : public Constraint<T> {
+template <typename T> class CardinalityInterface : public Constraint<T> {
 private:
   Solver<T> &m_solver;
     
   std::vector<Literal<T>> literals;
 
-    Reversible<unsigned> current_bound;
-    
-    unsigned bound;
+    Reversible<T> current_bound;
 
     
 public:
+    
+    virtual T upperBound() = 0;
+    
 //  template <typename Iter>
-//  Cardinality(Solver<T> &solver, const Iter beg_lit,
+//  CardinalityInterface(Solver<T> &solver, const Iter beg_lit,
 //               const Iter end_lit, const unsigned lb);
   template <typename Iter>
-  Cardinality(Solver<T> &solver, const Iter beg_var, const Iter end_var,
-              const bool sign, const unsigned lb);
+  CardinalityInterface(Solver<T> &solver, const Iter beg_var, const Iter end_var,
+              const bool sign);
 
   template <typename Iter>
-  Cardinality(Solver<T> &solver, const Iter beg_lit, const Iter end_lit,
-              const unsigned lb);
-  virtual ~Cardinality();
+  CardinalityInterface(Solver<T> &solver, const Iter beg_lit, const Iter end_lit);
+  virtual ~CardinalityInterface();
 
   bool notify(const Literal<T>, const int) override;
   void post(const int idx) override;
@@ -65,7 +66,7 @@ public:
               std::vector<Literal<T>> &Cl) override;
   int getType() const override;
 
-  void setBound(const unsigned b);
+//  void setBound(const unsigned b);
 
   std::ostream &display(std::ostream &os) const override;
 
@@ -78,48 +79,39 @@ public:
 
 template <typename T>
 template <typename Iter>
-Cardinality<T>::Cardinality(Solver<T> &solver, const Iter beg_var,
-                            const Iter end_var, const bool sign, const unsigned b)
-    : m_solver(solver), current_bound(0, &solver.getEnv()), bound(b)
+CardinalityInterface<T>::CardinalityInterface(Solver<T> &solver, const Iter beg_var,
+                            const Iter end_var, const bool sign)
+    : m_solver(solver), current_bound(0, &solver.getEnv())
 {
 
   Constraint<T>::priority = Priority::High;
-
-//  std::cout << "cardinality(";
-
   for (auto x{beg_var}; x != end_var; ++x) {
     auto l{*x == sign};
-
-//    std::cout << " " << l;
-
     literals.push_back(l);
   }
-//  std::cout << " ) <= " << b << std::endl;
-
-//  current_bound = 0;
-  setBound(b);
+//  setBound(b);
 }
 
 template <typename T>
 template <typename Iter>
-Cardinality<T>::Cardinality(Solver<T> &solver, const Iter beg_lit,
-                            const Iter end_lit, const unsigned b)
-    : m_solver(solver), current_bound(0, &solver.getEnv()), bound(b) {
+CardinalityInterface<T>::CardinalityInterface(Solver<T> &solver, const Iter beg_lit,
+                            const Iter end_lit)
+    : m_solver(solver), current_bound(0, &solver.getEnv()) {
 
   Constraint<T>::priority = Priority::High;
   for (auto l{beg_lit}; l != end_lit; ++l) {
     literals.push_back(*l);
   }
-  setBound(b);
+//  setBound(b);
 }
 
-template <typename T> Cardinality<T>::~Cardinality() {}
+template <typename T> CardinalityInterface<T>::~CardinalityInterface() {}
 
-template <typename T> void Cardinality<T>::setBound(const unsigned b) {
-    bound = b;
-}
+//template <typename T> void CardinalityInterface<T>::setBound(const unsigned b) {
+//    bound = b;
+//}
 
-template <typename T> void Cardinality<T>::post(const int idx) {
+template <typename T> void CardinalityInterface<T>::post(const int idx) {
 
   Constraint<T>::cons_id = idx;
     Constraint<T>::idempotent = true;
@@ -137,11 +129,12 @@ template <typename T> void Cardinality<T>::post(const int idx) {
 }
 
 template <typename T>
-void Cardinality<T>::propagate() {}
+void CardinalityInterface<T>::propagate() {}
 
 
 template <typename T>
-bool Cardinality<T>::notify(const Literal<T> l, const int) {
+bool CardinalityInterface<T>::notify(const Literal<T> l, const int) {
+    auto bound{upperBound()};
     if(m_solver.boolean.satisfied(l)) {
         ++current_bound;
         if(current_bound > bound) {
@@ -159,12 +152,12 @@ bool Cardinality<T>::notify(const Literal<T> l, const int) {
 
 
 
-template <typename T> int Cardinality<T>::getType() const {
+template <typename T> int CardinalityInterface<T>::getType() const {
   return CARDEXPL;
 }
 
 template <typename T>
-void Cardinality<T>::xplain(const Literal<T> l, const hint, std::vector<Literal<T>> &Cl) {
+void CardinalityInterface<T>::xplain(const Literal<T> l, const hint, std::vector<Literal<T>> &Cl) {
     
     auto l_lvl{(l==Solver<T>::Contradiction ? m_solver.numLiteral() : m_solver.propagationLevel(l))};
     for(auto p : literals) {
@@ -175,8 +168,8 @@ void Cardinality<T>::xplain(const Literal<T> l, const hint, std::vector<Literal<
 }
 
 template <typename T>
-std::ostream &Cardinality<T>::display(std::ostream &os) const {
-  os << "Cardinality";
+std::ostream &CardinalityInterface<T>::display(std::ostream &os) const {
+  os << "CardinalityInterface";
 
 #ifdef DEBUG_CONSTRAINT
   os << "[" << this->id() << "]";
@@ -191,10 +184,10 @@ std::ostream &Cardinality<T>::display(std::ostream &os) const {
 }
 
 template <typename T>
-std::ostream &Cardinality<T>::print_reason(std::ostream &os,
+std::ostream &CardinalityInterface<T>::print_reason(std::ostream &os,
                                             const hint) const {
   //  display(os);
-  os << "Cardinality";
+  os << "CardinalityInterface";
   //
   //  if (not explanations[h].empty()) {
   //
@@ -212,7 +205,65 @@ std::ostream &Cardinality<T>::print_reason(std::ostream &os,
   return os;
 }
 
-// template <typename T> std::vector<int> Cardinality<T>::task_map;
+
+
+template <typename T> class CardinalityConst : public CardinalityInterface<T> {
+public:
+    
+    template <typename Iter>
+    CardinalityConst(Solver<T> &solver, const Iter beg_var, const Iter end_var,
+                const bool sign, const T ub) : CardinalityInterface<T>(solver, beg_var, end_var, sign), bound(ub) {}
+
+    template <typename Iter>
+    CardinalityConst(Solver<T> &solver, const Iter beg_lit, const Iter end_lit,
+                const T ub) : CardinalityInterface<T>(solver, beg_lit, end_lit), bound(ub) {}
+    
+    T upperBound() {return bound;}
+    
+private:
+    T bound;
+};
+
+
+template <typename T> class CardinalityLeqVar : public CardinalityInterface<T> {
+public:
+    
+    template <typename Iter>
+    CardinalityLeqVar(Solver<T> &solver, const Iter beg_var, const Iter end_var,
+                const bool sign, const var_t ub) : CardinalityInterface<T>(solver, beg_var, end_var, sign), bound(ub) {}
+
+    template <typename Iter>
+    CardinalityLeqVar(Solver<T> &solver, const Iter beg_lit, const Iter end_lit,
+                const var_t ub) : CardinalityInterface<T>(solver, beg_lit, end_lit), bound(ub) {}
+    
+    T upperBound() {return CardinalityInterface<T>::m_solver.numeric.upper(bound);}
+    
+private:
+    var_t bound;
+};
+
+template <typename T> class CardinalityGeqVar : public CardinalityInterface<T> {
+public:
+    
+    template <typename Iter>
+    CardinalityGeqVar(Solver<T> &solver, const Iter beg_var, const Iter end_var,
+                const bool sign, const var_t lb) : CardinalityInterface<T>(solver, beg_var, end_var, sign), bound(lb) {}
+
+    template <typename Iter>
+    CardinalityGeqVar(Solver<T> &solver, const Iter beg_lit, const Iter end_lit,
+                const var_t lb) : CardinalityInterface<T>(solver, beg_lit, end_lit), bound(lb) {
+        for(auto& l : CardinalityInterface<T>::literals) {
+            l = ~l;
+        }
+    }
+    
+    T upperBound() {return static_cast<T>(CardinalityInterface<T>::literals.size()) -  CardinalityInterface<T>::m_solver.numeric.lower(bound);}
+    
+private:
+    var_t bound;
+};
+
+// template <typename T> std::vector<int> CardinalityInterface<T>::task_map;
 
 } // namespace tempo
 

@@ -38,6 +38,7 @@
 #include "constraints/Cardinality.hpp"
 #include "constraints/DisjunctiveEdgeFinding.hpp"
 #include "constraints/EdgeConstraint.hpp"
+#include "constraints/OptionalEdgeConstraint.hpp"
 #include "constraints/PseudoBoolean.hpp"
 #include "constraints/Transitivity.hpp"
 #include "heuristics/HeuristicManager.hpp"
@@ -319,11 +320,19 @@ public:
      * @name modelling methods
      */
     //@{
-    // create an internal boolean variable and return a model object pointing to it
+    // create an internal Boolean variable and return a model object pointing to
+    // it
     BooleanVar<T> newBoolean();
-    // create an internal boolean variable with a difference logic semantic and return a model object pointing to it
+    // create an internal Boolean variable with a difference logic semantic,
+    // post the channelling constraints, and return a model object pointing to
+    // it
     DisjunctVar<T> newDisjunct(const DistanceConstraint<T> &,
                                const DistanceConstraint<T> &);
+    // create an internal Boolean variable with a difference logic semantic,
+    // post the channelling constraints (including the optionality), and return
+    // a model object pointing to it
+    DisjunctVar<T> newDisjunct(const var_t opt, const DistanceConstraint<T> &d1,
+                               const DistanceConstraint<T> &d2);
     // create an internal numeric variable and return a model object pointing to it
     NumericVar<T> newNumeric();
     // create an internal temporal variable and return a model object pointing to it
@@ -395,10 +404,10 @@ public:
     // create and post a new cardinality propagator
     template <typename ItVar>
     void postCardinality(const ItVar beg_var, const ItVar end_var,
-                         const bool sign, const unsigned bound);
+                         const bool sign, const T bound);
     template <typename ItLit>
     void postCardinality(const ItLit beg_lit, const ItLit end_lit,
-                         const unsigned bound);
+                         const T bound);
 
     template <typename ItLit, typename ItW>
     void postPseudoBoolean(const ItLit beg_lit, const ItLit end_lit, ItW w,
@@ -1094,11 +1103,24 @@ DisjunctVar<T> Solver<T>::newDisjunct(const DistanceConstraint<T> &d1,
     auto x{boolean.newDisjunct(d1, d2)};
     clauses.newBooleanVar(x.id());
     boolean_constraints.resize(std::max(numConstraint(), 2 * boolean.size()));
-    
+
     post(new EdgeConstraint<T>(*this, boolean.getLiteral(true, x)));
     post(new EdgeConstraint<T>(*this, boolean.getLiteral(false, x)));
-    
+
     return x;
+}
+
+template <typename T>
+DisjunctVar<T> Solver<T>::newDisjunct(const var_t opt,
+                                      const DistanceConstraint<T> &d1,
+                                      const DistanceConstraint<T> &d2) {
+  auto x{boolean.newDisjunct(d1, d2)};
+  clauses.newBooleanVar(x.id());
+  boolean_constraints.resize(std::max(numConstraint(), 2 * boolean.size()));
+
+  post(new OptionalEdgeConstraint<T>(*this, x, opt));
+
+  return x;
 }
 
 template <typename T> NumericVar<T> Solver<T>::newNumeric() {
@@ -2296,15 +2318,15 @@ void Solver<T>::wake_me_on(const Literal<T> l, const int c) {
 template <typename T>
 template <typename ItLit>
 void Solver<T>::postCardinality(const ItLit beg_lit, const ItLit end_lit,
-                                const unsigned bound) {
-  post(new Cardinality<T>(*this, beg_lit, end_lit, bound));
+                                const T bound) {
+  post(new CardinalityConst<T>(*this, beg_lit, end_lit, bound));
 }
 
 template <typename T>
 template <typename ItVar>
 void Solver<T>::postCardinality(ItVar beg_var, ItVar end_var, const bool sign,
-                                const unsigned bound) {
-  post(new Cardinality<T>(*this, beg_var, end_var, sign, bound));
+                                const T bound) {
+  post(new CardinalityConst<T>(*this, beg_var, end_var, sign, bound));
 }
 
 template <typename T>
