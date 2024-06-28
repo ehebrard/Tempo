@@ -47,8 +47,7 @@ namespace tempo::heuristics {
         template<boolean_info_provider Solver>
         static auto valueDecision(const VariableSelection &selection, const Solver &solver) noexcept {
             assert(selection.second == VariableType::Boolean);
-            auto lit = solver.boolean.getLiteral(true, selection.first);
-            return tempo::random() % 2 == 0 ? lit : ~lit;
+            return solver.boolean.getLiteral(tempo::random() % 2 == 0, selection.first);
         }
     };
 
