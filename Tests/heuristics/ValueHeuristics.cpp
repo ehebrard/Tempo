@@ -20,9 +20,9 @@ struct TestValueHeuristic
             : tempo::heuristics::BaseBooleanHeuristic<TestValueHeuristic>(epsilon) {}
 
     template<typename Sched>
-    auto choose(tempo::Literal<int>, const Sched &) {
+    auto choose(tempo::var_t, const Sched &) {
         called = true;
-        return true;
+        return tempo::makeBooleanLiteral<int>(true, 0, 0);
     }
 };
 
@@ -32,11 +32,15 @@ struct LitProvider {
 
         tempo::Literal<int> lit;
 
-        auto getLiteral(...) const { return lit; }
+        auto getLiteral(bool sign, tempo::var_t) const { return sign ? lit : ~lit; }
 
-        auto getEdge(tempo::Literal<int> l) const -> tempo::DistanceConstraint<int> {
-            return l.sign() ? tempo::DistanceConstraint{l.semantic(), 0, 0} :
-                   tempo::DistanceConstraint{0, l.semantic(), 0};
+        auto getEdge(bool sign, tempo::var_t x) const -> tempo::DistanceConstraint<int> {
+            return sign ? tempo::DistanceConstraint{x, lit.semantic(), 0} :
+                   tempo::DistanceConstraint{lit.semantic(), x, 0};
+        }
+
+        bool hasSemantic(tempo::var_t) const {
+            return lit.hasSemantic();
         }
     };
 
@@ -51,7 +55,7 @@ struct LitProvider {
     };
 
     Storage boolean;
-    Numeric numeric;
+    Numeric numeric{};
 
     explicit LitProvider(tempo::Literal<int> lit) : boolean(lit) {}
 };
@@ -75,10 +79,12 @@ TEST(value_heuristics, TightestValue) {
     using namespace tempo;
     using namespace tempo::heuristics;
     EXPECT_TRUE((value_heuristic<TightestValue, Solver<int>>));
-    LitProvider provider(makeBooleanLiteral<int>(true, 0, 0));
-    auto lit = makeBooleanLiteral<int>(true, 0, 5);
-    EXPECT_EQ(TightestValue::choose(lit, provider), false);
-    EXPECT_EQ(TightestValue::choose(~lit, provider), true);
+    auto lit = makeBooleanLiteral<int>(true, 0, 4);
+    LitProvider provider(lit);
+    EXPECT_EQ(TightestValue::choose(5, provider), lit);
+    lit = makeBooleanLiteral<int>(true, 0, 4);
+    provider = LitProvider{lit};
+    EXPECT_EQ(TightestValue::choose(2, provider), ~lit);
 }
 /*
 TEST(value_heuristics, SolutionGuided) {
