@@ -13,9 +13,11 @@
 #include "TightestValue.hpp"
 #include "util/SubscribableEvent.hpp"
 
-namespace tempo::heuristics {
+namespace tempo {
+    template <typename T> class Solver;
+}
 
-template <typename T> class Solver;
+namespace tempo::heuristics {
 
 namespace detail {
 template <typename Sched>
