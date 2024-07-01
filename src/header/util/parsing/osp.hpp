@@ -61,7 +61,7 @@ void parse(const std::string &fn, M &model, J &schedule,
           exit(1);
         }
 
-        resources.resize(nj + nm);
+        resources.resize(nj + nm, schedule);
 
         gotheader = true;
       } else if (j < nj) {

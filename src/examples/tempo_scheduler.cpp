@@ -111,4 +111,5 @@ int main(int argc, char *argv[]) {
 
   // search
   S.minimize(schedule.end);
+    
 }
