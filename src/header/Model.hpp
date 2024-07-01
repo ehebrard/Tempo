@@ -659,6 +659,15 @@ class NoOverlapExpression : public BooleanExpression<T> {
 public:
   NoOverlapExpression(NoOverlapExpressionImpl<T> *i)
       : BooleanExpression<T>(i) {}
+    
+    std::vector<Interval<T>>::iterator begin() {
+      return static_cast<NoOverlapExpressionImpl<T> *>(BooleanExpression<T>::impl)
+          ->begin();
+    }
+    std::vector<Interval<T>>::iterator end() {
+      return static_cast<NoOverlapExpressionImpl<T> *>(BooleanExpression<T>::impl)
+          ->end();
+    }
 
   std::vector<DisjunctVar<T>>::iterator begDisjunct() {
     return static_cast<NoOverlapExpressionImpl<T> *>(BooleanExpression<T>::impl)
@@ -668,6 +677,9 @@ public:
     return static_cast<NoOverlapExpressionImpl<T> *>(BooleanExpression<T>::impl)
         ->endDisjunct();
   }
+    
+    void push_back(const Interval<T>& i) { static_cast<NoOverlapExpressionImpl<T> *>(BooleanExpression<T>::impl)
+        ->push_back(i); }
 };
 
 template <typename T, typename Iterable>
@@ -675,6 +687,13 @@ NoOverlapExpression<T> NoOverlap(Interval<T> &schedule, Iterable &X) {
   auto impl{new NoOverlapExpressionImpl<T>(schedule)};
   for (auto x : X)
     impl->push_back(x);
+  NoOverlapExpression<T> exp(impl);
+  return exp;
+}
+
+template <typename T>
+NoOverlapExpression<T> NoOverlap(Interval<T> &schedule) {
+  auto impl{new NoOverlapExpressionImpl<T>(schedule)};
   NoOverlapExpression<T> exp(impl);
   return exp;
 }

@@ -73,8 +73,8 @@ int main(int argc, char *argv[]) {
   // depending on the option "input-format", parse a disjunctive scheduling
   // instance, and collect resources and interval objects
   //  std::vector<DisjunctiveResource<>> resources;
-  //  std::vector<NoOverlapExpression<>> resources;
-  std::vector<std::vector<Interval<>>> resources;
+    std::vector<NoOverlapExpression<>> resources;
+//  std::vector<std::vector<Interval<>>> resources;
   std::vector<Interval<>> intervals;
 
   //    SchedulingModel<T> model;
@@ -92,10 +92,10 @@ int main(int argc, char *argv[]) {
     jstl::parse(opt.instance_file, S, schedule, intervals, resources);
   }
 
-  std::vector<NoOverlapExpression<>> res;
-  for (auto &tasks : resources) {
-    auto no_overlap{NoOverlap(schedule, tasks)};
-    res.push_back(no_overlap);
+//  std::vector<NoOverlapExpression<>> res;
+  for (auto &no_overlap : resources) {
+//    auto no_overlap{NoOverlap(schedule, tasks)};
+//    res.push_back(no_overlap);
     S.post(no_overlap);
   }
 
@@ -107,7 +107,7 @@ int main(int argc, char *argv[]) {
 
   S.set(schedule.end.before(ub));
 
-  warmstart(S, schedule, intervals, res, ub);
+//  warmstart(S, schedule, intervals, res, ub);
 
   // search
   S.minimize(schedule.end);
