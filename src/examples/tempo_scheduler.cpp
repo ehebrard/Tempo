@@ -74,28 +74,28 @@ int main(int argc, char *argv[]) {
   // instance, and collect resources and interval objects
   //  std::vector<DisjunctiveResource<>> resources;
     std::vector<NoOverlapExpression<>> resources;
-//  std::vector<std::vector<Interval<>>> resources;
+  std::vector<std::vector<Interval<>>> resource_tasks;
   std::vector<Interval<>> intervals;
 
   //    SchedulingModel<T> model;
     
   if (opt.input_format == "osp") {
-    osp::parse(opt.instance_file, S, schedule, intervals, resources);
+    osp::parse(opt.instance_file, S, schedule, intervals, resource_tasks);
   } else if (opt.input_format == "jsp") {
-    jsp::parse(opt.instance_file, S, schedule, intervals, resources);
+    jsp::parse(opt.instance_file, S, schedule, intervals, resource_tasks);
   }
   //    else if (opt.input_format == "tsptw") {
   //        tsptw::parse(opt.instance_file, S, schedule, Intervals,
   //        resources);
   //    }
   else if (opt.input_format == "jstl") {
-    jstl::parse(opt.instance_file, S, schedule, intervals, resources);
+    jstl::parse(opt.instance_file, S, schedule, intervals, resource_tasks);
   }
 
 //  std::vector<NoOverlapExpression<>> res;
-  for (auto &no_overlap : resources) {
-//    auto no_overlap{NoOverlap(schedule, tasks)};
-//    res.push_back(no_overlap);
+  for (auto &tasks : resource_tasks) {
+    auto no_overlap{NoOverlap(schedule, tasks)};
+    resources.push_back(no_overlap);
     S.post(no_overlap);
   }
 
@@ -107,7 +107,7 @@ int main(int argc, char *argv[]) {
 
   S.set(schedule.end.before(ub));
 
-//  warmstart(S, schedule, intervals, res, ub);
+  warmstart(S, schedule, intervals, resources, ub);
 
   // search
   S.minimize(schedule.end);
