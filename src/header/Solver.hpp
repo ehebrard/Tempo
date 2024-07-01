@@ -331,8 +331,9 @@ public:
     // create an internal Boolean variable with a difference logic semantic,
     // post the channelling constraints (including the optionality), and return
     // a model object pointing to it
-    DisjunctVar<T> newDisjunct(const var_t opt, const DistanceConstraint<T> &d1,
-                               const DistanceConstraint<T> &d2);
+    DisjunctVar<T> newDisjunct(const DistanceConstraint<T> &d1,
+                               const DistanceConstraint<T> &d2,
+                               const var_t opt);
     // create an internal numeric variable and return a model object pointing to it
     NumericVar<T> newNumeric();
     // create an internal temporal variable and return a model object pointing to it
@@ -453,13 +454,17 @@ public:
     
     boolean_state satisfiable();
     template <typename S> void optimize(S &objective);
-    
+    void minimize(NumericVar<T> &x);
+    void minimize(NumericExpression<T> &x);
+    void maximize(NumericVar<T> &x);
+    void maximize(NumericExpression<T> &x);
+
     void restart(const bool on_solution = false);
     void backtrack(Explanation<T> &e);
     void branchRight();
     void learnConflict(Explanation<T> &e);
     void analyze(Explanation<T> &e);
-    void minimize();
+    void minimize_clause();
 
     const SparseSet<var_t, Reversible<size_t>> &getBranch() const {
         return boolean_search_vars;
@@ -483,10 +488,10 @@ public:
      */
     //@{
     std::ostream &display(std::ostream &os, const bool dom = true,
-                          const bool bra = true, const bool sva = false,
+                          const bool bra = true, const bool sva = true,
                           const bool pre = false, const bool cla = false,
                           const bool bgr = false, const bool ngr = false,
-                          const bool con = false, const bool trl = false) const;
+                          const bool con = true, const bool trl = false) const;
     std::ostream &displayTrail(std::ostream &os) const;
     std::ostream &displayDomains(std::ostream &os) const;
     std::ostream &displayBranches(std::ostream &os) const;
@@ -1104,16 +1109,16 @@ DisjunctVar<T> Solver<T>::newDisjunct(const DistanceConstraint<T> &d1,
     clauses.newBooleanVar(x.id());
     boolean_constraints.resize(std::max(numConstraint(), 2 * boolean.size()));
 
-    post(new EdgeConstraint<T>(*this, boolean.getLiteral(true, x)));
-    post(new EdgeConstraint<T>(*this, boolean.getLiteral(false, x)));
+    post(new EdgeConstraint<T>(*this, boolean.getLiteral(true, x.id())));
+    post(new EdgeConstraint<T>(*this, boolean.getLiteral(false, x.id())));
 
     return x;
 }
 
 template <typename T>
-DisjunctVar<T> Solver<T>::newDisjunct(const var_t opt,
-                                      const DistanceConstraint<T> &d1,
-                                      const DistanceConstraint<T> &d2) {
+DisjunctVar<T> Solver<T>::newDisjunct(const DistanceConstraint<T> &d1,
+                                      const DistanceConstraint<T> &d2,
+                                      const var_t opt) {
   auto x{boolean.newDisjunct(d1, d2)};
   clauses.newBooleanVar(x.id());
   boolean_constraints.resize(std::max(numConstraint(), 2 * boolean.size()));
@@ -1357,11 +1362,11 @@ bool Solver<T>::entailedByConflict(Literal<T> p, const index_t p_lvl) const {
     return explored[p_lvl]; // boolean.visited(p);
 }
 
-template <typename T> void Solver<T>::minimize() {
-    auto fact_lvl{propagationLevel(decisions[0])};
-    minimal_clause.clear();
-    minimal_clause.push_back(learnt_clause[0]);
-    
+template <typename T> void Solver<T>::minimize_clause() {
+  auto fact_lvl{propagationLevel(decisions[0])};
+  minimal_clause.clear();
+  minimal_clause.push_back(learnt_clause[0]);
+
 #ifdef DBG_MINIMIZATION
     if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
         std::cout << std::endl << ~learnt_clause[0] << " (UIP:" << decisionLevel(~learnt_clause[0]) << "/" << propagationLevel(~learnt_clause[0]) << "\n";
@@ -1720,7 +1725,7 @@ template <typename T> void Solver<T>::analyze(Explanation<T> &e) {
     
 
     if (options.minimization > 0) {
-        minimize();
+      minimize_clause();
     }
 
 
@@ -1951,6 +1956,28 @@ template <typename T> void Solver<T>::check_clauses(const char* msg) {
 
     exit(1);
   }
+}
+
+template <typename T> void Solver<T>::minimize(NumericVar<T> &x) {
+  MinimizationObjective<T, NumericVar<T>> objective(x);
+  optimize(objective);
+}
+
+template <typename T> void Solver<T>::minimize(NumericExpression<T> &x) {
+  x.extract(*this);
+  MinimizationObjective<T, NumericVar<T>> objective(x);
+  optimize(objective);
+}
+
+template <typename T> void Solver<T>::maximize(NumericVar<T> &x) {
+  MaximizationObjective<T, NumericVar<T>> objective(x);
+  optimize(objective);
+}
+
+template <typename T> void Solver<T>::maximize(NumericExpression<T> &x) {
+  x.extract(*this);
+  MaximizationObjective<T, NumericVar<T>> objective(x);
+  optimize(objective);
 }
 
 template <typename T>
@@ -2487,6 +2514,17 @@ std::ostream &Solver<T>::displayVariables(std::ostream &os) const {
 
 template <typename T>
 std::ostream &Solver<T>::displayConstraints(std::ostream &os) const {
+  for (auto c : constraints) {
+    os << *c << ": ";
+    for (auto x : boolean_constraints.backward()[c->id()]) {
+      os << " b" << x;
+    }
+    os << " /";
+    for (auto x : numeric_constraints.backward()[c->id()]) {
+      os << " x" << x;
+    }
+    os << std::endl;
+  }
   return os;
 }
 
@@ -2589,8 +2627,7 @@ std::ostream &Solver<T>::display(std::ostream &os, const bool dom,
   }
   if (con) {
     os << "constraints:\n";
-    for (auto c : constraints)
-      os << *c << std::endl;
+    displayConstraints(os);
   }
 
   return os;

@@ -29,81 +29,21 @@
 
 using namespace tempo;
 
-// implementation of a scheduling solver
-int main(int argc, char *argv[]) {
-
-  Options opt = tempo::parse(argc, argv);
-  Solver<> S(opt);
-
-  // an interval standing for the makespan of schedule
-  auto schedule{S.newInterval()};
-
-  // depending on the option "input-format", parse a disjunctive scheduling
-  // instance, and collect resources and interval objects
-  std::vector<DisjunctiveResource<>> resources;
-  std::vector<Interval<>> Intervals;
-    
-//    SchedulingModel<T> model;
-    
-  if (opt.input_format == "osp") {
-    osp::parse(opt.instance_file, S, schedule, Intervals, resources);
-  } else if (opt.input_format == "jsp") {
-    jsp::parse(opt.instance_file, S, schedule, Intervals, resources);
-  }
-  //    else if (opt.input_format == "tsptw") {
-  //        tsptw::parse(opt.instance_file, S, schedule, Intervals,
-  //        resources);
-  //    }
-  else if (opt.input_format == "jstl") {
-    jstl::parse(opt.instance_file, S, schedule, Intervals, resources);
-  }
-
-  // create disjunct variables for each resource and post the propagators
-  std::vector<BooleanVar<>> X;
-  for (auto &R : resources) {
-    auto s{X.size()};
-    R.createOrderVariables(S, X);
-
-    // post the propagator for the edge-finding rule
-    if (opt.edge_finding) {
-      S.postEdgeFinding(schedule, R.begin(), R.end(), X.begin() + s);
-    }
-
-    // post the propagator for the precedence reasoning rule
-    if (opt.transitivity) {
-      S.postTransitivity(schedule, R.begin(), R.end(), X.begin() + s);
-    }
-  }
-
-  // notify the solver to assign a value to all disjunct variables
-  for (auto x : X)
-    S.addToSearch(x);
-
-  // the objective
-  //  MakespanObjective<int> duration(schedule, S);
-  MinimizationObjective<int, TemporalVar<int>> makespan(schedule.end);
-
-  // set a trivial (and the user-defined) upper bound
-  auto trivial_ub{0};
-  for (auto &j : Intervals)
-    trivial_ub += j.minDuration();
-  auto ub{std::min(opt.ub, trivial_ub)};
-  S.set(schedule.end.before(ub));
-
+template <typename T>
+void warmstart(Solver<T> &S, Interval<T> &schedule,
+               std::vector<Interval<T>> intervals,
+               std::vector<NoOverlapExpression<>> &resources, T &ub) {
   // try to get a better ub with an initial upper bound insertion heuristic
   Greedy greedy_insertion(S);
-  greedy_insertion.addIntervals(Intervals);
-  size_t k{0};
+  greedy_insertion.addIntervals(intervals);
   for (auto &R : resources) {
-    auto n = k + R.size() * (R.size() - 1) / 2;
-    greedy_insertion.addResource(X.begin() + k, X.begin() + n);
-    k = n;
+    greedy_insertion.addResource(R.begDisjunct(), R.endDisjunct());
   }
 
   // the insertion heuristic is randomized so multiple runs can be useful
   S.initializeSearch();
   S.propagate();
-  for (auto i{0}; i < opt.greedy_runs; ++i) {
+  for (auto i{0}; i < S.getOptions().greedy_runs; ++i) {
     auto st{S.saveState()};
     auto sat{greedy_insertion.runEarliestStart()};
     if (sat) {
@@ -119,7 +59,56 @@ int main(int argc, char *argv[]) {
 
   // set the ub (again)
   S.set(schedule.end.before(ub));
+}
+
+// implementation of a scheduling solver
+int main(int argc, char *argv[]) {
+
+  Options opt = tempo::parse(argc, argv);
+  Solver<> S(opt);
+
+  // an interval standing for the makespan of schedule
+  auto schedule{S.newInterval()};
+
+  // depending on the option "input-format", parse a disjunctive scheduling
+  // instance, and collect resources and interval objects
+  //  std::vector<DisjunctiveResource<>> resources;
+  //  std::vector<NoOverlapExpression<>> resources;
+  std::vector<std::vector<Interval<>>> resources;
+  std::vector<Interval<>> intervals;
+
+  //    SchedulingModel<T> model;
+    
+  if (opt.input_format == "osp") {
+    osp::parse(opt.instance_file, S, schedule, intervals, resources);
+  } else if (opt.input_format == "jsp") {
+    jsp::parse(opt.instance_file, S, schedule, intervals, resources);
+  }
+  //    else if (opt.input_format == "tsptw") {
+  //        tsptw::parse(opt.instance_file, S, schedule, Intervals,
+  //        resources);
+  //    }
+  else if (opt.input_format == "jstl") {
+    jstl::parse(opt.instance_file, S, schedule, intervals, resources);
+  }
+
+  std::vector<NoOverlapExpression<>> res;
+  for (auto &tasks : resources) {
+    auto no_overlap{NoOverlap(schedule, tasks)};
+    res.push_back(no_overlap);
+    S.post(no_overlap);
+  }
+
+  // set a trivial (and the user-defined) upper bound
+  auto trivial_ub{0};
+  for (auto &j : intervals)
+    trivial_ub += j.minDuration();
+  auto ub{std::min(opt.ub, trivial_ub)};
+
+  S.set(schedule.end.before(ub));
+
+  warmstart(S, schedule, intervals, res, ub);
 
   // search
-  S.optimize(makespan);
+  S.minimize(schedule.end);
 }

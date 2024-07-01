@@ -51,20 +51,19 @@ public:
       }
     }
 
-    void addResource(/*DisjunctiveResource<T>& R,*/ std::vector<BooleanVar<>>::iterator bx, std::vector<BooleanVar<>>::iterator ex) {
-      //        unscheduled_Intervals_of.resize(unscheduled_Intervals_of.size()+1);
-      //        unscheduled_Intervals_of.
+    void addResource(const std::vector<DisjunctVar<T>>::iterator bx,
+                     const std::vector<DisjunctVar<T>>::iterator ex) {
+
       for (auto xi{bx}; xi != ex; ++xi) {
+
         auto l{solver.boolean.getLiteral(true, *xi)};
         auto c{solver.boolean.getEdge(l)};
+
         precedences[Interval_map[c.to]].push_back(l);
         precedences[Interval_map[c.from]].push_back(~l);
       }
-      //        for(auto& Interval : R) {
-      //            unscheduled_Intervals_of.back().add()
-      //        }
     }
-    
+
     bool runEarliestStart();
     bool runLatestEnd();
     
