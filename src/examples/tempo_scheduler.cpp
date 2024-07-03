@@ -105,6 +105,7 @@ int main(int argc, char *argv[]) {
     trivial_ub += j.minDuration();
   auto ub{std::min(opt.ub, trivial_ub)};
 
+  //    S.post(schedule.end <= ub);
   S.set(schedule.end.before(ub));
 
   warmstart(S, schedule, intervals, resources, ub);

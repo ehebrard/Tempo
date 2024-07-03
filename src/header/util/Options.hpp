@@ -66,7 +66,7 @@ public:
 
   double polarity_epsilon{0};
 
-  PolarityHeuristic polarity_heuristic{PolarityHeuristic::SolutionGuided};
+  PolarityHeuristic polarity_heuristic{PolarityHeuristic::Tightest};
 
   double vsids_decay{0.999};
   double vsids_epsilon{0.05};

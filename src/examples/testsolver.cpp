@@ -249,9 +249,10 @@ void test3(Options &options) {
 
   //  std::cout << S << std::endl;
 
-  MinimizationObjective<int, TemporalVar<int>> makespan(schedule.end);
+  //  MinimizationObjective<int> makespan(schedule.end);
 
-  S.optimize(makespan);
+  //  S.optimize(makespan);
+  S.minimize(schedule.end);
 
   //  std::cout << duration.value() << std::endl;
 }
@@ -302,11 +303,11 @@ void test5(Options &opt) {
 
   //    std::cout << S << std::endl;
 
-  MinimizationObjective<int, TemporalVar<int>> makespan(schedule.end);
+  //  MinimizationObjective<int> makespan(schedule.end);
 
   S.set(schedule.end.before(opt.ub));
 
-  S.optimize(makespan);
+  S.minimize(schedule.end);
 }
 
 class BIBD {

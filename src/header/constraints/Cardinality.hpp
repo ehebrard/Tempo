@@ -35,7 +35,7 @@ namespace tempo {
 
 // enforce sum(l_i) <= bound
 template <typename T> class CardinalityInterface : public Constraint<T> {
-private:
+protected:
   Solver<T> &m_solver;
     
   std::vector<Literal<T>> literals;
