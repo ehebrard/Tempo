@@ -29,83 +29,83 @@ along with minicsp.  If not, see <http://www.gnu.org/licenses/>.
 
 using namespace tempo;
 
-void test1(Options& opt) {
-
-  Solver<float> S(opt);
-
-  std::cout << S << std::endl;
-
-  auto b0{S.newBoolean()};
-  auto b1{S.newBoolean()};
-  auto b2{S.newBoolean()};
-
-  auto x0{S.newTemporal()};
-  auto x1{S.newNumeric()};
-  auto x2{S.newTemporal()};
-  auto x3{S.newTemporal()};
-
-  //    auto d0{S.newDisjunct(x0.before(x2,100), x0.after(x2,3))};
-  auto d0{S.newDisjunct(x0.before(x2, 100), x2.before(x0, 3))};
-
-  std::cout << S << std::endl;
-  S.propagate();
-  auto s1{S.saveState()};
-
-  S.set(x0 <= float(18.999));
-
-  S.set(x0 > float(-100));
-
-  S.set(b1 == false);
-
-  S.set(x1 < float(1000));
-
-  S.set(x1 >= float(100));
-
-  S.set(b2 == true);
-
-  S.set(x3 > float(-9999999.99));
-
-  std::cout << S << std::endl;
-  S.propagate();
-  auto s2{S.saveState()};
-
-  S.set(b0 == true);
-
-  S.set(x1 <= float(300));
-
-  S.set(x0 >= float(0));
-
-  std::cout << S << std::endl;
-  S.propagate();
-  auto s3{S.saveState()};
-
-  S.set(d0 == true);
-
-  std::cout << S << std::endl;
-
-  std::cout << "restore to state " << s3 << std::endl;
-  S.restoreState(s3);
-  std::cout << S << std::endl;
-
-  S.propagate();
-  auto s4{S.saveState()};
-
-  S.set(d0 == false);
-
-  std::cout << S << std::endl;
-
-  std::cout << "restore to state " << s4 << std::endl;
-  S.restoreState(s4);
-  std::cout << S << std::endl;
-
-  std::cout << "restore to state " << s2 << std::endl;
-  S.restoreState(s2);
-  std::cout << S << std::endl;
-
-  std::cout << "restore to state " << s1 << std::endl;
-  S.restoreState(s1);
-  std::cout << S << std::endl;
-}
+//void test1(Options& opt) {
+//
+//  Solver<float> S(opt);
+//
+//  std::cout << S << std::endl;
+//
+//  auto b0{S.newBoolean()};
+//  auto b1{S.newBoolean()};
+//  auto b2{S.newBoolean()};
+//
+//  auto x0{S.newTemporal()};
+//  auto x1{S.newNumeric()};
+//  auto x2{S.newTemporal()};
+//  auto x3{S.newTemporal()};
+//
+//  //    auto d0{S.newDisjunct(x0.before(x2,100), x0.after(x2,3))};
+//  auto d0{S.newDisjunct(x0.before(x2, 100), x2.before(x0, 3))};
+//
+//  std::cout << S << std::endl;
+//  S.propagate();
+//  auto s1{S.saveState()};
+//
+//  S.set(x0.before(float(18.999)));
+//
+//  S.set(x0.after(float(-100)));
+//
+//  S.set(b1 == false);
+//
+//  S.set(x1.before(float(1000));
+//
+//  S.set(x1 >= float(100));
+//
+//  S.set(b2 == true);
+//
+//  S.set(x3 > float(-9999999.99));
+//
+//  std::cout << S << std::endl;
+//  S.propagate();
+//  auto s2{S.saveState()};
+//
+//  S.set(b0 == true);
+//
+//  S.set(x1 <= float(300));
+//
+//  S.set(x0 >= float(0));
+//
+//  std::cout << S << std::endl;
+//  S.propagate();
+//  auto s3{S.saveState()};
+//
+//  S.set(d0 == true);
+//
+//  std::cout << S << std::endl;
+//
+//  std::cout << "restore to state " << s3 << std::endl;
+//  S.restoreState(s3);
+//  std::cout << S << std::endl;
+//
+//  S.propagate();
+//  auto s4{S.saveState()};
+//
+//  S.set(d0 == false);
+//
+//  std::cout << S << std::endl;
+//
+//  std::cout << "restore to state " << s4 << std::endl;
+//  S.restoreState(s4);
+//  std::cout << S << std::endl;
+//
+//  std::cout << "restore to state " << s2 << std::endl;
+//  S.restoreState(s2);
+//  std::cout << S << std::endl;
+//
+//  std::cout << "restore to state " << s1 << std::endl;
+//  S.restoreState(s1);
+//  std::cout << S << std::endl;
+//}
 
 void test2(Options &opt) {
 

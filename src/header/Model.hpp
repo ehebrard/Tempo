@@ -332,7 +332,7 @@ public:
     }
     NumericExpression(const T k) : NumericVar<T>(0, k) {
 
-      std::cout << "here\n";
+//      impliesstd::cout << "here\n";
 
       //        NumericVar<T>::_id_ = x.id();
       //        NumericVar<T>::_offset = x.offset();
@@ -387,7 +387,7 @@ public:
       x.extract(solver);
     if (arguments.size() == 1) {
       NumericExpressionImpl<T>::self.setId(arguments.begin()->id());
-      NumericExpressionImpl<T>::self.setOffset(arguments.begin()->offset());
+      NumericExpressionImpl<T>::self.setOffset(NumericExpressionImpl<T>::self.offset() + arguments.begin()->offset());
     } else {
       throw ModelingException("binary and nary sums: not implemented");
     }
@@ -441,7 +441,7 @@ public:
     y.extract(solver);
 
     auto prec{x.before(y, -k)};
-    self = solver.newDisjunct(prec, ~prec);
+    self = solver.newDisjunct(~prec, prec);
     return self.id();
   }
 
@@ -524,6 +524,48 @@ template <typename T>
 BooleanExpression<T> operator<(const NumericExpression<T> &x,
                                const NumericExpression<T> &y) {
   BooleanExpression<T> exp(new LeqExpressionImpl<T>(x, y, -Gap<T>::epsilon()));
+  return exp;
+}
+
+template <typename T>
+BooleanExpression<T> operator<(const NumericVar<T> &x,
+                               const NumericExpression<T> &y) {
+  BooleanExpression<T> exp(new LeqExpressionImpl<T>(NumericExpression<T>(x), y, -Gap<T>::epsilon()));
+  return exp;
+}
+
+template <typename T>
+BooleanExpression<T> operator<(const NumericExpression<T> &x,
+                               const NumericVar<T> &y) {
+  BooleanExpression<T> exp(new LeqExpressionImpl<T>(x, NumericExpression<T>(y), -Gap<T>::epsilon()));
+  return exp;
+}
+
+template <typename T>
+BooleanExpression<T> operator<(const T x,
+                               const NumericExpression<T> &y) {
+  BooleanExpression<T> exp(new LeqExpressionImpl<T>(NumericExpression<T>(x), y, -Gap<T>::epsilon()));
+  return exp;
+}
+
+template <typename T>
+BooleanExpression<T> operator<(const NumericVar<T> &x,
+                               const T y) {
+  BooleanExpression<T> exp(new LeqExpressionImpl<T>(NumericExpression<T>(x), NumericExpression<T>(y), -Gap<T>::epsilon()));
+  return exp;
+}
+
+template <typename T>
+BooleanExpression<T> operator<(const T x,
+                               const NumericVar<T> &y) {
+  BooleanExpression<T> exp(new LeqExpressionImpl<T>(NumericExpression<T>(x), NumericExpression<T>(y), -Gap<T>::epsilon()));
+  return exp;
+}
+
+template <typename T>
+BooleanExpression<T> operator<(const NumericExpression<T> &x,
+                               const T y) {
+  BooleanExpression<T> exp(new LeqExpressionImpl<T>(x, NumericExpression<T>(y), -Gap<T>::epsilon()));
   return exp;
 }
 
@@ -677,8 +719,10 @@ public:
     implied.extract(solver);
     self = solver.newBoolean();
 
-    std::vector<Literal<T>> cl{implicant == false, implied == true,
-                               self == false};
+//    std::vector<Literal<T>> cl{implicant == false, implied == true,
+//                               self == false};
+      std::vector<Literal<T>> cl{solver.boolean.getLiteral(false,implicant), solver.boolean.getLiteral(true, implied),
+          solver.boolean.getLiteral(false,self)};
     solver.clauses.add(cl.begin(), cl.end());
 
     cl = {self == true, implicant == true};
@@ -693,7 +737,7 @@ public:
   void post(Solver<T> &solver) override {
     implicant.extract(solver);
     implied.extract(solver);
-    std::vector<Literal<T>> cl{implicant == false, implied == true};
+    std::vector<Literal<T>> cl{solver.boolean.getLiteral(false,implicant), solver.boolean.getLiteral(true,implied)};
     solver.clauses.add(cl.begin(), cl.end());
   }
 
@@ -760,11 +804,11 @@ BooleanVar<T>::implies(const BooleanExpression<T> x) const {
 // }
 
 template <typename T = int>
-class CardinalityExpression : public NumericExpressionImpl<T> {
+class CardinalityExpressionImpl : public NumericExpressionImpl<T> {
 public:
     
     template <typename Iter>
-    CardinalityExpression(Iter beg_var, Iter end_var, const T l=0, const T u=Constant::Infinity<T>) : lb(l), ub(u) {
+    CardinalityExpressionImpl(Iter beg_var, Iter end_var, const T l=0, const T u=Constant::Infinity<T>) : lb(l), ub(std::min(u,static_cast<T>(std::distance(beg_var, end_var)))) {
         for(auto x{beg_var}; x!=end_var; ++x) {
           boolean_arguments.emplace_back(*x);
         }
@@ -777,6 +821,8 @@ public:
             L.push_back(x == true);
         }
         NumericExpressionImpl<T>::self = solver.newNumeric();
+        solver.post(NumericExpressionImpl<T>::self.after(lb));
+        solver.post(NumericExpressionImpl<T>::self.before(ub));
         solver.post(new CardinalityLeqVar<T>(
             solver, L.begin(), L.end(), NumericExpressionImpl<T>::self.id()));
         solver.post(new CardinalityGeqVar<T>(
@@ -811,7 +857,7 @@ private:
 
 template <typename T, typename Iterable>
 NumericExpression<T> Cardinality(Iterable &X) {
-  NumericExpression<T> exp(new CardinalityExpression(X.begin(), X.end()));
+  NumericExpression<T> exp(new CardinalityExpressionImpl(X.begin(), X.end()));
   return exp;
 }
 

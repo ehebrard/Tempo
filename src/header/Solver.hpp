@@ -464,9 +464,9 @@ public:
     boolean_state satisfiable();
     template <typename S> void optimize(S &objective);
     void minimize(NumericVar<T> &x);
-    void minimize(NumericExpression<T> &x);
+    void minimize(NumericExpression<T> x);
     void maximize(NumericVar<T> &x);
-    void maximize(NumericExpression<T> &x);
+    void maximize(NumericExpression<T> x);
 
     void restart(const bool on_solution = false);
     void backtrack(Explanation<T> &e);
@@ -1997,7 +1997,7 @@ template <typename T> void Solver<T>::minimize(NumericVar<T> &x) {
   optimize(objective);
 }
 
-template <typename T> void Solver<T>::minimize(NumericExpression<T> &x) {
+template <typename T> void Solver<T>::minimize(NumericExpression<T> x) {
   x.extract(*this);
   MinimizationObjective<T> objective(x);
   optimize(objective);
@@ -2008,7 +2008,7 @@ template <typename T> void Solver<T>::maximize(NumericVar<T> &x) {
   optimize(objective);
 }
 
-template <typename T> void Solver<T>::maximize(NumericExpression<T> &x) {
+template <typename T> void Solver<T>::maximize(NumericExpression<T> x) {
   x.extract(*this);
   MaximizationObjective<T> objective(x);
   optimize(objective);
@@ -2634,7 +2634,9 @@ std::ostream &Solver<T>::display(std::ostream &os, const bool dom,
     os << "precedence graph:\n" << core << std::endl;
   }
   if (cla) {
-    os << "clauses:\n" << clauses << std::endl;
+      os << "clauses:\n" ;
+      clauses.displayClauses(os);
+//      os << std::endl;
   }
   if (bgr) {
     os << "boolean triggers:\n";

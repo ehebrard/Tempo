@@ -83,7 +83,6 @@ public:
 
 private:
   void apply(const T target, Solver<T> &solver) {
-    //    solver.set(Objective<T>::X > target);
     solver.set(Objective<T>::X.after(target + Gap<T>::epsilon()));
   }
 };
