@@ -17,7 +17,8 @@ namespace tempo::testing {
         std::vector<Resource> resources{{2, {tasks[0], tasks[2]},           {2, 1}},
                                         {3, {tasks[1], tasks[2], tasks[3]}, {3, 1, 1}}};
         std::vector<DistanceConstraint<int>> precedences{{2, 1, 0}};
-        return {std::move(tasks), std::move(resources), std::move(precedences)};
+        return {std::move(tasks), std::move(resources), std::move(precedences),
+                {{7, 0}, {8, 0}, 0, Constant::Infinity<int>}};
     }
 
     auto createTasks(std::initializer_list<std::pair<int, int>> durations) -> std::vector<Interval<int>> {

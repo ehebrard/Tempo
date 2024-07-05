@@ -59,7 +59,7 @@ public:
 TEST(util, SchedulingView_basic) {
     using namespace tempo;
     std::vector<Interval<int>> tasks{{{0, 0}, {1, 0}, 3, 6}, {{2, 0}, {2, 5}, 5, 5}, {{3, 0}, {4, 0}, 1, 7}};
-    SchedulingProblemHelper<int, DisjunctiveResource<>> schedulingProb(tasks, {}, {});
+    SchedulingProblemHelper<int, DisjunctiveResource<>> schedulingProb(tasks, {}, {}, {{5, 0}, {6, 0}, 0, 100});
     EXPECT_EQ(tasks, schedulingProb.tasks());
     EXPECT_TRUE(schedulingProb.hasTask(2));
     EXPECT_FALSE(schedulingProb.hasTask(3));
@@ -78,7 +78,7 @@ TEST(util, SchedulingView_basic) {
 TEST(util, SchedulingView_task_distances) {
     using namespace tempo;
     std::vector<Interval<int>> tasks{{{0, 0}, {1, 0}, 3, 6}, {{2, 0}, {2, 5}, 5, 5}, {{3, 0}, {4, 0}, 1, 7}};
-    SchedulingProblemHelper<int, DisjunctiveResource<>> schedulingProb(tasks, {}, {});
+    SchedulingProblemHelper<int, DisjunctiveResource<>> schedulingProb(tasks, {}, {}, Interval<int>{});
     BacktrackEnvironment env;
     DirectedGraph<LabeledEdge<int>> graph(5, &env);
     graph.emplace_edge(2, 4, -2);

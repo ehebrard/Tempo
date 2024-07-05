@@ -154,6 +154,7 @@ namespace tempo {
         RVec res;
         PrecVec precs;
         VarTaskMapping v2t;
+        Interval<T> sched;
 
     public:
         SchedulingProblemHelper() = default;
@@ -163,9 +164,10 @@ namespace tempo {
          * @param tasks tasks contained in the problem
          * @param resources resources in the problem
          * @param precedences precedences between variables in the problem
+         * @param schedule Interval that represents the entire schedule
          */
-        SchedulingProblemHelper(TaskVec tasks, RVec resources, PrecVec precedences) :
-                t(std::move(tasks)), res(std::move(resources)), precs(std::move(precedences)), v2t(t) {}
+        SchedulingProblemHelper(TaskVec tasks, RVec resources, PrecVec precedences, Interval<T> schedule) :
+                t(std::move(tasks)), res(std::move(resources)), precs(std::move(precedences)), v2t(t), sched(schedule) {}
 
         /**
          * read only access to the tasks
@@ -222,8 +224,15 @@ namespace tempo {
          * gets the mapping function from tasks to variables
          * @return mapping from variables to tasks
          */
-        auto getMapping() const noexcept -> VarTaskMapping {
+        [[nodiscard]] auto getMapping() const noexcept -> VarTaskMapping {
             return v2t;
+        }
+
+        /**
+         * Access to the interval representing the entire schedule
+         */
+        auto schedule() const noexcept -> const Interval<T> & {
+            return sched;
         }
 
         /**
