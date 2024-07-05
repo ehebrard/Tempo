@@ -24,6 +24,7 @@
 
 #include "Literal.hpp"
 #include "constraints/Cardinality.hpp"
+#include "util/traits.hpp"
 
 using namespace std;
 
@@ -41,7 +42,7 @@ template<typename T=int>
 class NumericVar {
 
 public:
-    NumericVar() {};
+  constexpr NumericVar() noexcept : _id_(Constant::NoVar) {};
   NumericVar(const var_t i) : _id_(i) {}
 
   T min(Solver<T> &sc) const;
@@ -61,7 +62,7 @@ public:
   static bool isNumeric() { return true; }
 
 protected:
-    var_t _id_{Constant::NoIndex};
+    var_t _id_;
 };
 
 //! Wrapper/pointer for Boolean variables
@@ -131,7 +132,7 @@ template<typename T=int>
 class TemporalVar : public NumericVar<T> {
 
 public:
-    TemporalVar() {}
+  TemporalVar() = default;
   TemporalVar(const var_t i, const T o = 0) : NumericVar<T>(i), _offset(o) {}
 
   T earliest(Solver<T> &) const;
@@ -163,7 +164,11 @@ Stores
  */
 template <typename T = int> class Interval {
 public:
-  Interval() {}
+  constexpr Interval() noexcept : start(), end(), min_duration(0), max_duration(Constant::Infinity<T>) {}
+
+  Interval(TemporalVar<T> start, TemporalVar<T> end, T minDur, T maxDur) :
+    start(start), end(end), min_duration(minDur), max_duration(maxDur) {}
+
   Interval(Solver<T> &s, const T mindur = 0,
            const T maxdur = Constant::Infinity<T>,
            const BooleanVar<T> opt = Constant::NoVar);
@@ -201,6 +206,12 @@ private:
   T max_duration{Constant::Infinity<T>};
 };
 
+template<typename T>
+concept SchedulingResource = concepts::ttyped_range<T, Interval> and
+requires(const T instance, unsigned taskId) {
+    { instance.resourceCapacity() } -> concepts::scalar;
+    { instance.getDemand(taskId) } -> concepts::scalar;
+};
 
 //! Wrapper for disjunctive resources
 /*!
@@ -210,7 +221,10 @@ template <typename T = int>
 class DisjunctiveResource : public vector<Interval<T>> {
 public:
   using vector<Interval<T>>::vector;
-    
+
+  static constexpr auto resourceCapacity() noexcept { return 1; }
+  static constexpr auto getDemand(unsigned) noexcept { return 1; }
+
     // create and insert in 'disjuncts' the set of disjunctive variables necessary to ensure that this constraint is satisfied
   template <typename C>
   void createOrderVariables(Solver<T> &solver, C &disjuncts);
