@@ -15,7 +15,7 @@
 
 #include "util/traits.hpp"
 #include "util/serialization.hpp"
-#include "util/task_timings.hpp"
+#include "util/SchedulingProblemHelper.hpp"
 #include "tensor_utils.hpp"
 #include "torch_types.hpp"
 #include "util/factory_pattern.hpp"

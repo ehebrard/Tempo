@@ -59,13 +59,10 @@ TEST(nn_GNN, gnn_heat_map_choose_polarity) {
     heatMap(1, 0) = 0.1;
     heatMap(2, 1) = 1;
     heatMap(1, 2) = 1;
-    DistanceConstraint cp(START(0), END(1), 0);
-    EXPECT_TRUE(TestGNNHeatMap::choosePolarityFromHeatMap(cp.from, cp.to, heatMap));
-    EXPECT_FALSE(TestGNNHeatMap::choosePolarityFromHeatMap((~cp).from, (~cp).to, heatMap));
-    cp = {START(2), START(1), 0};
-    EXPECT_FALSE(TestGNNHeatMap::choosePolarityFromHeatMap(cp.from, cp.to, heatMap));
-    EXPECT_FALSE(TestGNNHeatMap::choosePolarityFromHeatMap((~cp).from, (~cp).to, heatMap));
-    cp = {START(0), END(2), 0};
-    EXPECT_THROW(TestGNNHeatMap::choosePolarityFromHeatMap(cp.from, cp.to, heatMap), std::runtime_error);
-    EXPECT_THROW(TestGNNHeatMap::choosePolarityFromHeatMap((~cp).from, (~cp).to, heatMap), std::runtime_error);
+    EXPECT_TRUE(TestGNNHeatMap::choosePolarityFromHeatMap(0, 1, heatMap));
+    EXPECT_FALSE(TestGNNHeatMap::choosePolarityFromHeatMap(1, 0, heatMap));
+    EXPECT_FALSE(TestGNNHeatMap::choosePolarityFromHeatMap(2, 1, heatMap));
+    EXPECT_FALSE(TestGNNHeatMap::choosePolarityFromHeatMap(1, 2, heatMap));
+    EXPECT_THROW(TestGNNHeatMap::choosePolarityFromHeatMap(0, 2, heatMap), std::runtime_error);
+    EXPECT_THROW(TestGNNHeatMap::choosePolarityFromHeatMap(2, 0, heatMap), std::runtime_error);
 }

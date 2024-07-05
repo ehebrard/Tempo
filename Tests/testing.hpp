@@ -9,10 +9,13 @@
 #include <filesystem>
 #include <random>
 #include <concepts>
+#include <utility>
 
 #include "util/Matrix.hpp"
 #include "util/serialization.hpp"
 #include "Global.hpp"
+#include "util/SchedulingProblemHelper.hpp"
+#include "Model.hpp"
 
 namespace tempo::testing {
     struct TestData {
@@ -21,6 +24,22 @@ namespace tempo::testing {
         static constexpr auto GraphBuilderConfig = __TEST_DATA_DIR__ "/graph_builder_config.json";
         static constexpr auto TestNN = __TEST_DATA_DIR__ "/Identity_export.pt";
     };
+
+    struct Resource : public std::vector<Interval<int>> {
+        std::vector<int> demands;
+        int capacity;
+        Resource(int capacity, std::vector<Interval<int>> tasks, std::vector<int> demands);
+        [[nodiscard]] int getDemand(unsigned taskId) const;
+        [[nodiscard]] int resourceCapacity() const;
+    };
+
+    using ProblemInstance = tempo::SchedulingProblemHelper<int, Resource>;
+
+    auto createTestProblem() -> ProblemInstance;
+
+    auto createTasks(std::initializer_list<std::pair<int, int>> durations) -> std::vector<Interval<int>>;
+
+    auto createDummyTasks(unsigned numberOfTasks) -> std::vector<Interval<int>>;
 
 
     /**

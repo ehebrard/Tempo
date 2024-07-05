@@ -15,18 +15,20 @@
 #include <optional>
 #include <Iterators.hpp>
 
-#include "feature_extractors.hpp"
+//#include "feature_extractors.hpp"
 #include "topology_extractors.hpp"
 #include "torch_types.hpp"
 #include "util/traits.hpp"
-#include "util/parsing/format.hpp"
+#include "util/SchedulingProblemHelper.hpp"
+#include "util/serialization.hpp"
 
 namespace tempo::nn {
 
-    MAKE_FACTORY_PATTERN(FeatureExtractor, nlohmann::json, TaskTimingFeatureExtractor, TimingEdgeExtractor,
-                         ResourceEnergyExtractor)
+    //MAKE_FACTORY_PATTERN(FeatureExtractor, nlohmann::json, TaskTimingFeatureExtractor, TimingEdgeExtractor,
+    //                     ResourceEnergyExtractor)
 
-    MAKE_FACTORY_PATTERN(TopologyBuilder, ProblemInstance, MinimalTopologyBuilder)
+    MAKE_T_FACTORY_PATTERN(TopologyBuilder, template<ESCAPE(typename T, typename R)>,
+                           ESCAPE(SchedulingProblemHelper<T, R>), MinimalTopologyBuilder)
 
     /**
      * Serializable type that holds the configuration of a feature extractor type
@@ -52,13 +54,13 @@ namespace tempo::nn {
      * network
      */
     class GraphBuilder {
-        template<typename EvtFun>
-        struct FactoryChecker {
-            HOLDS_FOR_ALL(FeatureExtractor, feature_extractor, EvtFun)
-            HOLDS_FOR_ALL(TopologyExtractor, topology_extractor, EvtFun)
-            static constexpr bool value = __FeatureExtractor_tester__<FeatureExtractor>::value and
-                                          __TopologyExtractor_tester__<TopologyBuilder>::value;
-        };
+        //template<typename EvtFun>
+        //struct FactoryChecker {
+        //    HOLDS_FOR_ALL(FeatureExtractor, feature_extractor, EvtFun)
+        //    HOLDS_FOR_ALL(TopologyExtractor, topology_extractor, EvtFun)
+        //    static constexpr bool value = __FeatureExtractor_tester__<FeatureExtractor>::value and
+        //                                  __TopologyExtractor_tester__<TopologyBuilder>::value;
+        //};
     public:
 
         /**
@@ -66,21 +68,31 @@ namespace tempo::nn {
          * @param configPath path to the feature extractor configurations
          * @param problemInstance Initial problem containing immutable information about tasks and resources
          */
-        GraphBuilder(const std::filesystem::path &configPath, const ProblemInstance &problemInstance);
+        template<typename T, typename R>
+        GraphBuilder(const std::filesystem::path &configPath, const SchedulingProblemHelper<T, R> &problemInstance) {
+            auto data = serialization::deserializeFromFile<GraphBuilderConfig>(configPath);
+            topologyExtractor = TopologyBuilderFactory::getInstance().create(data.topologyExtractor.extractorName,
+                                                                             problemInstance);
+            //taskFeatureExtractor = FeatureExtractorFactory::getInstance().create(
+            //        data.taskFeatureExtractor.extractorName, data.taskFeatureExtractor.arguments);
+            //resourceFeatureExtractor = FeatureExtractorFactory::getInstance().create(
+            //        data.resourceFeatureExtractor.extractorName, data.resourceFeatureExtractor.arguments);
+            //edgeFeatureExtractor = FeatureExtractorFactory::getInstance().create(
+            //        data.edgeFeatureExtractor.extractorName, data.edgeFeatureExtractor.arguments);
+        }
 
         /**
          * Extracts all features and topology information from a given solver state
          * @tparam EvtFun callable that represents distances between events
          * @return InputGraph containing topology and feature information
          */
-        template<concepts::arbitrary_event_dist_fun EvtFun>
-        auto getGraph(const SolverState<EvtFun>& state) -> InputGraph {
-            static_assert(FactoryChecker<EvtFun>::value,
-                          "Not all feature extractors or topology extractors have the correct signature");
+        auto getGraph(const SolverState &state) -> InputGraph {
+            //static_assert(FactoryChecker<EvtFun>::value,
+            //              "Not all feature extractors or topology extractors have the correct signature");
             auto topology = std::visit(
                     [&](auto &extractor) { return extractor.getTopology(state); },
                     *topologyExtractor);
-            auto taskFeats = std::visit(
+            /*auto taskFeats = std::visit(
                     [t = std::cref(topology), &state](const auto &extractor) { return extractor(t, state.eventNetwork); },
                     taskFeatureExtractor);
             auto edgeFeats = std::visit(
@@ -88,12 +100,12 @@ namespace tempo::nn {
                     edgeFeatureExtractor);
             auto resourceFeats = std::visit(
                     [t = std::cref(topology), &state](const auto &extractor) { return extractor(t, state.eventNetwork); },
-                    resourceFeatureExtractor);
+                    resourceFeatureExtractor);*/
             InputGraph ret;
             using K = GraphKeys;
-            ret.insert(K::TaskFeatures, std::move(taskFeats));
-            ret.insert(K::EdgeFeatures, std::move(edgeFeats));
-            ret.insert(K::ResourceFeatures, std::move(resourceFeats));
+            //ret.insert(K::TaskFeatures, std::move(taskFeats));
+            //ret.insert(K::EdgeFeatures, std::move(edgeFeats));
+            //ret.insert(K::ResourceFeatures, std::move(resourceFeats));
             ret.insert(K::ResourceConsumptions, std::move(topology.resourceDemands));
             ret.insert(K::EdgeIdx, std::move(topology.edgeIndices));
             ret.insert(K::ResourceDependencies, std::move(topology.resourceDependencies));
@@ -105,9 +117,9 @@ namespace tempo::nn {
 
     private:
         std::optional<TopologyBuilder> topologyExtractor;
-        FeatureExtractor taskFeatureExtractor;
-        FeatureExtractor edgeFeatureExtractor;
-        FeatureExtractor resourceFeatureExtractor;
+        //FeatureExtractor taskFeatureExtractor;
+        //FeatureExtractor edgeFeatureExtractor;
+        //FeatureExtractor resourceFeatureExtractor;
     };
 }
 

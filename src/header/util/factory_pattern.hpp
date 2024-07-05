@@ -85,4 +85,6 @@ struct TYPE##Factory {                  \
   struct TYPE##Factory {                                                       \
     template <T_ARG> static TYPE create(ARG)
 
+#define ESCAPE(...) __VA_ARGS__
+
 #endif //TEMPO_FACTORY_PATTERN_HPP

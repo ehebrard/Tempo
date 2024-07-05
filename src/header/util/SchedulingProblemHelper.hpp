@@ -90,6 +90,8 @@ namespace tempo {
         var_t offset;
         static constexpr unsigned NoTask = std::numeric_limits<unsigned>::max();
     public:
+        VarTaskMapping() = default;
+
         /**
          * Ctor
          * @tparam Tasks range containing tempo::Interval
@@ -154,6 +156,8 @@ namespace tempo {
         VarTaskMapping v2t;
 
     public:
+        SchedulingProblemHelper() = default;
+
         /**
          * CTor
          * @param tasks tasks contained in the problem
@@ -212,6 +216,14 @@ namespace tempo {
          */
         [[nodiscard]] bool hasVariable(var_t variable) const noexcept {
             return v2t.contains(variable);
+        }
+
+        /**
+         * gets the mapping function from tasks to variables
+         * @return mapping from variables to tasks
+         */
+        auto getMapping() const noexcept -> VarTaskMapping {
+            return v2t;
         }
 
         /**

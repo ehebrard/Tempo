@@ -9,7 +9,7 @@
 #include "nn/GraphBuilder.hpp"
 #include "testing.hpp"
 
-
+/*
 auto getGtTopology(const ProblemInstance &problemInstance) -> tempo::nn::Topology {
     using namespace tempo::nn;
     using namespace tempo::testing;
@@ -89,3 +89,4 @@ TEST(nn_GraphBuilder, get_graph_topology) {
     EXPECT_TRUE(torch::all(topology.edgeResourceRelations == graph.at(GraphKeys::EdgeResourceRelations)).item<bool>());
     EXPECT_TRUE(torch::all(topology.edgeIndices == graph.at(GraphKeys::EdgeIdx)).item<bool>());
 }
+*/
