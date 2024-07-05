@@ -25,6 +25,7 @@
 #include <vector>
 
 #include "constraints/Constraint.hpp"
+#include "ReversibleObject.hpp"
 
 //#define DBG_LTRANS
 
