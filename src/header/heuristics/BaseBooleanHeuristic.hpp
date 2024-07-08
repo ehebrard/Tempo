@@ -23,6 +23,7 @@
 
 #include <concepts>
 #include <stdexcept>
+#include <cassert>
 
 #include "Global.hpp"
 #include "Literal.hpp"
