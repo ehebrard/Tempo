@@ -30,8 +30,8 @@ namespace tempo::nn::heuristics {
         GNNEdgePolarityPredictor(const std::filesystem::path &modelLocation,
                                  const std::filesystem::path &featureExtractorConfigLocation,
                                  const SchedulingProblemHelper<T, R> &problemInstance) :
-                gnn(modelLocation),
-                graphBuilder(featureExtractorConfigLocation, problemInstance) {}
+                gnn(modelLocation)/*,
+                graphBuilder(featureExtractorConfigLocation, problemInstance)*/ {}
 
         /**
          * Returns the choice point in the appropriate polarity according to a GNN edge regressor
@@ -63,7 +63,7 @@ namespace tempo::nn::heuristics {
 
     private:
         EdgeRegressor gnn;
-        GraphBuilder graphBuilder;
+        //GraphBuilder graphBuilder;
         Matrix<DataType> edgeHeatMap{};
     };
 }
