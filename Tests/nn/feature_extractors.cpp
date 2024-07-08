@@ -21,12 +21,6 @@ auto getInput() -> std::pair<tempo::testing::ProblemInstance, tempo::nn::Topolog
     return {std::move(problem), std::move(topology)};
 }
 
-struct DummyScheduler {
-    tempo::testing::BoundProvider numeric;
-    template<typename ...Args>
-    explicit DummyScheduler(Args &&...args): numeric(std::forward<Args>(args)...) {}
-};
-
 TEST(nn_feature_extractors, TaskTimingExtractor) {
     using namespace tempo::nn;
     using namespace tempo;
@@ -43,7 +37,7 @@ TEST(nn_feature_extractors, TaskTimingExtractor) {
 
     lower.at(instance.schedule().start) = 0;
     upper.at(instance.schedule().end) = Ub;
-    DummyScheduler scheduler(std::move(upper), std::move(lower));
+    tempo::testing::DummyScheduler scheduler(std::move(upper), std::move(lower));
 
     auto taskFeatures = extractor(topology, makeSolverState(Matrix<int>{}, scheduler), instance);
     for (auto [idx, task] : iterators::const_enumerate(instance.tasks())) {
@@ -63,7 +57,7 @@ TEST(nn_feature_extractors, ResourceEnergyExtractor) {
     using namespace tempo::testing;
     const auto tasks = tempo::testing::createTasks({{6, 6}, {2, 4}, {1, 5}});
     ProblemInstance instance(tasks, {{1, tasks, {1, 1, 1}}}, {}, {{3, 0}, {3, 0}, 0, 0});
-    DummyScheduler scheduler(std::vector<int>{-1, -1, -1, 12}, std::vector<int>{-1, -1, -1, 12});
+    tempo::testing::DummyScheduler scheduler(std::vector<int>{-1, -1, -1, 12}, std::vector<int>{-1, -1, -1, 12});
     const auto topology = MinimalTopologyBuilder(instance).getTopology();
     ResourceEnergyExtractor extractor;
     auto resEnergies = extractor(topology, makeSolverState(Matrix<int>{}, scheduler), instance);
@@ -79,7 +73,7 @@ TEST(nn_features_extractors, ResourceEnergyExtractor_complex_consumptions) {
     using namespace tempo::testing;
     const auto tasks = tempo::testing::createTasks({{4, 4}, {2, 4}, {8, 10}});
     ProblemInstance instance(tasks, {{4, tasks, {3, 2, 2}}}, {}, {{3, 0}, {3, 0}, 0, 0});
-    DummyScheduler scheduler(std::vector<int>{-1, -1, -1, 9}, std::vector<int>{-1, -1, -1, 9});
+    tempo::testing::DummyScheduler scheduler(std::vector<int>{-1, -1, -1, 9}, std::vector<int>{-1, -1, -1, 9});
     const auto topology = MinimalTopologyBuilder(instance).getTopology();
     ResourceEnergyExtractor extractor;
     auto resEnergies = extractor(topology, makeSolverState(Matrix<int>{}, scheduler), instance);
@@ -95,7 +89,7 @@ TEST(nn_feature_extractors, TimingEdgeExtractor) {
     tempo::Matrix<int> timings(3, 3, {0, 4, 0,
                                       3, 0, 5,
                                       0, -2, 0});
-    DummyScheduler scheduler(std::vector<int>{4}, std::vector<int>{4});
+    tempo::testing::DummyScheduler scheduler(std::vector<int>{4}, std::vector<int>{4});
     Topology topology;
     EdgeVector edges{{0, 1}, {2, 1}};
     topology.edgeIndices = util::makeIndexTensor(edges);

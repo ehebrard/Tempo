@@ -10,6 +10,7 @@
 #include <random>
 #include <concepts>
 #include <utility>
+#include <tuple>
 
 #include "util/Matrix.hpp"
 #include "util/serialization.hpp"
@@ -35,13 +36,6 @@ namespace tempo::testing {
 
     using ProblemInstance = tempo::SchedulingProblemHelper<int, Resource>;
 
-    auto createTestProblem() -> ProblemInstance;
-
-    auto createTasks(std::initializer_list<std::pair<int, int>> durations) -> std::vector<Interval<int>>;
-
-    auto createDummyTasks(unsigned numberOfTasks) -> std::vector<Interval<int>>;
-
-
     class BoundProvider {
         std::vector<int> u, l;
     public:
@@ -49,6 +43,22 @@ namespace tempo::testing {
         [[nodiscard]] int upper(tempo::var_t var) const;
         [[nodiscard]] int lower(tempo::var_t var) const;
     };
+
+    struct DummyScheduler {
+        tempo::testing::BoundProvider numeric;
+        template<typename ...Args>
+        explicit DummyScheduler(Args &&...args): numeric(std::forward<Args>(args)...) {}
+    };
+
+
+    auto createTestProblem() -> ProblemInstance;
+
+    auto createRandomProblem(std::size_t numTasks, std::size_t numResources,
+                             double precedenceChance = 0.3) -> std::tuple<ProblemInstance, DummyScheduler, Matrix<int>>;
+
+    auto createTasks(std::initializer_list<std::pair<int, int>> durations) -> std::vector<Interval<int>>;
+
+    auto createDummyTasks(unsigned numberOfTasks) -> std::vector<Interval<int>>;
 
     /**
      * Generates a random integer value in [min, max]
