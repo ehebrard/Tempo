@@ -56,7 +56,7 @@ public:
 };
 
 
-TEST(util, SchedulingView_basic) {
+TEST(util, SchedulingProblemHelper_basic) {
     using namespace tempo;
     std::vector<Interval<int>> tasks{{{0, 0}, {1, 0}, 3, 6}, {{2, 0}, {2, 5}, 5, 5}, {{3, 0}, {4, 0}, 1, 7}};
     SchedulingProblemHelper<int, DisjunctiveResource<>> schedulingProb(tasks, {}, {}, {{5, 0}, {6, 0}, 0, 100});
@@ -75,7 +75,7 @@ TEST(util, SchedulingView_basic) {
     EXPECT_EQ(schedulingProb.getTask(1), tasks.front());
 }
 
-TEST(util, SchedulingView_task_distances) {
+TEST(util, SchedulingProblemView_task_distances) {
     using namespace tempo;
     std::vector<Interval<int>> tasks{{{0, 0}, {1, 0}, 3, 6}, {{2, 0}, {2, 5}, 5, 5}, {{3, 0}, {4, 0}, 1, 7}};
     SchedulingProblemHelper<int, DisjunctiveResource<>> schedulingProb(tasks, {}, {}, Interval<int>{});
