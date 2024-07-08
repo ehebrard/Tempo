@@ -45,8 +45,11 @@ public:
   constexpr NumericVar() noexcept : _id_(Constant::NoVar) {};
   NumericVar(const var_t i) : _id_(i) {}
 
-  T min(Solver<T> &sc) const;
-  T max(Solver<T> &sc) const;
+  template<concepts::distance_provider S>
+  T min(const S &sc) const;
+
+  template<concepts::distance_provider S>
+  T max(const S &sc) const;
 
   Literal<T> operator>=(const T t) const;
   Literal<T> operator>(const T t) const;
@@ -135,8 +138,11 @@ public:
   TemporalVar() = default;
   TemporalVar(const var_t i, const T o = 0) : NumericVar<T>(i), _offset(o) {}
 
-  T earliest(Solver<T> &) const;
-  T latest(Solver<T> &) const;
+  template<concepts::distance_provider S>
+  T earliest(const S &) const;
+
+  template<concepts::distance_provider S>
+  T latest(const S &) const;
 
   Literal<T> after(const T t) const;
   Literal<T> before(const T t) const;
@@ -175,10 +181,17 @@ public:
 
   //    Interval(const Interval<T>&) = default;
 
-  T getEarliestStart(Solver<T> &s) const;
-  T getLatestStart(Solver<T> &s) const;
-  T getEarliestEnd(Solver<T> &s) const;
-  T getLatestEnd(Solver<T> &s) const;
+  template<concepts::distance_provider S>
+  T getEarliestStart(const S &s) const;
+
+  template<concepts::distance_provider S>
+  T getLatestStart(const S &s) const;
+
+  template<concepts::distance_provider S>
+  T getEarliestEnd(const S &s) const;
+
+  template<concepts::distance_provider S>
+  T getLatestEnd(const S &s) const;
 
   bool mustExist(Solver<T> &s) const;
   bool cannotExist(Solver<T> &s) const;
@@ -745,12 +758,14 @@ NoOverlapExpression<T> NoOverlap(Interval<T> &schedule) {
  NumericVar  implementation
 */
 template<typename T>
-T NumericVar<T>::min(Solver<T>& s) const {
+template<concepts::distance_provider S>
+T NumericVar<T>::min(const S &s) const {
   return s.numeric.lower(_id_);
 }
 
 template<typename T>
-T NumericVar<T>::max(Solver<T>& s) const {
+template<concepts::distance_provider S>
+T NumericVar<T>::max(const S& s) const {
   return s.numeric.upper(_id_);
 }
 
@@ -779,7 +794,8 @@ Literal<T> NumericVar<T>::operator>(const T t) const {
  TemporalVar  implementation
 */
 template<typename T>
-T TemporalVar<T>::earliest(Solver<T>& s) const {
+template<concepts::distance_provider S>
+T TemporalVar<T>::earliest(const S& s) const {
     auto v{NumericVar<T>::min(s)};
     if(v == -Constant::Infinity<T>)
         return v;
@@ -789,7 +805,8 @@ T TemporalVar<T>::earliest(Solver<T>& s) const {
 }
 
 template<typename T>
-T TemporalVar<T>::latest(Solver<T>& s) const {
+template<concepts::distance_provider S>
+T TemporalVar<T>::latest(const S& s) const {
 //    auto r{NumericVar<T>::max(s)};
 //    std::cout << "\nlatest:" << r << " + " << _offset << std::endl;
 //    return r + _offset;
@@ -923,19 +940,27 @@ template <typename T> bool Interval<T>::operator==(const Interval<T> &t) const {
   return id() == t.id();
 }
 
-template <typename T> T Interval<T>::getEarliestStart(Solver<T> &solver) const {
+template <typename T>
+template<concepts::distance_provider S>
+T Interval<T>::getEarliestStart(const S &solver) const {
   return start.earliest(solver);
 }
 
-template <typename T> T Interval<T>::getLatestStart(Solver<T> &solver) const {
+template <typename T>
+template<concepts::distance_provider S>
+T Interval<T>::getLatestStart(const S &solver) const {
   return start.latest(solver);
 }
 
-template <typename T> T Interval<T>::getEarliestEnd(Solver<T> &solver) const {
+template <typename T>
+template<concepts::distance_provider S>
+T Interval<T>::getEarliestEnd(const S &solver) const {
   return end.earliest(solver);
 }
 
-template <typename T> T Interval<T>::getLatestEnd(Solver<T> &solver) const {
+template <typename T>
+template<concepts::distance_provider S>
+T Interval<T>::getLatestEnd(const S &solver) const {
   return end.latest(solver);
 }
 
