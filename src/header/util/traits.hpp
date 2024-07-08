@@ -74,12 +74,18 @@ namespace tempo::concepts {
     template<typename T>
     concept scalar = std::integral<T> || std::floating_point<T>;
 
-//    template<typename E, typename T>
-//    concept event_dist_fun = callable_r<E, T, event, event>;
-//
-//    template<typename E>
-//    concept arbitrary_event_dist_fun = std::invocable<E, event, event> &&
-//                                       scalar<std::remove_reference_t<std::invoke_result_t<E, event, event>>>;
+    template<typename E, typename T>
+    concept task_dist_fun = callable_r<E, T, unsigned , unsigned>;
+
+    template<typename E>
+    concept arbitrary_task_dist_fun = std::invocable<E, unsigned, unsigned> &&
+                                       scalar<std::remove_reference_t<std::invoke_result_t<E, unsigned, unsigned>>>;
+
+    template<typename S>
+    concept distance_provider = requires(const S instance, var_t e) {
+        { instance.numeric.upper(e) } -> scalar;
+        { instance.numeric.lower(e) } -> scalar;
+    };
 
     template<typename R, typename T>
     concept typed_range = std::ranges::range<R> && std::same_as<std::ranges::range_value_t<R>, T>;
