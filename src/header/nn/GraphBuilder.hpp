@@ -109,6 +109,14 @@ namespace tempo::nn {
             return ret;
         }
 
+        /**
+         * gets the stored problem definition
+         * @return problem definition
+         */
+        auto getProblem() const noexcept -> const SchedulingProblemHelper<T, R>& {
+            return problemDefinition;
+        }
+
 
     private:
         SchedulingProblemHelper<T, R> problemDefinition;

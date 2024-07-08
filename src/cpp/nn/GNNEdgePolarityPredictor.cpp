@@ -11,8 +11,7 @@
 
 namespace tempo::nn::heuristics {
 
-    bool GNNEdgePolarityPredictor::choosePolarityFromHeatMap(unsigned taskFrom, unsigned taskTo,
-                                                             const Matrix<DataType> &heatMap) {
+    bool detail::choosePolarityFromHeatMap(unsigned taskFrom, unsigned taskTo, const Matrix<DataType> &heatMap) {
         const auto edgeProb = heatMap(taskFrom, taskTo);
         const auto inverseProb = heatMap(taskTo, taskFrom);
         if (edgeProb == GNN::NoValue or inverseProb == GNN::NoValue) {

@@ -24,11 +24,6 @@ public:
     using tempo::nn::EdgeRegressor::extractHeatMap;
 };
 
-class TestGNNHeatMap: public tempo::nn::heuristics::GNNEdgePolarityPredictor {
-public:
-    using tempo::nn::heuristics::GNNEdgePolarityPredictor::choosePolarityFromHeatMap;
-};
-
 TEST(nn_GNN, base_gnn_ctor) {
     TestGNN gnn(tempo::testing::TestData::TestNN);
     EXPECT_FALSE(gnn.getModel().is_training());
@@ -54,15 +49,16 @@ TEST(nn_GNN, edge_regressor_heat_map){
 
 TEST(nn_GNN, gnn_heat_map_choose_polarity) {
     using namespace tempo;
+    using tempo::nn::heuristics::detail::choosePolarityFromHeatMap;
     Matrix<nn::DataType> heatMap(3, 3, nn::GNN::NoValue);
     heatMap(0, 1) = 0.9;
     heatMap(1, 0) = 0.1;
     heatMap(2, 1) = 1;
     heatMap(1, 2) = 1;
-    EXPECT_TRUE(TestGNNHeatMap::choosePolarityFromHeatMap(0, 1, heatMap));
-    EXPECT_FALSE(TestGNNHeatMap::choosePolarityFromHeatMap(1, 0, heatMap));
-    EXPECT_FALSE(TestGNNHeatMap::choosePolarityFromHeatMap(2, 1, heatMap));
-    EXPECT_FALSE(TestGNNHeatMap::choosePolarityFromHeatMap(1, 2, heatMap));
-    EXPECT_THROW(TestGNNHeatMap::choosePolarityFromHeatMap(0, 2, heatMap), std::runtime_error);
-    EXPECT_THROW(TestGNNHeatMap::choosePolarityFromHeatMap(2, 0, heatMap), std::runtime_error);
+    EXPECT_TRUE(choosePolarityFromHeatMap(0, 1, heatMap));
+    EXPECT_FALSE(choosePolarityFromHeatMap(1, 0, heatMap));
+    EXPECT_FALSE(choosePolarityFromHeatMap(2, 1, heatMap));
+    EXPECT_FALSE(choosePolarityFromHeatMap(1, 2, heatMap));
+    EXPECT_THROW(choosePolarityFromHeatMap(0, 2, heatMap), std::runtime_error);
+    EXPECT_THROW(choosePolarityFromHeatMap(2, 0, heatMap), std::runtime_error);
 }
