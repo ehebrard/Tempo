@@ -20,35 +20,6 @@
 
 namespace tempo::nn {
 
-    /**
-     * Represents the state of a the solver that can be used to extract the graph topology
-     */
-    struct SolverState {
-
-    };
-
-    /**
-     * Concept that models the interface of a topology extractor
-     * @tparam Extractor
-     * @tparam EvtFun type of event function
-     */
-    template<typename Extractor, typename EvtFun>
-    concept topology_extractor = requires(Extractor e, const SolverState &state) {
-        { e.getTopology(state) } -> std::convertible_to<Topology>;
-    };
-
-
-    /**
-     * Helper function for SolverState
-     * @tparam Args argument types to SolverState
-     * @param args arguments to SolverState
-     * @return solver state view of the arguments. Depending on the reference type of the arguments, this is only
-     * a non owning object
-     */
-    constexpr auto makeSolverState(...) noexcept {
-        return SolverState{};
-    }
-
     namespace impl {
         struct EdgeLookup : protected Matrix<IndexType> {
             static constexpr IndexType NoValue = std::numeric_limits<IndexType>::lowest();
@@ -132,7 +103,8 @@ namespace tempo::nn {
          * @param precedences range of decided precedences
          * @return the graph topology representing the initial problem and the added precedences
          */
-        [[nodiscard]] auto getTopology(const SolverState &) const -> const Topology &{
+        template<typename ...Args>
+        [[nodiscard]] auto getTopology(const SolverState<Args...> &) const -> const Topology &{
             return cache;
         }
 
