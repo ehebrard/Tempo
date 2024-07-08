@@ -8,6 +8,7 @@
 
 #include "util/SchedulingProblemHelper.hpp"
 #include "Model.hpp"
+#include "testing.hpp"
 
 TEST(util, VarTaskMapping) {
     using namespace tempo;
@@ -46,16 +47,6 @@ TEST(util, VarTaskMapping_non_continuous) {
     EXPECT_THROW(VarTaskMapping{tasks}, std::runtime_error);
 }
 
-
-class BoundProvider {
-    std::vector<int> u, l;
-public:
-    BoundProvider(std::vector<int> upper, std::vector<int> lower) : u(std::move(upper)), l(std::move(lower)) {}
-    [[nodiscard]] int upper(tempo::var_t var) const { return u.at(var); }
-    [[nodiscard]] int lower(tempo::var_t var) const { return l.at(var); }
-};
-
-
 TEST(util, SchedulingProblemHelper_basic) {
     using namespace tempo;
     std::vector<Interval<int>> tasks{{{0, 0}, {1, 0}, 3, 6}, {{2, 0}, {2, 5}, 5, 5}, {{3, 0}, {4, 0}, 1, 7}};
@@ -84,7 +75,7 @@ TEST(util, SchedulingProblemView_task_distances) {
     graph.emplace_edge(2, 4, -2);
     graph.emplace_edge(0, 2, -1);
     graph.emplace_edge(0, 3, 4);
-    BoundProvider bounds({6, 5, 3, 8, 4}, {3, 2, 0, 4, 1});
+    tempo::testing::BoundProvider bounds({6, 5, 3, 8, 4}, {3, 2, 0, 4, 1});
     auto distance = schedulingProb.getTaskDistances(graph, bounds);
     EXPECT_EQ(distance(0, 1), 4);
     EXPECT_EQ(distance(1, 0), 1);

@@ -59,5 +59,11 @@ namespace tempo::testing {
     int Resource::resourceCapacity() const {
         return capacity;
     }
+
+    BoundProvider::BoundProvider(std::vector<int> upper, std::vector<int> lower) : u(std::move(upper)), l(std::move(lower)) {}
+
+    int BoundProvider::upper(tempo::var_t var) const { return u.at(var); }
+
+    int BoundProvider::lower(tempo::var_t var) const { return l.at(var); }
 }
 

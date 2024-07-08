@@ -42,6 +42,14 @@ namespace tempo::testing {
     auto createDummyTasks(unsigned numberOfTasks) -> std::vector<Interval<int>>;
 
 
+    class BoundProvider {
+        std::vector<int> u, l;
+    public:
+        BoundProvider(std::vector<int> upper, std::vector<int> lower);
+        [[nodiscard]] int upper(tempo::var_t var) const;
+        [[nodiscard]] int lower(tempo::var_t var) const;
+    };
+
     /**
      * Generates a random integer value in [min, max]
      * @tparam T integral type of value
