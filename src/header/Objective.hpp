@@ -32,9 +32,9 @@ template <typename T> class Solver;
  In order to model fancy objective, add a variable; use constraints to define
  the objective as this variable; and minimize or maximize it
 */
-template <typename T, typename Var> class Objective {
+template <typename T> class Objective {
 public:
-  Objective(Var &x) : X(x) {}
+  Objective(NumericVar<T> &x) : X(x) {}
 
   T gap() { return p_b - d_b; }
   T dualBound() const { return d_b; }
@@ -43,48 +43,47 @@ public:
   void setDual(const T v) { d_b = v; }
 
 protected:
-  Var &X;
+  NumericVar<T> &X;
   T d_b{0};
   T p_b{Constant::Infinity<T>};
 };
 
-template <typename T, typename Var>
-class MinimizationObjective : public Objective<T, Var> {
+template <typename T> class MinimizationObjective : public Objective<T> {
 public:
-  MinimizationObjective(Var &x) : Objective<T, Var>(x) {}
+  MinimizationObjective(NumericVar<T> &x) : Objective<T>(x) {}
 
-  T value(Solver<T> &solver) { return Objective<T, Var>::X.min(solver); }
+  T value(Solver<T> &solver) { return Objective<T>::X.min(solver); }
 
   void setPrimal(const T v, Solver<T> &solver) {
-    Objective<T, Var>::p_b = v;
-    if (Objective<T, Var>::gap()) {
-      apply(Objective<T, Var>::p_b, solver);
+    Objective<T>::p_b = v;
+    if (Objective<T>::gap()) {
+      apply(Objective<T>::p_b, solver);
     }
   }
 
 private:
   void apply(const T target, Solver<T> &solver) {
-    solver.set(Objective<T, Var>::X < target);
+    //    solver.set(Objective<T>::X < target);
+    solver.set(Objective<T>::X.before(target - Gap<T>::epsilon()));
   }
 };
 
-template <typename T, typename Var>
-class MaximizationObjective : public Objective<T, Var> {
+template <typename T> class MaximizationObjective : public Objective<T> {
 public:
-  MaximizationObjective(Var &x) : Objective<T, Var>(x) {}
+  MaximizationObjective(NumericVar<T> &x) : Objective<T>(x) {}
 
-  T value(Solver<T> &solver) { return Objective<T, Var>::X.max(solver); }
+  T value(Solver<T> &solver) { return Objective<T>::X.max(solver); }
 
   void setPrimal(const T v, Solver<T> &solver) {
-    Objective<T, Var>::p_b = v;
-    if (Objective<T, Var>::gap()) {
-      apply(Objective<T, Var>::p_b, solver);
+    Objective<T>::p_b = v;
+    if (Objective<T>::gap()) {
+      apply(Objective<T>::p_b, solver);
     }
   }
 
 private:
   void apply(const T target, Solver<T> &solver) {
-    solver.set(Objective<T, Var>::X > target);
+    solver.set(Objective<T>::X.after(target + Gap<T>::epsilon()));
   }
 };
 

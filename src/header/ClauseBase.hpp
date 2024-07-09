@@ -130,7 +130,8 @@ public:
    */
   //@{
   std::ostream &display(std::ostream &os) const;
-  std::ostream &displayWatchStruct(std::ostream &os) const;
+  std::ostream &displayClauses(std::ostream &os) const;
+    std::ostream &displayWatchStruct(std::ostream &os) const;
   //@}
 
   /**
@@ -1424,6 +1425,20 @@ template <typename T> int ClauseBase<T>::getType() const {
 template <typename T>
 std::ostream &ClauseBase<T>::display(std::ostream &os) const {
   os << "clause base";
+  return os;
+}
+
+template <typename T>
+std::ostream &ClauseBase<T>::displayClauses(std::ostream &os) const {
+    for (auto i{free_cl_indices.fbegin()}; i != free_cl_indices.fend(); ++i) {
+        std::cout << *base[*i] << std::endl;
+    }
+    std::cout << "++\n";
+    for (auto i{free_cl_indices.bbegin()}; i != free_cl_indices.bend(); ++i) {
+        std::cout << *base[*i] << std::endl;
+    }
+    std::cout << "--\n";
+        
   return os;
 }
 

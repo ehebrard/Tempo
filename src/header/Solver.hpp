@@ -192,7 +192,7 @@ public:
    */
   //@{
   // declare a new numeric variable
-  NumericVar<T> newVar();
+  NumericVar<T> newVar(const T init = Constant::Infinity<T>);
   //@}
 
   /**
@@ -334,10 +334,14 @@ public:
     DisjunctVar<T> newDisjunct(const DistanceConstraint<T> &d1,
                                const DistanceConstraint<T> &d2,
                                const var_t opt);
+    // return a variable
+    NumericVar<T> zero() { return NumericVar<T>(0); }
     // create an internal numeric variable and return a model object pointing to it
     NumericVar<T> newNumeric();
-    // create an internal temporal variable and return a model object pointing to it
-    TemporalVar<T> newTemporal(const T offset = 0);
+    // create an internal temporal variable and return a model object pointing
+    // to it
+    //    TemporalVar<T> newTemporal(const T offset = 0);
+    NumericVar<T> newTemporal(const T offset = 0);
     // create the internal variables (depending on the type of Interval) and
     // return a model object pointing to them
     Interval<T> newInterval(const T mindur = 0,
@@ -372,13 +376,18 @@ public:
     
     // set literal l true with explanation e
     void set(Literal<T> l, const Explanation<T> &e = Constant::Decision<T>);
+    void post(Literal<T> l) { set(l); }
 
     // add a difference logic constraint (r is for explanation purpose, useless
     // externally)
     void set(const DistanceConstraint<T> &c, const index_t r = Constant::NoIndex);
 
     // add x to the list of variable that must be given a value
-    template <typename X> void addToSearch(const X &x);
+    //    template <typename X> void addToSearch(const X &x);
+    void addToSearch(const BooleanVar<T> &x);
+    void addToSearch(const NumericVar<T> &x);
+    void addToSearch(BooleanExpression<T> &x);
+    void addToSearch(NumericExpression<T> &x);
 
     // some measure of tightness/looseness for bound literals or literals with a
     // difference logic semantic
@@ -455,9 +464,9 @@ public:
     boolean_state satisfiable();
     template <typename S> void optimize(S &objective);
     void minimize(NumericVar<T> &x);
-    void minimize(NumericExpression<T> &x);
+    void minimize(NumericExpression<T> x);
     void maximize(NumericVar<T> &x);
-    void maximize(NumericExpression<T> &x);
+    void maximize(NumericExpression<T> x);
 
     void restart(const bool on_solution = false);
     void backtrack(Explanation<T> &e);
@@ -850,9 +859,7 @@ template <typename T> BooleanVar<T> BooleanStore<T>::newVar(const info_t s) {
     
     polarity.push_back(false);
     polarity.push_back(false);
-    
-    //  explored.push_back(false);
-    
+
     edge_index.push_back(s);
     
     return x;
@@ -873,8 +880,9 @@ template <typename T> void BooleanStore<T>::set(Literal<T> l) {
     polarity[l] = true;
     if (l.hasSemantic()) {
         assert(l.constraint() == (edge_index[l.variable()] + l.sign()));
-        solver.set(edges[l.constraint()],
-                   static_cast<index_t>(solver.numLiteral() - 1));
+        auto e{edges[l.constraint()]};
+        if (e != DistanceConstraint<T>::none)
+          solver.set(e, static_cast<index_t>(solver.numLiteral() - 1));
     }
     assert(l.hasSemantic() or edge_index[l.variable()] == Constant::NoSemantic);
 }
@@ -953,7 +961,11 @@ bool BooleanStore<T>::falsified(const Literal<T> l) const {
 /*!
  NumericStore implementation
 */
-template <typename T> NumericStore<T>::NumericStore(Solver<T> &s) : solver(s) {}
+template <typename T> NumericStore<T>::NumericStore(Solver<T> &s) : solver(s) {
+  // useful to have the constant 0 as a regular variable
+  // other constants can be TemporalVars pointing to the constant 0
+  newVar(0);
+}
 
 template <typename T> size_t NumericStore<T>::size() const {
     return bound[bound::lower].size();
@@ -964,21 +976,21 @@ const std::vector<T> &NumericStore<T>::get(const int b) const {
     return bound[b];
 }
 
-template <typename T> NumericVar<T> NumericStore<T>::newVar() {
-    NumericVar<T> x{static_cast<var_t>(size())};
-    
-    bound[bound::lower].push_back(Constant::Infinity<T>);
-    bound[bound::upper].push_back(Constant::Infinity<T>);
+template <typename T> NumericVar<T> NumericStore<T>::newVar(const T init) {
+  NumericVar<T> x{static_cast<var_t>(size())};
 
-    conflict_index[bound::lower].push_back(Constant::NoIndex);
-    conflict_index[bound::upper].push_back(Constant::NoIndex);
+  bound[bound::lower].push_back(init);
+  bound[bound::upper].push_back(init);
 
-    bound_index[bound::lower].resize(size());
-    bound_index[bound::upper].resize(size());
-    bound_index[bound::lower].back().push_back(Constant::InfIndex);
-    bound_index[bound::upper].back().push_back(Constant::InfIndex);
-    
-    return x;
+  conflict_index[bound::lower].push_back(Constant::NoIndex);
+  conflict_index[bound::upper].push_back(Constant::NoIndex);
+
+  bound_index[bound::lower].resize(size());
+  bound_index[bound::upper].resize(size());
+  bound_index[bound::lower].back().push_back(Constant::InfIndex);
+  bound_index[bound::upper].back().push_back(Constant::InfIndex);
+
+  return x;
 }
 
 template <typename T> void NumericStore<T>::set(Literal<T> l) {
@@ -1070,7 +1082,7 @@ Solver<T>::Solver()
       numeric_constraints(&env), restartPolicy(*this), graph_exp(*this),
       bound_exp(*this) {
   trail.emplace_back(Constant::NoVar, Constant::Infinity<T>, detail::Numeric{});
-  reason.push_back(Constant::Decision<T>);
+  reason.push_back(Constant::GroundFact<T>);
   seed(options.seed);
 }
 
@@ -1102,6 +1114,18 @@ template <typename T> BooleanVar<T> Solver<T>::newBoolean() {
     return x;
 }
 
+// template <typename T>
+// DisjunctVar<T> Solver<T>::newImplication(const DistanceConstraint<T> &d) {
+//     auto x{boolean.newDisjunct(d, DistanceConstraint<T>::none)};
+//     clauses.newBooleanVar(x.id());
+//     boolean_constraints.resize(std::max(numConstraint(), 2 *
+//     boolean.size()));
+//
+//     post(new EdgeConstraint<T>(*this, boolean.getLiteral(true, x.id())));
+//
+//     return x;
+// }
+
 template <typename T>
 DisjunctVar<T> Solver<T>::newDisjunct(const DistanceConstraint<T> &d1,
                                       const DistanceConstraint<T> &d2) {
@@ -1109,8 +1133,11 @@ DisjunctVar<T> Solver<T>::newDisjunct(const DistanceConstraint<T> &d1,
     clauses.newBooleanVar(x.id());
     boolean_constraints.resize(std::max(numConstraint(), 2 * boolean.size()));
 
-    post(new EdgeConstraint<T>(*this, boolean.getLiteral(true, x.id())));
-    post(new EdgeConstraint<T>(*this, boolean.getLiteral(false, x.id())));
+    if (d1 != DistanceConstraint<T>::none)
+      post(new EdgeConstraint<T>(*this, boolean.getLiteral(true, x.id())));
+
+    if (d2 != DistanceConstraint<T>::none)
+      post(new EdgeConstraint<T>(*this, boolean.getLiteral(false, x.id())));
 
     return x;
 }
@@ -1133,13 +1160,20 @@ template <typename T> NumericVar<T> Solver<T>::newNumeric() {
     changed.reserve(numeric.size());
     clauses.newNumericVar(x.id());
     numeric_constraints.resize(std::max(numConstraint(), 2 * numeric.size()));
+    core.newVertex(x);
     return x;
 }
 
-template <typename T> TemporalVar<T> Solver<T>::newTemporal(const T offset) {
-    TemporalVar<T> x{newNumeric().id(), offset};
-    core.newVertex(x);
-    return x;
+// template <typename T> TemporalVar<T> Solver<T>::newTemporal(const T offset) {
+//     TemporalVar<T> x{newNumeric().id(), offset};
+//     core.newVertex(x);
+//     return x;
+// }
+
+template <typename T> NumericVar<T> Solver<T>::newTemporal(const T offset) {
+  NumericVar<T> x{newNumeric().id(), offset};
+  //  core.newVertex(x);
+  return x;
 }
 
 template <typename T>
@@ -1959,24 +1993,24 @@ template <typename T> void Solver<T>::check_clauses(const char* msg) {
 }
 
 template <typename T> void Solver<T>::minimize(NumericVar<T> &x) {
-  MinimizationObjective<T, NumericVar<T>> objective(x);
+  MinimizationObjective<T> objective(x);
   optimize(objective);
 }
 
-template <typename T> void Solver<T>::minimize(NumericExpression<T> &x) {
+template <typename T> void Solver<T>::minimize(NumericExpression<T> x) {
   x.extract(*this);
-  MinimizationObjective<T, NumericVar<T>> objective(x);
+  MinimizationObjective<T> objective(x);
   optimize(objective);
 }
 
 template <typename T> void Solver<T>::maximize(NumericVar<T> &x) {
-  MaximizationObjective<T, NumericVar<T>> objective(x);
+  MaximizationObjective<T> objective(x);
   optimize(objective);
 }
 
-template <typename T> void Solver<T>::maximize(NumericExpression<T> &x) {
+template <typename T> void Solver<T>::maximize(NumericExpression<T> x) {
   x.extract(*this);
-  MaximizationObjective<T, NumericVar<T>> objective(x);
+  MaximizationObjective<T> objective(x);
   optimize(objective);
 }
 
@@ -2314,22 +2348,52 @@ template <typename T> void Solver<T>::relax(Constraint<T> *con) {
     numeric_constraints.remove(con->id(), IN);
 }
 
-template <typename T>
-template <typename X>
-void Solver<T>::addToSearch(const X &x) {
+// template <typename T>
+// template <typename X>
+// void Solver<T>::addToSearch(const X &x) {
+//   var_t var_id{x.id()};
+//   if (x.isNumeric()) {
+//     if (numeric.lower(x) < numeric.upper(x)) {
+//       numeric_search_vars.reserve(var_id + 1);
+//       if (not numeric_search_vars.has(var_id))
+//         numeric_search_vars.add(var_id);
+//     }
+//   } else {
+//     if (boolean.isUndefined(x)) {
+//       boolean_search_vars.reserve(var_id + 1);
+//       if (not boolean_search_vars.has(var_id))
+//         boolean_search_vars.add(var_id);
+//     }
+//   }
+// }
+
+template <typename T> void Solver<T>::addToSearch(NumericExpression<T> &exp) {
+  exp.extract(*this);
+  NumericVar<T> x{exp};
+  addToSearch(x);
+}
+
+template <typename T> void Solver<T>::addToSearch(const NumericVar<T> &x) {
   var_t var_id{x.id()};
-  if (x.isNumeric()) {
-    if (numeric.lower(x) < numeric.upper(x)) {
-      numeric_search_vars.reserve(var_id + 1);
-      if (not numeric_search_vars.has(var_id))
-        numeric_search_vars.add(var_id);
-    }
-  } else {
-    if (boolean.isUndefined(x)) {
-      boolean_search_vars.reserve(var_id + 1);
-      if (not boolean_search_vars.has(var_id))
-        boolean_search_vars.add(var_id);
-    }
+  if (numeric.lower(x) < numeric.upper(x)) {
+    numeric_search_vars.reserve(var_id + 1);
+    if (not numeric_search_vars.has(var_id))
+      numeric_search_vars.add(var_id);
+  }
+}
+
+template <typename T> void Solver<T>::addToSearch(BooleanExpression<T> &exp) {
+  exp.extract(*this);
+  BooleanVar<T> x{exp};
+  addToSearch(x);
+}
+
+template <typename T> void Solver<T>::addToSearch(const BooleanVar<T> &x) {
+  var_t var_id{x.id()};
+  if (boolean.isUndefined(x)) {
+    boolean_search_vars.reserve(var_id + 1);
+    if (not boolean_search_vars.has(var_id))
+      boolean_search_vars.add(var_id);
   }
 }
 
@@ -2570,7 +2634,9 @@ std::ostream &Solver<T>::display(std::ostream &os, const bool dom,
     os << "precedence graph:\n" << core << std::endl;
   }
   if (cla) {
-    os << "clauses:\n" << clauses << std::endl;
+      os << "clauses:\n" ;
+      clauses.displayClauses(os);
+//      os << std::endl;
   }
   if (bgr) {
     os << "boolean triggers:\n";

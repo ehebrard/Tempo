@@ -61,7 +61,7 @@ void parse(const std::string &fn, M &model, J &schedule,
           exit(1);
         }
 
-        resources.resize(nj + nm, schedule);
+        resources.resize(nj + nm);
 
         gotheader = true;
       } else if (j < nj) {
@@ -74,7 +74,6 @@ void parse(const std::string &fn, M &model, J &schedule,
             exit(1);
           }
 
-          //                std::cout << "new task (" << dur << ")\n";
           auto t{model.newInterval(dur, dur)};
 
           model.set(t.start.after(schedule.start));

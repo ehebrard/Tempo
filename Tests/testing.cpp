@@ -27,9 +27,9 @@ namespace tempo::testing {
         unsigned idx = 0;
         for (auto [min, max] : durations) {
             if (min == max) {
-                ret.emplace_back(TemporalVar{idx, 0}, TemporalVar{idx, min}, min, min);
+                ret.emplace_back(NumericVar{idx, 0}, NumericVar{idx, min}, min, min);
             } else {
-                ret.emplace_back(TemporalVar{idx, 0}, TemporalVar{idx + 1, 0}, min, max);
+                ret.emplace_back(NumericVar{idx, 0}, NumericVar{idx + 1, 0}, min, max);
                 ++idx;
             }
 
@@ -43,7 +43,7 @@ namespace tempo::testing {
         std::vector<Interval<int>> ret;
         ret.reserve(numberOfTasks);
         for (unsigned i = 0; i < numberOfTasks; ++i) {
-            ret.emplace_back(TemporalVar{i, 0}, TemporalVar{i, 0}, 0, 0);
+            ret.emplace_back(NumericVar{i, 0}, NumericVar{i, 0}, 0, 0);
         }
 
         return ret;
@@ -61,7 +61,7 @@ namespace tempo::testing {
         std::vector<int> upper(numTasks * 2 + 2, -1);
         std::vector<int> lower(numTasks * 2 + 2, -1);
         for (int t = 0; t < static_cast<int>(numTasks); ++t) {
-            tasks.emplace_back(TemporalVar(t, 0), TemporalVar(t + 1, 0), random_int(2, 6), random_int(7, 10));
+            tasks.emplace_back(NumericVar(t, 0), NumericVar(t + 1, 0), random_int(2, 6), random_int(7, 10));
             lower.at(tasks.back().start) = random_int(-7, 0);
             upper.at(tasks.back().end) = random_int(-7, 0);
             upperBound += upper.at(tasks.back().end);

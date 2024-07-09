@@ -37,7 +37,7 @@ class Solver;
 
 // enforce sum(l_i) <= bound
 template <typename T> class CardinalityInterface : public Constraint<T> {
-private:
+protected:
   Solver<T> &m_solver;
     
   std::vector<Literal<T>> literals;
@@ -48,6 +48,8 @@ private:
 public:
     
     virtual T upperBound() = 0;
+    virtual T lowerBound() = 0;
+    virtual void setLowerBound(const T l) = 0;
     
 //  template <typename Iter>
 //  CardinalityInterface(Solver<T> &solver, const Iter beg_lit,
@@ -136,19 +138,68 @@ void CardinalityInterface<T>::propagate() {}
 
 template <typename T>
 bool CardinalityInterface<T>::notify(const Literal<T> l, const int) {
-    auto bound{upperBound()};
-    if(m_solver.boolean.satisfied(l)) {
-        ++current_bound;
-        if(current_bound > bound) {
+    
+    auto ub{upperBound()};
+    
+//    display(std::cout);
+//    std::cout << "\nnotify lit " << l
+//    << ": current bound = " << current_bound
+//    << " / upper bound = " << ub
+//    << " var =[" << lowerBound() << ".." << upperBound() << "]" << std::endl;
+//    
+    
+    if(l.isNumeric()) {
+        if(current_bound > ub) {
             throw Failure<T>({this, Constant::FactHint});
-        } else if(current_bound == bound) {
+        } else if(current_bound == ub) {
             for(auto p : literals) {
                 if(m_solver.boolean.isUndefined(p.variable()))
                     m_solver.set(~p, {this, Constant::FactHint});
             }
         }
+    } else {
+        
+        if(m_solver.boolean.satisfied(l)) {
+            ++current_bound;
+            
+            T lb{static_cast<T>(current_bound)};
+//            setLowerBound(lb);
+//            if(lb == bound) {
+//                for(auto p : literals) {
+//                    if(m_solver.boolean.isUndefined(p.variable()))
+//                        m_solver.set(~p, {this, Constant::FactHint});
+//                }
+//            }
+            
+//            std::cout << lb << " <> " << ub << std::endl;
+            
+            if(lb > ub) {
+                throw Failure<T>({this, Constant::FactHint});
+            } else {
+                
+//                std::cout << lb << " <> " << lowerBound() << std::endl;
+                
+                if(lb > lowerBound()) {
+//                    std::cout << "set lb\n";
+                    setLowerBound(lb);
+                }
+                if(lb == ub) {
+                    for(auto p : literals) {
+                        if(m_solver.boolean.isUndefined(p.variable()))
+                            m_solver.set(~p, {this, Constant::FactHint});
+                    }
+                }
+            }
+        }
     }
-  
+    
+    
+//    
+//    std::cout << "\nnotify lit " << l
+//    << ": current bound = " << current_bound
+//    << " / upper bound = " << upperBound()
+//    << " var =[" << lowerBound() << ".." << upperBound() << "]" << std::endl;
+//  
   return false;
 }
 
@@ -171,7 +222,7 @@ void CardinalityInterface<T>::xplain(const Literal<T> l, const hint, std::vector
 
 template <typename T>
 std::ostream &CardinalityInterface<T>::display(std::ostream &os) const {
-  os << "CardinalityInterface";
+  os << "Cardinality";
 
 #ifdef DEBUG_CONSTRAINT
   os << "[" << this->id() << "]";
@@ -179,7 +230,12 @@ std::ostream &CardinalityInterface<T>::display(std::ostream &os) const {
 
   os << "(" << literals[0];
     for (unsigned i{1}; i<literals.size(); ++i) {
-      std::cout << " " << literals[i];
+        if(m_solver.boolean.satisfied(literals[i]))
+            std::cout << " 1";
+        else if(m_solver.boolean.falsified(literals[i]))
+            std::cout << " 0";
+        else
+            std::cout << " " << literals[i];
   }
   std::cout << ")";
   return os;
@@ -189,7 +245,7 @@ template <typename T>
 std::ostream &CardinalityInterface<T>::print_reason(std::ostream &os,
                                             const hint) const {
   //  display(os);
-  os << "CardinalityInterface";
+  os << "Cardinality";
   //
   //  if (not explanations[h].empty()) {
   //
@@ -220,7 +276,11 @@ public:
     CardinalityConst(Solver<T> &solver, const Iter beg_lit, const Iter end_lit,
                 const T ub) : CardinalityInterface<T>(solver, beg_lit, end_lit), bound(ub) {}
     
-    T upperBound() {return bound;}
+    T upperBound() override {return bound;}
+    
+    T lowerBound() override {return CardinalityInterface<T>::current_bound;}
+    
+    void setLowerBound(const T) override {};
     
 private:
     T bound;
@@ -238,11 +298,33 @@ public:
     CardinalityLeqVar(Solver<T> &solver, const Iter beg_lit, const Iter end_lit,
                 const var_t ub) : CardinalityInterface<T>(solver, beg_lit, end_lit), bound(ub) {}
     
-    T upperBound() {return CardinalityInterface<T>::m_solver.numeric.upper(bound);}
+    T upperBound() override {return CardinalityInterface<T>::m_solver.numeric.upper(bound);}
+    
+    T lowerBound() override {return CardinalityInterface<T>::m_solver.numeric.lower(bound);}
+//    T lowerBound() override {return CardinalityInterface<T>::current_bound;}
+    
+    void setLowerBound(const T l) override {
+        CardinalityInterface<T>::m_solver.set(geq<T>(bound, l));
+//        
+//        std::cout << " ==> set [" << CardinalityInterface<T>::m_solver.numeric.lower(bound)
+//        << ".." << CardinalityInterface<T>::m_solver.numeric.upper(bound) << "]\n";
+    };
+    
+    void post(const int idx) override;
+    
+//    void propagate() override;
     
 private:
     var_t bound;
 };
+
+
+template <typename T> void CardinalityLeqVar<T>::post(const int idx) {
+    CardinalityInterface<T>::post(idx);
+    CardinalityInterface<T>::m_solver.wake_me_on(ub<T>(bound), this->id());
+}
+
+
 
 template <typename T> class CardinalityGeqVar : public CardinalityInterface<T> {
 public:
@@ -259,11 +341,35 @@ public:
         }
     }
     
-    T upperBound() {return static_cast<T>(CardinalityInterface<T>::literals.size()) -  CardinalityInterface<T>::m_solver.numeric.lower(bound);}
+    T upperBound() override {return static_cast<T>(CardinalityInterface<T>::literals.size()) -  CardinalityInterface<T>::m_solver.numeric.lower(bound);}
+//        T upperBound() override {return CardinalityInterface<T>::m_solver.numeric.upper(bound);}
+    
+//    T lowerBound() override {return CardinalityInterface<T>::current_bound;}
+    T lowerBound() override {return static_cast<T>(CardinalityInterface<T>::literals.size()) - CardinalityInterface<T>::m_solver.numeric.upper(bound);}
+    
+    void setLowerBound(const T l) override {
+        
+//        std::cout << " set [" << CardinalityInterface<T>::m_solver.numeric.lower(bound)
+//        << ".." << CardinalityInterface<T>::m_solver.numeric.upper(bound) << "] <= " 
+//        << (l - static_cast<T>(CardinalityInterface<T>::literals.size())) << "\n";
+//        
+        CardinalityInterface<T>::m_solver.set(leq<T>(bound, static_cast<T>(CardinalityInterface<T>::literals.size()) - l));
+//
+//            std::cout << " ==> [" << CardinalityInterface<T>::m_solver.numeric.lower(bound)
+//            << ".." << CardinalityInterface<T>::m_solver.numeric.upper(bound) << "] (" << lowerBound() << ")\n";
+    };
+    
+    void post(const int idx) override;
     
 private:
     var_t bound;
 };
+
+
+template <typename T> void CardinalityGeqVar<T>::post(const int idx) {
+    CardinalityInterface<T>::post(idx);
+    CardinalityInterface<T>::m_solver.wake_me_on(lb<T>(bound), this->id());
+}
 
 // template <typename T> std::vector<int> CardinalityInterface<T>::task_map;
 
