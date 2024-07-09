@@ -192,7 +192,8 @@ public:
    */
   //@{
   // declare a new numeric variable
-  NumericVar<T> newVar(const T init = Constant::Infinity<T>);
+  NumericVar<T> newVar(const T b = Constant::Infinity<T>);
+  //    NumericVar<T> newVar(const T lb, const T ub);
   //@}
 
   /**
@@ -200,6 +201,7 @@ public:
    */
   //@{
   Literal<T> getLiteral(const bool s, const var_t x) const;
+  Literal<T> previousBound(const Literal<T> l) const;
 
   index_t litIndex(const Literal<T> l) const;
   index_t lastLitIndex(const bool s, const var_t x) const;
@@ -337,11 +339,12 @@ public:
     // return a variable
     NumericVar<T> zero() { return NumericVar<T>(0); }
     // create an internal numeric variable and return a model object pointing to it
-    NumericVar<T> newNumeric();
+    NumericVar<T> newNumeric(const T lb = -Constant::Infinity<T>,
+                             const T ub = Constant::Infinity<T>);
     // create an internal temporal variable and return a model object pointing
     // to it
     //    TemporalVar<T> newTemporal(const T offset = 0);
-    NumericVar<T> newTemporal(const T offset = 0);
+    //    NumericVar<T> newTemporal(const T offset = 0);
     // create the internal variables (depending on the type of Interval) and
     // return a model object pointing to them
     Interval<T> newInterval(const T mindur = 0,
@@ -354,10 +357,15 @@ public:
     //@{
     // get the Literal corresponding to the i-th propagation event
     Literal<T> getLiteral(const index_t i) const;
-    
-    // get the most recent Literal that entails l
-    Literal<T> getImplicant(const Literal<T> l) const;
-    
+
+    // get the bound literal that precedes l
+    //    Literal<T> previousBound(const Literal<T> l) const;
+    //    bool subsumed(const Literal<T> l) const;
+    //    Literal<T> previousLiteral(const Literal<T> l) const;
+
+    //    // get the most recent Literal that entails l
+    //    Literal<T> getImplicant(const Literal<T> l) const;
+
     // get the explanation for the i-th literal
     Explanation<T> getReason(const index_t i) const;
     
@@ -460,9 +468,10 @@ public:
      */
     //@{
     boolean_state search();
-    
-    boolean_state satisfiable();
+
     template <typename S> void optimize(S &objective);
+
+    boolean_state satisfiable();
     void minimize(NumericVar<T> &x);
     void minimize(NumericExpression<T> x);
     void maximize(NumericVar<T> &x);
@@ -964,6 +973,7 @@ bool BooleanStore<T>::falsified(const Literal<T> l) const {
 template <typename T> NumericStore<T>::NumericStore(Solver<T> &s) : solver(s) {
   // useful to have the constant 0 as a regular variable
   // other constants can be TemporalVars pointing to the constant 0
+  //  newVar(0,0);
   newVar(0);
 }
 
@@ -976,11 +986,29 @@ const std::vector<T> &NumericStore<T>::get(const int b) const {
     return bound[b];
 }
 
-template <typename T> NumericVar<T> NumericStore<T>::newVar(const T init) {
+// template <typename T> NumericVar<T> NumericStore<T>::newVar(const T lb, const
+// T ub) {
+//   NumericVar<T> x{static_cast<var_t>(size())};
+//
+//   bound[bound::lower].push_back(lb);
+//   bound[bound::upper].push_back(ub);
+//
+//   conflict_index[bound::lower].push_back(Constant::NoIndex);
+//   conflict_index[bound::upper].push_back(Constant::NoIndex);
+//
+//   bound_index[bound::lower].resize(size());
+//   bound_index[bound::upper].resize(size());
+//   bound_index[bound::lower].back().push_back(Constant::InfIndex);
+//   bound_index[bound::upper].back().push_back(Constant::InfIndex);
+//
+//   return x;
+// }
+
+template <typename T> NumericVar<T> NumericStore<T>::newVar(const T b) {
   NumericVar<T> x{static_cast<var_t>(size())};
 
-  bound[bound::lower].push_back(init);
-  bound[bound::upper].push_back(init);
+  bound[bound::lower].push_back(b);
+  bound[bound::upper].push_back(b);
 
   conflict_index[bound::lower].push_back(Constant::NoIndex);
   conflict_index[bound::upper].push_back(Constant::NoIndex);
@@ -1046,6 +1074,29 @@ template <typename T> T NumericStore<T>::lower(const var_t x) const {
 template <typename T>
 Literal<T> NumericStore<T>::getLiteral(const bool s, const var_t x) const {
   return solver.getLiteral(bound_index[s][x].back());
+}
+
+template <typename T>
+Literal<T> NumericStore<T>::previousBound(const Literal<T> l) const {
+  //    auto i{numeric.bound_index[l.sign()][l.variable()]};
+
+  auto i{bound_index[l.sign()][l.variable()].rbegin()};
+
+  assert(solver.getLiteral(*i) == l);
+
+  //    std::cout << "prev bound of " << l << " (top of stack = " <<
+  //    solver.getLiteral(*i) << ")\n";
+  //
+  //    while (solver.getLiteral(*i) != l) {
+  //        std::cout << " -- " <<  solver.getLiteral(*i) << "? (" <<
+  //        std::distance(i, bound_index[l.sign()][l.variable()].rend()) <<
+  //        ")\n";
+  //        --i;
+  //    }
+
+  --i;
+
+  return solver.getLiteral(*i);
 }
 
 template <typename T>
@@ -1155,13 +1206,21 @@ DisjunctVar<T> Solver<T>::newDisjunct(const DistanceConstraint<T> &d1,
   return x;
 }
 
-template <typename T> NumericVar<T> Solver<T>::newNumeric() {
-    auto x{numeric.newVar()};
-    changed.reserve(numeric.size());
-    clauses.newNumericVar(x.id());
-    numeric_constraints.resize(std::max(numConstraint(), 2 * numeric.size()));
-    core.newVertex(x);
-    return x;
+template <typename T>
+NumericVar<T> Solver<T>::newNumeric(const T lb, const T ub) {
+  //    auto x{numeric.newVar(-lb, ub)};
+
+  auto x{numeric.newVar(Constant::Infinity<T>)}; //, Constant::Infinity<T>)};
+
+  changed.reserve(numeric.size());
+  clauses.newNumericVar(x.id());
+  numeric_constraints.resize(std::max(numConstraint(), 2 * numeric.size()));
+  core.newVertex(x.id());
+
+  set(geq<T>(x.id(), lb));
+  set(leq<T>(x.id(), ub));
+
+  return x;
 }
 
 // template <typename T> TemporalVar<T> Solver<T>::newTemporal(const T offset) {
@@ -1170,11 +1229,11 @@ template <typename T> NumericVar<T> Solver<T>::newNumeric() {
 //     return x;
 // }
 
-template <typename T> NumericVar<T> Solver<T>::newTemporal(const T offset) {
-  NumericVar<T> x{newNumeric().id(), offset};
-  //  core.newVertex(x);
-  return x;
-}
+// template <typename T> NumericVar<T> Solver<T>::newTemporal(const T offset) {
+//   NumericVar<T> x{newNumeric().id(), offset};
+//   //  core.newVertex(x);
+//   return x;
+// }
 
 template <typename T>
 Interval<T> Solver<T>::newInterval(const T mindur, const T maxdur) {
@@ -1204,6 +1263,36 @@ Explanation<T> Solver<T>::getReason(const Literal<T> l) const {
 template <typename T> Literal<T> Solver<T>::getLiteral(const index_t i) const {
     return trail[i];
 }
+
+// template <typename T>
+// bool Solver<T>::subsumed(const Literal<T> l) const {
+//     assert(l.isNumeric());
+//
+//     return(l.value() > numeric.getLiteral(l.sign(), l.variable()).value());
+// }
+//
+// template <typename T>
+// Literal<T> Solver<T>::previousBound(const Literal<T> l) const {
+//     return numeric.previousBound(l);
+////    std::cout << "get previous bound of " << l << std::endl;
+////
+////
+////    auto i{numeric.lastLitIndex(l.sign(), l.variable())};
+////
+////
+////    std::cout << i << std::endl;
+////
+////    std::cout << trail[i] << std::endl;
+////    std::cout << trail[0] << std::endl;
+////
+////    assert(i > 0);
+////
+////    while (getLiteral(i--) != l);
+////
+////    assert(i >= 0);
+////
+////    return getLiteral(i);
+//}
 
 template <typename T>
 void Solver<T>::set(const DistanceConstraint<T> &c, const index_t r) {
@@ -2144,6 +2233,14 @@ template <typename T> void tempo::Solver<T>::propagate() {
         //TODO: not sure why it is better to do it like this than with the standard constraint queue system (PRIORITY?)
             if (not l.isNumeric())
               clauses.unit_propagate_boolean(l);
+            else {
+              if (numeric.lastLitIndex(l.sign(), l.variable()) > p_index) {
+                ++p_index;
+                continue;
+                //                    std::cout << "subsumed\n";
+              }
+            }
+
 //            else if(options.full_up and ) {
 //
 //            }

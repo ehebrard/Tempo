@@ -225,12 +225,12 @@ template <typename T> T DisjunctiveEdgeFinding<T>::lct(const unsigned i) const {
 
 template <typename T>
 T DisjunctiveEdgeFinding<T>::minduration(const unsigned i) const {
-  return the_tasks[i].minDuration();
+  return the_tasks[i].minDuration(m_solver);
 }
 
 template <typename T>
 T DisjunctiveEdgeFinding<T>::maxduration(const unsigned i) const {
-  return the_tasks[i].maxDuration();
+  return the_tasks[i].maxDuration(m_solver);
 }
 
 template <typename T>

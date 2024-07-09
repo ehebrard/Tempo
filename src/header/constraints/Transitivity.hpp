@@ -442,7 +442,7 @@ template <typename T> void Transitivity<T>::min_spanning_tree() {
   //    min_start = std::min(min_start, m_solver.lower(START(t)));
   //  }
   for (auto& t : the_tasks) {
-    path_length += t.minDuration();
+    path_length += t.minDuration(m_solver);
     min_start = std::min(min_start, t.getEarliestStart(m_solver));
   }
   path_length += min_start;
@@ -494,7 +494,7 @@ template <typename T> void Transitivity<T>::propagate() {
     // schedule: y < x)
     for (auto yp{DAG[x].bbegin()}; yp != DAG[x].bend(); ++yp) {
       //      offset[*yp] += m_solver.minDuration(m_tasks[x]);
-      offset[*yp] += the_tasks[x].minDuration();
+      offset[*yp] += the_tasks[x].minDuration(m_solver);
 
       // x must end before ex
       //      auto ex{m_solver.upper(END(m_tasks[x]))};
@@ -556,8 +556,7 @@ template <typename T> void Transitivity<T>::propagate() {
 
       // the successors of y are pushed by y's duration
     for (auto xp{DAG[y].fbegin()}; xp != DAG[y].fend(); ++xp) {
-      offset[*xp] +=
-          the_tasks[y].minDuration();
+      offset[*xp] += the_tasks[y].minDuration(m_solver);
 
       auto sy{the_tasks[y].getEarliestStart(m_solver)};
       auto sz{the_tasks[*xp].getEarliestStart(m_solver)};
@@ -620,7 +619,7 @@ void Transitivity<T>::xplain(const Literal<T> l, const hint h,
     if (l.sign() == bound::lower) {
 #ifdef DBG_EXPL_TRANS
       std::cout << "lb of " << the_tasks[x]
-                << " dur=" << the_tasks[x].minDuration() << std::endl;
+                << " dur=" << the_tasks[x].minDuration(m_solver) << std::endl;
 #endif
       for (auto yp{DAG[x].bbegin()}; yp != DAG[x].bend(); ++yp) {
         auto p{disjunct[*yp][x]};
@@ -632,7 +631,10 @@ void Transitivity<T>::xplain(const Literal<T> l, const hint h,
                 Cl.push_back(b);
                 
 #ifdef DBG_EXPL_TRANS
-                std::cout << " - " << m_solver.pretty(p) << " & " << b << " (" << the_tasks[*yp].minDuration() << ") @" << m_solver.propagationLevel(p) << " & " << m_solver.propagationLevel(b) << std::endl;
+                std::cout << " - " << m_solver.pretty(p) << " & " << b << " ("
+                          << the_tasks[*yp].minDuration(m_solver) << ") @"
+                          << m_solver.propagationLevel(p) << " & "
+                          << m_solver.propagationLevel(b) << std::endl;
 #endif
             }
         }
@@ -640,7 +642,7 @@ void Transitivity<T>::xplain(const Literal<T> l, const hint h,
     } else {
 #ifdef DBG_EXPL_TRANS
       std::cout << "ub of " << the_tasks[x]
-                << " dur=" << the_tasks[x].minDuration() << std::endl;
+                << " dur=" << the_tasks[x].minDuration(m_solver) << std::endl;
 #endif
       for (auto yp{DAG[x].fbegin()}; yp != DAG[x].fend(); ++yp) {
         auto p{disjunct[x][*yp]};
@@ -655,7 +657,10 @@ void Transitivity<T>::xplain(const Literal<T> l, const hint h,
                 //            assert(m_solver.propagationLevel(b) < l_lvl);
                 
 #ifdef DBG_EXPL_TRANS
-                std::cout << " - " << m_solver.pretty(p) << " & " << b << " (" << the_tasks[*yp].minDuration() << ") @" << m_solver.propagationLevel(p) << " & " << m_solver.propagationLevel(b) << std::endl;
+                std::cout << " - " << m_solver.pretty(p) << " & " << b << " ("
+                          << the_tasks[*yp].minDuration(m_solver) << ") @"
+                          << m_solver.propagationLevel(p) << " & "
+                          << m_solver.propagationLevel(b) << std::endl;
 #endif
             }
         }
@@ -773,7 +778,7 @@ std::string Transitivity<T>::prettyTask(const int i) const {
   ss << "t" << the_tasks[i].id() << ": ["
      << the_tasks[i].getEarliestStart(m_solver) << ".."
      << the_tasks[i].getLatestEnd(m_solver) << "] ("
-     << the_tasks[i].minDuration() << ")";
+     << the_tasks[i].minDuration(m_solver) << ")";
   return ss.str();
 }
 

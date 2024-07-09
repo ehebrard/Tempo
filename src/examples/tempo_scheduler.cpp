@@ -102,7 +102,7 @@ int main(int argc, char *argv[]) {
   // set a trivial (and the user-defined) upper bound
   auto trivial_ub{0};
   for (auto &j : intervals)
-    trivial_ub += j.minDuration();
+    trivial_ub += j.minDuration(S);
   auto ub{std::min(opt.ub, trivial_ub)};
 
   //    S.post(schedule.end <= ub);

@@ -21,9 +21,10 @@
 #ifndef __TEMPO_MODEL_HPP
 #define __TEMPO_MODEL_HPP
 
-
 #include "Literal.hpp"
 #include "constraints/Cardinality.hpp"
+#include "constraints/PseudoBoolean.hpp"
+#include "constraints/SumConstraint.hpp"
 
 using namespace std;
 
@@ -66,7 +67,9 @@ public:
 
     var_t id() const { return _id_; }
 
-    operator var_t() const { return _id_; }
+    //    bool isConstant() { return _id_ == 0; }
+
+    //    operator var_t() const { return _id_; }
 
     std::ostream &display(std::ostream &os) const;
 
@@ -203,8 +206,8 @@ public:
   bool mustExist(Solver<T> &s) const;
   bool cannotExist(Solver<T> &s) const;
 
-  T minDuration() const;
-  T maxDuration() const;
+  T minDuration(Solver<T> &s) const;
+  T maxDuration(Solver<T> &s) const;
 
   var_t getStart() const;
   var_t getEnd() const;
@@ -218,14 +221,15 @@ public:
   //  TemporalVar<T> end;
   NumericVar<T> start;
   NumericVar<T> end;
+  NumericVar<T> duration;
 
   bool isOptional() const { return exist.id() != Constant::NoVar; }
 
   BooleanVar<T> exist{Constant::NoVar};
 
-private:
-  T min_duration{0};
-  T max_duration{Constant::Infinity<T>};
+  // private:
+  //   T min_duration{0};
+  //   T max_duration{Constant::Infinity<T>};
 };
 
 
@@ -383,41 +387,100 @@ public:
   SumExpressionImpl() {}
 
   var_t extract(Solver<T> &solver) override {
-    for (auto x : arguments)
+    std::vector<var_t> vars;
+    T lb{0};
+    T ub{0};
+    for (unsigned i{0}; i < arguments.size(); ++i) {
+      auto x{arguments[i]};
+      auto w{weights[i]};
+
+      if (w < 0) {
+        if (lb != -Constant::Infinity<T>) {
+          if (x.max(solver) == Constant::Infinity<T>) {
+            lb = -Constant::Infinity<T>;
+          } else {
+            lb += w * x.max(solver);
+          }
+        }
+        if (ub != Constant::Infinity<T>) {
+          if (x.min(solver) == -Constant::Infinity<T>) {
+            ub = Constant::Infinity<T>;
+          } else {
+            ub += w * x.min(solver);
+          }
+        }
+      } else {
+        if (lb != -Constant::Infinity<T>) {
+          if (x.min(solver) == -Constant::Infinity<T>) {
+            lb = -Constant::Infinity<T>;
+          } else {
+            lb += w * x.min(solver);
+          }
+        }
+        if (ub != Constant::Infinity<T>) {
+          if (x.max(solver) == Constant::Infinity<T>) {
+            ub = Constant::Infinity<T>;
+          } else {
+            ub += w * x.max(solver);
+          }
+        }
+        //              lb += w * x.min(solver);
+        //              ub += w * x.max(solver);
+      }
+
       x.extract(solver);
-    if (arguments.size() == 1) {
-      NumericExpressionImpl<T>::self.setId(arguments.begin()->id());
-      NumericExpressionImpl<T>::self.setOffset(NumericExpressionImpl<T>::self.offset() + arguments.begin()->offset());
-    } else {
-      throw ModelingException("binary and nary sums: not implemented");
+      NumericExpressionImpl<T>::self.setOffset(
+          NumericExpressionImpl<T>::self.offset() + w * x.offset());
+      if (x.min(solver) != x.max(solver)) {
+        vars.push_back(x.id());
+      }
     }
-    return NumericExpressionImpl<T>::self.id();
+    if (vars.size() == 1 and weights[0] == 1) {
+      NumericExpressionImpl<T>::self.setId(*vars.begin());
+    } else {
+      self = solver.newNumeric(lb, ub);
+
+      vars.push_back(self.id());
+      weights.push_back(-1);
+      T total{self.offset()};
+
+      solver.post(new SumConstraint(solver, vars.begin(), vars.end(),
+                                    weights.begin(), total));
+      for (auto &w : weights)
+        w = -w;
+      solver.post(new SumConstraint(solver, vars.begin(), vars.end(),
+                                    weights.begin(), -total));
+    }
+    return self.id();
   }
 
-  SumExpressionImpl<T> &operator+=(const NumericExpression<T> &x) {
+  SumExpressionImpl<T> &addTerm(const NumericExpression<T> &x, const T w = 1) {
     arguments.push_back(x);
+    weights.push_back(w);
     return *this;
   }
-  SumExpressionImpl<T> &operator+=(const NumericVar<T> &x) {
+  SumExpressionImpl<T> &addTerm(const NumericVar<T> &x, const T w = 1) {
     arguments.push_back(x);
+    weights.push_back(w);
     return *this;
   }
-  SumExpressionImpl<T> &operator+=(const T k) {
+  SumExpressionImpl<T> &addTerm(const T k) {
     NumericExpressionImpl<T>::self.setOffset(
         NumericExpressionImpl<T>::self.offset() + k);
     return *this;
   }
 
 private:
-  //    TemporalVar<T> self;
+  NumericVar<T> self;
   std::vector<NumericExpression<T>> arguments;
+  std::vector<T> weights;
 };
 
 template <typename T>
 NumericExpression<T> NumericExpression<T>::operator+(const T k) {
   auto sum{new SumExpressionImpl<T>()};
-  (*sum) += *this;
-  (*sum) += k;
+  sum->addTerm(*this);
+  sum->addTerm(k);
   NumericExpression<T> exp(sum);
   return exp;
 }
@@ -425,10 +488,131 @@ NumericExpression<T> NumericExpression<T>::operator+(const T k) {
 template <typename T>
 NumericExpression<T> operator+(const NumericVar<T> &x, const T k) {
   auto sum{new SumExpressionImpl<T>()};
-  (*sum) += x;
-  (*sum) += k;
+  sum->addTerm(x);
+  sum->addTerm(k);
   NumericExpression<T> exp(sum);
   return exp;
+}
+
+template <typename T>
+NumericExpression<T> operator+(const NumericExpression<T> &x,
+                               const NumericExpression<T> &y) {
+  auto sum{new SumExpressionImpl<T>()};
+  sum->addTerm(x);
+  sum->addTerm(y);
+  NumericExpression<T> exp(sum);
+  return exp;
+}
+
+template <typename T>
+NumericExpression<T> operator+(const NumericVar<T> &x, const NumericVar<T> &y) {
+  auto sum{new SumExpressionImpl<T>()};
+  sum->addTerm(x);
+  sum->addTerm(y);
+  NumericExpression<T> exp(sum);
+  return exp;
+}
+
+template <typename varit, typename weightit, typename T>
+NumericExpression<T> Sum(varit beg_var, varit end_var, weightit beg_weight) {
+  auto sum{new SumExpressionImpl<T>()};
+  auto wp{beg_weight};
+  for (auto xp{beg_var}; xp != end_var; ++xp) {
+    sum->addTerm(*xp, *wp);
+    ++wp;
+  }
+  NumericExpression<T> exp(sum);
+  return exp;
+}
+
+// x == y+k
+template <typename T = int>
+class NumEqExpressionImpl : public ExpressionImpl<T> {
+public:
+  NumEqExpressionImpl(NumericExpression<T> x, NumericExpression<T> y, const T k)
+      : x(x), y(y), k(k) {}
+
+  var_t extract(Solver<T> &solver) override {
+    x.extract(solver);
+    y.extract(solver);
+
+    auto prec{x.before(y, -k)};
+    auto inf = solver.newDisjunct(~prec, prec);
+    auto succ{x.after(y, -k)};
+    auto sup = solver.newDisjunct(~succ, succ);
+    auto conj = (sup and inf);
+    conj.extract(solver);
+    self = conj;
+
+    return self.id();
+  }
+
+  void post(Solver<T> &solver) override {
+    x.extract(solver);
+    y.extract(solver);
+
+    auto prec{x.before(y, -k)};
+    solver.set(prec);
+      auto succ{x.after(y, -k)};
+      solver.set(succ);
+    //        DistanceConstraint<T> c{x.before(y,-k)};
+    //        solver.set(c);
+  }
+
+private:
+  BooleanVar<T> self;
+  NumericExpression<T> x;
+  NumericExpression<T> y;
+  T k;
+  // self <-> x - y <= k
+  // x <= k (y.id() == Constant::NoVar)
+  // y <= k (y.id() == Constant::NoVar, this->k == -k)
+};
+
+///// <=
+template <typename T>
+BooleanExpression<T> operator==(const NumericExpression<T> &x,
+                                const NumericExpression<T> &y) {
+  BooleanExpression<T> exp(new NumEqExpressionImpl<T>(x, y, 0));
+  return exp;
+}
+
+template <typename T>
+BooleanExpression<T> operator==(const NumericVar<T> &x,
+                                const NumericExpression<T> &y) {
+  return operator==(NumericExpression<T>(x), y);
+}
+
+template <typename T>
+BooleanExpression<T> operator==(const NumericExpression<T> &x,
+                                const NumericVar<T> &y) {
+  return operator==(x, NumericExpression<T>(y));
+}
+
+template <typename T>
+BooleanExpression<T> operator==(const NumericVar<T> &x,
+                                const NumericVar<T> &y) {
+  return operator==(NumericExpression<T>(x), NumericExpression<T>(y));
+}
+
+template <typename T>
+BooleanExpression<T> operator==(const T x, const NumericExpression<T> &y) {
+  return operator==(NumericExpression<T>(x), y);
+}
+
+template <typename T>
+BooleanExpression<T> operator==(const NumericExpression<T> &x, const T y) {
+  return operator==(x, NumericExpression<T>(y));
+}
+
+template <typename T>
+BooleanExpression<T> operator==(const T x, const NumericVar<T> &y) {
+  return operator==(NumericExpression<T>(x), NumericExpression<T>(y));
+}
+
+template <typename T>
+BooleanExpression<T> operator==(const NumericVar<T> &x, const T k) {
+  return operator==(NumericExpression<T>(x), NumericExpression<T>(k));
 }
 
 template <typename T = int> class LeqExpressionImpl : public ExpressionImpl<T> {
@@ -450,6 +634,9 @@ public:
     y.extract(solver);
 
     auto prec{x.before(y, -k)};
+
+    std::cout << "post " << prec << std::endl;
+
     solver.set(prec);
     //        DistanceConstraint<T> c{x.before(y,-k)};
     //        solver.set(c);
@@ -465,6 +652,7 @@ private:
   // y <= k (y.id() == Constant::NoVar, this->k == -k)
 };
 
+///// <=
 template <typename T>
 BooleanExpression<T> operator<=(const NumericExpression<T> &x,
                                 const NumericExpression<T> &y) {
@@ -482,6 +670,12 @@ template <typename T>
 BooleanExpression<T> operator<=(const NumericExpression<T> &x,
                                 const NumericVar<T> &y) {
   return operator<=(x, NumericExpression<T>(y));
+}
+
+template <typename T>
+BooleanExpression<T> operator<=(const NumericVar<T> &x,
+                                const NumericVar<T> &y) {
+  return operator<=(NumericExpression<T>(x), NumericExpression<T>(y));
 }
 
 template <typename T>
@@ -504,22 +698,7 @@ BooleanExpression<T> operator<=(const NumericVar<T> &x, const T k) {
   return operator<=(NumericExpression<T>(x), NumericExpression<T>(k));
 }
 
-// template <typename T>
-// BooleanExpression<T> operator<=(const NumericVar<T> &x,
-//                                 const NumericExpression<T> &y) {
-//   BooleanExpression<T> exp(
-//       new LeqExpressionImpl<T>(NumericExpression<T>(x), y, 0));
-//   return exp;
-// }
-//
-// template <typename T>
-// BooleanExpression<T> operator<=(const NumericExpression<T> &x,
-//                                 const NumericVar<T> &y) {
-//   NumericExpression<T> y_exp{y};
-//   BooleanExpression<T> exp(new LeqExpressionImpl<T>(x, y_exp, 0));
-//   return exp;
-// }
-
+///// <
 template <typename T>
 BooleanExpression<T> operator<(const NumericExpression<T> &x,
                                const NumericExpression<T> &y) {
@@ -549,6 +728,13 @@ BooleanExpression<T> operator<(const T x,
 }
 
 template <typename T>
+BooleanExpression<T> operator<(const NumericExpression<T> &x, const T y) {
+  BooleanExpression<T> exp(
+      new LeqExpressionImpl<T>(x, NumericExpression<T>(y), -Gap<T>::epsilon()));
+  return exp;
+}
+
+template <typename T>
 BooleanExpression<T> operator<(const NumericVar<T> &x,
                                const T y) {
   BooleanExpression<T> exp(new LeqExpressionImpl<T>(NumericExpression<T>(x), NumericExpression<T>(y), -Gap<T>::epsilon()));
@@ -562,13 +748,7 @@ BooleanExpression<T> operator<(const T x,
   return exp;
 }
 
-template <typename T>
-BooleanExpression<T> operator<(const NumericExpression<T> &x,
-                               const T y) {
-  BooleanExpression<T> exp(new LeqExpressionImpl<T>(x, NumericExpression<T>(y), -Gap<T>::epsilon()));
-  return exp;
-}
-
+///// >=
 template <typename T>
 BooleanExpression<T> operator>=(const NumericExpression<T> &x,
                                 const NumericExpression<T> &y) {
@@ -577,6 +757,59 @@ BooleanExpression<T> operator>=(const NumericExpression<T> &x,
 }
 
 template <typename T>
+BooleanExpression<T> operator>=(const NumericVar<T> &x,
+                                const NumericExpression<T> &y) {
+  BooleanExpression<T> exp(
+      new LeqExpressionImpl<T>(y, NumericExpression<T>(x), 0));
+  return exp;
+}
+
+template <typename T>
+BooleanExpression<T> operator>=(const NumericExpression<T> &x,
+                                const NumericVar<T> &y) {
+  BooleanExpression<T> exp(
+      new LeqExpressionImpl<T>(NumericExpression<T>(y), x, 0));
+  return exp;
+}
+
+template <typename T>
+BooleanExpression<T> operator>=(const NumericVar<T> &x,
+                                const NumericVar<T> &y) {
+  BooleanExpression<T> exp(new LeqExpressionImpl<T>(
+      NumericExpression<T>(y), NumericExpression<T>(x), 0));
+  return exp;
+}
+
+template <typename T>
+BooleanExpression<T> operator>=(const T x, const NumericExpression<T> &y) {
+  BooleanExpression<T> exp(
+      new LeqExpressionImpl<T>(y, NumericExpression<T>(x), 0));
+  return exp;
+}
+
+template <typename T>
+BooleanExpression<T> operator>=(const NumericExpression<T> &x, const T y) {
+  BooleanExpression<T> exp(
+      new LeqExpressionImpl<T>(NumericExpression<T>(y), x, 0));
+  return exp;
+}
+
+template <typename T>
+BooleanExpression<T> operator>=(const NumericVar<T> &x, const T y) {
+  BooleanExpression<T> exp(new LeqExpressionImpl<T>(
+      NumericExpression<T>(y), NumericExpression<T>(x), 0));
+  return exp;
+}
+
+template <typename T>
+BooleanExpression<T> operator>=(const T x, const NumericVar<T> &y) {
+  BooleanExpression<T> exp(new LeqExpressionImpl<T>(
+      NumericExpression<T>(y), NumericExpression<T>(x), 0));
+  return exp;
+}
+
+///// >
+template <typename T>
 BooleanExpression<T> operator>(const NumericExpression<T> &x,
                                const NumericExpression<T> &y) {
   BooleanExpression<T> exp(new LeqExpressionImpl<T>(y, x, -Gap<T>::epsilon()));
@@ -584,9 +817,53 @@ BooleanExpression<T> operator>(const NumericExpression<T> &x,
 }
 
 template <typename T>
+BooleanExpression<T> operator>(const NumericVar<T> &x,
+                               const NumericExpression<T> &y) {
+  BooleanExpression<T> exp(
+      new LeqExpressionImpl<T>(y, NumericExpression<T>(x), -Gap<T>::epsilon()));
+  return exp;
+}
+
+template <typename T>
+BooleanExpression<T> operator>(const NumericExpression<T> &x,
+                               const NumericVar<T> &y) {
+  BooleanExpression<T> exp(
+      new LeqExpressionImpl<T>(NumericExpression<T>(y), x, -Gap<T>::epsilon()));
+  return exp;
+}
+
+template <typename T>
+BooleanExpression<T> operator>(const NumericVar<T> &x, const NumericVar<T> &y) {
+  BooleanExpression<T> exp(new LeqExpressionImpl<T>(
+      NumericExpression<T>(y), NumericExpression<T>(x), -Gap<T>::epsilon()));
+  return exp;
+}
+
+template <typename T>
 BooleanExpression<T> operator>(const NumericExpression<T> &x, const T k) {
   BooleanExpression<T> exp(
       new LeqExpressionImpl<T>(NumericExpression<T>(k+Gap<T>::epsilon()), x, 0));
+  return exp;
+}
+
+template <typename T>
+BooleanExpression<T> operator>(const T k, const NumericExpression<T> &x) {
+  BooleanExpression<T> exp(new LeqExpressionImpl<T>(
+      x, NumericExpression<T>(k + Gap<T>::epsilon()), 0));
+  return exp;
+}
+
+template <typename T>
+BooleanExpression<T> operator>(const NumericVar<T> &x, const T k) {
+  BooleanExpression<T> exp(new LeqExpressionImpl<T>(
+      NumericExpression<T>(k + Gap<T>::epsilon()), NumericExpression<T>(x), 0));
+  return exp;
+}
+
+template <typename T>
+BooleanExpression<T> operator>(const T k, const NumericVar<T> &x) {
+  BooleanExpression<T> exp(new LeqExpressionImpl<T>(
+      NumericExpression<T>(x), NumericExpression<T>(k - Gap<T>::epsilon()), 0));
   return exp;
 }
 
@@ -1210,16 +1487,13 @@ void DisjunctiveResource<T>::createOptionalOrderVariables(Solver<T> &solver,
 template <typename T>
 Interval<T>::Interval(Solver<T> &solver, const T mindur, const T maxdur,
                       const BooleanVar<T> opt)
-    : start(solver.newTemporal()),
+    : start(solver.newNumeric()),
       end((mindur == maxdur ? NumericVar(start.id(), mindur)
-                            : solver.newTemporal())),
-      exist(opt) {
-  min_duration = mindur;
-  max_duration = maxdur;
+                            : solver.newNumeric())),
+      duration(solver.newNumeric(mindur, maxdur)), exist(opt) {
 
   if (start.id() != end.id()) {
-    solver.set(start.before(end, min_duration));
-    solver.set(end.before(start, -max_duration));
+      solver.post((start + duration) == end);
   }
 }
 
@@ -1253,12 +1527,22 @@ template <typename T> bool Interval<T>::cannotExist(Solver<T> &) const {
   return false;
 }
 
-template <typename T> T Interval<T>::minDuration() const {
-  return min_duration;
+template <typename T> T Interval<T>::minDuration(Solver<T> &solver) const {
+  //    if(min_duration != duration.min(solver)) {
+  //        std::cout << "bug!\n";
+  //        exit(1);
+  //    }
+  ////    else {
+  ////        std::cout << "ok\n";
+  ////    }
+  //
+  //  return min_duration;
+  return duration.min(solver);
 }
 
-template <typename T> T Interval<T>::maxDuration() const {
-  return max_duration;
+template <typename T> T Interval<T>::maxDuration(Solver<T> &solver) const {
+  //  return max_duration;
+  return duration.max(solver);
 }
 
 template <typename T> var_t Interval<T>::getStart() const { return start.id(); }
