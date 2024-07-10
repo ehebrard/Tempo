@@ -43,9 +43,8 @@ namespace tempo::heuristics {
      * @brief Heuristic factory class that can be used to construct different heuristics and at the same time provides a
      * consistent interface to callers
      */
-    template<concepts::scalar T>
     class HeuristicManager {
-        using Implementations = std::variant<Tightest, VSIDS<T>, WeightedDegree<T>>;
+        using Implementations = std::variant<Tightest, VSIDS, WeightedDegree>;
 
     public:
         /**
@@ -57,6 +56,7 @@ namespace tempo::heuristics {
          * @throws std::runtime_error if an unknown heuristics type was given in
          * options
          */
+        template<concepts::scalar T>
         HeuristicManager(Solver<T> &solver, const Options &options) {
             //@TODO use factory pattern
             switch (options.choice_point_heuristics) {
@@ -66,13 +66,13 @@ namespace tempo::heuristics {
                 }
                 case Options::ChoicePointHeuristics::VSIDS: {
                     if (options.learning) {
-                        impl.template emplace<VSIDS<T>>(solver);
+                        impl.template emplace<VSIDS>(solver);
                     } else // closest thing if not learning
-                        impl.template emplace<WeightedDegree<T>>(solver);
+                        impl.template emplace<WeightedDegree>(solver);
                     break;
                 }
                 case Options::ChoicePointHeuristics::WeightedDegree: {
-                    impl.template emplace<WeightedDegree<T>>(solver);
+                    impl.template emplace<WeightedDegree>(solver);
                     break;
                 }
                 default:
@@ -86,7 +86,8 @@ namespace tempo::heuristics {
          * @param solver solver for which to select the next variable
          * @return variable choice consisting of the selected variable and its type
          */
-        auto nextVariable(Solver<T> &solver) {
+        template<concepts::scalar T>
+        auto nextVariable(const Solver<T> &solver) {
             return std::visit([&solver](auto &heuristic) { return heuristic.nextVariable(solver); }, impl);
         }
 

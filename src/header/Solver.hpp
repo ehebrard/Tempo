@@ -586,7 +586,7 @@ public:
      * @name search strategies
      */
     //@{
-    std::optional<heuristics::HeuristicManager<T>> heuristic;
+    std::optional<heuristics::HeuristicManager> heuristic;
     std::optional<heuristics::ValueHeuristicsManager> valueHeuristic;
 
     RestartManager<Solver<T>> restartPolicy;
@@ -632,14 +632,13 @@ public:
     void printTrace() const;
 #endif
 
-    // to make the activity map public (to heuristics)
-    heuristics::impl::EventActivityMap<T> *activityMap{NULL};
-    
+    heuristics::impl::EventActivityMap *activityMap{nullptr};
+
 public:
-    void setActivityMap(heuristics::impl::EventActivityMap<T> *map) {
+    void setActivityMap(heuristics::impl::EventActivityMap *map) {
         activityMap = map;
     }
-    heuristics::impl::EventActivityMap<T> *getActivityMap() {
+    heuristics::impl::EventActivityMap *getActivityMap() {
         return activityMap;
     }
 
