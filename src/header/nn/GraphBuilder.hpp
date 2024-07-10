@@ -24,11 +24,13 @@
 
 namespace tempo::nn {
 
-    MAKE_FACTORY_PATTERN(FeatureExtractor, nlohmann::json, TaskTimingFeatureExtractor, TimingEdgeExtractor,
+    MAKE_POLYMORPHIC_TYPE(FeatureExtractor, TaskTimingFeatureExtractor, TimingEdgeExtractor, ResourceEnergyExtractor)
+    MAKE_FACTORY_PATTERN(FeatureExtractor, const nlohmann::json&, TaskTimingFeatureExtractor, TimingEdgeExtractor,
                          ResourceEnergyExtractor)
 
+    MAKE_POLYMORPHIC_TYPE(TopologyBuilder, MinimalTopologyBuilder)
     MAKE_T_FACTORY_PATTERN(TopologyBuilder, template<ESCAPE(typename T, typename R)>,
-                           ESCAPE(SchedulingProblemHelper<T, R>), MinimalTopologyBuilder)
+                           ESCAPE(const SchedulingProblemHelper<T, R>&), MinimalTopologyBuilder)
 
     /**
      * Serializable type that holds the configuration of a feature extractor type

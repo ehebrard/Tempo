@@ -9,6 +9,8 @@
 #include <string>
 #include <variant>
 
+#define ESCAPE(...) __VA_ARGS__
+
 #define GET_MACRO(_1, _2, _3, _4, _5, _6, NAME, ...) NAME
 #define TYPE_ENTRY(...) GET_MACRO(__VA_ARGS__, \
 TYPE_ENTRY6, TYPE_ENTRY5, TYPE_ENTRY4, TYPE_ENTRY3, TYPE_ENTRY2, TYPE_ENTRY1, TYPE_ENTRY0)(__VA_ARGS__)
@@ -39,7 +41,6 @@ FACTORY_TYPE6, FACTORY_TYPE5, FACTORY_TYPE4, FACTORY_TYPE3, FACTORY_TYPE2, FACTO
   };
 
 #define MAKE_T_FACTORY_PATTERN(TYPE_NAME, T_HEADER, CTOR_ARG, ...)             \
-  MAKE_POLYMORPHIC_TYPE(TYPE_NAME, __VA_ARGS__)                                \
   class TYPE_NAME##Factory final {                                             \
     using TYPE_NAME##FactoryType = std::variant<FACTORY_ENTRY(__VA_ARGS__)>;   \
                                                                                \
@@ -53,7 +54,7 @@ FACTORY_TYPE6, FACTORY_TYPE5, FACTORY_TYPE4, FACTORY_TYPE3, FACTORY_TYPE2, FACTO
       return instance;                                                         \
     }                                                                          \
     T_HEADER                                                                   \
-    auto create(const std::string &typeName, const CTOR_ARG &arguments) const  \
+    auto create(const std::string &typeName, CTOR_ARG arguments) const  \
         -> TYPE_NAME {                                                         \
       const auto &constructor = registry.at(typeName);                         \
       return std::visit(                                                       \
@@ -77,14 +78,16 @@ struct TYPE##Factory {                                           \
 #define MAKE_FACTORY_PATTERN(TYPE_NAME, CTOR_ARG, ...)                         \
   MAKE_T_FACTORY_PATTERN(TYPE_NAME, , CTOR_ARG, __VA_ARGS__)
 
-#define MAKE_FACTORY(TYPE, ...)         \
-struct TYPE##Factory {                  \
-    static TYPE create(__VA_ARGS__)
+#define MAKE_P_FACTORY(TYPE, P_TYPE, ...)       \
+struct TYPE##Factory {                          \
+    static P_TYPE create(__VA_ARGS__)
 
-#define MAKE_TEMPLATE_FACTORY(TYPE, T_ARG, ARG)                                \
-  struct TYPE##Factory {                                                       \
-    template <T_ARG> static TYPE create(ARG)
+#define MAKE_TEMPLATE_P_FACTORY(TYPE, P_TYPE, T_ARG, ARG)                        \
+  struct TYPE##Factory {                                                         \
+    template <T_ARG> static P_TYPE create(ARG)
 
-#define ESCAPE(...) __VA_ARGS__
+#define MAKE_FACTORY(TYPE, ...) MAKE_P_FACTORY(TYPE, auto, __VA_ARGS__)
+
+#define MAKE_TEMPLATE_FACTORY(TYPE, T_ARG, ARG) MAKE_TEMPLATE_P_FACTORY(TYPE, auto, ESCAPE(T_ARG), ESCAPE(ARG))
 
 #endif //TEMPO_FACTORY_PATTERN_HPP
