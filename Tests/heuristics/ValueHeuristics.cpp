@@ -62,8 +62,7 @@ struct LitProvider {
 
 TEST(value_heuristics, base_value_heuristic) {
     using namespace tempo;
-    using
-    enum tempo::VariableType;
+    using enum tempo::heuristics::VariableType;
     TestValueHeuristic h(0);
     auto lit = makeBooleanLiteral<int>(true, 0, 0);
     LitProvider provider(lit);

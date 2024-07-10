@@ -25,7 +25,6 @@
 
 #include "BaseBooleanHeuristic.hpp"
 #include "Global.hpp"
-#include "util/factory_pattern.hpp"
 
 namespace tempo::heuristics {
 
@@ -50,8 +49,6 @@ namespace tempo::heuristics {
             return solver.boolean.getLiteral(tempo::random() % 2 == 0, selection.first);
         }
     };
-
-    MAKE_DEFAULT_FACTORY(RandomBinaryValue, const ValueHeuristicConfig &)
 
 } // namespace tempo::heuristics
 

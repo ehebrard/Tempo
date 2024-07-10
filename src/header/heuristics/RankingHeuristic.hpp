@@ -24,6 +24,7 @@
 
 #include <concepts>
 
+#include "heuristic_interface.hpp"
 #include "util/crtp.hpp"
 #include "Constant.hpp"
 

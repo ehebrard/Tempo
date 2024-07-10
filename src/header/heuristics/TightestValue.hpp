@@ -12,7 +12,6 @@
 #include "DistanceConstraint.hpp"
 #include "Global.hpp"
 #include "Literal.hpp"
-#include "util/factory_pattern.hpp"
 #include "util/traits.hpp"
 
 
@@ -63,11 +62,6 @@ public:
         solver.numeric.upper(edgeNeg.from) - solver.numeric.lower(edgeNeg.to);
     return solver.boolean.getLiteral(gapPos >= gapNeg, x);
   }
-};
-
-MAKE_FACTORY(TightestValue, const ValueHeuristicConfig &config) {
-  return TightestValue(config.epsilon);
-}
 };
 }
 
