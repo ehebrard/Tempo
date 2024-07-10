@@ -36,9 +36,32 @@ namespace tempo::heuristics {
 
         auto getVarHName(Options::ChoicePointHeuristics heuristic) -> std::string;
         auto getValHName(Options::PolarityHeuristic heuristic) -> std::string;
+
+        template<typename ...Heuristics>
+        struct VariantHeuristicWrapper : std::variant<Heuristics...> {
+            using std::variant<Heuristics...>::variant;
+            using std::variant<Heuristics...>::emplace;
+
+            template<concepts::scalar T> requires(variable_heuristic<Heuristics, T> && ...)
+            auto nextVariable(const Solver<T> &solver) {
+                return std::visit([&solver](auto &h) {return h.nextVariable(solver);}, *this);
+            }
+
+            template<concepts::scalar T> requires(value_heuristic<Heuristics, Solver<T>> && ...)
+            auto valueDecision(VariableSelection x, const Solver<T> &solver) {
+                return std::visit([x, &solver](auto &h) {return h.valueDecision(x, solver);}, *this);
+            }
+
+            template<concepts::scalar T> requires(heuristic<Heuristics, T> && ...)
+            auto branch(const Solver<T> &solver) {
+                return std::visit([&solver](auto &h) {return h.branch(solver);}, *this);
+            }
+        };
+
+
     }
 
-    using VariableHeuristic = PolymorphicHeuristic<Tightest, detail::VSIDS_M, detail::WeightedDegree_M>;
+    using VariableHeuristic = detail::VariantHeuristicWrapper<Tightest, detail::VSIDS_M, detail::WeightedDegree_M>;
 
     /// Define heuristic factory types here
 
@@ -67,7 +90,7 @@ namespace tempo::heuristics {
 
     /// Add further heuristic types here
 
-    using ValueHeuristic = PolymorphicHeuristic<TightestValue, RandomBinaryValue>;
+    using ValueHeuristic = detail::VariantHeuristicWrapper<TightestValue, RandomBinaryValue>;
 
     /// Define heuristic factory types here
 

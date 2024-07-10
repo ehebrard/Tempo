@@ -100,40 +100,83 @@ namespace tempo::heuristics {
         }
     };
 
+    namespace detail {
+        template<concepts::scalar T>
+        struct PolyHeuristicCallableBase {
+            PolyHeuristicCallableBase() = default;
+            virtual ~PolyHeuristicCallableBase() = default;
+            PolyHeuristicCallableBase(PolyHeuristicCallableBase&&) = default;
+            PolyHeuristicCallableBase &operator=(PolyHeuristicCallableBase&&) = default;
+            virtual auto invoke(const Solver<T> &) -> Literal<T> = 0;
+        };
+
+        template<concepts::scalar T, heuristic<T> H>
+        struct PolyHeuristicCallable : PolyHeuristicCallableBase<T> {
+            H impl;
+            template<typename ...Args>
+            explicit PolyHeuristicCallable(Args &&...args) : impl(std::forward<Args>(args)...) {}
+            auto invoke(const Solver<T> &solver) -> Literal<T> override {
+                return impl.branch(solver);
+            }
+        };
+    }
+
+    /**
+     * @brief Polymorphic wrapper for arbitrary branching heuristics
+     * @details @copybrief
+     * (combined variable selection + value selection)
+     * @tparam T timing type
+     * @note use std::movable_function from c++23 instead of detail::PolyHeuristicCallable implementation in the future
+     */
     template<concepts::scalar T>
-    class PolymorphicVariableHeuristic {
-        std::function<Literal<T>(const Solver<T> &)> run;
+    class PolymorphicHeuristic {
+        std::unique_ptr<detail::PolyHeuristicCallableBase<T>> impl;
     public:
-        template<variable_heuristic<T> H>
-        PolymorphicVariableHeuristic(H &&heuristic) : run(
-                [h_ = std::forward<H>(heuristic)](auto &s) { return h_.nextVariable(s); }) {}
+        /**
+         * default ctor
+         * Creates an invalid wrapper that must not be called
+         */
+        constexpr PolymorphicHeuristic() noexcept: impl(nullptr) {}
 
-        auto variableDecision(const Solver<T> &solver) {
-            return run(solver);
+        /**
+         * Ctor
+         * @tparam H heuristic type
+         */
+        template<heuristic<T> H>
+        explicit PolymorphicHeuristic(H &&heuristic) :
+                impl(std::make_unique<detail::PolyHeuristicCallable<T, std::decay_t<H>>>(std::forward<H>(heuristic))) {}
+
+        /**
+         * Assignment operator. Reassign a new heuristic
+         * @param heuristic new heuristic to be assigned
+         */
+        template<heuristic<T> H>
+        PolymorphicHeuristic &operator=(H &&heuristic) {
+            impl = std::make_unique<detail::PolyHeuristicCallable<T, std::decay_t<H>>>(std::forward<H>(heuristic));
+            return *this;
+        }
+
+        /**
+         * Branching heuristic interface
+         * @param solver solver for which to select a branching literal
+         * @return selected branching literal
+         * @throws std::runtime_error if wrapper does not contain valid heuristic
+         */
+        auto branch(const Solver<T> &solver) -> Literal<T> {
+            if (nullptr == impl) {
+                throw std::runtime_error("no branching heuristic set");
+            }
+
+            return impl->invoke(solver);
+        }
+
+        /**
+         * Whether the wrapper holds a valid heuristic
+         */
+        [[nodiscard]] bool isValid() const noexcept {
+            return nullptr != impl;
         }
     };
-
-    template<typename ...Heuristics>
-    struct PolymorphicHeuristic : std::variant<Heuristics...> {
-        using std::variant<Heuristics...>::variant;
-        using std::variant<Heuristics...>::emplace;
-
-        template<concepts::scalar T> requires(variable_heuristic<Heuristics, T> && ...)
-        auto nextVariable(const Solver<T> &solver) {
-            return std::visit([&solver](auto &h) {return h.nextVariable(solver);}, *this);
-        }
-
-        template<concepts::scalar T> requires(value_heuristic<Heuristics, Solver<T>> && ...)
-        auto valueDecision(VariableSelection x, const Solver<T> &solver) {
-            return std::visit([x, &solver](auto &h) {return h.valueDecision(x, solver);}, *this);
-        }
-
-        template<concepts::scalar T> requires(heuristic<Heuristics, T> && ...)
-        auto branch(const Solver<T> &solver) {
-            return std::visit([&solver](auto &h) {return h.branch(solver);}, *this);
-        }
-    };
-
 
     template<typename VarH, typename ValH>
     class CompoundHeuristic {

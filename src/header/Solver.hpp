@@ -450,6 +450,9 @@ public:
 
     // must be called before the first call to 'search()'
     void initializeSearch();
+
+    template<heuristics::heuristic<T> H>
+    void setBranchingHeuristic(H &&h);
     // record the backtrack-environment level when calling 'initializeSearch()'
     int init_level{0};
     //@}
@@ -458,31 +461,15 @@ public:
      * @name search
      */
     //@{
-    template<heuristics::heuristic<T> H>
-    boolean_state search(H &heuristic);
     boolean_state search();
 
-    template<heuristics::heuristic<T> H>
-    boolean_state satisfiable(H &heuristic);
     boolean_state satisfiable();
-    template <typename S, heuristics::heuristic<T> H>
-    void optimize(S &objective, H &heuristic);
     template <typename S>
     void optimize(S &objective);
 
-    template<heuristics::heuristic<T> H>
-    void minimize(NumericVar<T> &x, H &heuristic);
     void minimize(NumericVar<T> &x);
-
-    template<heuristics::heuristic<T> H>
-    void minimize(NumericExpression<T> x, H &heuristic);
     void minimize(NumericExpression<T> x);
-
-    template<heuristics::heuristic<T> H>
-    void maximize(NumericVar<T> &x, H &heuristic);
     void maximize(NumericVar<T> &x);
-    template<heuristics::heuristic<T> H>
-    void maximize(NumericExpression<T> x, H &heuristic);
     void maximize(NumericExpression<T> x);
 
     void restart(const bool on_solution = false);
@@ -603,7 +590,7 @@ public:
      * @name search strategies
      */
     //@{
-
+    heuristics::PolymorphicHeuristic<T> heuristic;
     RestartManager<Solver<T>> restartPolicy;
     // @}
 
@@ -1917,19 +1904,22 @@ template <typename T> void Solver<T>::initializeSearch() {
             displayHeader(std::cout);
     }
     restartPolicy.initialize();
+    if (not heuristic.isValid()) {
+        heuristic = heuristics::make_heuristic(*this);
+    }
 }
 
 template<typename T>
-boolean_state Solver<T>::satisfiable() {
-    auto h = heuristics::make_heuristic(*this);
-    return satisfiable(h);
+template<heuristics::heuristic<T> H>
+void Solver<T>::setBranchingHeuristic(H &&h) {
+    this->heuristic = std::forward<H>(h);
 }
 
+
 template <typename T>
-template<heuristics::heuristic<T> H>
-boolean_state Solver<T>::satisfiable(H &heuristic) {
+boolean_state Solver<T>::satisfiable() {
     initializeSearch();
-    auto satisfiability{search(heuristic)};
+    auto satisfiability{search()};
     if(satisfiability == True)
         boolean.saveSolution();
     if(options.verbosity >= Options::QUIET)
@@ -2014,75 +2004,40 @@ template <typename T> void Solver<T>::check_clauses(const char* msg) {
 
 template <typename T>
 void Solver<T>::minimize(NumericVar<T> &x) {
-    auto h = heuristics::make_heuristic(*this);
-    minimize(x, h);
-}
-
-template <typename T>
-template<heuristics::heuristic<T> H>
-void Solver<T>::minimize(NumericVar<T> &x, H &heuristic) {
   MinimizationObjective<T> objective(x);
-  optimize(objective, heuristic);
+  optimize(objective);
 }
 
 template <typename T>
 void Solver<T>::minimize(NumericExpression<T> x) {
-    auto h = heuristics::make_heuristic(*this);
-    minimize(x, h);
-}
-
-template <typename T>
-template<heuristics::heuristic<T> H>
-void Solver<T>::minimize(NumericExpression<T> x, H &heuristic) {
   x.extract(*this);
   MinimizationObjective<T> objective(x);
-  optimize(objective, heuristic);
+  optimize(objective);
 }
 
 template <typename T>
 void Solver<T>::maximize(NumericVar<T> &x) {
-    auto h = heuristics::make_heuristic(*this);
-    maximize(x, h);
-}
-
-template <typename T>
-template<heuristics::heuristic<T> H>
-void Solver<T>::maximize(NumericVar<T> &x, H &heuristic) {
   MaximizationObjective<T> objective(x);
-  optimize(objective, heuristic);
+  optimize(objective);
 }
 
 template <typename T>
 void Solver<T>::maximize(NumericExpression<T> x) {
-    auto h = heuristics::make_heuristic(*this);
-    maximize(x, h);
-}
-
-template <typename T>
-template<heuristics::heuristic<T> H>
-void Solver<T>::maximize(NumericExpression<T> x, H &heuristic) {
   x.extract(*this);
   MaximizationObjective<T> objective(x);
-  optimize(objective, heuristic);
+  optimize(objective);
 }
 
 template <typename T>
 template <typename S>
 void Solver<T>::optimize(S &objective) {
-    auto h = heuristics::make_heuristic(*this);
-    optimize(objective, h);
-}
-
-template <typename T>
-template <typename S, heuristics::heuristic<T> H>
-void Solver<T>::optimize(S &objective, H &heuristic) {
 
   initializeSearch();
 //    if(options.verbosity >= Options::QUIET)
 //    displayHeader(std::cout);
 
   while (objective.gap() and not KillHandler::instance().signalReceived()) {
-    auto satisfiability = search(heuristic);
+    auto satisfiability = search();
     if (satisfiability == True) {
       auto best{objective.value(*this)};
       if (options.verbosity >= Options::NORMAL) {
@@ -2105,15 +2060,8 @@ void Solver<T>::optimize(S &objective, H &heuristic) {
   displaySummary(std::cout, (objective.gap() > 0 ? "killed" : "optimal"));
 }
 
-template<typename T>
-boolean_state Solver<T>::search() {
-    auto h = heuristics::make_heuristic(*this);
-    return search(h);
-}
-
 template <typename T>
-template<heuristics::heuristic<T> H>
-boolean_state Solver<T>::search(H &heuristic) {
+boolean_state Solver<T>::search() {
 
   init_level = env.level();
   boolean_state satisfiability{Unknown};
