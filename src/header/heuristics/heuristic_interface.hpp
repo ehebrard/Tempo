@@ -28,11 +28,21 @@ namespace tempo::heuristics {
 
     using VariableSelection = std::pair<var_t, VariableType>;
 
+    /**
+     * Interface for branching heuristics (combined variable and value selection)
+     * @tparam H heuristic type
+     * @tparam T timing type
+     */
     template<typename H, typename T>
     concept heuristic = requires(H heuristic, const Solver<T> solver) {
         { heuristic.branch(solver) } -> std::same_as<Literal<T>>;
     };
 
+    /**
+     * Interface for variable selection heuristics
+     * @tparam H heuristic type
+     * @tparam T timing type
+     */
     template<typename H, typename T>
     concept variable_heuristic = requires(H heuristic, const Solver<T> solver) {
         { heuristic.nextVariable(solver) } -> std::same_as<VariableSelection>;
@@ -178,21 +188,48 @@ namespace tempo::heuristics {
         }
     };
 
-    template<typename VarH, typename ValH>
+    /**
+     * @brief General branching heuristic wrapper that holds a separate variable and value selection heuristic
+     * @details @copybrief
+     * @tparam VarH type of variable selection heuristic
+     * @tparam ValH type of value selection heuristic
+     */
+    template<typename VariableHeuristic, typename ValueHeuristic>
     class CompoundHeuristic {
-        VarH variableSelector;
-        ValH valueSelector;
+        VariableHeuristic variableSelector;
+        ValueHeuristic valueSelector;
     public:
-        CompoundHeuristic(VarH variableHeuristic, ValH valueHeuristic) : variableSelector(std::move(variableHeuristic)),
-                                                                         valueSelector(std::move(valueHeuristic)) {}
+
+        /**
+         * Ctor
+         * @tparam VarH type of variable heuristic
+         * @tparam ValH type of value heuristic
+         * @param variableHeuristic the variable heuristic
+         * @param valueHeuristic the value heuristic
+         */
+        template<typename VarH, typename ValH>
+        CompoundHeuristic(VarH &&variableHeuristic, ValH &&valueHeuristic) :
+                variableSelector(std::forward<VarH>(variableHeuristic)),
+                valueSelector(std::forward<ValH>(valueHeuristic)) {}
 
         template<concepts::scalar T>
-        requires(variable_heuristic<VarH, T> and value_heuristic<ValH, Solver<T>>)
+        requires(variable_heuristic<VariableHeuristic, T> and value_heuristic<ValueHeuristic, Solver<T>>)
         auto branch(const Solver<T> &solver) -> Literal<T> {
             return valueSelector.valueDecision(variableSelector.nextVariable(solver), solver);
         }
     };
 
+    /**
+     * Helper function to create compound heuristics
+     * @tparam VarH type of variable heuristic
+     * @tparam ValH type of value heuristic
+     * @param variableHeuristic the variable heuristic
+     * @param valueHeuristic the value heuristic
+     */
+    template<typename VarH, typename ValH>
+    auto make_compound_heuristic(VarH &&variableHeuristic, ValH &&valueHeuristic) {
+        return CompoundHeuristic<VarH, ValH>(std::forward<VarH>(variableHeuristic), std::forward<ValH>(valueHeuristic));
+    }
 }
 
 #endif //TEMPO_HEURISTIC_INTERFACE_HPP

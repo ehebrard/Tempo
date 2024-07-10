@@ -103,17 +103,21 @@ namespace tempo::heuristics {
 
     MAKE_FACTORY_PATTERN(ValueHeuristic, const Options&, TightestValue, RandomBinaryValue)
 
-    using BranchingHeuristic = CompoundHeuristic<VariableHeuristic, ValueHeuristic>;
 
     /// --- Use this factory method ---
 
+    /**
+     * Infers heuristics to be used from solver options
+     * @tparam T timing type
+     * @param solver for which to create branching heuristic
+     */
     template<concepts::scalar T>
-    auto make_heuristic(Solver<T> &solver) -> BranchingHeuristic {
+    auto make_heuristic(Solver<T> &solver) {
         const auto &options = solver.getOptions();
         const auto &varHF = VariableHeuristicFactory::getInstance();
         const auto &valHF = ValueHeuristicFactory::getInstance();
-        return {varHF.create(detail::getVarHName(options.choice_point_heuristics), solver),
-                valHF.create(detail::getValHName(options.polarity_heuristic), options)};
+        return make_compound_heuristic(varHF.create(detail::getVarHName(options.choice_point_heuristics), solver),
+                                       valHF.create(detail::getValHName(options.polarity_heuristic), options));
     }
 }
 
