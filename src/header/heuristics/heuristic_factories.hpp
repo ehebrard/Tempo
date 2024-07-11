@@ -104,20 +104,42 @@ namespace tempo::heuristics {
     MAKE_FACTORY_PATTERN(ValueHeuristic, const Options&, TightestValue, RandomBinaryValue)
 
 
-    /// --- Use this factory method ---
+    /// --- Use these factory method ---
 
     /**
-     * Infers heuristics to be used from solver options
+     * Infers variable selection heuristic from solver options
+     * @tparam T timing type
+     * @param solver solver for which to create variable selection heuristic
+     * @return variable selection heuristic inferred from solver options
+     */
+    template<concepts::scalar T>
+    auto make_variable_heuristic(Solver<T> &solver) {
+        const auto &options = solver.getOptions();
+        return VariableHeuristicFactory::getInstance().create(detail::getVarHName(options.choice_point_heuristics),
+                                                              solver);
+    }
+
+    /**
+     * Infers value selection heuristic from solver options
+     * @tparam T timing type
+     * @param solver solver for which to create value selection heuristic
+     * @return value selection heuristic inferred from solver options
+     */
+    template<concepts::scalar T>
+    auto make_value_heuristic(Solver<T> &solver) {
+        const auto &options = solver.getOptions();
+        return ValueHeuristicFactory::getInstance().create(detail::getValHName(options.polarity_heuristic), options);
+    }
+
+    /**
+     * Infers branching heuristics to be used from solver options
      * @tparam T timing type
      * @param solver for which to create branching heuristic
+     * @return branching heuristic inferred from solver options
      */
     template<concepts::scalar T>
     auto make_heuristic(Solver<T> &solver) {
-        const auto &options = solver.getOptions();
-        const auto &varHF = VariableHeuristicFactory::getInstance();
-        const auto &valHF = ValueHeuristicFactory::getInstance();
-        return make_compound_heuristic(varHF.create(detail::getVarHName(options.choice_point_heuristics), solver),
-                                       valHF.create(detail::getValHName(options.polarity_heuristic), options));
+        return make_compound_heuristic(make_variable_heuristic(solver), make_value_heuristic(solver));
     }
 }
 
