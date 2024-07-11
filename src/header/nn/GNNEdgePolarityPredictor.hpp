@@ -53,10 +53,10 @@ namespace tempo::nn::heuristics {
         auto choose(var_t x, const Solver<T> &solver) const -> Literal<T> {
             auto edge = solver.boolean.getEdge(x, true);
             auto edgeRev = solver.boolean.getEdge(x, false);
-            unsigned from = graphBuilder.getProblem().getTask(edge.from);
-            unsigned to = graphBuilder.getProblem().getTask(edge.to);
-            unsigned rfrom = graphBuilder.getProblem().getTask(edgeRev.from);
-            unsigned rto = graphBuilder.getProblem().getTask(edgeRev.to);
+            unsigned from = graphBuilder.getProblem().getMapping()(edge.from);
+            unsigned to = graphBuilder.getProblem().getMapping()(edge.to);
+            unsigned rfrom = graphBuilder.getProblem().getMapping()(edgeRev.from);
+            unsigned rto = graphBuilder.getProblem().getMapping()(edgeRev.to);
             if (from != rto or to != rfrom) {
                 throw std::runtime_error("positive and negative edges have different tasks as endpoints.");
             }

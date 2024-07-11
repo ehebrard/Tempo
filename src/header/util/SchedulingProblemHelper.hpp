@@ -87,7 +87,7 @@ namespace tempo {
      */
     class VarTaskMapping {
         std::vector<unsigned> varToTask;
-        var_t offset;
+        var_t offset{};
         static constexpr unsigned NoTask = std::numeric_limits<unsigned>::max();
     public:
         VarTaskMapping() = default;
