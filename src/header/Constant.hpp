@@ -36,6 +36,8 @@ public:
   static constexpr auto NoVar = static_cast<var_t>(-1);
   static constexpr index_t InfIndex = 0;
   static constexpr info_t NoSemantic = 0;
+  static constexpr info_t SomeSemantic = 2;
+  static constexpr var_t K = 0;
 
   template <typename T> const static T Infinity;
 

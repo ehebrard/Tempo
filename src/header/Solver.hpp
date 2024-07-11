@@ -95,8 +95,10 @@ public:
   // declare a new Boolean variable
   BooleanVar<T> newVar(const info_t s = Constant::NoSemantic);
   // declare a new Boolean variable with a semantic (disjunction)
-  DisjunctVar<T> newDisjunct(const DistanceConstraint<T> &d1,
-                             const DistanceConstraint<T> &d2);
+  //  DisjunctVar<T> newDisjunct(const DistanceConstraint<T> &d1,
+  //                             const DistanceConstraint<T> &d2);
+  BooleanVar<T> newDisjunct(const DistanceConstraint<T> &d1,
+                            const DistanceConstraint<T> &d2);
   //@}
 
   /**
@@ -288,7 +290,7 @@ public:
     //@{
     Solver();
     Solver(Options opt);
-    ~Solver() = default;
+    ~Solver(); // = default;
     //@}
     
     /**
@@ -325,17 +327,31 @@ public:
     // create an internal Boolean variable and return a model object pointing to
     // it
     BooleanVar<T> newBoolean();
+    //    // create an internal Boolean variable with a difference logic
+    //    semantic,
+    //    // post the channelling constraints, and return a model object
+    //    pointing to
+    //    // it
+    //    DisjunctVar<T> newDisjunct(const DistanceConstraint<T> &,
+    //                               const DistanceConstraint<T> &);
+    //    // create an internal Boolean variable with a difference logic
+    //    semantic,
+    //    // post the channelling constraints (including the optionality), and
+    //    return
+    //    // a model object pointing to it
+    //    DisjunctVar<T> newDisjunct(const DistanceConstraint<T> &d1,
+    //                               const DistanceConstraint<T> &d2,
+    //                               const var_t opt);
     // create an internal Boolean variable with a difference logic semantic,
     // post the channelling constraints, and return a model object pointing to
     // it
-    DisjunctVar<T> newDisjunct(const DistanceConstraint<T> &,
-                               const DistanceConstraint<T> &);
+    BooleanVar<T> newDisjunct(const DistanceConstraint<T> &,
+                              const DistanceConstraint<T> &);
     // create an internal Boolean variable with a difference logic semantic,
     // post the channelling constraints (including the optionality), and return
     // a model object pointing to it
-    DisjunctVar<T> newDisjunct(const DistanceConstraint<T> &d1,
-                               const DistanceConstraint<T> &d2,
-                               const var_t opt);
+    BooleanVar<T> newDisjunct(const DistanceConstraint<T> &d1,
+                              const DistanceConstraint<T> &d2, const var_t opt);
     // return a variable
     NumericVar<T> zero() { return NumericVar<T>(0); }
     // create an internal numeric variable and return a model object pointing to it
@@ -389,13 +405,12 @@ public:
     // add a difference logic constraint (r is for explanation purpose, useless
     // externally)
     void set(const DistanceConstraint<T> &c, const index_t r = Constant::NoIndex);
+    void post(const DistanceConstraint<T> &c);
 
     // add x to the list of variable that must be given a value
     //    template <typename X> void addToSearch(const X &x);
     void addToSearch(const BooleanVar<T> &x);
     void addToSearch(const NumericVar<T> &x);
-    void addToSearch(BooleanExpression<T> &x);
-    void addToSearch(NumericExpression<T> &x);
 
     // some measure of tightness/looseness for bound literals or literals with a
     // difference logic semantic
@@ -408,9 +423,9 @@ public:
     //@{
     // add a new constraint to the model
     void post(Constraint<T> *);
-    
+
     // add a new expression-tree constraint to the model
-    void post(BooleanExpression<T> con);
+    void post(BooleanVar<T> con);
 
     // remove a constraint from the model
     void relax(Constraint<T> *);
@@ -473,9 +488,7 @@ public:
 
     boolean_state satisfiable();
     void minimize(NumericVar<T> &x);
-    void minimize(NumericExpression<T> x);
     void maximize(NumericVar<T> &x);
-    void maximize(NumericExpression<T> x);
 
     void restart(const bool on_solution = false);
     void backtrack(Explanation<T> &e);
@@ -676,6 +689,13 @@ public:
     static constexpr Literal<T> Contradiction =
         makeBooleanLiteral<T>(false, Constant::NoVar, 0);
 
+    /**
+     * @name to collect the modeling construct in order to free memory up
+     */
+    //@{
+    std::vector<ExpressionImpl<T>*> trash_bin;
+    //@}
+
   private:
     /**
      * @name debug
@@ -849,7 +869,16 @@ const DistanceConstraint<T> &BooleanStore<T>::getEdge(const index_t i) const {
 }
 
 template <typename T> bool BooleanStore<T>::hasSemantic(const var_t x) const {
-    return edge_index[x] != Constant::NoSemantic;
+  //    assert(edge_index[x] < 2 or edge_index[x] != Constant::NoSemantic);
+
+  //    return edge_index[x] != Constant::NoSemantic;
+
+  //    if(edge_index[x] == 1) {
+  //        std::cout << "hello\n";
+  //    }
+
+  //    return edge_index[x] != Constant::NoSemantic;
+  return edge_index[x] >= Constant::SomeSemantic;
 }
 
 template <typename T> BooleanStore<T>::BooleanStore(Solver<T> &s) : solver(s) {
@@ -874,14 +903,25 @@ template <typename T> BooleanVar<T> BooleanStore<T>::newVar(const info_t s) {
     return x;
 }
 
+// template <typename T>
+// DisjunctVar<T> BooleanStore<T>::newDisjunct(const DistanceConstraint<T> &d1,
+//                                             const DistanceConstraint<T> &d2)
+//                                             {
+//     info_t d{static_cast<info_t>(edges.size())};
+//     DisjunctVar<T> x{newVar(d).id(), d};
+//     edges.push_back(d1);
+//     edges.push_back(d2);
+//     return x;
+// }
+
 template <typename T>
-DisjunctVar<T> BooleanStore<T>::newDisjunct(const DistanceConstraint<T> &d1,
-                                            const DistanceConstraint<T> &d2) {
-    info_t d{static_cast<info_t>(edges.size())};
-    DisjunctVar<T> x{newVar(d).id(), d};
-    edges.push_back(d1);
-    edges.push_back(d2);
-    return x;
+BooleanVar<T> BooleanStore<T>::newDisjunct(const DistanceConstraint<T> &d1,
+                                           const DistanceConstraint<T> &d2) {
+  info_t d{static_cast<info_t>(edges.size())};
+  BooleanVar<T> x{newVar(d).id(), d};
+  edges.push_back(d1);
+  edges.push_back(d2);
+  return x;
 }
 
 template <typename T> void BooleanStore<T>::set(Literal<T> l) {
@@ -1137,6 +1177,14 @@ Solver<T>::Solver()
   seed(options.seed);
 }
 
+template <typename T>
+Solver<T>::~Solver() {
+//    for(auto exp : trash_bin) {
+//        std::cout << "delete " << exp->id() << std::endl;
+////        delete exp;
+//    }
+}
+
 /*!
  Solver implementation
 */
@@ -1177,31 +1225,61 @@ template <typename T> BooleanVar<T> Solver<T>::newBoolean() {
 //     return x;
 // }
 
+// template <typename T>
+// DisjunctVar<T> Solver<T>::newDisjunct(const DistanceConstraint<T> &d1,
+//                                       const DistanceConstraint<T> &d2) {
+//     auto x{boolean.newDisjunct(d1, d2)};
+//     clauses.newBooleanVar(x.id());
+//     boolean_constraints.resize(std::max(numConstraint(), 2 *
+//     boolean.size()));
+//
+//     if (d1 != DistanceConstraint<T>::none)
+//       post(new EdgeConstraint<T>(*this, boolean.getLiteral(true, x.id())));
+//
+//     if (d2 != DistanceConstraint<T>::none)
+//       post(new EdgeConstraint<T>(*this, boolean.getLiteral(false, x.id())));
+//
+//     return x;
+// }
+//
+// template <typename T>
+// DisjunctVar<T> Solver<T>::newDisjunct(const DistanceConstraint<T> &d1,
+//                                       const DistanceConstraint<T> &d2,
+//                                       const var_t opt) {
+//   auto x{boolean.newDisjunct(d1, d2)};
+//   clauses.newBooleanVar(x.id());
+//   boolean_constraints.resize(std::max(numConstraint(), 2 * boolean.size()));
+//
+//   post(new OptionalEdgeConstraint<T>(*this, x.id(), opt));
+//
+//   return x;
+// }
+
 template <typename T>
-DisjunctVar<T> Solver<T>::newDisjunct(const DistanceConstraint<T> &d1,
-                                      const DistanceConstraint<T> &d2) {
-    auto x{boolean.newDisjunct(d1, d2)};
-    clauses.newBooleanVar(x.id());
-    boolean_constraints.resize(std::max(numConstraint(), 2 * boolean.size()));
-
-    if (d1 != DistanceConstraint<T>::none)
-      post(new EdgeConstraint<T>(*this, boolean.getLiteral(true, x.id())));
-
-    if (d2 != DistanceConstraint<T>::none)
-      post(new EdgeConstraint<T>(*this, boolean.getLiteral(false, x.id())));
-
-    return x;
-}
-
-template <typename T>
-DisjunctVar<T> Solver<T>::newDisjunct(const DistanceConstraint<T> &d1,
-                                      const DistanceConstraint<T> &d2,
-                                      const var_t opt) {
+BooleanVar<T> Solver<T>::newDisjunct(const DistanceConstraint<T> &d1,
+                                     const DistanceConstraint<T> &d2) {
   auto x{boolean.newDisjunct(d1, d2)};
   clauses.newBooleanVar(x.id());
   boolean_constraints.resize(std::max(numConstraint(), 2 * boolean.size()));
 
-  post(new OptionalEdgeConstraint<T>(*this, x, opt));
+  if (d1 != DistanceConstraint<T>::none)
+    post(new EdgeConstraint<T>(*this, boolean.getLiteral(true, x.id())));
+
+  if (d2 != DistanceConstraint<T>::none)
+    post(new EdgeConstraint<T>(*this, boolean.getLiteral(false, x.id())));
+
+  return x;
+}
+
+template <typename T>
+BooleanVar<T> Solver<T>::newDisjunct(const DistanceConstraint<T> &d1,
+                                     const DistanceConstraint<T> &d2,
+                                     const var_t opt) {
+  auto x{boolean.newDisjunct(d1, d2)};
+  clauses.newBooleanVar(x.id());
+  boolean_constraints.resize(std::max(numConstraint(), 2 * boolean.size()));
+
+  post(new OptionalEdgeConstraint<T>(*this, x.id(), opt));
 
   return x;
 }
@@ -2086,19 +2164,7 @@ template <typename T> void Solver<T>::minimize(NumericVar<T> &x) {
   optimize(objective);
 }
 
-template <typename T> void Solver<T>::minimize(NumericExpression<T> x) {
-  x.extract(*this);
-  MinimizationObjective<T> objective(x);
-  optimize(objective);
-}
-
 template <typename T> void Solver<T>::maximize(NumericVar<T> &x) {
-  MaximizationObjective<T> objective(x);
-  optimize(objective);
-}
-
-template <typename T> void Solver<T>::maximize(NumericExpression<T> x) {
-  x.extract(*this);
   MaximizationObjective<T> objective(x);
   optimize(objective);
 }
@@ -2422,8 +2488,12 @@ void Solver<T>::update(const bool bounds, const int s, const G &neighbors) {
   }
 }
 
-template <typename T> void Solver<T>::post(BooleanExpression<T> con) {
-    con.post(*this);
+template <typename T> void Solver<T>::post(const DistanceConstraint<T> &c) {
+  set(c);
+}
+
+template <typename T> void Solver<T>::post(BooleanVar<T> con) {
+  con.post(*this);
 }
 
 template <typename T> void Solver<T>::post(Constraint<T> *con) {
@@ -2445,49 +2515,18 @@ template <typename T> void Solver<T>::relax(Constraint<T> *con) {
     numeric_constraints.remove(con->id(), IN);
 }
 
-// template <typename T>
-// template <typename X>
-// void Solver<T>::addToSearch(const X &x) {
-//   var_t var_id{x.id()};
-//   if (x.isNumeric()) {
-//     if (numeric.lower(x) < numeric.upper(x)) {
-//       numeric_search_vars.reserve(var_id + 1);
-//       if (not numeric_search_vars.has(var_id))
-//         numeric_search_vars.add(var_id);
-//     }
-//   } else {
-//     if (boolean.isUndefined(x)) {
-//       boolean_search_vars.reserve(var_id + 1);
-//       if (not boolean_search_vars.has(var_id))
-//         boolean_search_vars.add(var_id);
-//     }
-//   }
-// }
-
-template <typename T> void Solver<T>::addToSearch(NumericExpression<T> &exp) {
-  exp.extract(*this);
-  NumericVar<T> x{exp};
-  addToSearch(x);
-}
-
 template <typename T> void Solver<T>::addToSearch(const NumericVar<T> &x) {
   var_t var_id{x.id()};
-  if (numeric.lower(x) < numeric.upper(x)) {
+  if (numeric.lower(var_id) < numeric.upper(var_id)) {
     numeric_search_vars.reserve(var_id + 1);
     if (not numeric_search_vars.has(var_id))
       numeric_search_vars.add(var_id);
   }
 }
 
-template <typename T> void Solver<T>::addToSearch(BooleanExpression<T> &exp) {
-  exp.extract(*this);
-  BooleanVar<T> x{exp};
-  addToSearch(x);
-}
-
 template <typename T> void Solver<T>::addToSearch(const BooleanVar<T> &x) {
   var_t var_id{x.id()};
-  if (boolean.isUndefined(x)) {
+  if (boolean.isUndefined(var_id)) {
     boolean_search_vars.reserve(var_id + 1);
     if (not boolean_search_vars.has(var_id))
       boolean_search_vars.add(var_id);

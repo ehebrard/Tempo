@@ -51,8 +51,21 @@ public:
       }
     }
 
-    void addResource(const std::vector<DisjunctVar<T>>::iterator bx,
-                     const std::vector<DisjunctVar<T>>::iterator ex) {
+    //    void addResource(const std::vector<DisjunctVar<T>>::iterator bx,
+    //                     const std::vector<DisjunctVar<T>>::iterator ex) {
+    //
+    //      for (auto xi{bx}; xi != ex; ++xi) {
+    //
+    //        auto l{solver.boolean.getLiteral(true, *xi)};
+    //        auto c{solver.boolean.getEdge(l)};
+    //
+    //        precedences[Interval_map[c.to]].push_back(l);
+    //        precedences[Interval_map[c.from]].push_back(~l);
+    //      }
+    //    }
+
+    void addResource(const std::vector<BooleanVar<T>>::iterator bx,
+                     const std::vector<BooleanVar<T>>::iterator ex) {
 
       for (auto xi{bx}; xi != ex; ++xi) {
 

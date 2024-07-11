@@ -73,7 +73,7 @@ int main(int argc, char *argv[]) {
   // depending on the option "input-format", parse a disjunctive scheduling
   // instance, and collect resources and interval objects
   //  std::vector<DisjunctiveResource<>> resources;
-    std::vector<NoOverlapExpression<>> resources;
+  std::vector<NoOverlapExpression<>> resources;
   std::vector<std::vector<Interval<>>> resource_tasks;
   std::vector<Interval<>> intervals;
 
@@ -111,6 +111,5 @@ int main(int argc, char *argv[]) {
   warmstart(S, schedule, intervals, resources, ub);
 
   // search
-  S.minimize(schedule.end);
-    
+  S.minimize(schedule.duration);
 }
