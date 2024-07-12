@@ -2756,7 +2756,7 @@ template <typename T>
 std::string Solver<T>::pretty(const Literal<T> l) const {
     std::stringstream ss;
     if(not l.isNumeric() and l.hasSemantic()) {
-      ss << l << "(" << boolean.getEdge(l) << ")";
+        ss << l << "(" << boolean.getEdge(l) << ")";
     } else {
         ss << l;
     }

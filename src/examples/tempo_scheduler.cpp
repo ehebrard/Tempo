@@ -108,9 +108,8 @@ int main(int argc, char *argv[]) {
   //    S.post(schedule.end <= ub);
   S.post(schedule.end.before(ub));
 
-  std::cout << S << std::endl;
-  S.propagate();
-  std::cout << S << std::endl;
+  if (opt.print_mod)
+    std::cout << S << std::endl;
 
   //    for(auto i : intervals) {
   //
