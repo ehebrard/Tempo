@@ -95,7 +95,7 @@ TEST(nn_MinimalTopologyBuilder, MinimalBuilder_addPrecedenceEdges) {
     VarTaskMapping mapping(tasks);
     auto evtViewer = transform(
             [&tasks](const auto &dc) {
-                return DistanceConstraint<int>(tasks.at(dc.from).start, tasks.at(dc.to).end, dc.distance);
+                return DistanceConstraint<int>(tasks.at(dc.from).start.id(), tasks.at(dc.to).end.id(), dc.distance);
             });
     std::vector<DistanceConstraint<int>> edges{{1, 2, 0}, {2, 3, 2}, {3, 4, -1}};
     TestMinimalTopologyBuilder::addEdge({2, 5}, true, -1, data);

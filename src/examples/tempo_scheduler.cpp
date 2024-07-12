@@ -68,12 +68,12 @@ int main(int argc, char *argv[]) {
   Solver<> S(opt);
 
   // an interval standing for the makespan of schedule
-  auto schedule{S.newInterval()};
+  auto schedule{S.newInterval(0,Constant::Infinity<int>,0,0,0,Constant::Infinity<int>)};
 
   // depending on the option "input-format", parse a disjunctive scheduling
   // instance, and collect resources and interval objects
   //  std::vector<DisjunctiveResource<>> resources;
-    std::vector<NoOverlapExpression<>> resources;
+  std::vector<NoOverlapExpression<>> resources;
   std::vector<std::vector<Interval<>>> resource_tasks;
   std::vector<Interval<>> intervals;
 
@@ -102,15 +102,21 @@ int main(int argc, char *argv[]) {
   // set a trivial (and the user-defined) upper bound
   auto trivial_ub{0};
   for (auto &j : intervals)
-    trivial_ub += j.minDuration();
+    trivial_ub += j.minDuration(S);
   auto ub{std::min(opt.ub, trivial_ub)};
 
   //    S.post(schedule.end <= ub);
-  S.set(schedule.end.before(ub));
+  S.post(schedule.end.before(ub));
+
+  if (opt.print_mod)
+    std::cout << S << std::endl;
+
+  //    for(auto i : intervals) {
+  //
+  //    }
 
   warmstart(S, schedule, intervals, resources, ub);
 
   // search
-  S.minimize(schedule.end);
-    
+  S.minimize(schedule.duration);
 }

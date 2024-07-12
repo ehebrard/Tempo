@@ -27,13 +27,16 @@
 
 #include "Explanation.hpp"
 #include "Global.hpp"
-#include "Solver.hpp"
 #include "constraints/Constraint.hpp"
 #include "util/SparseSet.hpp"
 #include "util/ThetaTree.hpp"
+#include "Model.hpp"
 
 
 namespace tempo {
+
+template<typename T>
+class Solver;
 
 template <typename T> class DisjunctiveEdgeFinding : public Constraint<T> {
 private:
@@ -225,12 +228,12 @@ template <typename T> T DisjunctiveEdgeFinding<T>::lct(const unsigned i) const {
 
 template <typename T>
 T DisjunctiveEdgeFinding<T>::minduration(const unsigned i) const {
-  return the_tasks[i].minDuration();
+  return the_tasks[i].minDuration(m_solver);
 }
 
 template <typename T>
 T DisjunctiveEdgeFinding<T>::maxduration(const unsigned i) const {
-  return the_tasks[i].maxDuration();
+  return the_tasks[i].maxDuration(m_solver);
 }
 
 template <typename T>

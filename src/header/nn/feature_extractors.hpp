@@ -49,9 +49,9 @@ namespace tempo::nn {
             torch::Tensor ret = torch::empty({static_cast<long>(topology.numTasks), 4}, dataTensorOptions());
             for (auto [t, task]: iterators::enumerate(problem.tasks())) {
                 util::sliceAssign(ret, {static_cast<long>(t), util::SliceHere},
-                                  {task.minDuration() / ub,
-                                   task.maxDuration() / ub,
-                                   task.getEarliestStart(state.solver) / ub,
+                                  {task.minDuration(state.solver) / ub,
+                                   task.maxDuration(state.solver) / ub,
+                                   task.getEarliestStart(state.solver) / ub, //@TODO compatibility to old networks (negative sign)
                                    task.getLatestEnd(state.solver) / ub});
             }
 
@@ -89,8 +89,8 @@ namespace tempo::nn {
             const auto resources = util::getIndexSlice(topology.resourceDependencies, 1);
             std::span energy(ret.data_ptr<DataType>(), topology.numResources);
             for (auto [task, res, demand] : iterators::zip(tasks, resources, demands)) {
-                auto avgDuration = static_cast<DataType>(problem.tasks()[task].minDuration()
-                        + problem.tasks()[task].maxDuration()) / DataType(2) / ub;
+                auto avgDuration = static_cast<DataType>(problem.tasks()[task].minDuration(state.solver)
+                        + problem.tasks()[task].maxDuration(state.solver)) / DataType(2) / ub;
                 energy[res] += avgDuration * demand;
             }
 

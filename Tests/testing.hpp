@@ -51,12 +51,16 @@ namespace tempo::testing {
     };
 
 
-    auto createTestProblem() -> ProblemInstance;
+    auto createTestProblem() -> std::pair<ProblemInstance, DummyScheduler>;
 
     auto createRandomProblem(std::size_t numTasks, std::size_t numResources,
                              double precedenceChance = 0.3) -> std::tuple<ProblemInstance, DummyScheduler, Matrix<int>>;
 
-    auto createTasks(std::initializer_list<std::pair<int, int>> durations) -> std::vector<Interval<int>>;
+    struct TaskSpec {
+        int minDur, maxDur, earliestStart{0}, latestDeadline{0};
+    };
+
+    auto createTasks(const std::vector<TaskSpec> &specs) -> std::pair<std::vector<Interval<int>>, DummyScheduler>;
 
     auto createDummyTasks(unsigned numberOfTasks) -> std::vector<Interval<int>>;
 
@@ -89,11 +93,6 @@ namespace tempo::testing {
         std::uniform_real_distribution<T> dist(min, max);
         return dist(el);
     }
-
-    struct TaskSpec {
-        int minDur, maxDur, release, deadline;
-    };
-
 }
 
 #endif //SCHEDCL_TESTING_HPP

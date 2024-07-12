@@ -76,8 +76,8 @@ namespace tempo {
             [[nodiscard]] T operator()(unsigned taskFrom, unsigned taskTo) const {
                 const auto srcVar = tasks[taskFrom].start;
                 const auto destVar = tasks[taskTo].end;
-                const auto boundDistance = boundProvider.upper(srcVar) - boundProvider.lower(destVar);
-                return std::min(graphDistances(srcVar, destVar), boundDistance) + destVar.offset();
+                const auto boundDistance = boundProvider.upper(srcVar.id()) - boundProvider.lower(destVar.id());
+                return std::min(graphDistances(srcVar.id(), destVar.id()), boundDistance) + destVar.offset();
             }
         };
     }
@@ -90,6 +90,7 @@ namespace tempo {
         var_t offset{};
         static constexpr unsigned NoTask = std::numeric_limits<unsigned>::max();
     public:
+        static constexpr unsigned NumTemporalVarPerTask = 3;
         VarTaskMapping() = default;
 
         /**
@@ -99,8 +100,9 @@ namespace tempo {
          */
         template<concepts::ttyped_range<tempo::Interval> Tasks>
         requires(std::ranges::sized_range<Tasks>)
-        constexpr explicit VarTaskMapping(const Tasks &tasks) : varToTask(2 * std::ranges::size(tasks), NoTask),
-                                                                offset(std::numeric_limits<var_t>::max()) {
+        constexpr explicit VarTaskMapping(const Tasks &tasks) :
+                varToTask(NumTemporalVarPerTask * std::ranges::size(tasks), NoTask),
+                offset(std::numeric_limits<var_t>::max()) {
 
             var_t max = 0;
             for (const auto &task : tasks) {
@@ -108,7 +110,7 @@ namespace tempo {
                 offset = std::min({offset, task.start.id(), task.end.id()});
             }
 
-            if (not varToTask.empty() and max - offset >= 2 * std::ranges::size(tasks)) {
+            if (not varToTask.empty() and max - offset >= NumTemporalVarPerTask * std::ranges::size(tasks)) {
                 throw std::runtime_error("expected continuous ranges of variable ids");
             }
 
@@ -131,11 +133,6 @@ namespace tempo {
          * @return true if variable is in mapping, false otherwise
          */
         [[nodiscard]] bool contains(var_t variable) const noexcept;
-
-        /**
-         * @return number of tasks in the mapping
-         */
-        [[nodiscard]] std::size_t size() const noexcept;
 
     };
 

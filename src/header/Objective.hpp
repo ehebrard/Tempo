@@ -21,6 +21,8 @@
 #ifndef _TEMPO_OBJECTIVE_HPP
 #define _TEMPO_OBJECTIVE_HPP
 
+#include "Model.hpp"
+
 namespace tempo {
 
 template <typename T> class Solver;

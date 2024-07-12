@@ -16,8 +16,4 @@ namespace tempo{
         const var_t idx = variable - offset;
         return idx < varToTask.size() and varToTask[idx] != NoTask;
     }
-
-    std::size_t VarTaskMapping::size() const noexcept {
-        return varToTask.size() / 2;
-    }
 }

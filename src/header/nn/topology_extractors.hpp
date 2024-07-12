@@ -134,7 +134,7 @@ namespace tempo::nn {
         template<SchedulingResource R>
         static void completeSubGraph(const R &resourceSpec, IndexType resource, const VarTaskMapping &vtMapping,
                                      impl::TopologyData &topologyData) {
-            auto taskId = [&vtMapping](const auto &t) { return vtMapping(t.start); };
+            auto taskId = [&vtMapping](const auto &t) { return vtMapping(t.start.id()); };
             const auto &tasks = resourceSpec;
             for (std::size_t i = 0; i < tasks.size(); ++i) {
                 topologyData.taskIdx.emplace_back(taskId(tasks[i]));
