@@ -364,7 +364,13 @@ public:
     // create the internal variables (depending on the type of Interval) and
     // return a model object pointing to them
     Interval<T> newInterval(const T mindur = 0,
-                            const T maxdur = Constant::Infinity<T>);
+                            const T maxdur = Constant::Infinity<T>,
+                                     const T earliest_start = -Constant::Infinity<T>,
+                                     const T latest_start = Constant::Infinity<T>,
+                                     const T earliest_end = -Constant::Infinity<T>,
+                                     const T latest_end = Constant::Infinity<T>,
+                                     const BooleanVar<T> opt = Constant::NoVar
+                            );
     //@}
 
     /**
@@ -400,7 +406,10 @@ public:
     
     // set literal l true with explanation e
     void set(Literal<T> l, const Explanation<T> &e = Constant::Decision<T>);
-    void post(Literal<T> l) { set(l); }
+    void post(Literal<T> l) {
+      set(l);
+      propagate();
+    }
 
     // add a difference logic constraint (r is for explanation purpose, useless
     // externally)
@@ -520,7 +529,7 @@ public:
     //@{
     std::ostream &display(std::ostream &os, const bool dom = true,
                           const bool bra = true, const bool sva = true,
-                          const bool pre = false, const bool cla = false,
+                          const bool pre = true, const bool cla = false,
                           const bool bgr = false, const bool ngr = false,
                           const bool con = true, const bool trl = false) const;
     std::ostream &displayTrail(std::ostream &os) const;
@@ -1297,7 +1306,8 @@ NumericVar<T> Solver<T>::newNumeric(const T lb, const T ub) {
 
   set(geq<T>(x.id(), lb));
   set(leq<T>(x.id(), ub));
-
+    propagate();
+    
   return x;
 }
 
@@ -1314,8 +1324,11 @@ NumericVar<T> Solver<T>::newNumeric(const T lb, const T ub) {
 // }
 
 template <typename T>
-Interval<T> Solver<T>::newInterval(const T mindur, const T maxdur) {
-  return Interval<T>(*this, mindur, maxdur);
+Interval<T> Solver<T>::newInterval(const T mindur, const T maxdur,
+                                   const T earliest_start, const T latest_start,
+                                   const T earliest_end, const T latest_end,
+                                   const BooleanVar<T> opt) {
+  return Interval<T>(*this, mindur, maxdur, earliest_start, latest_start, earliest_end, latest_end, opt);
 }
 
 template <typename T>
@@ -2490,10 +2503,12 @@ void Solver<T>::update(const bool bounds, const int s, const G &neighbors) {
 
 template <typename T> void Solver<T>::post(const DistanceConstraint<T> &c) {
   set(c);
+  propagate();
 }
 
 template <typename T> void Solver<T>::post(BooleanVar<T> con) {
   con.post(*this);
+  propagate();
 }
 
 template <typename T> void Solver<T>::post(Constraint<T> *con) {
@@ -2505,6 +2520,8 @@ template <typename T> void Solver<T>::post(Constraint<T> *con) {
   numeric_constraints.resize(std::max(2 * numeric.size(), numConstraint()));
 
   con->post(numConstraint() - 1);
+    
+    propagate();
 }
 
 template <typename T> void Solver<T>::relax(Constraint<T> *con) {
@@ -2717,11 +2734,12 @@ std::ostream &Solver<T>::displayConstraints(std::ostream &os) const {
   for (auto c : constraints) {
     os << *c << ": ";
     for (auto x : boolean_constraints.backward()[c->id()]) {
-      os << " b" << x;
+        os << (Literal<T>::sgn(x) == true ? " b" : " ¬b") << Literal<T>::var(x) ;
+//      os << " ¬b" << x;
     }
     os << " /";
     for (auto x : numeric_constraints.backward()[c->id()]) {
-      os << " x" << x;
+      os << (Literal<T>::sgn(x) == bound::lower ? " lb(x" : " ub(x") << Literal<T>::var(x) << ")";
     }
     os << std::endl;
   }
@@ -2767,7 +2785,19 @@ std::ostream &Solver<T>::display(std::ostream &os, const bool dom,
     os << std::endl;
   }
   if (pre) {
-    os << "precedence graph:\n" << core << std::endl;
+    os << "precedences:\n"; //<< core << std::endl;
+    for (auto a : core) {
+      for (auto e : core[a]) {
+        int b{e};
+        os << "x" << b;
+        if (e.label() > 0) {
+          os << " - " << e.label();
+        } else if (e.label() < 0) {
+          os << " + " << -e.label();
+        }
+        os << " <= x" << a << std::endl;
+      }
+    }
   }
   if (cla) {
       os << "clauses:\n" ;

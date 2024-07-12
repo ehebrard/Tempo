@@ -68,7 +68,7 @@ int main(int argc, char *argv[]) {
   Solver<> S(opt);
 
   // an interval standing for the makespan of schedule
-  auto schedule{S.newInterval()};
+  auto schedule{S.newInterval(0,Constant::Infinity<int>,0,0,0,Constant::Infinity<int>)};
 
   // depending on the option "input-format", parse a disjunctive scheduling
   // instance, and collect resources and interval objects
@@ -106,7 +106,15 @@ int main(int argc, char *argv[]) {
   auto ub{std::min(opt.ub, trivial_ub)};
 
   //    S.post(schedule.end <= ub);
-  S.set(schedule.end.before(ub));
+  S.post(schedule.end.before(ub));
+
+  std::cout << S << std::endl;
+  S.propagate();
+  std::cout << S << std::endl;
+
+  //    for(auto i : intervals) {
+  //
+  //    }
 
   warmstart(S, schedule, intervals, resources, ub);
 

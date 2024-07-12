@@ -32,8 +32,8 @@ void parse(const std::string &fn, M &model, J &schedule,
     //        std::cout << "makespan\n";
     //        auto schedule{model.newInterval()};
     //        schedule = model.newInterval();
-    model.set(schedule.start.after(0));
-    model.set(schedule.start.before(0));
+//    model.post(schedule.start.after(0));
+//    model.post(schedule.start.before(0));
 
     size_t j{0};
 
@@ -76,8 +76,8 @@ void parse(const std::string &fn, M &model, J &schedule,
 
           auto t{model.newInterval(dur, dur)};
 
-          model.set(t.start.after(schedule.start));
-          model.set(t.end.before(schedule.end));
+          model.post(t.start.after(schedule.start));
+          model.post(t.end.before(schedule.end));
 
           Intervals.push_back(t);
           resources[j].push_back(t);

@@ -226,9 +226,18 @@ the schedule
 template <typename T = int> class Interval {
 public:
   Interval() {}
-  Interval(Solver<T> &s, const T mindur = 0,
+  Interval(Solver<T> &solver, const T mindur = 0,
            const T maxdur = Constant::Infinity<T>,
+           const T earliest_start = -Constant::Infinity<T>,
+           const T latest_start = Constant::Infinity<T>,
+           const T earliest_end = -Constant::Infinity<T>,
+           const T latest_end = Constant::Infinity<T>,
            const BooleanVar<T> opt = Constant::NoVar);
+  //
+  //
+  //           Solver<T> &s, const T mindur = 0,
+  //           const T maxdur = Constant::Infinity<T>,
+  //           const BooleanVar<T> opt = Constant::NoVar);
 
   //    Interval(const Interval<T>&) = default;
 
@@ -292,6 +301,7 @@ public:
     virtual ~SumExpressionImpl() { std::cout << "del sum\n"; }
 
   var_t extract(Solver<T> &solver) override {
+    
     std::vector<var_t> vars;
     T lb{0};
     T ub{0};
@@ -334,12 +344,17 @@ public:
       }
 
       x.extract(solver);
+        
+        
+        
+        
       NumericExpressionImpl<T>::self.setOffset(
           NumericExpressionImpl<T>::self.offset() + w * x.offset());
       if (x.min(solver) != x.max(solver)) {
         vars.push_back(x.id());
       }
     }
+
     if (vars.size() == 1 and weights[0] == 1) {
       NumericExpressionImpl<T>::self.setId(*vars.begin());
     } else {
@@ -433,9 +448,9 @@ public:
     x.extract(solver);
     y.extract(solver);
     auto prec{x.before(y, -k)};
-    solver.set(prec);
+    solver.post(prec);
     auto succ{x.after(y, -k)};
-    solver.set(succ);
+    solver.post(succ);
   }
 
 private:
@@ -484,7 +499,7 @@ public:
     y.extract(solver);
 
     auto prec{x.before(y, -k)};
-    solver.set(prec);
+    solver.post(prec);
   }
 
 private:
@@ -610,7 +625,7 @@ public:
   void post(Solver<T> &solver) override {
     for (auto x : boolean_arguments) {
       x.extract(solver);
-      solver.set(x == true);
+      solver.post(x == true);
     }
   }
 
@@ -973,21 +988,54 @@ std::ostream &operator<<(std::ostream &os, const NumericVar<T> &x) {
 /*!
  Interval  impl
 */
+// template <typename T>
+// Interval<T>::Interval(Solver<T> &solver, const T mindur, const T maxdur,
+//                       const BooleanVar<T> opt) {
 template <typename T>
 Interval<T>::Interval(Solver<T> &solver, const T mindur, const T maxdur,
-                      const BooleanVar<T> opt)
-    : start(solver.newNumeric()),
-      end(mindur == maxdur ? NumericVar(start.id(), mindur)
-                           : solver.newNumeric()),
-      duration(mindur == maxdur ? NumericVar(Constant::K, mindur)
-                                : solver.newNumeric(mindur, maxdur)),
-      exist(opt) {
+                      const T earliest_start, const T latest_start,
+                      const T earliest_end, const T latest_end,
+                      const BooleanVar<T> opt) {
+  //    : start(solver.newNumeric()),
+  //      end(mindur == maxdur ? NumericVar(start.id(), mindur)
+  //                           : solver.newNumeric()),
+  //      duration(mindur == maxdur ? NumericVar(Constant::K, mindur)
+  //                                : solver.newNumeric(mindur, maxdur)),
+  //      exist(opt) {
 
-  if (start.id() != end.id()) {
+    if(earliest_start == latest_start) {
+        start = NumericVar(Constant::K, 0);
+    } else {
+        start = solver.newNumeric(earliest_start, latest_start);
+    }
+  if (mindur == maxdur) {
+    end = NumericVar(start.id(), mindur);
+    duration = NumericVar(Constant::K, mindur);
+  } else {
+
+    //        std::cout << solver << std::endl << "create end:" << std::endl;
+
+    end = solver.newNumeric(earliest_end, latest_end);
+
+    //        std::cout << solver << std::endl << "create duration:" <<
+    //        std::endl;
+
+    duration = solver.newNumeric(mindur, maxdur);
+
+    //        std::cout << solver << std::endl << "link end:" << std::endl;
+
     solver.post((start + duration) == end);
+
+    //        std::cout << solver << std::endl << "implied prec:" << std::endl;
+
     solver.post(start.before(end, mindur));
-    solver.post(end.before(start, -maxdur));
+
+    if (maxdur != Constant::Infinity<T>)
+      solver.post(end.before(start, -maxdur));
+
+    //        std::cout << solver << std::endl ;
   }
+  exist = opt;
 }
 
 template <typename T> int Interval<T>::id() const { return start.id(); }
