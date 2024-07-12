@@ -68,7 +68,7 @@ namespace tempo {
             TaskDistanceFunction(const std::vector<Interval<T>> &tasks, const DirectedGraph<Arc> &varGraph,
                                  const BoundProvider &boundProvider) :
                     tasks(tasks), boundProvider(boundProvider),
-                    graphDistances(varGraph.vertexCount(), varGraph.vertexCount(), NoDistance<T>) {
+                    graphDistances(varGraph.size(), varGraph.size(), NoDistance<T>) {
                 getDistances(graphDistances, varGraph.forward());
                 getDistances(graphDistances, varGraph.backward());
             }
