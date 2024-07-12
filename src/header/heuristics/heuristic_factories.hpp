@@ -104,7 +104,7 @@ namespace tempo::heuristics {
     MAKE_FACTORY_PATTERN(ValueHeuristic, const Options&, TightestValue, RandomBinaryValue)
 
 
-    /// --- Use these factory method ---
+    /// --- Use these factory methods ---
 
     /**
      * Infers variable selection heuristic from solver options

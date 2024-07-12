@@ -23,6 +23,7 @@
 #define __CMDLINE_HPP
 
 #include <tclap/CmdLine.h>
+#include <limits>
 
 namespace tempo {
 
