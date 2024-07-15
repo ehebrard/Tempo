@@ -519,18 +519,24 @@ BooleanVar<T> operator==(const NumericVar<T> &x, const NumericVar<T> &y) {
 
 template <typename T>
 BooleanVar<T> operator==(const T x, const NumericVar<T> &y) {
-  return operator==(NumericVar<T>(x), y);
+  return operator==(NumericVar<T>(Constant::K, x), y);
 }
 
 template <typename T>
 BooleanVar<T> operator==(const NumericVar<T> &x, const T y) {
-  return operator==(x, NumericVar<T>(y));
+  return operator==(x, NumericVar<T>(Constant::K, y));
 }
 
 template <typename T = int> class LeqExpressionImpl : public ExpressionImpl<T> {
 public:
   LeqExpressionImpl(NumericVar<T> x, NumericVar<T> y, const T k)
-      : x(x), y(y), k(k) {}
+      : x(x), y(y), k(k) {
+//
+//    std::cout << "leq expr " << x << " + " << x.offset() << " + " << k
+//              << " <= " << y << " + " << y.offset() << std::endl;
+//    std::cout << "leq expr " << x << " + " << x.offset() << " + " << k
+//              << " <= " << y << " + " << y.offset() << std::endl;
+  }
 
   var_t extract(Solver<T> &solver) override {
     x.extract(solver);
@@ -544,9 +550,20 @@ public:
   void post(Solver<T> &solver) override {
     x.extract(solver);
     y.extract(solver);
+//
+//    std::cout << "post prec\n";
+//    std::cout << x << " in [" << x.min(solver) << ".." << x.max(solver)
+//              << "] + " << x.offset() << std::endl;
+//    std::cout << y << " in [" << y.min(solver) << ".." << y.max(solver)
+//              << "] + " << y.offset() << std::endl;
 
     auto prec{x.before(y, -k)};
+
+//    std::cout << " => " << prec << std::endl;
+
     solver.post(prec);
+
+//    std::cout << "OK\n";
   }
 
 private:
@@ -568,12 +585,12 @@ BooleanVar<T> operator<=(const NumericVar<T> &x, const NumericVar<T> &y) {
 
 template <typename T>
 BooleanVar<T> operator<=(const T x, const NumericVar<T> &y) {
-  return operator<=(NumericVar<T>(x), y);
+  return operator<=(NumericVar<T>(Constant::K, x), y);
 }
 
 template <typename T>
 BooleanVar<T> operator<=(const NumericVar<T> &x, const T y) {
-  return operator<=(x, NumericVar<T>(y));
+  return operator<=(x, NumericVar<T>(Constant::K, y));
 }
 
 ///// <
@@ -585,15 +602,15 @@ BooleanVar<T> operator<(const NumericVar<T> &x, const NumericVar<T> &y) {
 
 template <typename T>
 BooleanVar<T> operator<(const T x, const NumericVar<T> &y) {
-  BooleanVar<T> exp(
-      new LeqExpressionImpl<T>(NumericVar<T>(x), y, -Gap<T>::epsilon()));
+  BooleanVar<T> exp(new LeqExpressionImpl<T>(NumericVar<T>(Constant::K, x), y,
+                                             -Gap<T>::epsilon()));
   return exp;
 }
 
 template <typename T>
 BooleanVar<T> operator<(const NumericVar<T> &x, const T y) {
-  BooleanVar<T> exp(
-      new LeqExpressionImpl<T>(x, NumericVar<T>(y), -Gap<T>::epsilon()));
+  BooleanVar<T> exp(new LeqExpressionImpl<T>(x, NumericVar<T>(Constant::K, y),
+                                             -Gap<T>::epsilon()));
   return exp;
 }
 
@@ -606,13 +623,15 @@ BooleanVar<T> operator>=(const NumericVar<T> &x, const NumericVar<T> &y) {
 
 template <typename T>
 BooleanVar<T> operator>=(const T x, const NumericVar<T> &y) {
-  BooleanVar<T> exp(new LeqExpressionImpl<T>(y, NumericVar<T>(x), 0));
+  BooleanVar<T> exp(
+      new LeqExpressionImpl<T>(y, NumericVar<T>(Constant::K, x), 0));
   return exp;
 }
 
 template <typename T>
 BooleanVar<T> operator>=(const NumericVar<T> &x, const T y) {
-  BooleanVar<T> exp(new LeqExpressionImpl<T>(NumericVar<T>(y), x, 0));
+  BooleanVar<T> exp(
+      new LeqExpressionImpl<T>(NumericVar<T>(Constant::K, y), x, 0));
   return exp;
 }
 
@@ -625,15 +644,15 @@ BooleanVar<T> operator>(const NumericVar<T> &x, const NumericVar<T> &y) {
 
 template <typename T>
 BooleanVar<T> operator>(const NumericVar<T> &x, const T k) {
-  BooleanVar<T> exp(
-      new LeqExpressionImpl<T>(NumericVar<T>(k + Gap<T>::epsilon()), x, 0));
+  BooleanVar<T> exp(new LeqExpressionImpl<T>(
+      NumericVar<T>(Constant::K, k + Gap<T>::epsilon()), x, 0));
   return exp;
 }
 
 template <typename T>
 BooleanVar<T> operator>(const T k, const NumericVar<T> &x) {
-  BooleanVar<T> exp(
-      new LeqExpressionImpl<T>(x, NumericVar<T>(k + Gap<T>::epsilon()), 0));
+  BooleanVar<T> exp(new LeqExpressionImpl<T>(
+      x, NumericVar<T>(Constant::K, k + Gap<T>::epsilon()), 0));
   return exp;
 }
 
@@ -1065,28 +1084,22 @@ Interval<T>::Interval(Solver<T> &solver, const T mindur, const T maxdur,
     end = NumericVar(start.id(), mindur);
     duration = NumericVar(Constant::K, mindur);
   } else {
+      auto s{start.min(solver)};
+      if(s != start.max(solver)) {
+          end = solver.newNumeric(earliest_end, latest_end);
+          duration = solver.newNumeric(mindur, maxdur);
+          solver.post((start + duration) == end);
+          solver.post(start.before(end, mindur));
+          
+          if (maxdur != Constant::Infinity<T>)
+              solver.post(end.before(start, -maxdur));
+      } else {
+          auto ect{std::max(earliest_end, s+mindur)};
+          auto lct{std::min(latest_end, s+maxdur)};
+          end = solver.newNumeric(ect, lct);
+          duration = NumericVar(end.id(), -s);
+      }
 
-    //        std::cout << solver << std::endl << "create end:" << std::endl;
-
-    end = solver.newNumeric(earliest_end, latest_end);
-
-    //        std::cout << solver << std::endl << "create duration:" <<
-    //        std::endl;
-
-    duration = solver.newNumeric(mindur, maxdur);
-
-    //        std::cout << solver << std::endl << "link end:" << std::endl;
-
-    solver.post((start + duration) == end);
-
-    //        std::cout << solver << std::endl << "implied prec:" << std::endl;
-
-    solver.post(start.before(end, mindur));
-
-    if (maxdur != Constant::Infinity<T>)
-      solver.post(end.before(start, -maxdur));
-
-    //        std::cout << solver << std::endl ;
   }
   exist = opt;
 }

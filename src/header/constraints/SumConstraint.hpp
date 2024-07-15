@@ -27,7 +27,7 @@
 #include "constraints/Constraint.hpp"
 #include "util/SparseSet.hpp"
 
-//#define DBG_LTRANS
+//#define DBG_SUM
 
 namespace tempo {
 
@@ -167,7 +167,16 @@ template <typename T> void SumConstraint<T>::propagate() {
   // up to one variable may have an infinite lb
   size_t inf_idx{scope.size()};
 
-  for (unsigned i{1}; i < scope.size(); ++i) {
+  for (unsigned i{0}; i < scope.size(); ++i) {
+
+#ifdef DBG_SUM
+    auto lb{m_solver.numeric.lower(scope[i])};
+    auto ub{m_solver.numeric.upper(scope[i])};
+    std::cout << scope[i] << ": " << lb
+              << (lb == -Constant::Infinity<T> ? "*" : "") << ".." << ub
+              << (ub == Constant::Infinity<T> ? "*" : "") << std::endl;
+#endif
+      
     if (weight[i] > 0) {
       if (m_solver.numeric.lower(scope[i]) == -Constant::Infinity<T>) {
         if (inf_idx < scope.size())
@@ -227,7 +236,20 @@ template <typename T> void SumConstraint<T>::propagate() {
         }
       } else {
         T min_j{m_solver.numeric.upper(scope[j]) * weight[j]};
+
+#ifdef DBG_SUM
+        std::cout << " min[" << scope[j] << "] = " << min_j << std::endl;
+#endif
+
         T lb_except_j{overall_lb - min_j};
+
+#ifdef DBG_SUM
+        std::cout << " lb\\" << scope[j] << " = " << lb_except_j << std::endl;
+
+        std::cout << lb_except_j << " + " << weight[j] << " * lb(" << scope[j]
+                  << ") <= " << upper_bound << std::endl;
+#endif
+
         T lb_j = upper_bound - lb_except_j / weight[j];
 
 #ifdef DBG_SUM
