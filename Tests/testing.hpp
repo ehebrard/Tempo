@@ -3,8 +3,8 @@
  * @date 27.04.23.
  */
 
-#ifndef SCHEDCL_TESTING_HPP
-#define SCHEDCL_TESTING_HPP
+#ifndef TEMPO_TESTING_HPP
+#define TEMPO_TESTING_HPP
 
 #include <filesystem>
 #include <random>
@@ -20,8 +20,6 @@
 
 namespace tempo::testing {
     struct TestData {
-        static constexpr auto TestProblem = __TEST_DATA_DIR__ "/test_problem.json";
-        static constexpr auto ExtendedTestProblem = __TEST_DATA_DIR__ "/extended_test_problem.json";
         static constexpr auto GraphBuilderConfig = __TEST_DATA_DIR__ "/graph_builder_config.json";
         static constexpr auto TestNN = __TEST_DATA_DIR__ "/Identity_export.pt";
     };
@@ -52,6 +50,8 @@ namespace tempo::testing {
 
 
     auto createTestProblem() -> std::pair<ProblemInstance, DummyScheduler>;
+
+    auto createExtendedTestProblem() -> std::pair<ProblemInstance, DummyScheduler>;
 
     auto createRandomProblem(std::size_t numTasks, std::size_t numResources,
                              double precedenceChance = 0.3) -> std::tuple<ProblemInstance, DummyScheduler, Matrix<int>>;
@@ -95,4 +95,4 @@ namespace tempo::testing {
     }
 }
 
-#endif //SCHEDCL_TESTING_HPP
+#endif //TEMPO_TESTING_HPP

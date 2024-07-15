@@ -24,6 +24,14 @@ namespace tempo::testing {
                 std::move(scheduler)} ;
     }
 
+    auto createExtendedTestProblem() -> std::pair<ProblemInstance, DummyScheduler> {
+        auto [problem, scheduler] = createTestProblem();
+        auto &resources = const_cast<std::remove_cvref_t<decltype(problem.resources())>&>(problem.resources());
+        resources.emplace_back(2, std::vector{problem.tasks().at(1), problem.tasks().at(3)}, std::vector{2, 1});
+        return {std::move(problem), std::move(scheduler)};
+    }
+
+
     auto createTasks(const std::vector<TaskSpec> &specs) -> std::pair<std::vector<Interval<int>>, DummyScheduler> {
         std::vector<Interval<int>> ret;
         std::vector<int> upper(specs.size() * VarTaskMapping::NumTemporalVarPerTask, Constant::Infinity<int>);

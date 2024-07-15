@@ -15,7 +15,7 @@
 void TopologyBuilderTest::SetUp() {
     auto [i, _] = tempo::testing::createTestProblem();
     inst = std::move(i);
-    std::tie(extInst, _) = tempo::testing::createTestProblem(); //@TODO
+    std::tie(extInst, _) = tempo::testing::createExtendedTestProblem();
 }
 
 auto TopologyBuilderTest::instance() const noexcept -> const tempo::testing::ProblemInstance & {
