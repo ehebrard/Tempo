@@ -63,6 +63,7 @@ namespace tempo::nn::heuristics {
             unsigned rfrom = mapping(edgeRev.from);
             unsigned rto = mapping(edgeRev.to);
             if (from != rto or to != rfrom) {
+                // @TODO not strictly necessary. simply allow distances between different tasks and use DST for probs
                 throw std::runtime_error("positive and negative edges have different tasks as endpoints.");
             }
 
