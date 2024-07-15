@@ -31,6 +31,9 @@ namespace tempo::nn {
      * the origin and horizon.
      */
     struct TaskTimingFeatureExtractor {
+        static constexpr auto LegacyKey = "legacy";
+        bool legacyFeatures = false;
+
         /**
          * Returns a tensor containing timing features for all tasks.
          * @tparam DistFun type of distance function
@@ -47,12 +50,13 @@ namespace tempo::nn {
                         const SchedulingProblemHelper<T, R> &problem) const -> torch::Tensor {
             const auto ub = static_cast<DataType>(problem.schedule().getLatestEnd(state.solver));
             torch::Tensor ret = torch::empty({static_cast<long>(topology.numTasks), 4}, dataTensorOptions());
-            for (auto [t, task]: iterators::enumerate(problem.tasks())) {
-                util::sliceAssign(ret, {static_cast<long>(t), util::SliceHere},
+            for (auto [t, task]: iterators::enumerate(problem.tasks(), 0l)) {
+                util::sliceAssign(ret, {t, util::SliceHere},
                                   {task.minDuration(state.solver) / ub,
                                    task.maxDuration(state.solver) / ub,
-                                   task.getEarliestStart(state.solver) / ub, //@TODO compatibility to old networks (negative sign)
-                                   task.getLatestEnd(state.solver) / ub});
+                                   task.getEarliestStart(state.solver) / ub *
+                                   static_cast<DataType>(1 - 2 * legacyFeatures),
+                                   task.getLatestEnd(state.solver) / ub - static_cast<DataType>(legacyFeatures)});
             }
 
             return ret;
@@ -135,7 +139,11 @@ namespace tempo::nn {
         }
     };
 
-    MAKE_DEFAULT_FACTORY(TaskTimingFeatureExtractor, const nlohmann::json&)
+    MAKE_FACTORY(TaskTimingFeatureExtractor, const nlohmann::json &config) {
+            return TaskTimingFeatureExtractor{.legacyFeatures = config.at(
+                    TaskTimingFeatureExtractor::LegacyKey).get<bool>()};
+        }
+    };
     MAKE_DEFAULT_FACTORY(ResourceEnergyExtractor, const nlohmann::json&)
     MAKE_DEFAULT_FACTORY(TimingEdgeExtractor, const nlohmann::json&)
 }

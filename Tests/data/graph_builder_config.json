@@ -8,7 +8,9 @@
     "extractorName": "ResourceEnergyExtractor"
   },
   "taskFeatureExtractor": {
-    "arguments": null,
+    "arguments": {
+      "legacy": true
+    },
     "extractorName": "TaskTimingFeatureExtractor"
   },
   "topologyExtractor": {

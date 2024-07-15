@@ -49,6 +49,33 @@ TEST(nn_feature_extractors, TaskTimingExtractor) {
     }
 }
 
+TEST(nn_feature_extractors, TaskTimingExtractor_legacy) {
+    using namespace tempo;
+    using namespace tempo::nn;
+    using namespace tempo::testing;
+    using T = tempo::testing::TaskSpec;
+    TaskTimingFeatureExtractor extractor{.legacyFeatures = false};
+    constexpr int Ub = 10;
+    auto [tasks, scheduler] = createTasks({T{.minDur = 4, .maxDur = 6, .earliestStart = 2, .latestDeadline = Ub - 2},
+                                           T{.minDur = 0, .maxDur = Ub, .latestDeadline = Ub}});
+    auto sched = tasks.back();
+    tasks.pop_back();
+    ProblemInstance instance(std::move(tasks), {}, {}, sched);
+    auto topology = MinimalTopologyBuilder(instance).getTopology();
+    auto taskFeatures = extractor(topology, makeSolverState(Matrix<int>{}, scheduler), instance);
+    ASSERT_EQ(taskFeatures.numel(), 4);
+    EXPECT_FLOAT_EQ(taskFeatures[0][0].item<DataType>(), 0.4);
+    EXPECT_FLOAT_EQ(taskFeatures[0][1].item<DataType>(), 0.6);
+    EXPECT_FLOAT_EQ(taskFeatures[0][2].item<DataType>(), 0.2);
+    EXPECT_FLOAT_EQ(taskFeatures[0][3].item<DataType>(), 0.8);
+    extractor.legacyFeatures = true;
+    taskFeatures = extractor(topology, makeSolverState(Matrix<int>{}, scheduler), instance);
+    EXPECT_FLOAT_EQ(taskFeatures[0][0].item<DataType>(), 0.4);
+    EXPECT_FLOAT_EQ(taskFeatures[0][1].item<DataType>(), 0.6);
+    EXPECT_FLOAT_EQ(taskFeatures[0][2].item<DataType>(), -0.2);
+    EXPECT_FLOAT_EQ(taskFeatures[0][3].item<DataType>(), -0.2);
+}
+
 TEST(nn_feature_extractors, ResourceEnergyExtractor) {
     using namespace tempo::nn;
     using namespace tempo::serialization;
