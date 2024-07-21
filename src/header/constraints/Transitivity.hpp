@@ -209,7 +209,7 @@ void Transitivity<T>::add_edge(const int x, const int y, const int r) {
     change_flag = true;
 
 #ifdef DBG_LTRANS
-  if (m_solver.boolean.isUndefined(disjunct[x][y].variabel())) {
+  if (m_solver.boolean.isUndefined(disjunct[x][y].variable())) {
     std::cout << "edge pruning\n";
   }
 #endif
@@ -500,6 +500,9 @@ template <typename T> void Transitivity<T>::propagate() {
       //      auto ex{m_solver.upper(END(m_tasks[x]))};
       auto ex{the_tasks[x].getLatestEnd(m_solver)};
 
+      if (ex == Constant::Infinity<T>)
+        continue;
+
       // y must end before ey
       //      auto ey{m_solver.upper(END(m_tasks[*yp]))};
       auto ey{the_tasks[*yp].getLatestEnd(m_solver)};
@@ -561,6 +564,9 @@ template <typename T> void Transitivity<T>::propagate() {
       auto sy{the_tasks[y].getEarliestStart(m_solver)};
       auto sz{the_tasks[*xp].getEarliestStart(m_solver)};
 
+      if (sy == -Constant::Infinity<T>)
+        continue;
+
       if ((sy + offset[*xp]) > sz) {
 #ifdef DBG_LTRANS
         pruning = true;
@@ -580,13 +586,16 @@ template <typename T> void Transitivity<T>::propagate() {
     }
   }
 
+  if (transition_flag) {
+
+    assert(false);
+    min_spanning_tree();
+  }
+
 #ifdef DBG_LTRANS
   if (pruning)
     std::cout << "bound pruning\n";
 #endif
-
-  if (transition_flag)
-    min_spanning_tree();
 }
 
 template <typename T> int Transitivity<T>::getType() const {

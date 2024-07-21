@@ -1467,7 +1467,13 @@ void Solver<T>::setNumeric(Literal<T> l, const Explanation<T> &e,
                 std::cout << "failure* on " << pretty(l) << std::endl;
             }
 #endif
-            
+
+#ifdef DBG_FAIL
+            if (DBG_FAIL) {
+              std::cout << "failure* on " << pretty(l) << std::endl;
+            }
+#endif
+
             throw Failure<T>({&bound_exp, static_cast<hint>(l.variable())});
         }
         
@@ -1494,7 +1500,14 @@ void Solver<T>::setBoolean(Literal<T> l, const Explanation<T> &e) {
             std::cout << "failure on " << pretty(l) << " @" << trail.size() << " b/c " << e << std::endl;
         }
 #endif
-        
+
+#ifdef DBG_FAIL
+        if (DBG_FAIL) {
+          std::cout << "failure on " << pretty(l) << " @" << trail.size()
+                    << " b/c " << e << std::endl;
+        }
+#endif
+
         throw Failure<T>(e);
     }
     
@@ -2423,6 +2436,11 @@ template <typename T> void tempo::Solver<T>::propagate() {
     //      }
   }
 
+#ifdef DBG_TRACE
+  if (DBG_BOUND and (DBG_TRACE)) {
+    std::cout << "ok propagate" << std::endl;
+  }
+#endif
 
   propag_pointer = p_index;
 }
@@ -2505,15 +2523,16 @@ void Solver<T>::update(const bool bounds, const int s, const G &neighbors) {
 #ifdef DBG_BELLMAN
         if (DBG_BELLMAN) {
           std::cout << " * shorter path "
-                    << (bounds == bound::lower ? "from " : "to ") << v
+                    << (bounds == bound::lower ? "from " : "to ") << v << "("
+                    << (shortest_path[u] + w) << "/" << shortest_path[v] << ")"
                     << std::endl;
         }
 #endif
 
         if (v == s) {
 
-#ifdef DBG_BELLMAN
-          if (DBG_BELLMAN) {
+#ifdef DBG_FAIL
+          if (DBG_FAIL) {
             std::cout << " negative cyle\n";
           }
 #endif

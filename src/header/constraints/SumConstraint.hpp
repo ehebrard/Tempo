@@ -340,7 +340,7 @@ void SumConstraint<T>::xplain(const Literal<T>, const hint i,
   for (unsigned j{0}; j < scope.size(); ++j)
     if (static_cast<unsigned>(i) != j) {
       Cl.push_back(m_solver.numeric.getLiteral(
-          (weight[i] < 0 ? bound::upper : bound::upper), scope[i]));
+          (weight[j] < 0 ? bound::upper : bound::upper), scope[j]));
     }
 }
 
