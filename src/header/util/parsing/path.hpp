@@ -30,7 +30,9 @@ void parse(const std::string &fn, M &solver, J &schedule,
     int mach;
       int path = 0;
       int path_length;
-      bool nw;
+//      bool nw;
+      int nw{0};
+      int w;
       
       std::vector<bool> nowait;
 
@@ -54,9 +56,26 @@ void parse(const std::string &fn, M &solver, J &schedule,
           
           nowait.resize(nm, false);
           
-          for(auto i{0}; i<nm; ++i) {
-              iss >> nw;
-              nowait[i] = nw;
+          
+          
+//          for(auto i{0}; i<nm; ++i) {
+//              iss >> nw;
+//              nowait[i] = nw;
+//              
+//              if (!iss) {
+//                cerr << "ERROR: could not parse header at line " << ln << "\n";
+//                exit(1);
+//              }
+//              
+////              std::cout << nowait[i] ;
+//          }
+////          std::cout << std::endl;
+          
+          iss >> nw;
+
+          for(auto i{0}; i<nw; ++i) {
+              iss >> w;
+              nowait[w] = true;
               
               if (!iss) {
                 cerr << "ERROR: could not parse header at line " << ln << "\n";
@@ -66,7 +85,7 @@ void parse(const std::string &fn, M &solver, J &schedule,
 //              std::cout << nowait[i] ;
           }
 //          std::cout << std::endl;
-
+          
 
         resources.resize(nm);
 

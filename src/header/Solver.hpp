@@ -2249,6 +2249,7 @@ void Solver<T>::optimize(S &objective) {
         std::cout << std::setw(10) << best;
         displayProgress(std::cout);
       }
+        objective.apply(best, *this);
       boolean.saveSolution();
       numeric.saveSolution();
       restart(true);
