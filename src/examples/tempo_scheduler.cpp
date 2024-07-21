@@ -26,6 +26,7 @@
 #include "util/parsing/jsp.hpp"
 #include "util/parsing/jstl.hpp"
 #include "util/parsing/osp.hpp"
+#include "util/parsing/path.hpp"
 
 using namespace tempo;
 
@@ -83,6 +84,8 @@ int main(int argc, char *argv[]) {
     osp::parse(opt.instance_file, S, schedule, intervals, resource_tasks);
   } else if (opt.input_format == "jsp") {
     jsp::parse(opt.instance_file, S, schedule, intervals, resource_tasks);
+  } else if (opt.input_format == "path") {
+    path::parse(opt.instance_file, S, schedule, intervals, resource_tasks);
   }
   //    else if (opt.input_format == "tsptw") {
   //        tsptw::parse(opt.instance_file, S, schedule, Intervals,
@@ -101,8 +104,13 @@ int main(int argc, char *argv[]) {
 
   // set a trivial (and the user-defined) upper bound
   auto trivial_ub{0};
-  for (auto &j : intervals)
-    trivial_ub += j.minDuration(S);
+  for (auto &j : intervals) {
+    if (j.maxDuration(S) == Constant::Infinity<int>) {
+      trivial_ub = Constant::Infinity<int>;
+      break;
+    }
+    trivial_ub += j.maxDuration(S);
+  }
   auto ub{std::min(opt.ub, trivial_ub)};
 
   //    S.post(schedule.end <= ub);
@@ -115,8 +123,23 @@ int main(int argc, char *argv[]) {
   //
   //    }
 
-  warmstart(S, schedule, intervals, resources, ub);
+  //  warmstart(S, schedule, intervals, resources, ub);
 
   // search
   S.minimize(schedule.duration);
+
+  if (opt.print_sol) {
+    for (auto task : intervals) {
+
+      auto est{S.numeric.lower(task.start)};
+      auto lst{S.numeric.upper(task.start)};
+      auto ect{S.numeric.lower(task.end)};
+      auto lct{S.numeric.upper(task.end)};
+      auto pmin{S.numeric.lower(task.duration)};
+      auto pmax{S.numeric.upper(task.duration)};
+
+      std::cout << "t" << task.id() << ": [" << est << "-" << lst << ".." << ect
+                << "-" << lct << "] (" << pmin << "-" << pmax << ")\n";
+    }
+  }
 }

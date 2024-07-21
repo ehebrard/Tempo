@@ -91,13 +91,16 @@ template <typename T = int> struct NumInfo {
 template <typename T = int> class NumericVar : public ExpressionFlag {
 
 public:
-    NumericVar() {};
+    NumericVar() : ExpressionFlag(false) {}
     NumericVar(ExpressionImpl<T> *i) : ExpressionFlag(true), implem(i) {}
     NumericVar(const var_t i, const T o = 0)
         : ExpressionFlag(false), data(i, o) {}
 
     T min(Solver<T> &sc) const;
     T max(Solver<T> &sc) const;
+
+    //    T solution_min(Solver<T> &sc) const;
+    //    T solution_max(Solver<T> &sc) const;
 
     T earliest(Solver<T> &) const;
     T latest(Solver<T> &) const;
@@ -121,12 +124,32 @@ public:
     void setOffset(const T o) { data._offset = o; }
 
     void extract(Solver<T> &solver) {
+        
+//        std::cout << "extract num\n";
+        
       if (ExpressionFlag::_is_expression) {
+          
+//          std::cout << implem << std::endl;
+          
         implem->extract(solver);
+          solver.trash_bin.push_back(implem);
+          
+//          std::cout << "here 1 " << implem << "\n";
+          
         data = NumInfo<T>(implem->id(), implem->offset());
+          
+//          std::cout << "here 2 " << implem << "\n";
+          
         ExpressionFlag::_is_expression = false;
-        solver.trash_bin.push_back(implem);
-//        std::cout << "extract " << implem->name() << std::endl;
+          
+//          std::cout << "here 3 " << implem << "\n";
+          
+          
+        
+          
+//          std::cout << "here 4 " << implem << "\n";
+          
+//        std::cout << "extract " << implem->name() << " (" << implem << ")" << std::endl;
       }
     }
 
@@ -185,10 +208,11 @@ var_t id() const { return (ExpressionFlag::_is_expression ? implem->id() : data.
   void extract(Solver<T> &solver) {
     if (ExpressionFlag::_is_expression) {
       implem->extract(solver);
-      data = BoolInfo<T>(implem->id(), implem->semantic());
-      ExpressionFlag::_is_expression = false;
       solver.trash_bin.push_back(implem);
-//      std::cout << "extract (b) " << implem->name() << std::endl;
+        
+        data = BoolInfo<T>(implem->id(), implem->semantic());
+        ExpressionFlag::_is_expression = false;
+//      std::cout << "extract (b) " << implem->name() << " (" << implem << ")" << std::endl;
     }
   }
 
@@ -197,7 +221,7 @@ var_t id() const { return (ExpressionFlag::_is_expression ? implem->id() : data.
       implem->post(solver);
       ExpressionFlag::_is_expression = false;
       solver.trash_bin.push_back(implem);
-//      std::cout << "post (b) " << implem->name() << std::endl;
+//      std::cout << "post (b) " << implem->name() << " (" << implem << ")" << std::endl;
     } else {
       solver.addToSearch(*this);
     }
@@ -308,6 +332,7 @@ public:
 
     var_t extract(Solver<T> &solver) override {
 
+        bool is_expr{false};
       std::vector<var_t> vars;
       T lb{0};
       T ub{0};
@@ -353,13 +378,16 @@ public:
 
         NumericExpressionImpl<T>::self.setOffset(
             NumericExpressionImpl<T>::self.offset() + w * x.offset());
+          
         if (x.min(solver) != x.max(solver)) {
           vars.push_back(x.id());
+            is_expr = x._is_expression;
         }
       }
 
       if (vars.size() == 1 and weights[0] == 1) {
         NumericExpressionImpl<T>::self.setId(*vars.begin());
+          NumericExpressionImpl<T>::self._is_expression = is_expr;
       } else {
         NumericExpressionImpl<T>::self = solver.newNumeric(lb, ub);
 
@@ -430,6 +458,8 @@ class NumEqExpressionImpl : public ExpressionImpl<T> {
 public:
   NumEqExpressionImpl(NumericVar<T> x, NumericVar<T> y, const T k)
       : x(x), y(y), k(k) {}
+    
+    virtual ~NumEqExpressionImpl() { /*std::cout << "delete eq expression\n";*/ }
 
   virtual string name() const override { return "eq"; }
 
@@ -970,6 +1000,22 @@ T NumericVar<T>::max(Solver<T>& s) const {
     return v;
   return v + offset();
 }
+//
+// template<typename T>
+// T NumericVar<T>::solutionMin(Solver<T>& s) const {
+//  auto v{s.numeric.lower(id())};
+//  if (v == -Constant::Infinity<T>)
+//    return v;
+//  return v + offset();
+//}
+//
+// template<typename T>
+// T NumericVar<T>::solutionMax(Solver<T>& s) const {
+//  auto v{s.numeric.upper(*this)};
+//  if (v == Constant::Infinity<T>)
+//    return v;
+//  return v + offset();
+//}
 
 template <typename T> T NumericVar<T>::earliest(Solver<T> &s) const {
   return min(s);
@@ -1117,6 +1163,16 @@ template <typename T> var_t Interval<T>::getEnd() const { return end.id(); }
 template <typename T> ostream &Interval<T>::display(ostream &os) const {
   os << "t" << id(); //<< ": [" << start.earliest(solver) << ".." <<
                      // end.latest(solver) << "]";
+
+  //    auto est{start.earliest(solver)};
+  //    auto lst{start.latest(solver)};
+  //    auto ect{end.earliest(solver)};
+  //    auto lct{end.latest(solver)};
+  //    auto pmin{duration.min(solver)};
+  //    auto pmax{duration.max(solver)};
+  //
+  //   os << ": [" << est << "-" << lst << ".." << ect << "-" << lct << "] (" <<
+  //   pmin << "-" << pmax << ")";
 
   os << ": " << start << "/" << duration << "/" << end; //<< "/" << exist;
   return os;

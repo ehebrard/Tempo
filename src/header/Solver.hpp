@@ -183,6 +183,11 @@ public:
    * @name value accessors
    */
   //@{
+  // solution (do not use in search)
+  T upper(const NumericVar<T> x) const;
+  T lower(const NumericVar<T> x) const;
+
+  // for use in search
   bool falsified(const Literal<T> l) const;
   bool satisfied(const Literal<T> l) const;
   T upper(const var_t x) const;
@@ -237,11 +242,22 @@ public:
   }
   //@}
 
+  // saves the current solution
+  void saveSolution() {
+    best_solution[bound::lower] = bound[bound::lower];
+    best_solution[bound::upper] = bound[bound::upper];
+  }
+  bool hasSolution() const { return not best_solution[bound::lower].empty(); }
+  //@}
+
 private:
   Solver<T> &solver;
 
   // [for each numeric signed_var] the current bounds
   std::vector<T> bound[2];
+
+  // [for each numeric signed_var] the bound in the best solution
+  std::vector<T> best_solution[2];
 
   // [for each numeric signed_var] the current index in the 'propagation_events'
   // stack
@@ -1112,6 +1128,23 @@ void NumericStore<T>::setConflictIndex(const Literal<T> l, T v) {
     conflict_index[l.sign()][l.variable()] = v;
 }
 
+template <typename T> T NumericStore<T>::upper(const NumericVar<T> x) const {
+
+  assert(best_solution[bound::upper].size() == bound[bound::upper].size());
+
+  assert(best_solution[bound::upper].size() > x.id());
+
+  return best_solution[bound::upper][x.id()] + x.offset();
+}
+template <typename T> T NumericStore<T>::lower(const NumericVar<T> x) const {
+
+  assert(best_solution[bound::lower].size() == bound[bound::lower].size());
+
+  assert(best_solution[bound::lower].size() > x.id());
+
+  return -best_solution[bound::lower][x.id()] + x.offset();
+}
+
 template <typename T> T NumericStore<T>::upper(const var_t x) const {
     return bound[bound::upper][x];
 }
@@ -1190,6 +1223,8 @@ template <typename T>
 Solver<T>::~Solver() {
 //  std::cout << "delete solver\n";
   for (auto exp : trash_bin) {
+//      std::cout << exp << std::endl;
+//      std::cout << "here\n";
 //    std::cout << "delete " << exp->name() << std::endl;
             delete exp;
   }
@@ -2091,8 +2126,10 @@ template <typename T> void Solver<T>::initializeSearch() {
 template <typename T> boolean_state Solver<T>::satisfiable() {
     initializeSearch();
     auto satisfiability{search()};
-    if(satisfiability == True)
-        boolean.saveSolution();
+    if (satisfiability == True) {
+      boolean.saveSolution();
+      numeric.saveSolution();
+    }
     if(options.verbosity >= Options::QUIET)
         displaySummary(std::cout, (satisfiability == True ? "sat " : (satisfiability == False ? "unsat " : "unknown ")));
     return satisfiability;
@@ -2200,6 +2237,7 @@ void Solver<T>::optimize(S &objective) {
         displayProgress(std::cout);
       }
       boolean.saveSolution();
+      numeric.saveSolution();
       restart(true);
       try {
         objective.setPrimal(best, *this);
