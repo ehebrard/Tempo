@@ -56,13 +56,14 @@ private:
 template <typename T = int> class ExpressionImpl {
 public:
     
-    virtual ~ExpressionImpl() { std::cout << "delete expr\n"; }
+    virtual ~ExpressionImpl() { /*std::cout << "delete expr\n";*/ }
     
   virtual var_t extract(Solver<T> &) = 0;
   virtual void post(Solver<T> &) {
     throw ModelingException("This predicate cannot be a constraint");
   }
 
+  virtual string name() const { return "some expression"; }
   virtual var_t id() const { return Constant::NoVar; }
   virtual T offset() const { return 0; }
   virtual index_t semantic() const { return Constant::NoSemantic; }
@@ -125,6 +126,7 @@ public:
         data = NumInfo<T>(implem->id(), implem->offset());
         ExpressionFlag::_is_expression = false;
         solver.trash_bin.push_back(implem);
+//        std::cout << "extract " << implem->name() << std::endl;
       }
     }
 
@@ -186,6 +188,7 @@ var_t id() const { return (ExpressionFlag::_is_expression ? implem->id() : data.
       data = BoolInfo<T>(implem->id(), implem->semantic());
       ExpressionFlag::_is_expression = false;
       solver.trash_bin.push_back(implem);
+//      std::cout << "extract (b) " << implem->name() << std::endl;
     }
   }
 
@@ -194,6 +197,7 @@ var_t id() const { return (ExpressionFlag::_is_expression ? implem->id() : data.
       implem->post(solver);
       ExpressionFlag::_is_expression = false;
       solver.trash_bin.push_back(implem);
+//      std::cout << "post (b) " << implem->name() << std::endl;
     } else {
       solver.addToSearch(*this);
     }
@@ -272,7 +276,7 @@ public:
 template <typename T = int>
 class BooleanExpressionImpl : public ExpressionImpl<T> {
 public:
-    virtual ~BooleanExpressionImpl() { std::cout << "del boolexpr\n"; }
+    virtual ~BooleanExpressionImpl() { /*std::cout << "del boolexpr\n";*/ }
     
   virtual var_t id() const override { return self.id(); }
   virtual index_t semantic() const override { return self.semantic(); }
@@ -285,7 +289,7 @@ protected:
 template <typename T = int>
 class NumericExpressionImpl : public ExpressionImpl<T> {
 public:
-    virtual ~NumericExpressionImpl() { std::cout << "del numexpr\n"; }
+    virtual ~NumericExpressionImpl() { /*std::cout << "del numexpr\n";*/ }
     
   virtual var_t id() const override { return self.id(); }
   virtual T offset() const override { return self.offset(); }
@@ -298,81 +302,80 @@ template <typename T = int>
 class SumExpressionImpl : public NumericExpressionImpl<T> {
 public:
   SumExpressionImpl() {}
-    virtual ~SumExpressionImpl() { std::cout << "del sum\n"; }
+    virtual ~SumExpressionImpl() { /*std::cout << "del sum\n";*/ }
 
-  var_t extract(Solver<T> &solver) override {
-    
-    std::vector<var_t> vars;
-    T lb{0};
-    T ub{0};
-    for (unsigned i{0}; i < arguments.size(); ++i) {
-      auto x{arguments[i]};
-      auto w{weights[i]};
+    virtual string name() const override { return "sum"; }
 
-      if (w < 0) {
-        if (lb != -Constant::Infinity<T>) {
-          if (x.max(solver) == Constant::Infinity<T>) {
-            lb = -Constant::Infinity<T>;
-          } else {
-            lb += w * x.max(solver);
+    var_t extract(Solver<T> &solver) override {
+
+      std::vector<var_t> vars;
+      T lb{0};
+      T ub{0};
+      for (unsigned i{0}; i < arguments.size(); ++i) {
+        auto x{arguments[i]};
+        auto w{weights[i]};
+
+        if (w < 0) {
+          if (lb != -Constant::Infinity<T>) {
+            if (x.max(solver) == Constant::Infinity<T>) {
+              lb = -Constant::Infinity<T>;
+            } else {
+              lb += w * x.max(solver);
+            }
           }
-        }
-        if (ub != Constant::Infinity<T>) {
-          if (x.min(solver) == -Constant::Infinity<T>) {
-            ub = Constant::Infinity<T>;
-          } else {
-            ub += w * x.min(solver);
+          if (ub != Constant::Infinity<T>) {
+            if (x.min(solver) == -Constant::Infinity<T>) {
+              ub = Constant::Infinity<T>;
+            } else {
+              ub += w * x.min(solver);
+            }
           }
+        } else {
+          if (lb != -Constant::Infinity<T>) {
+            if (x.min(solver) == -Constant::Infinity<T>) {
+              lb = -Constant::Infinity<T>;
+            } else {
+              lb += w * x.min(solver);
+            }
+          }
+          if (ub != Constant::Infinity<T>) {
+            if (x.max(solver) == Constant::Infinity<T>) {
+              ub = Constant::Infinity<T>;
+            } else {
+              ub += w * x.max(solver);
+            }
+          }
+          //              lb += w * x.min(solver);
+          //              ub += w * x.max(solver);
         }
+
+        x.extract(solver);
+
+        NumericExpressionImpl<T>::self.setOffset(
+            NumericExpressionImpl<T>::self.offset() + w * x.offset());
+        if (x.min(solver) != x.max(solver)) {
+          vars.push_back(x.id());
+        }
+      }
+
+      if (vars.size() == 1 and weights[0] == 1) {
+        NumericExpressionImpl<T>::self.setId(*vars.begin());
       } else {
-        if (lb != -Constant::Infinity<T>) {
-          if (x.min(solver) == -Constant::Infinity<T>) {
-            lb = -Constant::Infinity<T>;
-          } else {
-            lb += w * x.min(solver);
-          }
-        }
-        if (ub != Constant::Infinity<T>) {
-          if (x.max(solver) == Constant::Infinity<T>) {
-            ub = Constant::Infinity<T>;
-          } else {
-            ub += w * x.max(solver);
-          }
-        }
-        //              lb += w * x.min(solver);
-        //              ub += w * x.max(solver);
+        NumericExpressionImpl<T>::self = solver.newNumeric(lb, ub);
+
+        vars.push_back(NumericExpressionImpl<T>::id());
+        weights.push_back(-1);
+        T total{NumericExpressionImpl<T>::self.offset()};
+
+        solver.post(new SumConstraint(solver, vars.begin(), vars.end(),
+                                      weights.begin(), total));
+        for (auto &w : weights)
+          w = -w;
+        solver.post(new SumConstraint(solver, vars.begin(), vars.end(),
+                                      weights.begin(), -total));
       }
 
-      x.extract(solver);
-        
-        
-        
-        
-      NumericExpressionImpl<T>::self.setOffset(
-          NumericExpressionImpl<T>::self.offset() + w * x.offset());
-      if (x.min(solver) != x.max(solver)) {
-        vars.push_back(x.id());
-      }
-    }
-
-    if (vars.size() == 1 and weights[0] == 1) {
-      NumericExpressionImpl<T>::self.setId(*vars.begin());
-    } else {
-      NumericExpressionImpl<T>::self = solver.newNumeric(lb, ub);
-
-      vars.push_back(NumericExpressionImpl<T>::id());
-      weights.push_back(-1);
-      T total{NumericExpressionImpl<T>::self.offset()};
-
-      solver.post(new SumConstraint(solver, vars.begin(), vars.end(),
-                                    weights.begin(), total));
-      for (auto &w : weights)
-        w = -w;
-      solver.post(new SumConstraint(solver, vars.begin(), vars.end(),
-                                    weights.begin(), -total));
-    }
-
-    return NumericExpressionImpl<T>::self.id();
+      return NumericExpressionImpl<T>::self.id();
   }
 
   SumExpressionImpl<T> &addTerm(const NumericVar<T> &x, const T w = 1) {
@@ -427,6 +430,8 @@ class NumEqExpressionImpl : public ExpressionImpl<T> {
 public:
   NumEqExpressionImpl(NumericVar<T> x, NumericVar<T> y, const T k)
       : x(x), y(y), k(k) {}
+
+  virtual string name() const override { return "eq"; }
 
   var_t extract(Solver<T> &solver) override {
     x.extract(solver);
@@ -490,6 +495,8 @@ public:
 //    std::cout << "leq expr " << x << " + " << x.offset() << " + " << k
 //              << " <= " << y << " + " << y.offset() << std::endl;
   }
+
+  virtual string name() const override { return "leq"; }
 
   var_t extract(Solver<T> &solver) override {
     x.extract(solver);
@@ -619,6 +626,8 @@ public:
     }
   }
 
+  virtual string name() const override { return "and"; }
+
   var_t extract(Solver<T> &solver) override {
     std::vector<Literal<T>> L;
     for (auto x : boolean_arguments) {
@@ -673,6 +682,8 @@ public:
     }
   }
 
+  virtual string name() const override { return "or"; }
+
   var_t extract(Solver<T> &solver) override {
     std::vector<Literal<T>> L;
     for (auto x : boolean_arguments) {
@@ -722,6 +733,8 @@ class LogicalImplicationExpression : public BooleanExpressionImpl<T> {
 public:
   LogicalImplicationExpression(BooleanVar<T> x, BooleanVar<T> y)
       : implicant(x), implied(y) {}
+
+  virtual string name() const override { return "implication"; }
 
   var_t extract(Solver<T> &solver) override {
     implicant.extract(solver);
@@ -775,6 +788,8 @@ public:
     }
   }
 
+  virtual string name() const override { return "cardinality"; }
+
   var_t extract(Solver<T> &solver) override {
     std::vector<Literal<T>> L;
     for (auto x : boolean_arguments) {
@@ -826,6 +841,12 @@ class NoOverlapExpressionImpl : public ExpressionImpl<T>,
                                 public std::vector<Interval<T>> {
 public:
   NoOverlapExpressionImpl(Interval<T> &sched) : schedule(sched) {}
+
+  virtual ~NoOverlapExpressionImpl() {
+//    std::cout << "del " << name() << std::endl;
+  }
+
+  virtual string name() const override { return "no-overlap"; }
 
   var_t extract(Solver<T> &) override {
     throw ModelingException("NoOverlap is not a predicate");

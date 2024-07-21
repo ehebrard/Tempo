@@ -1188,10 +1188,11 @@ Solver<T>::Solver()
 
 template <typename T>
 Solver<T>::~Solver() {
-//    for(auto exp : trash_bin) {
-//        std::cout << "delete " << exp->id() << std::endl;
-////        delete exp;
-//    }
+//  std::cout << "delete solver\n";
+  for (auto exp : trash_bin) {
+//    std::cout << "delete " << exp->name() << std::endl;
+            delete exp;
+  }
 }
 
 /*!
