@@ -918,11 +918,11 @@ public:
       }
     }
 
-    if (solver.getOptions().edge_finding)
+    if (this->begin() != this->end() and solver.getOptions().edge_finding)
       solver.postEdgeFinding(schedule, this->begin(), this->end(),
                              this->begDisjunct());
 
-    if (solver.getOptions().transitivity)
+    if (this->begin() != this->end() and solver.getOptions().transitivity)
       solver.postTransitivity(schedule, this->begin(), this->end(),
                               this->begDisjunct());
   }
