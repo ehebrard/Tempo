@@ -30,7 +30,6 @@ void parse(const std::string &fn, M &solver, J &schedule,
     int mach;
       int path = 0;
       int path_length;
-//      bool nw;
       int nw{0};
       int w;
       
@@ -54,7 +53,7 @@ void parse(const std::string &fn, M &solver, J &schedule,
           exit(1);
         }
           
-          nowait.resize(nm, false);
+          nowait.resize(nm+1, false);
           
           
           
