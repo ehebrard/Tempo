@@ -111,15 +111,17 @@ void printResources(const Solver<T>& S, const std::vector<Interval<T>>& interval
     i = 0;
     for(auto &tasks : resource_tasks) {
         ++i;
-        if(not tasks.empty()) {
-            auto jobs{tasks};
-            std::sort(jobs.begin(), jobs.end(), [&](const Interval<int>& a, const Interval<int>& b) {return S.numeric.lower(a.start) < S.numeric.lower(b.start); });
-            
-            std::cout << "resource " << i << ":";
-            for (auto task : jobs) {
-                std::cout << " " << jobmap[task.id()] << ":" << prettyJob(task, S, false);
+        if(tasks.size() > 1) {
+            if(tasks.size() > 0) {
+                auto jobs{tasks};
+                std::sort(jobs.begin(), jobs.end(), [&](const Interval<int>& a, const Interval<int>& b) {return S.numeric.lower(a.start) < S.numeric.lower(b.start); });
+                
+                std::cout << "resource " << i << ":";
+                for (auto task : jobs) {
+                    std::cout << " " << jobmap[task.id()] << ":" << prettyJob(task, S, false);
+                }
+                std::cout << std::endl;
             }
-            std::cout << std::endl;
         }
     }
 }

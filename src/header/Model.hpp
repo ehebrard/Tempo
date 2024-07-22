@@ -918,13 +918,15 @@ public:
       }
     }
 
-    if (this->begin() != this->end() and solver.getOptions().edge_finding)
-      solver.postEdgeFinding(schedule, this->begin(), this->end(),
-                             this->begDisjunct());
-
-    if (this->begin() != this->end() and solver.getOptions().transitivity)
-      solver.postTransitivity(schedule, this->begin(), this->end(),
-                              this->begDisjunct());
+      if(std::distance(this->begin(),this->end()) > 1) {
+          if (solver.getOptions().edge_finding)
+              solver.postEdgeFinding(schedule, this->begin(), this->end(),
+                                     this->begDisjunct());
+          
+          if (solver.getOptions().transitivity)
+              solver.postTransitivity(schedule, this->begin(), this->end(),
+                                      this->begDisjunct());
+      }
   }
 
   std::vector<BooleanVar<T>>::iterator begDisjunct() {
