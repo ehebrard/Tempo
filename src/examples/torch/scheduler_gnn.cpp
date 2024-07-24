@@ -4,12 +4,26 @@
 * @brief
 */
 
+#include <vector>
+
 #include "Solver.hpp"
 #include "heuristics/GNNValueHeuristics.hpp"
 #include "heuristics/heuristic_factories.hpp"
 #include "util/SchedulingProblemHelper.hpp"
 #include "util/parsing/jsp.hpp"
 #include "util/parsing/osp.hpp"
+
+
+template<typename T = int>
+class DisjunctiveResource : public vector<tempo::Interval<T>> {
+public:
+    using vector<tempo::Interval<T>>::vector;
+
+    static constexpr auto resourceCapacity() noexcept { return 1; }
+
+    static constexpr auto getDemand(unsigned) noexcept { return 1; }
+};
+
 
 
 int main(int argc, char **argv) {

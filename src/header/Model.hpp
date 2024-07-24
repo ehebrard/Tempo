@@ -427,34 +427,6 @@ protected:
   BooleanVar<T> self{Constant::NoVar};
 };
 
-template<typename T>
-concept SchedulingResource = concepts::ttyped_range<T, Interval> and
-requires(const T instance, unsigned taskId) {
-    { instance.resourceCapacity() } -> concepts::scalar;
-    { instance.getDemand(taskId) } -> concepts::scalar;
-};
-
-//! Wrapper for disjunctive resources
-/*!
-Contains the list of interval requiring this resource
- */
-template <typename T = int>
-class DisjunctiveResource : public vector<Interval<T>> {
-public:
-  using vector<Interval<T>>::vector;
-
-  static constexpr auto resourceCapacity() noexcept { return 1; }
-  static constexpr auto getDemand(unsigned) noexcept { return 1; }
-
-    // create and insert in 'disjuncts' the set of disjunctive variables necessary to ensure that this constraint is satisfied
-  template <typename C>
-  void createOrderVariables(Solver<T> &solver, C &disjuncts);
-    // create and insert in 'disjuncts' the set of disjunctive variables necessary to ensure that this constraint is satisfied, according to the options
-    template <typename C>
-    void createOptionalOrderVariables(Solver<T> &solver, C &disjuncts, C &options);
-};
-
-
 template <typename T = int>
 class NumericExpressionImpl : public ExpressionImpl<T> {
 public:

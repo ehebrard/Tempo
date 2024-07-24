@@ -16,6 +16,7 @@
 #include "tensor_utils.hpp"
 #include "util/Matrix.hpp"
 #include "util/factory_pattern.hpp"
+#include "util/traits.hpp"
 #include "DistanceConstraint.hpp"
 
 namespace tempo::nn {
