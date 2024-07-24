@@ -373,6 +373,9 @@ public:
     // create an internal numeric variable and return a model object pointing to it
     NumericVar<T> newNumeric(const T lb = -Constant::Infinity<T>,
                              const T ub = Constant::Infinity<T>);
+
+    NumericVar<T> newConstant(const T k);
+    NumericVar<T> newOffset(NumericVar<T> &x, const T k);
     // create an internal temporal variable and return a model object pointing
     // to it
     //    TemporalVar<T> newTemporal(const T offset = 0);
@@ -387,6 +390,9 @@ public:
                                      const T latest_end = Constant::Infinity<T>,
                                      const BooleanVar<T> opt = Constant::NoVar
                             );
+
+    Interval<T> between(const NumericVar<T> s, const NumericVar<T> e);
+    Interval<T> continuefor(const NumericVar<T> s, const NumericVar<T> d);
     //@}
 
     /**
@@ -1221,7 +1227,7 @@ Solver<T>::Solver()
 
 template <typename T>
 Solver<T>::~Solver() {
-//  std::cout << "delete solver\n";
+//  std::cout << "delete solver (" << trash_bin.size() << ")\n";
   for (auto exp : trash_bin) {
 //      std::cout << exp << std::endl;
 //      std::cout << "here\n";
@@ -1329,22 +1335,38 @@ BooleanVar<T> Solver<T>::newDisjunct(const DistanceConstraint<T> &d1,
   return x;
 }
 
+template <typename T> NumericVar<T> Solver<T>::newConstant(const T k) {
+  return newNumeric(k, k);
+}
+
+template <typename T>
+NumericVar<T> Solver<T>::newOffset(NumericVar<T> &x, const T k) {
+  return NumericVar<T>(x.id(), k);
+}
+
 template <typename T>
 NumericVar<T> Solver<T>::newNumeric(const T lb, const T ub) {
   //    auto x{numeric.newVar(-lb, ub)};
 
-  auto x{numeric.newVar(Constant::Infinity<T>)}; //, Constant::Infinity<T>)};
+  if (lb > ub) {
+    throw Failure<T>({&bound_exp, Constant::FactHint});
+  } else if (lb == ub) {
+    return NumericVar(Constant::K, lb);
+  } else {
 
-  changed.reserve(numeric.size());
-  clauses.newNumericVar(x.id());
-  numeric_constraints.resize(std::max(numConstraint(), 2 * numeric.size()));
-  core.newVertex(x.id());
+    auto x{numeric.newVar(Constant::Infinity<T>)};
 
-  set(geq<T>(x.id(), lb));
-  set(leq<T>(x.id(), ub));
+    changed.reserve(numeric.size());
+    clauses.newNumericVar(x.id());
+    numeric_constraints.resize(std::max(numConstraint(), 2 * numeric.size()));
+    core.newVertex(x.id());
+
+    set(geq<T>(x.id(), lb));
+    set(leq<T>(x.id(), ub));
     propagate();
-    
-  return x;
+
+    return x;
+  }
 }
 
 // template <typename T> TemporalVar<T> Solver<T>::newTemporal(const T offset) {
@@ -1365,6 +1387,19 @@ Interval<T> Solver<T>::newInterval(const T mindur, const T maxdur,
                                    const T earliest_end, const T latest_end,
                                    const BooleanVar<T> opt) {
   return Interval<T>(*this, mindur, maxdur, earliest_start, latest_start, earliest_end, latest_end, opt);
+}
+
+template <typename T>
+Interval<T> Solver<T>::between(const NumericVar<T> s, const NumericVar<T> e) {
+  Interval<T> i(*this, s, e, e - s);
+  post(i.duration >= 0);
+  return i;
+}
+
+template <typename T>
+Interval<T> Solver<T>::continuefor(const NumericVar<T> s, const NumericVar<T> d) {
+  Interval<T> i(*this, s, s+d, d);
+  return i;
 }
 
 template <typename T>
@@ -2561,7 +2596,15 @@ void Solver<T>::update(const bool bounds, const int s, const G &neighbors) {
 }
 
 template <typename T> void Solver<T>::post(const DistanceConstraint<T> &c) {
-  set(c);
+  if (c.from == Constant::K) {
+    // to - from <= dist -> to <= dist
+    set(makeNumericLiteral(bound::upper, c.to, c.distance));
+  } else if (c.to == Constant::K) {
+    // to - from <= dist -> from >= -dist
+    set(makeNumericLiteral(bound::lower, c.from, c.distance));
+  } else {
+    set(c);
+  }
   propagate();
 }
 
@@ -2612,10 +2655,18 @@ template <typename T> void Solver<T>::addToSearch(const BooleanVar<T> &x) {
 template <typename T>
 void Solver<T>::wake_me_on(const Literal<T> l, const int c) {
   if (l.isNumeric()) {
-    numeric_constraints.add(l, c);
+      if(numeric_constraints[l].empty() or numeric_constraints[l].back() != c)
+          numeric_constraints.add(l, c);
+      else
+          std::cout << "hello\n";
   } else {
-    boolean_constraints.add(l, c);
+      if(boolean_constraints[l].empty() or boolean_constraints[l].back() != c)
+          boolean_constraints.add(l, c);
+      else
+          std::cout << "hi\n";
   }
+    
+//    std::cout <<
 }
 
 template <typename T>

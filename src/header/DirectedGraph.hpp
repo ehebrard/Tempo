@@ -187,6 +187,7 @@ protected:
 
   // add and
   void add_(const int, const Arc &);
+    void assertNoEdge(const int origin, const int a);
 
   // remove the arc between two vertices
   void undo_(const int, const int);
@@ -251,10 +252,23 @@ void DirectedGraph<Arc>::add(const int origin, const Arc& a) {
 
 }
 
+
+template <class Arc>
+void DirectedGraph<Arc>::assertNoEdge(const int origin, const int a) {
+    for(auto z : neighbor[OUT][origin]) {
+        if(z == a) {
+            std::cout << "bug!\n";
+            exit(1);
+        }
+    }
+}
+
 template <class Arc>
 void DirectedGraph<Arc>::add_(const int origin, const Arc &a) {
 
   int destination = a;
+    
+//    assertNoEdge(origin, a);
 
   neighbor_rank[OUT][origin].push_back(
       static_cast<int>(neighbor[IN][destination].size()));

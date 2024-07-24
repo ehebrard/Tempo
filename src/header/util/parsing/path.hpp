@@ -14,7 +14,7 @@ namespace path {
 
 template <typename M, typename J, typename R>
 void parse(const std::string &fn, M &solver, J &schedule,
-           std::vector<J> &Intervals, std::vector<R> &resources) {
+           std::vector<J> &intervals, std::vector<R> &resources) {
   using std::cerr;
   try {
     std::ifstream ifs(fn);
@@ -105,21 +105,42 @@ void parse(const std::string &fn, M &solver, J &schedule,
             cerr << "ERROR: line count at line " << ln << "\n";
             exit(1);
           }
+
+    
+//          auto j{solver.newInterval(
+//              dur, (nowait[mach] ? dur : tempo::Constant::Infinity<int>))};
+//          if (m == 0) {
+//            solver.post(j.start.after(schedule.start));
+//          } else {
+//            solver.post(intervals.back().end.before(j.start));
+//            solver.post(j.start.before(intervals.back().end));
+//            if (m == path_length - 1) {
+//              solver.set(j.end.before(schedule.end));
+//            }
+//          }
             
-          auto j{solver.newInterval(dur, (nowait[mach] ? dur : tempo::Constant::Infinity<int>))};
-
-          if (m == 0) {
-            solver.post(j.start.after(schedule.start));
-          } else {
-
-            solver.post(Intervals.back().end.before(j.start));
-            solver.post(j.start.before(Intervals.back().end));
-            if (m == path_length - 1) {
-              solver.set(j.end.before(schedule.end));
+            tempo::Interval<int> j;
+            if (m == 0) {
+                auto s{solver.newNumeric()};
+                if(nowait[mach])
+                    j = solver.between(s, s+dur);
+                else {
+                    auto d{solver.newNumeric(dur, tempo::Constant::Infinity<int>)};
+                    j = solver.continuefor(s, d);
+                }
+              solver.post(j.start.after(schedule.start));
+            } else {
+                if(nowait[mach])
+                    j = solver.between(intervals.back().end, intervals.back().end+dur);
+                else {
+                    auto d{solver.newNumeric(dur, tempo::Constant::Infinity<int>)};
+                    j = solver.continuefor(intervals.back().end, d);
+                }
+              if (m == path_length - 1) {
+                solver.set(j.end.before(schedule.end));
+              }
             }
-          }
-
-          Intervals.push_back(j);
+          intervals.push_back(j);
           resources[mach].push_back(j);
         }
       }

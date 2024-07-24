@@ -160,6 +160,8 @@ template <typename T> void SumConstraint<T>::propagate() {
   std::cout << "propagate sum\n";
 #endif
 
+  //    std::cout << "propagate " << *this << std::endl;
+
   T overall_lb{0};
 
   // up to one variable may have an infinite lb
@@ -211,7 +213,7 @@ template <typename T> void SumConstraint<T>::propagate() {
     // only the variable with infinite lb can have its ub pruned
     auto blit{
         makeNumericLiteral((weight[inf_idx] > 0 ? bound::upper : bound::lower),
-                           scope[inf_idx], overall_lb / weight[inf_idx])};
+                           scope[inf_idx], (overall_lb - upper_bound) / weight[inf_idx])};
 
 #ifdef DBG_SUM
     std::cout << " --> " << blit << std::endl;
@@ -222,8 +224,21 @@ template <typename T> void SumConstraint<T>::propagate() {
     for (unsigned j{0}; j < scope.size(); ++j) {
       if (weight[j] > 0) {
         T min_j{m_solver.numeric.lower(scope[j]) * weight[j]};
+
+#ifdef DBG_SUM
+        std::cout << " min[" << scope[j] << "] = " << min_j << std::endl;
+#endif
+
         T lb_except_j{overall_lb - min_j};
-        T ub_j = upper_bound - lb_except_j / weight[j];
+
+#ifdef DBG_SUM
+        std::cout << " lb\\" << scope[j] << " = " << lb_except_j << std::endl;
+
+        std::cout << lb_except_j << " + " << weight[j] << " * lb(" << scope[j]
+                  << ") <= " << upper_bound << std::endl;
+#endif
+
+        T ub_j = (upper_bound - lb_except_j) / weight[j];
 
 #ifdef DBG_SUM
         std::cout << " --> " << leq<T>(scope[j], ub_j) << std::endl;
@@ -244,11 +259,11 @@ template <typename T> void SumConstraint<T>::propagate() {
 #ifdef DBG_SUM
         std::cout << " lb\\" << scope[j] << " = " << lb_except_j << std::endl;
 
-        std::cout << lb_except_j << " + " << weight[j] << " * lb(" << scope[j]
+        std::cout << lb_except_j << " - " << -weight[j] << " * ub(" << scope[j]
                   << ") <= " << upper_bound << std::endl;
 #endif
 
-        T lb_j = upper_bound - lb_except_j / weight[j];
+        T lb_j = (upper_bound - lb_except_j) / weight[j];
 
 #ifdef DBG_SUM
         std::cout << " --> " << geq<T>(scope[j], lb_j) << std::endl;
@@ -354,9 +369,9 @@ std::ostream &SumConstraint<T>::display(std::ostream &os) const {
 
   os << "(" << weight[0] << "*x" << scope[0];
   for (unsigned i{1}; i < scope.size(); ++i) {
-    os << " " << weight[i] << "*x" << scope[i];
+    os << (weight[i] >= 0 ? " +" : " ") << weight[i] << "*x" << scope[i];
   }
-  os << ")";
+  os << " <= " << upper_bound << ")";
   return os;
 }
 

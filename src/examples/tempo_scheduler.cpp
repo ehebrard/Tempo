@@ -97,7 +97,7 @@ template<typename T>
 void printJobs(const Solver<T>& S, const std::vector<Interval<T>>& intervals) {
     int i{0};
     for (auto task : intervals) {
-        std::cout << "job" << ++i << ": " << prettyJob(task, S, true) << std::endl;
+        std::cout << "job" << ++i << " (" << task.id() << "): " << prettyJob(task, S, true) << std::endl;
     }
 }
 
@@ -118,7 +118,7 @@ void printResources(const Solver<T>& S, const std::vector<Interval<T>>& interval
                 
                 std::cout << "resource " << i << ":";
                 for (auto task : jobs) {
-                    std::cout << " " << jobmap[task.id()] << ":" << prettyJob(task, S, false);
+                    std::cout << " " << jobmap[task.id()] << " (" << task.id() << "):" << prettyJob(task, S, false);
                 }
                 std::cout << std::endl;
             }
@@ -181,17 +181,21 @@ int main(int argc, char *argv[]) {
   //    S.post(schedule.end <= ub);
   S.post(schedule.end.before(ub));
 
-  if (opt.print_mod)
-    std::cout << S << std::endl;
-
-  //    for(auto i : intervals) {
-  //
-  //    }
+    if (opt.print_mod) {
+        for(auto i : intervals)
+            std::cout << i << std::endl;
+        std::cout << S << std::endl;
+    }
 
   //  warmstart(S, schedule, intervals, resources, ub);
 
   // search
   S.minimize(schedule.duration);
+    
+//    auto sat{S.satisfiable()};
+    
+    
+//    std::cout << schedule.duration.min(S) << std::endl;
 
     
   if (opt.print_sol) {
