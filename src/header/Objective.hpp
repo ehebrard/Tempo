@@ -59,14 +59,14 @@ public:
   void setPrimal(const T v, Solver<T> &solver) {
     Objective<T>::p_b = v;
     if (Objective<T>::gap()) {
-      apply(Objective<T>::p_b, solver);
+      apply(Objective<T>::p_b - Gap<T>::epsilon(), solver);
     }
   }
 
-private:
+//private:
   void apply(const T target, Solver<T> &solver) {
     //    solver.set(Objective<T>::X < target);
-    solver.set(Objective<T>::X.before(target - Gap<T>::epsilon()));
+    solver.post(Objective<T>::X.before(target));
   }
 };
 
@@ -79,13 +79,13 @@ public:
   void setPrimal(const T v, Solver<T> &solver) {
     Objective<T>::p_b = v;
     if (Objective<T>::gap()) {
-      apply(Objective<T>::p_b, solver);
+      apply(Objective<T>::p_b + Gap<T>::epsilon(), solver);
     }
   }
 
-private:
+//private:
   void apply(const T target, Solver<T> &solver) {
-    solver.set(Objective<T>::X.after(target + Gap<T>::epsilon()));
+    solver.post(Objective<T>::X.after(target));
   }
 };
 

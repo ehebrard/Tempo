@@ -71,6 +71,7 @@ using hint = int;
 //#define DBG_TRANSITIVITY true //(m_schedule.num_choicepoints >= 4064)
 //#define DBG_EXPL_TRANS true
 //#define DBG_SOL
+//#define DBG_FAIL true
 
 // priority values for constraint propagation
 enum class Priority {

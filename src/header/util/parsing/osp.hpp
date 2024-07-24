@@ -74,7 +74,8 @@ void parse(const std::string &fn, M &model, J &schedule,
             exit(1);
           }
 
-          auto t{model.newInterval(dur, dur)};
+            auto s{model.newNumeric()};
+            auto t{model.between(s, s+dur)};
 
           model.post(t.start.after(schedule.start));
           model.post(t.end.before(schedule.end));

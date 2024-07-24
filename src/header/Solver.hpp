@@ -182,6 +182,11 @@ public:
    * @name value accessors
    */
   //@{
+  // solution (do not use in search)
+  T upper(const NumericVar<T> x) const;
+  T lower(const NumericVar<T> x) const;
+
+  // for use in search
   bool falsified(const Literal<T> l) const;
   bool satisfied(const Literal<T> l) const;
   T upper(const var_t x) const;
@@ -236,11 +241,22 @@ public:
   }
   //@}
 
+  // saves the current solution
+  void saveSolution() {
+    best_solution[bound::lower] = bound[bound::lower];
+    best_solution[bound::upper] = bound[bound::upper];
+  }
+  bool hasSolution() const { return not best_solution[bound::lower].empty(); }
+  //@}
+
 private:
   Solver<T> &solver;
 
   // [for each numeric signed_var] the current bounds
   std::vector<T> bound[2];
+
+  // [for each numeric signed_var] the bound in the best solution
+  std::vector<T> best_solution[2];
 
   // [for each numeric signed_var] the current index in the 'propagation_events'
   // stack
@@ -356,6 +372,9 @@ public:
     // create an internal numeric variable and return a model object pointing to it
     NumericVar<T> newNumeric(const T lb = -Constant::Infinity<T>,
                              const T ub = Constant::Infinity<T>);
+
+    NumericVar<T> newConstant(const T k);
+    NumericVar<T> newOffset(NumericVar<T> &x, const T k);
     // create an internal temporal variable and return a model object pointing
     // to it
     //    TemporalVar<T> newTemporal(const T offset = 0);
@@ -370,6 +389,9 @@ public:
                                      const T latest_end = Constant::Infinity<T>,
                                      const BooleanVar<T> opt = Constant::NoVar
                             );
+
+    Interval<T> between(const NumericVar<T> s, const NumericVar<T> e);
+    Interval<T> continuefor(const NumericVar<T> s, const NumericVar<T> d);
     //@}
 
     /**
@@ -1111,6 +1133,23 @@ void NumericStore<T>::setConflictIndex(const Literal<T> l, T v) {
     conflict_index[l.sign()][l.variable()] = v;
 }
 
+template <typename T> T NumericStore<T>::upper(const NumericVar<T> x) const {
+
+  assert(best_solution[bound::upper].size() == bound[bound::upper].size());
+
+  assert(best_solution[bound::upper].size() > x.id());
+
+  return best_solution[bound::upper][x.id()] + x.offset();
+}
+template <typename T> T NumericStore<T>::lower(const NumericVar<T> x) const {
+
+  assert(best_solution[bound::lower].size() == bound[bound::lower].size());
+
+  assert(best_solution[bound::lower].size() > x.id());
+
+  return -best_solution[bound::lower][x.id()] + x.offset();
+}
+
 template <typename T> T NumericStore<T>::upper(const var_t x) const {
     return bound[bound::upper][x];
 }
@@ -1187,10 +1226,13 @@ Solver<T>::Solver()
 
 template <typename T>
 Solver<T>::~Solver() {
-//    for(auto exp : trash_bin) {
-//        std::cout << "delete " << exp->id() << std::endl;
-////        delete exp;
-//    }
+//  std::cout << "delete solver (" << trash_bin.size() << ")\n";
+  for (auto exp : trash_bin) {
+//      std::cout << exp << std::endl;
+//      std::cout << "here\n";
+//    std::cout << "delete " << exp->name() << std::endl;
+            delete exp;
+  }
 }
 
 /*!
@@ -1292,22 +1334,38 @@ BooleanVar<T> Solver<T>::newDisjunct(const DistanceConstraint<T> &d1,
   return x;
 }
 
+template <typename T> NumericVar<T> Solver<T>::newConstant(const T k) {
+  return newNumeric(k, k);
+}
+
+template <typename T>
+NumericVar<T> Solver<T>::newOffset(NumericVar<T> &x, const T k) {
+  return NumericVar<T>(x.id(), k);
+}
+
 template <typename T>
 NumericVar<T> Solver<T>::newNumeric(const T lb, const T ub) {
   //    auto x{numeric.newVar(-lb, ub)};
 
-  auto x{numeric.newVar(Constant::Infinity<T>)}; //, Constant::Infinity<T>)};
+  if (lb > ub) {
+    throw Failure<T>({&bound_exp, Constant::FactHint});
+  } else if (lb == ub) {
+    return NumericVar(Constant::K, lb);
+  } else {
 
-  changed.reserve(numeric.size());
-  clauses.newNumericVar(x.id());
-  numeric_constraints.resize(std::max(numConstraint(), 2 * numeric.size()));
-  core.newVertex(x.id());
+    auto x{numeric.newVar(Constant::Infinity<T>)};
 
-  set(geq<T>(x.id(), lb));
-  set(leq<T>(x.id(), ub));
+    changed.reserve(numeric.size());
+    clauses.newNumericVar(x.id());
+    numeric_constraints.resize(std::max(numConstraint(), 2 * numeric.size()));
+    core.newVertex(x.id());
+
+    set(geq<T>(x.id(), lb));
+    set(leq<T>(x.id(), ub));
     propagate();
 
-  return x;
+    return x;
+  }
 }
 
 // template <typename T> TemporalVar<T> Solver<T>::newTemporal(const T offset) {
@@ -1328,6 +1386,19 @@ Interval<T> Solver<T>::newInterval(const T mindur, const T maxdur,
                                    const T earliest_end, const T latest_end,
                                    const BooleanVar<T> opt) {
   return Interval<T>(*this, mindur, maxdur, earliest_start, latest_start, earliest_end, latest_end, opt);
+}
+
+template <typename T>
+Interval<T> Solver<T>::between(const NumericVar<T> s, const NumericVar<T> e) {
+  Interval<T> i(*this, s, e, e - s);
+  post(i.duration >= 0);
+  return i;
+}
+
+template <typename T>
+Interval<T> Solver<T>::continuefor(const NumericVar<T> s, const NumericVar<T> d) {
+  Interval<T> i(*this, s, s+d, d);
+  return i;
 }
 
 template <typename T>
@@ -1430,7 +1501,13 @@ void Solver<T>::setNumeric(Literal<T> l, const Explanation<T> &e,
                 std::cout << "failure* on " << pretty(l) << std::endl;
             }
 #endif
-            
+
+#ifdef DBG_FAIL
+            if (DBG_FAIL) {
+              std::cout << "failure* on " << pretty(l) << std::endl;
+            }
+#endif
+
             throw Failure<T>({&bound_exp, static_cast<hint>(l.variable())});
         }
         
@@ -1457,7 +1534,14 @@ void Solver<T>::setBoolean(Literal<T> l, const Explanation<T> &e) {
             std::cout << "failure on " << pretty(l) << " @" << trail.size() << " b/c " << e << std::endl;
         }
 #endif
-        
+
+#ifdef DBG_FAIL
+        if (DBG_FAIL) {
+          std::cout << "failure on " << pretty(l) << " @" << trail.size()
+                    << " b/c " << e << std::endl;
+        }
+#endif
+
         throw Failure<T>(e);
     }
     
@@ -2096,8 +2180,10 @@ void Solver<T>::setBranchingHeuristic(H &&h) {
 template <typename T> boolean_state Solver<T>::satisfiable() {
     initializeSearch();
     auto satisfiability{search()};
-    if(satisfiability == True)
-        boolean.saveSolution();
+    if (satisfiability == True) {
+      boolean.saveSolution();
+      numeric.saveSolution();
+    }
     if(options.verbosity >= Options::QUIET)
         displaySummary(std::cout, (satisfiability == True ? "sat " : (satisfiability == False ? "unsat " : "unknown ")));
     return satisfiability;
@@ -2204,7 +2290,9 @@ void Solver<T>::optimize(S &objective) {
         std::cout << std::setw(10) << best;
         displayProgress(std::cout);
       }
+        objective.apply(best, *this);
       boolean.saveSolution();
+      numeric.saveSolution();
       restart(true);
       try {
         objective.setPrimal(best, *this);
@@ -2389,6 +2477,11 @@ template <typename T> void tempo::Solver<T>::propagate() {
     //      }
   }
 
+#ifdef DBG_TRACE
+  if (DBG_BOUND and (DBG_TRACE)) {
+    std::cout << "ok propagate" << std::endl;
+  }
+#endif
 
   propag_pointer = p_index;
 }
@@ -2471,15 +2564,16 @@ void Solver<T>::update(const bool bounds, const int s, const G &neighbors) {
 #ifdef DBG_BELLMAN
         if (DBG_BELLMAN) {
           std::cout << " * shorter path "
-                    << (bounds == bound::lower ? "from " : "to ") << v
+                    << (bounds == bound::lower ? "from " : "to ") << v << "("
+                    << (shortest_path[u] + w) << "/" << shortest_path[v] << ")"
                     << std::endl;
         }
 #endif
 
         if (v == s) {
 
-#ifdef DBG_BELLMAN
-          if (DBG_BELLMAN) {
+#ifdef DBG_FAIL
+          if (DBG_FAIL) {
             std::cout << " negative cyle\n";
           }
 #endif
@@ -2507,7 +2601,15 @@ void Solver<T>::update(const bool bounds, const int s, const G &neighbors) {
 }
 
 template <typename T> void Solver<T>::post(const DistanceConstraint<T> &c) {
-  set(c);
+  if (c.from == Constant::K) {
+    // to - from <= dist -> to <= dist
+    set(makeNumericLiteral(bound::upper, c.to, c.distance));
+  } else if (c.to == Constant::K) {
+    // to - from <= dist -> from >= -dist
+    set(makeNumericLiteral(bound::lower, c.from, c.distance));
+  } else {
+    set(c);
+  }
   propagate();
 }
 
@@ -2525,7 +2627,7 @@ template <typename T> void Solver<T>::post(Constraint<T> *con) {
   numeric_constraints.resize(std::max(2 * numeric.size(), numConstraint()));
 
   con->post(numConstraint() - 1);
-
+    
     propagate();
 }
 
@@ -2558,10 +2660,18 @@ template <typename T> void Solver<T>::addToSearch(const BooleanVar<T> &x) {
 template <typename T>
 void Solver<T>::wake_me_on(const Literal<T> l, const int c) {
   if (l.isNumeric()) {
-    numeric_constraints.add(l, c);
+      if(numeric_constraints[l].empty() or numeric_constraints[l].back() != c)
+          numeric_constraints.add(l, c);
+      else
+          std::cout << "hello\n";
   } else {
-    boolean_constraints.add(l, c);
+      if(boolean_constraints[l].empty() or boolean_constraints[l].back() != c)
+          boolean_constraints.add(l, c);
+      else
+          std::cout << "hi\n";
   }
+
+//    std::cout <<
 }
 
 template <typename T>
