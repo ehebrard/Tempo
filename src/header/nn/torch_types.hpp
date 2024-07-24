@@ -10,6 +10,8 @@
 #include <torch/types.h>
 #include <vector>
 
+#include "util/traits.hpp"
+
 
 namespace tempo::nn {
 #ifdef TORCH_USE_GPU
@@ -69,6 +71,41 @@ namespace tempo::nn {
         static constexpr std::array AllKeys{TaskFeatures, EdgeFeatures, ResourceFeatures, ResourceConsumptions, EdgeIdx,
                                             ResourceDependencies, EdgeResourceRelations, EdgePairMask};
     };
+
+    /**
+     * Represents the state of a the solver that can be used to extract the graph topology
+     */
+    template<concepts::arbitrary_task_dist_fun Dist, typename S>
+    struct SolverState {
+        template<typename D, typename Sol>
+        explicit constexpr
+        SolverState(D &&distance, Sol &&solver): distance(std::forward<D>(distance)), solver(std::forward<Sol>(solver)) {}
+        Dist distance;
+        S solver;
+    };
+
+    /**
+     * Concept that models the interface of a topology extractor
+     * @tparam Extractor
+     * @tparam Args template parameters for solver state
+     */
+    template<typename Extractor, typename ...Args>
+    concept topology_extractor = requires(Extractor e, const SolverState<Args...> &state) {
+        { e.getTopology(state) } -> std::convertible_to<Topology>;
+    };
+
+
+    /**
+     * Helper function for SolverState
+     * @tparam Args argument types to SolverState
+     * @param args arguments to SolverState
+     * @return solver state view of the arguments. Depending on the reference type of the arguments, this is only
+     * a non owning object
+     */
+    template<typename ...Args>
+    constexpr auto makeSolverState(Args &&...args) noexcept {
+        return SolverState<Args...>(std::forward<Args>(args)...);
+    }
 
 
 }

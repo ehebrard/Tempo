@@ -27,13 +27,16 @@
 
 #include "Explanation.hpp"
 #include "Global.hpp"
-#include "Solver.hpp"
 #include "constraints/Constraint.hpp"
 #include "util/SparseSet.hpp"
 #include "util/ThetaTree.hpp"
+#include "Model.hpp"
 
 
 namespace tempo {
+
+template<typename T>
+class Solver;
 
 template <typename T> class DisjunctiveEdgeFinding : public Constraint<T> {
 private:

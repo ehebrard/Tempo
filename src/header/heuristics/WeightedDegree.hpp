@@ -22,17 +22,17 @@ namespace tempo::heuristics {
      * how often it is involved in a conflict and not how often it is contained in a
      * learned clause
      */
-    template<typename T>
-    class WeightedDegree : public RankingHeuristic<WeightedDegree<T>> {
+    class WeightedDegree : public RankingHeuristic<WeightedDegree> {
     public:
 
+        template<concepts::scalar T>
         explicit WeightedDegree(Solver<T> &solver)
                 : activity(solver, solver.getOptions().vsids_decay),
                   handlerToken(solver.ConflictEncountered.subscribe_handled(
-                          [this, &solver](auto &expl) {
-                              this->clause.clear();
-                              expl.explain(Solver<T>::Contradiction, this->clause);
-                              this->activity.update(this->clause, solver);
+                          [this, &solver, clause=std::vector<Literal<T>>{}](auto &expl) mutable {
+                              clause.clear();
+                              expl.explain(Solver<T>::Contradiction, clause);
+                              this->activity.update(clause, solver);
                           })) {}
 
         WeightedDegree(const WeightedDegree &) = delete;
@@ -42,6 +42,7 @@ namespace tempo::heuristics {
         ~WeightedDegree() = default;
 
 
+        template<concepts::scalar T>
         [[nodiscard]] double getCost(const var_t x, const Solver<T> &solver) const {
             double dom{1};
 
@@ -65,14 +66,14 @@ namespace tempo::heuristics {
          * @param solver
          * @todo currently only selects boolean variables
          */
+        template<concepts::scalar T>
         auto nextVariable(const Solver<T> &solver) const -> VariableSelection {
             return {this->bestVariable(solver.getBranch(), solver), VariableType::Boolean};
         }
 
 private:
-  impl::DecayingEventActivityMap<T> activity;
+  impl::DecayingEventActivityMap activity;
   SubscriberHandle handlerToken;
-  std::vector<Literal<T>> clause;
 };
 }
 

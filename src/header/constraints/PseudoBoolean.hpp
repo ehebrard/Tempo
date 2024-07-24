@@ -24,13 +24,15 @@
 #include <cassert>
 #include <vector>
 
-#include "Solver.hpp"
 #include "util/SparseSet.hpp"
 #include "constraints/Constraint.hpp"
 
 //#define DBG_LTRANS
 
 namespace tempo {
+
+template<typename T>
+class Solver;
 
 
 // enforce sum(l_i) <= bound

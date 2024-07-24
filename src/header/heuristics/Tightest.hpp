@@ -12,6 +12,8 @@ namespace tempo::heuristics {
 
     class Tightest : public RankingHeuristic<Tightest> {
     public:
+        Tightest() = default;
+
         /**
          * Calculates the cost for a boolean variable which is the maximum of the distance
          * between the nodes in both directions of the associated distance constraint

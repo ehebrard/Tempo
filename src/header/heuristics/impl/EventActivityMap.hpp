@@ -7,7 +7,7 @@
 
 #include <concepts>
 
-//#include "Scheduler.hpp"
+#include "util/traits.hpp"
 
 namespace tempo {
  
@@ -19,7 +19,6 @@ namespace tempo::heuristics::impl {
     /**
      * @brief Class that can be used to record the activity on distance constraints
      */
-template<typename T>
     class EventActivityMap {
     public:
         /**
@@ -27,7 +26,8 @@ template<typename T>
          * @tparam T type of scheduler
          * @param scheduler scheduler for which to construct the ActivityMap
          */
-        
+
+        template<concepts::scalar T>
         explicit EventActivityMap(Solver<T> &solver)
 //        : sched(scheduler)
         {
@@ -45,10 +45,12 @@ template<typename T>
          * @param edge constraint
          * @return
          */
+        template<concepts::scalar T>
         constexpr double get(const DistanceConstraint<T>& c) const noexcept {
             return numeric_activity[c.from] + numeric_activity[c.to];
         }
-        
+
+        template<concepts::scalar T>
         constexpr double get(const Literal<T> l,
                              const Solver<T> &solver) const noexcept {
           double a{0};
@@ -65,6 +67,7 @@ template<typename T>
           return a;
         }
 
+        template<concepts::scalar T>
         constexpr double get(const var_t x, const Solver<T>& solver) const noexcept {
           double a{boolean_activity[x]};
           //            double a{0};
@@ -127,7 +130,6 @@ template<typename T>
 
     protected:
 
-//        Scheduler<T>& sched;
         std::vector<double> numeric_activity{};
         std::vector<double> boolean_activity{};
     };

@@ -28,14 +28,17 @@
 #include "Explanation.hpp"
 #include "Global.hpp"
 #include "ReversibleObject.hpp"
-#include "Solver.hpp"
 #include "constraints/Constraint.hpp"
 #include "util/DisjointSet.hpp"
 #include "util/SparseSet.hpp"
+#include "Model.hpp"
 
 //#define DBG_LTRANS
 
 namespace tempo {
+
+template<typename T>
+class Solver;
 
 template <typename T> class Transitivity : public Constraint<T> {
 private:

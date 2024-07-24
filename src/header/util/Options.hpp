@@ -23,16 +23,71 @@
 #define __CMDLINE_HPP
 
 #include <tclap/CmdLine.h>
+#include <limits>
+#include <memory>
+
+
+struct argbase {
+    virtual ~argbase() {}
+    virtual void assign() = 0;
+};
+
+template <typename Opt, typename ClapArg, typename E = void>
+struct arg : public argbase {
+    ClapArg carg;
+    Opt &opt;
+
+    template <typename... T>
+    arg(TCLAP::CmdLine &cmd, Opt &opt, T &&...args)
+            : carg(std::forward<T>(args)...), opt(opt) {
+        cmd.add(carg);
+    }
+
+    void assign() override { opt = carg.getValue(); }
+};
+
+template<typename Opt, typename ClapArg>
+struct arg<Opt, ClapArg, typename std::enable_if<std::is_enum<Opt>{}>::type> : public argbase {
+    ClapArg carg;
+    Opt &opt;
+
+    template<typename... T>
+    arg(TCLAP::CmdLine &cmd, Opt &opt, T &&...args): carg(std::forward<T>(args)...), opt(opt) {
+        cmd.add(carg);
+    }
+
+    void assign() override {
+        opt = static_cast<typename std::remove_reference<Opt>::type>(carg.getValue());
+    }
+};
+
+
+struct cmdline {
+    TCLAP::CmdLine cmd;
+    std::vector<std::unique_ptr<argbase>> args;
+
+    explicit cmdline(const std::string &message, char delimiter = ' ',
+                     const std::string &version = "none", bool helpAndVersion = true);
+
+    template <typename ClapArg, typename Opt, typename... T>
+    void add(Opt &opt, T &&...clapargs) {
+        args.emplace_back(std::move(std::make_unique<arg<Opt, ClapArg>>(
+        cmd, opt, std::forward<T>(clapargs)...)));
+    }
+
+    void parse(int argc, char *argv[]);
+};
+
 
 namespace tempo {
 
 class Options {
 
 public:
-    Options() {}
+    Options() = default;
     
   // the actual options
-  std::string cmdline{""}; // for reference
+  std::string cmdline{}; // for reference
   std::string instance_file{"../data/osp/hurley/j7per0-0.txt"};
 
   enum verbosity { SILENT = 0, QUIET, NORMAL, YACKING, SOLVERINFO };
@@ -95,6 +150,21 @@ public:
 };
 
 Options parse(int argc, char *argv[]);
+
+class Parser {
+    std::unique_ptr<Options> options;
+    std::unique_ptr<cmdline> cmdLine;
+public:
+    explicit Parser(const std::string &name = "tempo");
+    auto getOptions() noexcept -> Options &;
+    [[nodiscard]] auto getOptions() const noexcept -> const Options &;
+    auto getCmdLine() noexcept -> cmdline &;
+    [[nodiscard]] auto getCmdLine() const noexcept -> const cmdline &;
+    void parse(int argc, char **argv);
+};
+
+auto getBaseParser() -> Parser;
+
 
 static Options no_option;
 } // namespace tempo

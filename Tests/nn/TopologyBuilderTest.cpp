@@ -13,15 +13,16 @@
 #include "Tests/testing.hpp"
 
 void TopologyBuilderTest::SetUp() {
-    inst = tempo::serialization::deserializeFromFile<ProblemInstance>(tempo::testing::TestData::TestProblem);
-    extInst = tempo::serialization::deserializeFromFile<ProblemInstance>(tempo::testing::TestData::ExtendedTestProblem);
+    auto [i, _] = tempo::testing::createTestProblem();
+    inst = std::move(i);
+    std::tie(extInst, _) = tempo::testing::createExtendedTestProblem();
 }
 
-auto TopologyBuilderTest::instance() const noexcept -> const ProblemInstance & {
+auto TopologyBuilderTest::instance() const noexcept -> const tempo::testing::ProblemInstance & {
     return inst;
 }
 
-auto TopologyBuilderTest::extendedInstance() const noexcept -> const ProblemInstance & {
+auto TopologyBuilderTest::extendedInstance() const noexcept -> const tempo::testing::ProblemInstance & {
     return extInst;
 }
 
@@ -65,11 +66,12 @@ void TopologyBuilderTest::testResourceDependencies(const tempo::nn::Topology &to
                                        std::span(topology.resourceDemands.data_ptr<DataType>(), tasks.size(0)));
     for (auto [tIdx, rIdx, d] : zRange) {
         EXPECT_GT(resMat.at(rIdx, tIdx), 0);
-        EXPECT_EQ(static_cast<DataType>(resMat.at(rIdx, tIdx)) / instance().resources[rIdx].capacity, d);
+        EXPECT_EQ(static_cast<DataType>(resMat.at(rIdx, tIdx)) / instance().resources()[rIdx].resourceCapacity(), d);
     }
 
-    using namespace std::views;
-    for (auto t = 0ul; t < instance().durations.size(); ++t) {
+    using std::views::iota;
+    using std::views::filter;
+    for (auto t = 0ul; t < instance().tasks().size(); ++t) {
         auto gtRange =
                 iota(0ul, resMat.numRows()) | filter([&resMat, t](auto r) { return resMat.at(r, t) > 0; });
         std::unordered_set<std::size_t> gtResources(gtRange.begin(), gtRange.end());
@@ -83,15 +85,14 @@ void TopologyBuilderTest::testResourceDependencies(const tempo::nn::Topology &to
 
 void TopologyBuilderTest::testEdges(const tempo::nn::Topology &topology) const {
     using namespace tempo::nn;
-    using tempo::TASK;
     const auto consumptions = getResourceMatrix(instance());
     auto edges = util::getEdgeView(topology.edgeIndices);
     EXPECT_EQ(edges.size(), 9); // only for this particular test problem
     for (auto [from, to] : edges) {
-        auto res = std::ranges::find_if(instance().constraints, [from, to](const auto &prec) {
-            return TASK(std::get<0>(prec)) == from and TASK(std::get<1>(prec)) == to;
+        auto res = std::ranges::find_if(instance().precedences(), [from, to, this](const auto &prec) {
+            return instance().getMapping()(prec.from) == from and instance().getMapping()(prec.to) == to;
         });
-        if (res != instance().constraints.end()) {
+        if (res != instance().precedences().end()) {
             continue;
         }
 
@@ -144,11 +145,11 @@ void TopologyBuilderTest::testEdgePairMask(const tempo::nn::Topology &topology) 
     }
 }
 
-auto TopologyBuilderTest::getResourceMatrix(const ProblemInstance &probInstance) -> tempo::Matrix<int> {
-    tempo::Matrix<int> ret(probInstance.resources.size(), probInstance.durations.size());
-    for (const auto [r, res] : iterators::const_enumerate(probInstance.resources)) {
+auto TopologyBuilderTest::getResourceMatrix(const tempo::testing::ProblemInstance &probInstance) -> tempo::Matrix<int> {
+    tempo::Matrix<int> ret(probInstance.resources().size(), probInstance.tasks().size());
+    for (const auto [r, res] : iterators::const_enumerate(probInstance.resources())) {
         for (auto [idx, t] : iterators::enumerate(res)) {
-            ret.at(r, t) = res.getDemand(idx);
+            ret.at(r, probInstance.getMapping()(t.id())) = res.getDemand(idx);
         }
     }
 

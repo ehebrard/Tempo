@@ -3,25 +3,66 @@
  * @date 27.04.23.
  */
 
-#ifndef SCHEDCL_TESTING_HPP
-#define SCHEDCL_TESTING_HPP
+#ifndef TEMPO_TESTING_HPP
+#define TEMPO_TESTING_HPP
 
 #include <filesystem>
 #include <random>
 #include <concepts>
+#include <utility>
+#include <tuple>
 
 #include "util/Matrix.hpp"
 #include "util/serialization.hpp"
 #include "Global.hpp"
+#include "util/SchedulingProblemHelper.hpp"
+#include "Model.hpp"
 
 namespace tempo::testing {
     struct TestData {
-        static constexpr auto TestProblem = __TEST_DATA_DIR__ "/test_problem.json";
-        static constexpr auto ExtendedTestProblem = __TEST_DATA_DIR__ "/extended_test_problem.json";
         static constexpr auto GraphBuilderConfig = __TEST_DATA_DIR__ "/graph_builder_config.json";
         static constexpr auto TestNN = __TEST_DATA_DIR__ "/Identity_export.pt";
     };
 
+    struct Resource : public std::vector<Interval<int>> {
+        std::vector<int> demands;
+        int capacity;
+        Resource(int capacity, std::vector<Interval<int>> tasks, std::vector<int> demands);
+        [[nodiscard]] int getDemand(unsigned taskId) const;
+        [[nodiscard]] int resourceCapacity() const;
+    };
+
+    using ProblemInstance = tempo::SchedulingProblemHelper<int, Resource>;
+
+    class BoundProvider {
+        std::vector<int> u, l;
+    public:
+        BoundProvider(std::vector<int> upper, std::vector<int> lower);
+        [[nodiscard]] int upper(tempo::var_t var) const;
+        [[nodiscard]] int lower(tempo::var_t var) const;
+    };
+
+    struct DummyScheduler {
+        tempo::testing::BoundProvider numeric;
+        template<typename ...Args>
+        explicit DummyScheduler(Args &&...args): numeric(std::forward<Args>(args)...) {}
+    };
+
+
+    auto createTestProblem() -> std::pair<ProblemInstance, DummyScheduler>;
+
+    auto createExtendedTestProblem() -> std::pair<ProblemInstance, DummyScheduler>;
+
+    auto createRandomProblem(std::size_t numTasks, std::size_t numResources,
+                             double precedenceChance = 0.3) -> std::tuple<ProblemInstance, DummyScheduler, Matrix<int>>;
+
+    struct TaskSpec {
+        int minDur, maxDur, earliestStart{0}, latestDeadline{0};
+    };
+
+    auto createTasks(const std::vector<TaskSpec> &specs) -> std::pair<std::vector<Interval<int>>, DummyScheduler>;
+
+    auto createDummyTasks(unsigned numberOfTasks) -> std::vector<Interval<int>>;
 
     /**
      * Generates a random integer value in [min, max]
@@ -52,11 +93,6 @@ namespace tempo::testing {
         std::uniform_real_distribution<T> dist(min, max);
         return dist(el);
     }
-
-    struct TaskSpec {
-        int minDur, maxDur, release, deadline;
-    };
-
 }
 
-#endif //SCHEDCL_TESTING_HPP
+#endif //TEMPO_TESTING_HPP

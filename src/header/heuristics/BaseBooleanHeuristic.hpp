@@ -23,21 +23,15 @@
 
 #include <concepts>
 #include <stdexcept>
+#include <cassert>
 
 #include "Global.hpp"
 #include "Literal.hpp"
 #include "util/crtp.hpp"
 #include "util/traits.hpp"
+#include "heuristics/heuristic_interface.hpp"
 
 namespace tempo::heuristics {
-
-/**
- * @brief Contains all information necessary for instantiating value selection
- * heuristics
- */
-struct ValueHeuristicConfig {
-    double epsilon;
-};
 
 /**
  * Interface for value selection heuristic implementations that derive from
@@ -50,16 +44,6 @@ concept binary_heuristic_implementation = requires(H heuristic,
                                                    const Solver &solver,
                                                    var_t x) {
   { heuristic.choose(x, solver) } -> concepts::same_template<Literal>;
-};
-
-/**
- * Interface for value selection heuristics
- * @tparam H heuristic type
- * @tparam Solver information provider (usually the scheduler)
- */
-template <typename H, typename Solver>
-concept value_heuristic = requires(H heuristic, VariableSelection x, const Solver &solver) {
-    { heuristic.valueDecision(x, solver) } -> concepts::same_template<Literal>;
 };
 
 template<typename Solver>
