@@ -64,66 +64,71 @@ void warmstart(Solver<T> &S, Interval<T> &schedule,
 
 template<typename T>
 string prettyJob(const Interval<T>& task, const Solver<T>& S, const bool dur_flag) {
-    std::stringstream ss;
-    
-    auto est{S.numeric.lower(task.start)};
-    auto lst{S.numeric.upper(task.start)};
-    auto ect{S.numeric.lower(task.end)};
-    auto lct{S.numeric.upper(task.end)};
+  std::stringstream ss;
 
-    ss << "[";
-    
-    if(est==lst)
-        ss << est;
-    else
-        ss << est << "-" << lst;
-    ss << ".." ;
-    if(ect == lct)
-        ss << ect;
-    else
-        ss << ect << "-" << lct ;
-    ss << "]";
-    
-    if(dur_flag) {
-        auto pmin{S.numeric.lower(task.duration)};
-        auto pmax{S.numeric.upper(task.duration)};
-        ss << " (" << pmin << "-" << pmax << ")";
-    }
-    
-    return ss.str();
+  auto est{S.numeric.lower(task.start)};
+  auto lst{S.numeric.upper(task.start)};
+  auto ect{S.numeric.lower(task.end)};
+  auto lct{S.numeric.upper(task.end)};
+
+  ss << "[";
+
+  if (est == lst)
+    ss << est;
+  else
+    ss << est << "-" << lst;
+  ss << "..";
+  if (ect == lct)
+    ss << ect;
+  else
+    ss << ect << "-" << lct;
+  ss << "]";
+
+  if (dur_flag) {
+    auto pmin{S.numeric.lower(task.duration)};
+    auto pmax{S.numeric.upper(task.duration)};
+    ss << " (" << pmin << "-" << pmax << ")";
+  }
+
+  return ss.str();
 }
 
 template<typename T>
 void printJobs(const Solver<T>& S, const std::vector<Interval<T>>& intervals) {
-    int i{0};
-    for (auto task : intervals) {
-        std::cout << "job" << ++i << " (" << task.id() << "): " << prettyJob(task, S, true) << std::endl;
-    }
+  int i{0};
+  for (auto task : intervals) {
+    std::cout << "job" << ++i << " (" << task.id()
+              << "): " << prettyJob(task, S, true) << std::endl;
+  }
 }
 
 template<typename T>
 void printResources(const Solver<T>& S, const std::vector<Interval<T>>& intervals, const std::vector<std::vector<Interval<T>>>& resource_tasks) {
-    int i{0};
-    std::vector<int> jobmap(S.numeric.size(), -1);
-    for (auto task : intervals) {
-        jobmap[task.id()] = ++i;
-    }
-    i = 0;
-    for(auto &tasks : resource_tasks) {
-        ++i;
-        if(tasks.size() > 1) {
-            if(tasks.size() > 0) {
-                auto jobs{tasks};
-                std::sort(jobs.begin(), jobs.end(), [&](const Interval<int>& a, const Interval<int>& b) {return S.numeric.lower(a.start) < S.numeric.lower(b.start); });
-                
-                std::cout << "resource " << i << ":";
-                for (auto task : jobs) {
-                    std::cout << " " << jobmap[task.id()] << " (" << task.id() << "):" << prettyJob(task, S, false);
-                }
-                std::cout << std::endl;
-            }
+  int i{0};
+  std::vector<int> jobmap(S.numeric.size(), -1);
+  for (auto task : intervals) {
+    jobmap[task.id()] = ++i;
+  }
+  i = 0;
+  for (auto &tasks : resource_tasks) {
+    ++i;
+    if (tasks.size() > 1) {
+      if (tasks.size() > 0) {
+        auto jobs{tasks};
+        std::sort(jobs.begin(), jobs.end(),
+                  [&](const Interval<int> &a, const Interval<int> &b) {
+                    return S.numeric.lower(a.start) < S.numeric.lower(b.start);
+                  });
+
+        std::cout << "resource " << i << ":";
+        for (auto task : jobs) {
+          std::cout << " " << jobmap[task.id()] << " (" << task.id()
+                    << "):" << prettyJob(task, S, false);
         }
+        std::cout << std::endl;
+      }
     }
+  }
 }
 
 
@@ -134,7 +139,8 @@ int main(int argc, char *argv[]) {
   Solver<> S(opt);
 
   // an interval standing for the makespan of schedule
-  auto schedule{S.newInterval(0,Constant::Infinity<int>,0,0,0,Constant::Infinity<int>)};
+  auto schedule{S.newInterval(0, Constant::Infinity<int>, 0, 0, 0,
+                              Constant::Infinity<int>)};
 
   // depending on the option "input-format", parse a disjunctive scheduling
   // instance, and collect resources and interval objects
@@ -144,7 +150,7 @@ int main(int argc, char *argv[]) {
   std::vector<Interval<>> intervals;
 
   //    SchedulingModel<T> model;
-    
+
   if (opt.input_format == "osp") {
     osp::parse(opt.instance_file, S, schedule, intervals, resource_tasks);
   } else if (opt.input_format == "jsp") {
@@ -181,25 +187,17 @@ int main(int argc, char *argv[]) {
   //    S.post(schedule.end <= ub);
   S.post(schedule.end.before(ub));
 
-    if (opt.print_mod) {
-        for(auto i : intervals)
-            std::cout << i << std::endl;
-        std::cout << S << std::endl;
-    }
+  if (opt.print_mod) {
+    std::cout << S << std::endl;
+  }
 
-  //  warmstart(S, schedule, intervals, resources, ub);
+  warmstart(S, schedule, intervals, resources, ub);
 
   // search
   S.minimize(schedule.duration);
-    
-//    auto sat{S.satisfiable()};
-    
-    
-//    std::cout << schedule.duration.min(S) << std::endl;
 
-    
   if (opt.print_sol) {
-      printJobs(S, intervals);
-      printResources(S, intervals, resource_tasks);
+    printJobs(S, intervals);
+    printResources(S, intervals, resource_tasks);
   }
 }
