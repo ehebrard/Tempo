@@ -53,7 +53,7 @@ TEST(util, SchedulingProblemHelper_basic) {
              T{.minDur = 0, .maxDur = 100}});
     auto sched = tasks.back();
     tasks.pop_back();
-    SchedulingProblemHelper<int, DisjunctiveResource<>> schedulingProb(tasks, {}, {}, sched);
+    SchedulingProblemHelper<int, tempo::testing::Resource> schedulingProb(tasks, {}, {}, sched);
     EXPECT_EQ(tasks, schedulingProb.tasks());
     EXPECT_TRUE(schedulingProb.hasTask(0));
     EXPECT_TRUE(schedulingProb.hasTask(1));
@@ -78,7 +78,7 @@ TEST(util, SchedulingProblemView_task_distances) {
     std::vector<Interval<int>> tasks{{{0, 0}, {1, 0}, NumericVar{}},
                                      {{2, 0}, {2, 5}, NumericVar{}},
                                      {{3, 0}, {4, 0}, NumericVar{}}};
-    SchedulingProblemHelper<int, DisjunctiveResource<>> schedulingProb(tasks, {}, {}, Interval<int>{});
+    SchedulingProblemHelper<int, tempo::testing::Resource> schedulingProb(tasks, {}, {}, Interval<int>{});
     BacktrackEnvironment env;
     DirectedGraph<LabeledEdge<int>> graph(5, &env);
     graph.emplace_edge(2, 4, -2);
