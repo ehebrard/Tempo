@@ -153,18 +153,8 @@ namespace tempo::heuristics {
          * @tparam H heuristic type
          */
         template<heuristic<T> H>
-        explicit PolymorphicHeuristic(H &&heuristic) :
-                impl(std::make_unique<detail::PolyHeuristicCallable<T, std::decay_t<H>>>(std::forward<H>(heuristic))) {}
-
-        /**
-         * Assignment operator. Reassign a new heuristic
-         * @param heuristic new heuristic to be assigned
-         */
-        template<heuristic<T> H>
-        PolymorphicHeuristic &operator=(H &&heuristic) {
-            impl = std::make_unique<detail::PolyHeuristicCallable<T, std::decay_t<H>>>(std::forward<H>(heuristic));
-            return *this;
-        }
+        PolymorphicHeuristic(H &&heuristic) :impl(
+                std::make_unique<detail::PolyHeuristicCallable<T, std::decay_t<H>>>(std::forward<H>(heuristic))) {}
 
         /**
          * Branching heuristic interface
