@@ -967,7 +967,8 @@ template <typename T> void BooleanStore<T>::set(Literal<T> l) {
     if (l.hasSemantic()) {
         assert(l.constraint() == (edge_index[l.variable()] + l.sign()));
         auto e{edges[l.constraint()]};
-        if (e != DistanceConstraint<T>::none)
+//        if (e != DistanceConstraint<T>::none)
+        if (e != Constant::NoEdge<T>)
           solver.set(e, static_cast<index_t>(solver.numLiteral() - 1));
     }
     assert(l.hasSemantic() or edge_index[l.variable()] == Constant::NoSemantic);
@@ -1319,10 +1320,12 @@ BooleanVar<T> Solver<T>::newDisjunct(const DistanceConstraint<T> &d1,
   clauses.newBooleanVar(x.id());
   boolean_constraints.resize(std::max(numConstraint(), 2 * boolean.size()));
 
-  if (d1 != DistanceConstraint<T>::none)
+//  if (d1 != DistanceConstraint<T>::none)
+    if (d1 != Constant::NoEdge<T>)
     post(new EdgeConstraint<T>(*this, boolean.getLiteral(true, x.id())));
 
-  if (d2 != DistanceConstraint<T>::none)
+//  if (d2 != DistanceConstraint<T>::none)
+    if (d2 != Constant::NoEdge<T>)
     post(new EdgeConstraint<T>(*this, boolean.getLiteral(false, x.id())));
 
   return x;
@@ -1560,7 +1563,6 @@ void Solver<T>::setBoolean(Literal<T> l, const Explanation<T> &e) {
     }
 #endif
     
-
     reason.emplace_back(e);
     trail.push_back(l);
     boolean.set(l);

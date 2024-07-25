@@ -56,10 +56,12 @@ public:
 
     auto edgePos = solver.boolean.getEdge(true, x);
     auto edgeNeg = solver.boolean.getEdge(false, x);
-    auto gapPos =
-        solver.numeric.upper(edgePos.from) - solver.numeric.lower(edgePos.to);
-    auto gapNeg =
-        solver.numeric.upper(edgeNeg.from) - solver.numeric.lower(edgeNeg.to);
+      
+    auto gapPos = (edgePos.isNull() ? 1000000 :
+        solver.numeric.upper(edgePos.from) - solver.numeric.lower(edgePos.to));
+    auto gapNeg = (edgeNeg.isNull() ? 1000000 :
+        solver.numeric.upper(edgeNeg.from) - solver.numeric.lower(edgeNeg.to));
+      
     return solver.boolean.getLiteral(gapPos >= gapNeg, x);
   }
 };

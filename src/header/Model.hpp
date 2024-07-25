@@ -1269,29 +1269,49 @@ public:
         auto a_before_b{a->end.before(b->start, t_ab)};
         auto b_before_a{b->end.before(a->start, t_ba)};
 
-        if (a->isOptional(solver) and b->isOptional(solver)) {
-          BooleanVar<T> x = solver.newBoolean();
+//        if (a->isOptional(solver) and b->isOptional(solver)) {
+//          BooleanVar<T> x = solver.newBoolean();
+//
+//          std::vector<Literal<T>> cl{x == false, a->exist == true};
+//          solver.clauses.add(cl.begin(), cl.end());
+//
+//          cl = {x == false, b->exist == true};
+//          solver.clauses.add(cl.begin(), cl.end());
+//
+//          cl = {x == true, a->exist == false, b->exist == false};
+//          solver.clauses.add(cl.begin(), cl.end());
+//
+//          disjunct.push_back(
+//              solver.newDisjunct(a_before_b, b_before_a, x.id()));
+//
+//          relevant.push_back(x);
+//        } else if (a->isOptional(solver)) {
+//          disjunct.push_back(
+//              solver.newDisjunct(a_before_b, b_before_a, a->exist.id()));
+//        } else if (b->isOptional(solver)) {
+//          disjunct.push_back(
+//              solver.newDisjunct(a_before_b, b_before_a, b->exist.id()));
+//        } 
+          
+          if (a->isOptional(solver) or b->isOptional(solver)) {
+              
+              auto x_ab{solver.newDisjunct(a_before_b, Constant::NoEdge<T>)};
+              auto x_ba{solver.newDisjunct(b_before_a, Constant::NoEdge<T>)};
+              
+              // (a->exist and b->exist) -> (x_ab or x_ba)
+              // ~a->exist or ~b->exist or x_ab or x_ba
+              std::vector<Literal<T>> cl{x_ab == true, x_ba == true};
+              if(a->isOptional(solver))
+                  cl.push_back(a->exist == false);
+              if(b->isOptional(solver))
+                  cl.push_back(b->exist == false);
 
-          std::vector<Literal<T>> cl{x == false, a->exist == true};
-          solver.clauses.add(cl.begin(), cl.end());
-
-          cl = {x == false, b->exist == true};
-          solver.clauses.add(cl.begin(), cl.end());
-
-          cl = {x == true, a->exist == false, b->exist == false};
-          solver.clauses.add(cl.begin(), cl.end());
-
-          disjunct.push_back(
-              solver.newDisjunct(a_before_b, b_before_a, x.id()));
-
-          relevant.push_back(x);
-        } else if (a->isOptional(solver)) {
-          disjunct.push_back(
-              solver.newDisjunct(a_before_b, b_before_a, a->exist.id()));
-        } else if (b->isOptional(solver)) {
-          disjunct.push_back(
-              solver.newDisjunct(a_before_b, b_before_a, b->exist.id()));
-        } else {
+              disjunct.push_back(x_ab);
+              disjunct.push_back(x_ba);
+          } 
+        
+        
+        else {
 
           //            std::cout << a_before_b << " or " << b_before_a <<
           //            std::endl;
@@ -1333,7 +1353,7 @@ public:
 private:
   Interval<T> schedule;
   std::vector<BooleanVar<T>> disjunct;
-  std::vector<BooleanVar<T>> relevant;
+//  std::vector<BooleanVar<T>> relevant;
   std::vector<std::vector<T>> transitions;
 };
 

@@ -47,10 +47,12 @@ public:
 
   DistanceConstraint<T> operator~() const;
 
-  static const DistanceConstraint<T> none;
+//  static const DistanceConstraint<T> none;
 
   bool entails(const DistanceConstraint<T> &e) const;
   bool contradicts(const DistanceConstraint<T> &e) const;
+    
+    bool isNull() const { return from == static_cast<var_t>(-1); }
 
   template <typename S> bool satisfied(S &solver) const;
 
@@ -68,9 +70,9 @@ bool operator==(const DistanceConstraint<T> &d1,
   return d1.from == d2.from and d1.to == d2.to and d1.distance == d2.distance;
 }
 
-template <typename T>
-const DistanceConstraint<T>
-    DistanceConstraint<T>::none = DistanceConstraint<T>(-1, -1, -1);
+//template <typename T>
+//const DistanceConstraint<T>
+//    DistanceConstraint<T>::none = DistanceConstraint<T>(-1, -1, -1);
 
 template <typename T>
 DistanceConstraint<T> DistanceConstraint<T>::operator~() const {

@@ -60,8 +60,13 @@ namespace tempo::heuristics::impl {
           } else {
             a = boolean_activity[l.variable()];
             if (l.hasSemantic()) {
-              a += get(solver.boolean.getEdge(l));
-              a += get(solver.boolean.getEdge(~l));
+                auto pe{solver.boolean.getEdge(l)};
+                if(pe != Constant::NoEdge<T>)
+                    a += get(pe);
+                
+                auto ne{solver.boolean.getEdge(~l)};
+                if(ne != Constant::NoEdge<T>)
+                    a += get(ne);
             }
           }
           return a;
@@ -72,8 +77,15 @@ namespace tempo::heuristics::impl {
           double a{boolean_activity[x]};
           //            double a{0};
           if (solver.boolean.hasSemantic(x)) {
-              a += get(solver.boolean.getEdge(true, x));// / 1000;
-              a += get(solver.boolean.getEdge(false, x));// / 1000;
+              auto pe{solver.boolean.getEdge(true, x)};
+              if(pe != Constant::NoEdge<T>)
+                  a += get(pe);
+              
+              auto ne{solver.boolean.getEdge(false, x)};
+              if(ne != Constant::NoEdge<T>)
+                  a += get(ne);
+//              a += get(solver.boolean.getEdge(true, x));
+//              a += get(solver.boolean.getEdge(false, x));
           }
 
             return a;
