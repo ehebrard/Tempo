@@ -334,8 +334,8 @@ template <typename T = int> class Interval {
 public:
   constexpr Interval() noexcept : start(), end(), duration() {}
 
-  Interval(NumericVar<T> start, NumericVar<T> end, NumericVar<T> duration) :
-    start(start), end(end), duration(duration) {}
+//  Interval(NumericVar<T> start, NumericVar<T> end, NumericVar<T> duration) :
+//    start(start), end(end), duration(duration) {}
 
   Interval(Solver<T> &solver, const T mindur = 0,
            const T maxdur = Constant::Infinity<T>,
@@ -1253,6 +1253,7 @@ public:
   }
 
   void post(Solver<T> &solver) override {
+      size_t k{0};
     for (auto a{this->begin()}; a != this->end(); ++a) {
       for (auto b{a + 1}; b != this->end(); ++b) {
         auto t_ab{0};
@@ -1295,8 +1296,8 @@ public:
           
           if (a->isOptional(solver) or b->isOptional(solver)) {
               
-              auto x_ab{solver.newDisjunct(a_before_b, Constant::NoEdge<T>)};
-              auto x_ba{solver.newDisjunct(b_before_a, Constant::NoEdge<T>)};
+              auto x_ab{solver.newDisjunct(Constant::NoEdge<T>, a_before_b)};
+              auto x_ba{solver.newDisjunct(Constant::NoEdge<T>, b_before_a)};
               
               // (a->exist and b->exist) -> (x_ab or x_ba)
               // ~a->exist or ~b->exist or x_ab or x_ba
@@ -1305,10 +1306,11 @@ public:
                   cl.push_back(a->exist == false);
               if(b->isOptional(solver))
                   cl.push_back(b->exist == false);
+              solver.clauses.add(cl.begin(), cl.end());
 
               disjunct.push_back(x_ab);
               disjunct.push_back(x_ba);
-          } 
+          }
         
         
         else {
@@ -1319,7 +1321,9 @@ public:
           disjunct.push_back(solver.newDisjunct(a_before_b, b_before_a));
         }
 
-        solver.addToSearch(disjunct.back());
+          while(k < disjunct.size())
+              solver.addToSearch(disjunct[k++]);
+//        solver.addToSearch(disjunct.back());
       }
     }
 
@@ -1576,56 +1580,15 @@ Interval<T>::Interval(Solver<T> &solver, const T mindur, const T maxdur,
                       const T earliest_end, const T latest_end,
                       const BooleanVar<T> opt) : exist(opt) {
 
-  //    if(earliest_start == latest_start) {
-  //        start = solver.newNumeric(earliest_start, latest_start);
-  //            // anchored at 'start'
-  //            auto s{earliest_start};
-  //        auto ect{earliest_end};
-  //        auto lct{latest_end};
-  //        if(earliest_end < s + mindur) {
-  //            ect = s+mindur;
-  //        }
-  //        if(latest_end - s < maxdur) {
-  //            lct = s+maxdur;
-  //        }
-  //
-  //                end = solver.newNumeric(ect, lct);
-  //                duration = NumericVar(end.id(), -s);
-  //    } else if(mindur == maxdur) {
-  //        // fixed duration
-  //        duration = solver.newNumeric(mindur, maxdur);
-  //        auto d{mindur};
-  //        auto est{earliest_start};
-  //        auto lst{latest_start};
-  //        if(earliest_end > earliest_start + d) {
-  //            est = earliest_end-d;
-  //        }
-  //        if(latest_end - d < latest_start) {
-  //            lst = latest_end-d;
-  //        }
-  //
-  //            start = solver.newNumeric(est, lst);
-  //            end = NumericVar(start.id(), d);
-  //    } else if(earliest_end == latest_end) {
-  //        // anchored at 'end' (can't do negation here :()
-  //        assert(false);
-  //    } else {
-  //        end = solver.newNumeric(earliest_end, latest_end);
-  //        duration = solver.newNumeric(mindur, maxdur);
-  //        solver.post((start + duration) == end);
-  //        solver.post(start.before(end, mindur));
-  //
-  //        if (maxdur != Constant::Infinity<T>)
-  //            solver.post(end.before(start, -maxdur));
-  //    }
-
-  //    : start(solver.newNumeric()),
-  //      end(mindur == maxdur ? NumericVar(start.id(), mindur)
-  //                           : solver.newNumeric()),
-  //      duration(mindur == maxdur ? NumericVar(Constant::K, mindur)
-  //                                : solver.newNumeric(mindur, maxdur)),
-  //      exist(opt) {
-
+ 
+//                          exist.extract(solver);
+//                          std::cout << "here " << opt << " / " << exist._is_expression << " / " << exist.id() << " / " << Constant::NoVar << std::endl;
+                          
+//                          if(exist.id() == Constant::NoVar) {
+//                              exist = BooleanVar<T>(Constant::True);
+//                          }
+                          
+                          
   if (earliest_start == latest_start) {
     start = NumericVar(Constant::K, earliest_start);
   } else {
@@ -1652,7 +1615,7 @@ Interval<T>::Interval(Solver<T> &solver, const T mindur, const T maxdur,
       duration = NumericVar(end.id(), -s);
     }
   }
-//  exist = opt;
+
 }
 
 template <typename T> int Interval<T>::id() const { return start.id(); }

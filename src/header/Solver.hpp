@@ -389,7 +389,7 @@ public:
                                      const T latest_start = Constant::Infinity<T>,
                                      const T earliest_end = -Constant::Infinity<T>,
                                      const T latest_end = Constant::Infinity<T>,
-                                     const BooleanVar<T> opt = Constant::NoVar
+                                     const BooleanVar<T> opt = Constant::True
                             );
 
     Interval<T> between(const NumericVar<T> s, const NumericVar<T> e, const bool opt=false);
@@ -555,7 +555,7 @@ public:
     //@{
     std::ostream &display(std::ostream &os, const bool dom = true,
                           const bool bra = true, const bool sva = true,
-                          const bool pre = true, const bool cla = false,
+                          const bool pre = true, const bool cla = true,
                           const bool bgr = false, const bool ngr = false,
                           const bool con = true, const bool trl = false) const;
     std::ostream &displayTrail(std::ostream &os) const;

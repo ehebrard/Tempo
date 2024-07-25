@@ -12,9 +12,12 @@ namespace jsp {
 
 template <typename M, typename J, typename R>
 void parse(const std::string &fn, M &solver, J &schedule,
-           std::vector<J> &Intervals, std::vector<R> &resources) {
+           std::vector<J> &intervals, std::vector<R> &resources) {
   using std::cerr;
   try {
+      
+//      std::cout << "hello\n";
+      
     std::ifstream ifs(fn);
     if (!ifs)
       throw std::runtime_error("Could not open file for reading");
@@ -48,7 +51,9 @@ void parse(const std::string &fn, M &solver, J &schedule,
         resources.resize(nm);
 
         gotheader = true;
-      } else if (Intervals.size() < nj * nm) {
+      } else if (intervals.size() < nj * nm) {
+          
+//          std::cout << "job line\n";
 
         for (size_t m{0}; m < nm; ++m) {
           iss >> mach;
@@ -60,18 +65,24 @@ void parse(const std::string &fn, M &solver, J &schedule,
           }
 
           auto j{solver.newInterval(dur, dur)};
-
+//            auto s{solver.newNumeric()};
+//            auto j{solver.continuefor(solver.newNumeric(), dur)};
+            
+//            auto s{solver.newNumeric()};
+//            auto j{solver.between(s, s+dur)};
+            
           if (m == 0) {
             solver.set(j.start.after(schedule.start));
           } else {
-            solver.set(Intervals.back().end.before(j.start));
+            solver.set(intervals.back().end.before(j.start));
             if (m == nm - 1) {
               solver.set(j.end.before(schedule.end));
             }
           }
 
-          Intervals.push_back(j);
-          resources[mach].push_back(j);
+            resources[mach].push_back(intervals.size());
+          intervals.push_back(j);
+//          resources[mach].push_back(j);
         }
       }
     }

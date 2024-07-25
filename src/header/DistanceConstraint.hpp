@@ -103,7 +103,10 @@ bool DistanceConstraint<T>::contradicts(const DistanceConstraint<T> &e) const {
 
 template <typename T>
 std::ostream &DistanceConstraint<T>::display(std::ostream &os) const {
-  os << "x" << to << " - x" << from << " <= " << distance;
+    if(isNull())
+        os << "none";
+    else
+        os << "x" << to << " - x" << from << " <= " << distance;
   return os;
 }
 

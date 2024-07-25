@@ -82,8 +82,9 @@ void parse(const std::string &fn, M &solver, J &schedule,
 
           //                    std::cout << j << std::endl;
 
+            resources[mach].push_back(Intervals.size());
           Intervals.push_back(j);
-          resources[mach].push_back(j);
+          //resources[mach].push_back(j);
         }
       } else if (not gotsecondheader and Intervals.size() == nj * nm) {
         iss >> lt;

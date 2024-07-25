@@ -74,8 +74,9 @@ void parse(const std::string &fn, M &model, J &schedule,
         model.post(t.start.after(schedule.start));
         model.post(t.end.before(schedule.end));
 
+          resources[0].push_back(intervals.size());
         intervals.push_back(t);
-        resources[0].push_back(t);
+//        resources[0].push_back(t);
 
         //          std::cout << " job" << job << ": " << t << std::endl;
 

@@ -70,9 +70,11 @@ void parse(const std::string &fn, M &model, J &schedule,
           model.post(t.start.after(schedule.start));
           model.post(t.end.before(schedule.end));
 
+            resources[j].push_back(Intervals.size());
+            resources[nj + mach].push_back(Intervals.size());
           Intervals.push_back(t);
-          resources[j].push_back(t);
-          resources[nj + mach].push_back(t);
+//          resources[j].push_back(t);
+//          resources[nj + mach].push_back(t);
         }
 
         ++j;

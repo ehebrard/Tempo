@@ -104,31 +104,31 @@ void printJobs(const Solver<T>& S, const std::vector<Interval<T>>& intervals) {
 }
 
 template<typename T>
-void printResources(const Solver<T>& S, const std::vector<Interval<T>>& intervals, const std::vector<std::vector<Interval<T>>>& resource_tasks) {
+void printResources(const Solver<T>& S, const std::vector<Interval<T>>& intervals, std::vector<std::vector<size_t>>& resource_tasks) {
   int i{0};
-  std::vector<int> jobmap(S.numeric.size(), -1);
-  for (auto task : intervals) {
-    jobmap[task.id()] = ++i;
-  }
-  i = 0;
-  for (auto &tasks : resource_tasks) {
-    ++i;
-    if (tasks.size() > 1) {
-      if (tasks.size() > 0) {
-        auto jobs{tasks};
-        std::sort(jobs.begin(), jobs.end(),
-                  [&](const Interval<int> &a, const Interval<int> &b) {
-                    return S.numeric.lower(a.start) < S.numeric.lower(b.start);
+    
+  for (auto &tasks_idx : resource_tasks) {
+      ++i;
+    if (tasks_idx.size() > 1) {
+        
+        std::vector<index_t> order;
+        for(auto j : tasks_idx) {
+            auto job{intervals[j]};
+            if(S.boolean.value(job.exist))
+                order.push_back(j);
+        }
+        
+        std::sort(order.begin(), order.end(),
+                  [&](const index_t a, const index_t b) {
+                    return S.numeric.lower(intervals[a].start) < S.numeric.lower(intervals[b].start);
                   });
-
+ 
         std::cout << "resource " << i << ":";
-        for (auto task : jobs) {
-          std::cout << " " << jobmap[task.id()] << " (" << task.id()
-                    << "):" << prettyJob(task, S, false);
+        for (auto o : order) {
+          std::cout << " job" << (o+1) << ":" << prettyJob(intervals[o], S, false);
         }
         std::cout << std::endl;
       }
-    }
   }
 }
 
@@ -145,13 +145,10 @@ int main(int argc, char *argv[]) {
 
   // depending on the option "input-format", parse a disjunctive scheduling
   // instance, and collect resources and interval objects
-  //  std::vector<DisjunctiveResource<>> resources;
   std::vector<NoOverlapExpression<>> resources;
-  std::vector<std::vector<Interval<>>> resource_tasks;
+    std::vector<std::vector<size_t>> resource_tasks;
   std::vector<Interval<>> intervals;
   std::vector<std::vector<std::vector<int>>> resource_transitions;
-
-  //    SchedulingModel<T> model;
 
   if (opt.input_format == "osp") {
     osp::parse(opt.instance_file, S, schedule, intervals, resource_tasks);
@@ -168,13 +165,18 @@ int main(int argc, char *argv[]) {
 
   resource_transitions.resize(resource_tasks.size());
 
-  //  std::vector<NoOverlapExpression<>> res;
-  index_t i{0};
-  for (auto &tasks : resource_tasks) {
-    auto no_overlap{NoOverlap(schedule, tasks, resource_transitions[i++])};
-    resources.push_back(no_overlap);
-    S.post(no_overlap);
-  }
+    
+        index_t i{0};
+        std::vector<Interval<int>> scope;
+        for (auto &tasks : resource_tasks) {
+            for(auto j : tasks) {
+                scope.push_back(intervals[j]);
+            }
+          auto no_overlap{NoOverlap(schedule, scope, resource_transitions[i++])};
+          resources.push_back(no_overlap);
+          S.post(no_overlap);
+            scope.clear();
+        }
 
   // set a trivial (and the user-defined) upper bound
   int total_duration{0};

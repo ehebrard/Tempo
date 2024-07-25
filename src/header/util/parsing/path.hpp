@@ -88,6 +88,7 @@ void parse(const std::string &fn, M &solver, J &schedule,
           
 
         resources.resize(nm);
+//          resource_ptr.resize(nm);
 
         gotheader = true;
       } else if (path++ < nj) {
@@ -141,8 +142,10 @@ void parse(const std::string &fn, M &solver, J &schedule,
                 solver.set(j.end.before(schedule.end));
               }
             }
+            resources[mach].push_back(intervals.size());
           intervals.push_back(j);
-          resources[mach].push_back(j);
+//          resources[mach].push_back(j);
+            
         }
       } else {
           iss >> np;
@@ -152,7 +155,7 @@ void parse(const std::string &fn, M &solver, J &schedule,
               iss >> y;
 //              std::cout << x << " " << y+1  << " and  " << x+1 << " " << y << std::endl;
               
-              solver.addToSearch(solver.newDisjunct(intervals[x].start.after(intervals[y+1].end), intervals[y].start.after(intervals[x+1].end)));
+              solver.addToSearch(solver.newDisjunct(intervals[x-1].start.after(intervals[y].end), intervals[y-1].start.after(intervals[x].end)));
           }
 //          int count{0};
 //          std::cout << "swaps!\n";

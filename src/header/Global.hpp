@@ -43,7 +43,7 @@ using boolean_state = int;
 // primitive type given to an explanation algorithm together with the literal to explain [used to encode the relevant info to be able to explain]
 using hint = int;
 #define NoHint -1
-
+//
 //#define DBG_BOUND (num_fails >= 0)
 //#define DBG_CBOUND (solver.num_fails >= 0)
 //#define DBG_BBOUND (sched.num_fails >= 0) //(sched.num_fails >= 236)

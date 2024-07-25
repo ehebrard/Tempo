@@ -228,7 +228,13 @@ std::ostream &CardinalityInterface<T>::display(std::ostream &os) const {
   os << "[" << this->id() << "]";
 #endif
 
-  os << "(" << literals[0];
+    os << "(" ;
+    if(m_solver.boolean.satisfied(literals[0]))
+        std::cout << "1";
+    else if(m_solver.boolean.falsified(literals[0]))
+        std::cout << "0";
+    else
+        std::cout << literals[0];
     for (unsigned i{1}; i<literals.size(); ++i) {
         if(m_solver.boolean.satisfied(literals[i]))
             std::cout << " 1";
