@@ -58,10 +58,12 @@ namespace tempo::heuristics::impl {
                 need_rescaling = EventActivityMap::boolean_activity[l.variable()] > maxActivity;
                 if(l.hasSemantic()) {
                     auto c{solver.boolean.getEdge(l)};
-                    EventActivityMap::numeric_activity[c.from] += increment;
-                    EventActivityMap::numeric_activity[c.to] += increment;
-                    need_rescaling |= EventActivityMap::numeric_activity[c.from] > maxActivity;
-                    need_rescaling |= EventActivityMap::numeric_activity[c.to] > maxActivity;
+                    if(c != Constant::NoEdge<T>) {
+                        EventActivityMap::numeric_activity[c.from] += increment;
+                        EventActivityMap::numeric_activity[c.to] += increment;
+                        need_rescaling |= EventActivityMap::numeric_activity[c.from] > maxActivity;
+                        need_rescaling |= EventActivityMap::numeric_activity[c.to] > maxActivity;
+                    }
                 }
             }
             return need_rescaling;

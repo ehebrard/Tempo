@@ -58,10 +58,18 @@ namespace tempo::heuristics {
                 auto prec_a{solver.boolean.getEdge(p)};
                 auto prec_b{solver.boolean.getEdge(n)};
 
-                auto gap_a = solver.numeric.upper(prec_a.from) - solver.numeric.lower(prec_a.to);
-                auto gap_b = solver.numeric.upper(prec_b.from) - solver.numeric.lower(prec_b.to);
-
-                dom = static_cast<double>(std::max(gap_a, gap_b));
+                auto gap_a = (prec_a == Constant::NoEdge<T> ? Constant::Infinity<T> : solver.numeric.upper(prec_a.from) - solver.numeric.lower(prec_a.to));
+                auto gap_b = (prec_b == Constant::NoEdge<T> ? Constant::Infinity<T> : solver.numeric.upper(prec_b.from) - solver.numeric.lower(prec_b.to));
+                
+                if(gap_a == Constant::Infinity<T>) {
+                    assert(gap_b != Constant::Infinity<T>);
+                    dom = static_cast<double>(2*gap_b);
+                } else if(gap_b == Constant::Infinity<T>) {
+                    assert(gap_a != Constant::Infinity<T>);
+                    dom = static_cast<double>(2*gap_a);
+                } else {
+                    dom = static_cast<double>(std::max(gap_a, gap_b));
+                }
             }
             auto act{activity.get(x, solver)};
 
