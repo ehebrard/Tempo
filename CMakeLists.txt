@@ -85,7 +85,8 @@ else ()
 endif ()
 
 file(GLOB SOURCES ${CMAKE_SOURCE_DIR}/src/cpp/*.cpp ${CMAKE_SOURCE_DIR}/src/cpp/util/*.cpp
-        ${CMAKE_SOURCE_DIR}/src/cpp/constraints/*.cpp ${CMAKE_SOURCE_DIR}/src/cpp/heuristics/*.cpp)
+        ${CMAKE_SOURCE_DIR}/src/cpp/constraints/*.cpp ${CMAKE_SOURCE_DIR}/src/cpp/heuristics/*.cpp
+        ${CMAKE_SOURCE_DIR}/src/examples/helpers/*.cpp)
 file(GLOB TORCH_SOURCES ${CMAKE_SOURCE_DIR}/src/cpp/nn/*.cpp)
 
 message("compiler flags: ${CMAKE_CXX_FLAGS}")
@@ -99,7 +100,7 @@ include_directories(${CMAKE_SOURCE_DIR}/src/header/)
 include_directories(${CMAKE_SOURCE_DIR}/tools/)
 
 # Examples
-file(GLOB_RECURSE EXECUTABLES ${CMAKE_SOURCE_DIR}/src/examples/*.cpp ${CMAKE_SOURCE_DIR}/src/examples/torch/*.cpp)
+file(GLOB EXECUTABLES ${CMAKE_SOURCE_DIR}/src/examples/*.cpp ${CMAKE_SOURCE_DIR}/src/examples/torch/*.cpp)
 message("Generating targets for the following cpp files:")
 foreach(EXEC ${EXECUTABLES})
     get_filename_component(NAME ${EXEC} NAME_WLE)
