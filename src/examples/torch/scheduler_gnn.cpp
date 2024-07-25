@@ -12,6 +12,7 @@
 #include "util/SchedulingProblemHelper.hpp"
 #include "util/parsing/jsp.hpp"
 #include "util/parsing/osp.hpp"
+#include "../helpers/cli.hpp"
 
 
 template<typename T = int>
@@ -29,15 +30,12 @@ public:
 int main(int argc, char **argv) {
     using namespace tempo;
     using namespace heuristics;
-    Parser p = getBaseParser();
     std::string gnnLocation;
     std::string featureExtractorConf;
-    p.getCmdLine().add<TCLAP::ValueArg<std::string>>(gnnLocation, "", "gnn-loc", "Location of the trained GNN", true,
-                                                     "", "string");
-    p.getCmdLine().add<TCLAP::ValueArg<std::string>>(featureExtractorConf, "", "feat-config",
-                                                     "Location of the feature extractor config", true, "", "string");
-    p.parse(argc, argv);
-    const auto &opt = p.getOptions();
+    auto opt = cli::parseOptions(argc, argv,
+                                 cli::ArgSpec("gnn-loc", "Location of the GNN model", true, gnnLocation),
+                                 cli::ArgSpec("feat-config", "Location of the feature extractor config", true,
+                                              featureExtractorConf));
     Solver<> S(opt);
     auto schedule{S.newInterval(0, Constant::Infinity<int>, 0, 0, 0, Constant::Infinity<int>)};
     std::vector<DisjunctiveResource<>> resources;
