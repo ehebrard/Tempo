@@ -4,9 +4,9 @@
 
 namespace heap {
 
-int left(const int i) { return 2 * i + 1; }
+constexpr int left(int i) { return 2 * i + 1; }
 
-int right(const int i) { return 2 * i + 2; }
+constexpr int right(int i) { return 2 * i + 2; }
 
 template <class RandomIt, class Compare>
 int percolate_down(RandomIt begin, RandomIt end, int idx, Compare comp) {
