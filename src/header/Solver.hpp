@@ -41,8 +41,7 @@
 #include "constraints/OptionalEdgeConstraint.hpp"
 #include "constraints/PseudoBoolean.hpp"
 #include "constraints/Transitivity.hpp"
-#include "heuristics/HeuristicManager.hpp"
-#include "heuristics/ValueHeuristicsManager.hpp"
+#include "heuristics/heuristic_factories.hpp"
 #include "heuristics/impl/DecayingEventActivityMap.hpp"
 #include "util/KillHandler.hpp"
 #include "util/Options.hpp"
@@ -507,6 +506,9 @@ public:
 
     // must be called before the first call to 'search()'
     void initializeSearch();
+
+    template<heuristics::heuristic<T> H>
+    void setBranchingHeuristic(H &&h);
     // record the backtrack-environment level when calling 'initializeSearch()'
     int init_level{0};
     //@}
@@ -641,9 +643,7 @@ public:
      * @name search strategies
      */
     //@{
-    std::optional<heuristics::HeuristicManager<T>> heuristic;
-    std::optional<heuristics::ValueHeuristicsManager> valueHeuristic;
-
+    heuristics::PolymorphicHeuristic<T> heuristic;
     RestartManager<Solver<T>> restartPolicy;
     // @}
 
@@ -687,14 +687,13 @@ public:
     void printTrace() const;
 #endif
 
-    // to make the activity map public (to heuristics)
-    heuristics::impl::EventActivityMap<T> *activityMap{NULL};
-    
+    heuristics::impl::EventActivityMap *activityMap{nullptr};
+
 public:
-    void setActivityMap(heuristics::impl::EventActivityMap<T> *map) {
+    void setActivityMap(heuristics::impl::EventActivityMap *map) {
         activityMap = map;
     }
-    heuristics::impl::EventActivityMap<T> *getActivityMap() {
+    heuristics::impl::EventActivityMap *getActivityMap() {
         return activityMap;
     }
 
@@ -2170,14 +2169,21 @@ template <typename T> void Solver<T>::branchRight() {
 template <typename T> void Solver<T>::initializeSearch() {
     if(not initialized) {
         start_time = cpu_time();
-        heuristic.emplace(*this, options);
-        valueHeuristic.emplace(*this);
         post(&clauses);
         initialized = true;
         if(options.verbosity >= Options::QUIET)
             displayHeader(std::cout);
     }
     restartPolicy.initialize();
+    if (not heuristic.isValid()) {
+        heuristic = heuristics::make_heuristic(*this);
+    }
+}
+
+template<typename T>
+template<heuristics::heuristic<T> H>
+void Solver<T>::setBranchingHeuristic(H &&h) {
+    this->heuristic = std::forward<H>(h);
 }
 
 template <typename T> boolean_state Solver<T>::satisfiable() {
@@ -2350,8 +2356,7 @@ template <typename T> boolean_state Solver<T>::search() {
         ++num_choicepoints;
         ChoicePoint.trigger();
 
-        auto varSelection = heuristic->nextVariable(*this);
-        Literal<T> d = valueHeuristic->valueDecision(varSelection, *this);
+        Literal<T> d = heuristic.branch(*this);
         decisions.push_back(d);
 
 #ifdef DBG_TRACE
@@ -2678,7 +2683,7 @@ void Solver<T>::wake_me_on(const Literal<T> l, const int c) {
       else
           std::cout << "hi\n";
   }
-    
+
 //    std::cout <<
 }
 

@@ -24,6 +24,7 @@
 //#define DBG_EXTRACT
 //#define DBG_EXTRACT_SUM
 
+#include "util/traits.hpp"
 #include "Literal.hpp"
 #include "constraints/Cardinality.hpp"
 #include "constraints/PseudoBoolean.hpp"
@@ -102,19 +103,22 @@ template <typename T = int> struct NumInfo {
 template <typename T = int> class NumericVar : public ExpressionFlag {
 
 public:
-    NumericVar() : ExpressionFlag(false) {}
+    constexpr NumericVar() noexcept: ExpressionFlag(false), data(Constant::NoVar, 0) {};
     NumericVar(ExpressionImpl<T> *i) : ExpressionFlag(true), implem(i) {}
     NumericVar(const var_t i, const T o = 0)
         : ExpressionFlag(false), data(i, o) {}
 
-    T min(Solver<T> &sc) const;
-    T max(Solver<T> &sc) const;
+    template<concepts::distance_provider S>
+    T min(const S &sc) const;
 
-    //    T solution_min(Solver<T> &sc) const;
-    //    T solution_max(Solver<T> &sc) const;
+    template<concepts::distance_provider S>
+    T max(const S &sc) const;
 
-    T earliest(Solver<T> &) const;
-    T latest(Solver<T> &) const;
+    template<concepts::distance_provider S>
+    T earliest(const S &) const;
+
+    template<concepts::distance_provider S>
+    T latest(const S &) const;
 
     Literal<T> after(const T t) const;
     Literal<T> before(const T t) const;
@@ -166,13 +170,13 @@ public:
 #ifdef DBG_EXTRACT
           std::cout << " extract expr" << std::endl;
 #endif
-            
+
           implem->extract(solver, target);
-            
+
 #ifdef DBG_EXTRACT
           std::cout << " ==> " << implem->id() << std::endl;
 #endif
-            
+
           solver.trash_bin.push_back(implem);
         }
 
@@ -220,7 +224,7 @@ methods
 template <typename T = int> class BooleanVar : public ExpressionFlag {
 
 public:
-  BooleanVar() { data._id_ = Constant::NoIndex; }
+  constexpr BooleanVar() noexcept: ExpressionFlag(false), data(Constant::NoIndex, Constant::NoSemantic) {}
   BooleanVar(ExpressionImpl<T> *i) : ExpressionFlag(true), implem(i) {}
   BooleanVar(const var_t i, const index_t f = 0)
       : ExpressionFlag(false), data(i, f) {}
@@ -230,7 +234,7 @@ public:
   BooleanVar<T> implies(const BooleanVar<T> x) const;
 
 var_t id() const { return (ExpressionFlag::_is_expression ? implem->id() : data._id_); }
-    
+
     index_t semantic() const { return (ExpressionFlag::_is_expression ? implem->semantic() : data._edge_id_); }
     
     bool isTrue(Solver<T>& s) const { return s.boolean.isTrue(id()); }
@@ -263,11 +267,11 @@ var_t id() const { return (ExpressionFlag::_is_expression ? implem->id() : data.
 #endif
 
         implem->extract(solver, target);
-          
+
 #ifdef DBG_EXTRACT
           std::cout << " ==> " << implem->id() << std::endl;
 #endif
-          
+
         solver.trash_bin.push_back(implem);
       }
 
@@ -292,7 +296,7 @@ var_t id() const { return (ExpressionFlag::_is_expression ? implem->id() : data.
 #endif
 
     if (ExpressionFlag::_is_expression) {
-        
+
         if (implem->id() == Constant::NoVar) {
             implem->post(solver);
         }
@@ -328,7 +332,11 @@ the schedule
  */
 template <typename T = int> class Interval {
 public:
-  Interval() {}
+  constexpr Interval() noexcept : start(), end(), duration() {}
+
+  Interval(NumericVar<T> start, NumericVar<T> end, NumericVar<T> duration) :
+    start(start), end(end), duration(duration) {}
+
   Interval(Solver<T> &solver, const T mindur = 0,
            const T maxdur = Constant::Infinity<T>,
            const T earliest_start = -Constant::Infinity<T>,
@@ -340,16 +348,25 @@ public:
   Interval(Solver<T> &solver, const NumericVar<T> s, const NumericVar<T> e,
            const NumericVar<T> d, const BooleanVar<T> opt = Constant::True);
 
-  T getEarliestStart(Solver<T> &s) const;
-  T getLatestStart(Solver<T> &s) const;
-  T getEarliestEnd(Solver<T> &s) const;
-  T getLatestEnd(Solver<T> &s) const;
+  template<concepts::distance_provider S>
+  T getEarliestStart(const S &s) const;
+
+  template<concepts::distance_provider S>
+  T getLatestStart(const S &s) const;
+
+  template<concepts::distance_provider S>
+  T getEarliestEnd(const S &s) const;
+
+  template<concepts::distance_provider S>
+  T getLatestEnd(const S &s) const;
 
   bool mustExist(Solver<T> &s) const;
   bool cannotExist(Solver<T> &s) const;
 
-  T minDuration(Solver<T> &s) const;
-  T maxDuration(Solver<T> &s) const;
+  template<concepts::distance_provider S>
+  T minDuration(const S &s) const;
+  template<concepts::distance_provider S>
+  T maxDuration(const S &s) const;
 
   var_t getStart() const;
   var_t getEnd() const;
@@ -384,7 +401,6 @@ public:
 protected:
   BooleanVar<T> self{Constant::NoVar};
 };
-
 
 template <typename T = int>
 class NumericExpressionImpl : public ExpressionImpl<T> {
@@ -422,7 +438,7 @@ public:
   var_t extract(Solver<T> &solver,
                 const var_t target = Constant::NoVar) override {
 
-      
+
 #ifdef DBG_EXTRACT_SUM
       this->display(std::cout);
          std::cout << std::endl;
@@ -432,49 +448,49 @@ public:
       for(index_t i{0}; i < static_cast<index_t>(arguments.size()); ++i) {
           order.push_back(i);
       }
-      
-      
-      
-      
+
+
+
+
       std::sort(order.begin(), order.end(), [&](const index_t i, const index_t j) {return arguments[i].id() < arguments[j].id();});
-      
-      
+
+
       std::vector<NumericVar<T>> args;
     std::vector<var_t> vars;
     std::vector<T> ws;
-      
-      
+
+
       // new
       for (index_t i{0}; i < static_cast<index_t>(arguments.size()); ++i) {
           args.push_back(arguments[order[i]]);
           ws.push_back(weights[order[i]]);
           args.back().extract(solver);
-          
+
 //#ifdef DBG_EXTRACT_SUM
 //          std::cout << ws.back() << "*[" << args.back() << "]: => increase the bias by " << (ws.back() * args.back().offset()) << std::endl;
 //#endif
-//          
+//
 ////          increaseBias(ws.back() * args.back().offset());
       }
-      
+
 #ifdef DBG_EXTRACT_SUM
       arguments = args;
       weights = ws;
       this->display(std::cout);
          std::cout << std::endl;
 #endif
-      
+
       T lb{0};
       T ub{0};
       for(index_t i{static_cast<index_t>(args.size())}; i-->0;) {
           bool rm{false};
           auto x{args[i]};
           auto w{ws[i]};
-          
+
 #ifdef DBG_EXTRACT_SUM
           std::cout << w << "*[" << x << "]" ;
 #endif
-          
+
           if (w == 0) {
               rm = true;
           } else if(i>0 and x.id() == args[i-1].id()) {
@@ -487,13 +503,13 @@ public:
               increaseBias(w * x.min(solver));
               rm = true;
           }
-          
+
 #ifdef DBG_EXTRACT_SUM
           std::cout << std::endl;
 #endif
-          
+
           if(rm) {
-              
+
 #ifdef DBG_EXTRACT_SUM
               std::cout << " rm term " << w << "*" << x << std::endl;
 #endif
@@ -501,17 +517,17 @@ public:
               ws[i] = ws.back();
               args.pop_back();
               ws.pop_back();
-          } 
+          }
 #ifdef DBG_EXTRACT_SUM
           else {
               std::cout << " keep arg " << args[i] << std::endl;
           }
 #endif
-          
+
 //          increaseBias(ws[i] * args[i].offset());
-          
+
       }
-      
+
 #ifdef DBG_EXTRACT_SUM
       std::cout << args.size() << " arguments remaining\n";
       arguments = args;
@@ -519,11 +535,11 @@ public:
       this->display(std::cout);
          std::cout << std::endl;
 #endif
-      
+
       for (index_t i{0}; i < static_cast<index_t>(args.size()); ++i) {
           auto x{args[i]};
           auto w{ws[i]};
-          
+
           vars.push_back(x.id());
           if (w < 0) {
               if (lb != -Constant::Infinity<T>) {
@@ -560,8 +576,8 @@ public:
           }
       }
 
-      
-      
+
+
 //      // old
 //    T lb{0};
 //    T ub{0};
@@ -580,9 +596,9 @@ public:
 //        ws.push_back(w);
 //      }
 //    }
-//      
-//      
-//      
+//
+//
+//
 //      for (unsigned i{0}; i < arguments.size(); ++i) {
 //          auto x{arguments[i]};
 //          auto w{weights[i]};
@@ -658,19 +674,19 @@ public:
   }
 
   SumExpressionImpl<T> &addTerm(const NumericVar<T> &x, const T w = 1) {
-      
+
 //    std::cout << "\nhi ";
 //    this->display(std::cout);
 //    std::cout << std::endl;
 //    std::cout << "add term " << w << "*" << x << std::endl;
-      
+
       increaseBias(w * x.offset());
       if (x.id() != Constant::K) {
           arguments.push_back(x);
           weights.push_back(w);
       }
-          
-//          
+
+//
 //    auto idx{x.id()};
 //    if (idx == Constant::K) {
 //      //        NumericExpressionImpl<T>::self.setOffset(NumericExpressionImpl<T>::self.offset
@@ -701,7 +717,7 @@ public:
 //    std::cout << std::endl;
     return *this;
   }
-    
+
   SumExpressionImpl<T> &addTerm(const T k) {
     //    NumericExpressionImpl<T>::self.setOffset(
     //        NumericExpressionImpl<T>::self.offset() + k);
@@ -1017,7 +1033,7 @@ public:
       x.extract(solver);
       L.push_back(x == false);
     }
-      
+
       auto y = solver.newBoolean();
     L.push_back(y == true);
       
@@ -1291,7 +1307,7 @@ public:
           if (solver.getOptions().edge_finding)
               solver.postEdgeFinding(schedule, this->begin(), this->end(),
                                      this->begDisjunct());
-          
+
           if (solver.getOptions().transitivity)
               solver.postTransitivity(schedule, this->begin(), this->end(),
                                       this->begDisjunct());
@@ -1381,60 +1397,32 @@ template <typename T> NoOverlapExpression<T> NoOverlap(Interval<T> &schedule) {
  NumericVar  impl
 */
 template<typename T>
-T NumericVar<T>::min(Solver<T>& s) const {
+template<concepts::distance_provider S>
+T NumericVar<T>::min(const S& s) const {
   T v = s.numeric.lower(id());
-  //  } else {
-  //    v = -s.numeric.upper(id());
-  //  }
   if (v == -Constant::Infinity<T>)
     return v;
   return v + offset();
-  //    } else {
-  //        auto v{s.numeric.upper(id())};
-  //        if (v == Constant::Infinity<T>)
-  //            return -v;
-  //        return -v + offset();
-  //    }
 }
 
 template<typename T>
-T NumericVar<T>::max(Solver<T>& s) const {
+template<concepts::distance_provider S>
+T NumericVar<T>::max(const S& s) const {
   T v = s.numeric.upper(id());
-  //  } else {
-  //    v = -s.numeric.lower(id());
-  //  }
   if (v == Constant::Infinity<T>)
     return v;
   return v + offset();
-  //    } else {
-  //        auto v{-s.numeric.lower(id())};
-  //        if (v == Constant::Infinity<T>)
-  //            return v;
-  //        return v + offset();
-  //    }
 }
-//
-// template<typename T>
-// T NumericVar<T>::solutionMin(Solver<T>& s) const {
-//  auto v{s.numeric.lower(id())};
-//  if (v == -Constant::Infinity<T>)
-//    return v;
-//  return v + offset();
-//}
-//
-// template<typename T>
-// T NumericVar<T>::solutionMax(Solver<T>& s) const {
-//  auto v{s.numeric.upper(*this)};
-//  if (v == Constant::Infinity<T>)
-//    return v;
-//  return v + offset();
-//}
 
-template <typename T> T NumericVar<T>::earliest(Solver<T> &s) const {
+template <typename T>
+template<concepts::distance_provider S>
+T NumericVar<T>::earliest(const S &s) const {
   return min(s);
 }
 
-template <typename T> T NumericVar<T>::latest(Solver<T> &s) const {
+template <typename T>
+template<concepts::distance_provider S>
+T NumericVar<T>::latest(const S &s) const {
   return max(s);
 }
 
@@ -1653,19 +1641,27 @@ template <typename T> bool Interval<T>::operator==(const Interval<T> &t) const {
   return id() == t.id();
 }
 
-template <typename T> T Interval<T>::getEarliestStart(Solver<T> &solver) const {
+template <typename T>
+template<concepts::distance_provider S>
+T Interval<T>::getEarliestStart(const S &solver) const {
   return start.earliest(solver);
 }
 
-template <typename T> T Interval<T>::getLatestStart(Solver<T> &solver) const {
+template <typename T>
+template<concepts::distance_provider S>
+T Interval<T>::getLatestStart(const S &solver) const {
   return start.latest(solver);
 }
 
-template <typename T> T Interval<T>::getEarliestEnd(Solver<T> &solver) const {
+template <typename T>
+template<concepts::distance_provider S>
+T Interval<T>::getEarliestEnd(const S &solver) const {
   return end.earliest(solver);
 }
 
-template <typename T> T Interval<T>::getLatestEnd(Solver<T> &solver) const {
+template <typename T>
+template<concepts::distance_provider S>
+T Interval<T>::getLatestEnd(const S &solver) const {
   return end.latest(solver);
 }
 
@@ -1677,11 +1673,15 @@ template <typename T> bool Interval<T>::cannotExist(Solver<T> &) const {
   return false;
 }
 
-template <typename T> T Interval<T>::minDuration(Solver<T> &solver) const {
+template <typename T>
+template<concepts::distance_provider S>
+T Interval<T>::minDuration(const S &solver) const {
   return duration.min(solver);
 }
 
-template <typename T> T Interval<T>::maxDuration(Solver<T> &solver) const {
+template <typename T>
+template<concepts::distance_provider S>
+T Interval<T>::maxDuration(const S &solver) const {
   return duration.max(solver);
 }
 

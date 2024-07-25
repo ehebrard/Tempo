@@ -80,13 +80,6 @@ enum class Priority {
     High
 };
 
-enum class VariableType {
-    Boolean,
-    Numeric
-};
-
-using VariableSelection = std::pair<var_t, VariableType>;
-
 /**
  * Converts enum to underlying type
  * @tparam E enum type

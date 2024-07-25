@@ -6,15 +6,16 @@
 #include <gtest/gtest.h>
 #include <Iterators.hpp>
 
-#include "util/parsing/format.hpp"
 #include "testing.hpp"
 #include "nn/feature_extractors.hpp"
 #include "util/Matrix.hpp"
 #include "nn/GraphBuilder.hpp"
+#include "util/SchedulingProblemHelper.hpp"
 
-auto getInput() -> std::pair<ProblemInstance, tempo::nn::Topology> {
+
+auto getInput() -> std::pair<tempo::testing::ProblemInstance, tempo::nn::Topology> {
     using namespace tempo;
-    auto problem = serialization::deserializeFromFile<ProblemInstance>(tempo::testing::TestData::TestProblem);
+    auto [problem, _] = tempo::testing::createTestProblem();
     nn::MinimalTopologyBuilder topologyBuilder(problem);
     auto topology = topologyBuilder.getTopology();
     return {std::move(problem), std::move(topology)};
@@ -23,33 +24,56 @@ auto getInput() -> std::pair<ProblemInstance, tempo::nn::Topology> {
 TEST(nn_feature_extractors, TaskTimingExtractor) {
     using namespace tempo::nn;
     using namespace tempo;
+    using namespace tempo::testing;
+    using T = tempo::testing::TaskSpec;
     using tempo::testing::random_int;
-    using tempo::testing::setTaskDurations;
-    using tempo::testing::setUpperBound;
-    constexpr bool SatisfiesConcept = feature_extractor<TaskTimingFeatureExtractor, Matrix<int>>;
     constexpr DataType Ub = 10;
-    EXPECT_TRUE(SatisfiesConcept);
     TaskTimingFeatureExtractor extractor;
-    const auto [instance, topology] = getInput();
-    const auto numEvents = instance.durations.size() * 2 + 2;
-    Matrix<int> eventNet(numEvents, numEvents);
-    std::vector<tempo::testing::TaskSpec> taskSpecs;
-    for (std::size_t t = 0; t < instance.durations.size(); ++t) {
-        taskSpecs.emplace_back(random_int(1, 5), random_int(5, 10), random_int(-10, 0), random_int(-10, 0));
-        setTaskDurations(static_cast<tempo::task>(t), taskSpecs.back().minDur, taskSpecs.back().maxDur,
-                         taskSpecs.back().release, taskSpecs.back().deadline, eventNet);
-    }
-
-    setUpperBound<int>(Ub, eventNet);
-    auto taskFeatures = extractor(topology, eventNet);
-    for (auto [idx, task] : iterators::const_enumerate(taskSpecs)) {
+    auto [tasks, scheduler] = createTasks(
+            {T{.minDur = 2, .maxDur = 4, .earliestStart = 4, .latestDeadline = static_cast<int>(Ub)},
+             T{.minDur = 6, .maxDur = 6, .earliestStart = 0, .latestDeadline = 5},
+             T{.minDur = 4, .maxDur = 6, .earliestStart = 2, .latestDeadline = 8},
+             T{.minDur = 0, .maxDur = static_cast<int>(Ub), .latestDeadline = static_cast<int>(Ub)}});
+    auto sched = tasks.back();
+    tasks.pop_back();
+    ProblemInstance instance(std::move(tasks), {}, {}, sched);
+    auto topology = MinimalTopologyBuilder(instance).getTopology();
+    auto taskFeatures = extractor(topology, makeSolverState(Matrix<int>{}, scheduler), instance);
+    for (auto [idx, task] : iterators::const_enumerate(instance.tasks())) {
         auto features = taskFeatures.slice(0, idx, idx + 1);
         EXPECT_EQ(features.numel(), 4);
-        EXPECT_EQ(features[0][0].item<DataType>(), task.minDur/ Ub);
-        EXPECT_EQ(features[0][1].item<DataType>(), task.maxDur / Ub);
-        EXPECT_EQ(features[0][2].item<DataType>(), task.release / Ub);
-        EXPECT_EQ(features[0][3].item<DataType>(), task.deadline / Ub);
+        EXPECT_EQ(features[0][0].item<DataType>(), task.minDuration(scheduler) / Ub);
+        EXPECT_EQ(features[0][1].item<DataType>(), task.maxDuration(scheduler) / Ub);
+        EXPECT_EQ(features[0][2].item<DataType>(), task.getEarliestStart(scheduler) / Ub);
+        EXPECT_EQ(features[0][3].item<DataType>(), task.getLatestEnd(scheduler) / Ub);
     }
+}
+
+TEST(nn_feature_extractors, TaskTimingExtractor_legacy) {
+    using namespace tempo;
+    using namespace tempo::nn;
+    using namespace tempo::testing;
+    using T = tempo::testing::TaskSpec;
+    TaskTimingFeatureExtractor extractor{.legacyFeatures = false};
+    constexpr int Ub = 10;
+    auto [tasks, scheduler] = createTasks({T{.minDur = 4, .maxDur = 6, .earliestStart = 2, .latestDeadline = Ub - 2},
+                                           T{.minDur = 0, .maxDur = Ub, .latestDeadline = Ub}});
+    auto sched = tasks.back();
+    tasks.pop_back();
+    ProblemInstance instance(std::move(tasks), {}, {}, sched);
+    auto topology = MinimalTopologyBuilder(instance).getTopology();
+    auto taskFeatures = extractor(topology, makeSolverState(Matrix<int>{}, scheduler), instance);
+    ASSERT_EQ(taskFeatures.numel(), 4);
+    EXPECT_FLOAT_EQ(taskFeatures[0][0].item<DataType>(), 0.4);
+    EXPECT_FLOAT_EQ(taskFeatures[0][1].item<DataType>(), 0.6);
+    EXPECT_FLOAT_EQ(taskFeatures[0][2].item<DataType>(), 0.2);
+    EXPECT_FLOAT_EQ(taskFeatures[0][3].item<DataType>(), 0.8);
+    extractor.legacyFeatures = true;
+    taskFeatures = extractor(topology, makeSolverState(Matrix<int>{}, scheduler), instance);
+    EXPECT_FLOAT_EQ(taskFeatures[0][0].item<DataType>(), 0.4);
+    EXPECT_FLOAT_EQ(taskFeatures[0][1].item<DataType>(), 0.6);
+    EXPECT_FLOAT_EQ(taskFeatures[0][2].item<DataType>(), -0.2);
+    EXPECT_FLOAT_EQ(taskFeatures[0][3].item<DataType>(), -0.2);
 }
 
 TEST(nn_feature_extractors, ResourceEnergyExtractor) {
@@ -57,18 +81,13 @@ TEST(nn_feature_extractors, ResourceEnergyExtractor) {
     using namespace tempo::serialization;
     using namespace tempo;
     using namespace tempo::testing;
-    constexpr bool SatisfiesConcept = feature_extractor<ResourceEnergyExtractor, Matrix<int>>;
-    EXPECT_TRUE(SatisfiesConcept);
-    ProblemInstance instance{.lowerBound = 0, .optimalSolution = 0, .durations = {1, 1, 1},
-                             .constraints = {}, .resources = {{{0, 1, 2}, {1, 1, 1}, {}, 1}}};
+    auto [tasks, scheduler] = tempo::testing::createTasks({{6, 6}, {2, 4}, {1, 5}, {0, 12, 0, 12}});
+    auto sched = tasks.back();
+    tasks.pop_back();
+    ProblemInstance instance(tasks, {{1, tasks, {1, 1, 1}}}, {}, sched);
     const auto topology = MinimalTopologyBuilder(instance).getTopology();
-    Matrix<int> eventNet(8, 8);
-    setTaskDurations(0, 6, 6, 0, 0, eventNet);
-    setTaskDurations(1, 2, 4, 0, 0, eventNet);
-    setTaskDurations(2, 1, 5, 0, 0, eventNet);
-    setUpperBound(12, eventNet);
     ResourceEnergyExtractor extractor;
-    auto resEnergies = extractor(topology, eventNet);
+    auto resEnergies = extractor(topology, makeSolverState(Matrix<int>{}, scheduler), instance);
     ASSERT_EQ(resEnergies.size(0), 1);
     ASSERT_EQ(resEnergies.size(1), 1);
     EXPECT_EQ(resEnergies.item<DataType>(), 1);
@@ -79,16 +98,13 @@ TEST(nn_features_extractors, ResourceEnergyExtractor_complex_consumptions) {
     using namespace tempo::serialization;
     using namespace tempo;
     using namespace tempo::testing;
-    ProblemInstance instance{.lowerBound = 0, .optimalSolution = 0, .durations = {1, 1, 1},
-            .constraints = {}, .resources = {{{0, 1, 2}, {3, 2, 2}, {}, 4}}};
+    auto [tasks, scheduler] = tempo::testing::createTasks({{4, 4}, {2, 4}, {8, 10}, {0, 9, 0, 9}});
+    auto sched = tasks.back();
+    tasks.pop_back();
+    ProblemInstance instance(tasks, {{4, tasks, {3, 2, 2}}}, {}, sched);
     const auto topology = MinimalTopologyBuilder(instance).getTopology();
-    Matrix<int> eventNet(8, 8);
-    setTaskDurations(0, 4, 4, 0, 0, eventNet);
-    setTaskDurations(1, 2, 4, 0, 0, eventNet);
-    setTaskDurations(2, 8, 10, 0, 0, eventNet);
-    setUpperBound(9, eventNet);
     ResourceEnergyExtractor extractor;
-    auto resEnergies = extractor(topology, eventNet);
+    auto resEnergies = extractor(topology, makeSolverState(Matrix<int>{}, scheduler), instance);
     ASSERT_EQ(resEnergies.size(0), 1);
     ASSERT_EQ(resEnergies.size(1), 1);
     EXPECT_EQ(resEnergies.item<DataType>(), 1);
@@ -98,19 +114,15 @@ TEST(nn_feature_extractors, TimingEdgeExtractor) {
     using namespace tempo::nn;
     using namespace tempo::testing;
     using namespace tempo;
-    constexpr bool SatisfiesConcept = feature_extractor<TimingEdgeExtractor, Matrix<int>>;
-    EXPECT_TRUE(SatisfiesConcept);
-    tempo::Matrix<int> timings(8, 8);
-    setTaskDistance(0, 1, 4, timings);
-    setTaskDistance(1, 0, 3, timings);
-    setTaskDistance(2, 1, -2, timings);
-    setTaskDistance(1, 2, 5, timings);
-    setUpperBound(4, timings);
-    timings.at(1, 2) = 5;
+    tempo::Matrix<int> timings(3, 3, {0, 4, 0,
+                                      3, 0, 5,
+                                      0, -2, 0});
+    auto [schedule, scheduler] = createTasks({{0, 4, 0, 4}});
     Topology topology;
     EdgeVector edges{{0, 1}, {2, 1}};
     topology.edgeIndices = util::makeIndexTensor(edges);
-    torch::Tensor features = TimingEdgeExtractor()(topology, timings);
+    torch::Tensor features = TimingEdgeExtractor()(topology, makeSolverState(timings, scheduler),
+                                                   ProblemInstance({}, {}, {}, schedule.front()));
     ASSERT_EQ(features.size(0), edges.size());
     ASSERT_EQ(features.size(1), 2);
     ASSERT_EQ(features.sizes().size(), 2);

@@ -12,7 +12,6 @@
 #include "DistanceConstraint.hpp"
 #include "Global.hpp"
 #include "Literal.hpp"
-#include "util/factory_pattern.hpp"
 #include "util/traits.hpp"
 
 
@@ -20,10 +19,8 @@ namespace tempo::heuristics {
 
 namespace detail {
 template <typename Solver>
-concept distance_provider = requires(const Solver s, var_t x, var_t e) {
+concept edge_distance_provider = concepts::distance_provider<Solver> and requires(const Solver s, var_t x) {
   { s.boolean.getEdge(true, x) } -> concepts::same_template<DistanceConstraint>;
-  { s.numeric.upper(e) } -> concepts::scalar;
-  { s.numeric.lower(e) } -> concepts::scalar;
 };
 }
 
@@ -49,7 +46,7 @@ public:
    * @param solver scheduler instance
    * @return either POS(cp) or NEG(cp)
    */
-  template <detail::distance_provider Solver>
+  template <detail::edge_distance_provider Solver>
   requires(boolean_info_provider<Solver>) static auto choose(
       var_t x, const Solver &solver) {
     // @TODO no gap info available -> what should I return?
@@ -65,11 +62,6 @@ public:
         solver.numeric.upper(edgeNeg.from) - solver.numeric.lower(edgeNeg.to);
     return solver.boolean.getLiteral(gapPos >= gapNeg, x);
   }
-};
-
-MAKE_FACTORY(TightestValue, const ValueHeuristicConfig &config) {
-  return TightestValue(config.epsilon);
-}
 };
 }
 

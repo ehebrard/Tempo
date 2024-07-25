@@ -19,14 +19,18 @@
 #include "topology_extractors.hpp"
 #include "torch_types.hpp"
 #include "util/traits.hpp"
-#include "util/parsing/format.hpp"
+#include "util/SchedulingProblemHelper.hpp"
+#include "util/serialization.hpp"
 
 namespace tempo::nn {
 
-    MAKE_FACTORY_PATTERN(FeatureExtractor, nlohmann::json, TaskTimingFeatureExtractor, TimingEdgeExtractor,
+    MAKE_POLYMORPHIC_TYPE(FeatureExtractor, TaskTimingFeatureExtractor, TimingEdgeExtractor, ResourceEnergyExtractor)
+    MAKE_FACTORY_PATTERN(FeatureExtractor, const nlohmann::json&, TaskTimingFeatureExtractor, TimingEdgeExtractor,
                          ResourceEnergyExtractor)
 
-    MAKE_FACTORY_PATTERN(TopologyBuilder, ProblemInstance, MinimalTopologyBuilder)
+    MAKE_POLYMORPHIC_TYPE(TopologyBuilder, MinimalTopologyBuilder)
+    MAKE_T_FACTORY_PATTERN(TopologyBuilder, template<ESCAPE(typename T, typename R)>,
+                           ESCAPE(const SchedulingProblemHelper<T, R>&), MinimalTopologyBuilder)
 
     /**
      * Serializable type that holds the configuration of a feature extractor type
@@ -51,14 +55,8 @@ namespace tempo::nn {
      * Class that extracts all tensors necessary for running the inference of a GNN from a given problem and temporal
      * network
      */
+    template<concepts::scalar T, SchedulingResource R>
     class GraphBuilder {
-        template<typename EvtFun>
-        struct FactoryChecker {
-            HOLDS_FOR_ALL(FeatureExtractor, feature_extractor, EvtFun)
-            HOLDS_FOR_ALL(TopologyExtractor, topology_extractor, EvtFun)
-            static constexpr bool value = __FeatureExtractor_tester__<FeatureExtractor>::value and
-                                          __TopologyExtractor_tester__<TopologyBuilder>::value;
-        };
     public:
 
         /**
@@ -66,29 +64,40 @@ namespace tempo::nn {
          * @param configPath path to the feature extractor configurations
          * @param problemInstance Initial problem containing immutable information about tasks and resources
          */
-        GraphBuilder(const std::filesystem::path &configPath, const ProblemInstance &problemInstance);
+        GraphBuilder(const std::filesystem::path &configPath, SchedulingProblemHelper<T, R> problemInstance)
+                : problemDefinition(std::move(problemInstance)) {
+            auto data = serialization::deserializeFromFile<GraphBuilderConfig>(configPath);
+            topologyExtractor = TopologyBuilderFactory::getInstance().create(data.topologyExtractor.extractorName,
+                                                                             problemDefinition);
+            taskFeatureExtractor = FeatureExtractorFactory::getInstance().create(
+                    data.taskFeatureExtractor.extractorName, data.taskFeatureExtractor.arguments);
+            resourceFeatureExtractor = FeatureExtractorFactory::getInstance().create(
+                    data.resourceFeatureExtractor.extractorName, data.resourceFeatureExtractor.arguments);
+            edgeFeatureExtractor = FeatureExtractorFactory::getInstance().create(
+                    data.edgeFeatureExtractor.extractorName, data.edgeFeatureExtractor.arguments);
+        }
 
         /**
          * Extracts all features and topology information from a given solver state
-         * @tparam EvtFun callable that represents distances between events
+         * @tparam Args Types of solver state fields
+         * @param state current state of the solver
          * @return InputGraph containing topology and feature information
          */
-        template<concepts::arbitrary_event_dist_fun EvtFun>
-        auto getGraph(const SolverState<EvtFun>& state) -> InputGraph {
-            static_assert(FactoryChecker<EvtFun>::value,
-                          "Not all feature extractors or topology extractors have the correct signature");
+        template<typename ...Args>
+        auto getGraph(const SolverState<Args...> &state) -> InputGraph {
             auto topology = std::visit(
                     [&](auto &extractor) { return extractor.getTopology(state); },
                     *topologyExtractor);
-            auto taskFeats = std::visit(
-                    [t = std::cref(topology), &state](const auto &extractor) { return extractor(t, state.eventNetwork); },
-                    taskFeatureExtractor);
-            auto edgeFeats = std::visit(
-                    [t = std::cref(topology), &state](const auto &extractor) { return extractor(t, state.eventNetwork); },
-                    edgeFeatureExtractor);
-            auto resourceFeats = std::visit(
-                    [t = std::cref(topology), &state](const auto &extractor) { return extractor(t, state.eventNetwork); },
-                    resourceFeatureExtractor);
+            const auto &p = problemDefinition;
+            auto taskFeats = std::visit([t = std::cref(topology), &p, &state](const auto &extractor) {
+                return extractor(t, state, p);
+            }, taskFeatureExtractor);
+            auto edgeFeats = std::visit([t = std::cref(topology), &p, &state](const auto &extractor) {
+                return extractor(t, state, p);
+            }, edgeFeatureExtractor);
+            auto resourceFeats = std::visit([t = std::cref(topology), &p, &state](const auto &extractor) {
+                return extractor(t, state, p);
+            }, resourceFeatureExtractor);
             InputGraph ret;
             using K = GraphKeys;
             ret.insert(K::TaskFeatures, std::move(taskFeats));
@@ -102,8 +111,17 @@ namespace tempo::nn {
             return ret;
         }
 
+        /**
+         * gets the stored problem definition
+         * @return problem definition
+         */
+        auto getProblem() const noexcept -> const SchedulingProblemHelper<T, R>& {
+            return problemDefinition;
+        }
+
 
     private:
+        SchedulingProblemHelper<T, R> problemDefinition;
         std::optional<TopologyBuilder> topologyExtractor;
         FeatureExtractor taskFeatureExtractor;
         FeatureExtractor edgeFeatureExtractor;

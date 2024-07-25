@@ -24,13 +24,15 @@
 #include <cassert>
 #include <vector>
 
-#include "Solver.hpp"
 #include "constraints/Constraint.hpp"
 #include "util/SparseSet.hpp"
 
 //#define DBG_SUM
 
 namespace tempo {
+
+template<typename T>
+class Solver;
 
 // enforce sum(w_i * x_i) <= bound
 template <typename T> class SumConstraint : public Constraint<T> {

@@ -91,11 +91,15 @@ TEST(nn_MinimalTopologyBuilder, MinimalBuilder_addPrecedenceEdges) {
     using namespace tempo;
     using std::views::transform;
     tempo::nn::impl::TopologyData data{.edgeLookup = tempo::nn::impl::EdgeLookup(100)};
+    auto tasks = tempo::testing::createDummyTasks(5);
+    VarTaskMapping mapping(tasks);
     auto evtViewer = transform(
-            [](const auto &dc) { return DistanceConstraint<int>(START(dc.from), END(dc.to), dc.distance); });
+            [&tasks](const auto &dc) {
+                return DistanceConstraint<int>(tasks.at(dc.from).start.id(), tasks.at(dc.to).end.id(), dc.distance);
+            });
     std::vector<DistanceConstraint<int>> edges{{1, 2, 0}, {2, 3, 2}, {3, 4, -1}};
     TestMinimalTopologyBuilder::addEdge({2, 5}, true, -1, data);
-    TestMinimalTopologyBuilder::addPrecedenceEdges(edges | evtViewer, data);
+    TestMinimalTopologyBuilder::addPrecedenceEdges(edges | evtViewer, mapping, data);
     ASSERT_EQ(data.edges.size(), 4);
     EXPECT_EQ(data.edgeIdx.size(), 1);
     EXPECT_EQ(data.edgeIdx.front(), 0);
@@ -163,14 +167,16 @@ void testEdges(const EdgeVector &edges, const EdgeSet &gtEdges, const EdgeMap &e
     }
 }
 
-
 TEST(nn_MinimalTopologyBuilder, MinimalBuilder_completeSubGraphOneResource) {
-    std::vector<int> tasks{1, 2, 3};
+    using namespace tempo;
+    auto tasks = tempo::testing::createDummyTasks(4);
+    std::vector<unsigned> taskIds{1, 2, 3};
     std::vector<int> demands{2, 1, 4};
     constexpr int Capacity = 4;
-    Resource<int> resource(tasks, demands, {}, Capacity);
+    tempo::testing::Resource resource(Capacity, std::vector(tasks.begin() + 1, tasks.end()), demands);
+    VarTaskMapping mapping(tasks);
     tempo::nn::impl::TopologyData data{.edgeLookup = tempo::nn::impl::EdgeLookup(100)};
-    TestMinimalTopologyBuilder::completeSubGraph(resource, 17, data);
+    TestMinimalTopologyBuilder::completeSubGraph(resource, 17, mapping, data);
     ASSERT_EQ(data.taskIdx.size(), 3);
     ASSERT_EQ(data.resIdx.size(), 3);
     ASSERT_EQ(data.resDemands.size(), 3);
@@ -187,7 +193,7 @@ TEST(nn_MinimalTopologyBuilder, MinimalBuilder_completeSubGraphOneResource) {
         EXPECT_EQ(r, 17);
     }
 
-    for (auto [t, gtDemand] : iterators::const_zip(tasks, demands)) {
+    for (auto [t, gtDemand] : iterators::const_zip(taskIds, demands)) {
         auto res = std::ranges::find(data.taskIdx, t);
         ASSERT_NE(res, data.taskIdx.end());
         auto idx = static_cast<std::size_t>(res - data.taskIdx.begin());
@@ -222,15 +228,22 @@ void checkEdge(const Edge &edge, const EdgeVector &allEdges, std::vector<IndexTy
 }
 
 TEST(nn_MinimalTopologyBuilder, MinimalBuilder_completeSubGraph_multiple_resources) {
+    using namespace tempo;
+    auto tasks = tempo::testing::createDummyTasks(4);
+    VarTaskMapping mapping(tasks);
     std::vector<int> tasks17{1, 2};
     std::vector<int> demands17{2, 1};
     constexpr int Capacity17 = 2;
     tempo::nn::impl::TopologyData data{.edgeLookup = tempo::nn::impl::EdgeLookup(100)};
-    TestMinimalTopologyBuilder::completeSubGraph(Resource<int>(tasks17, demands17, {}, Capacity17), 17, data);
+    TestMinimalTopologyBuilder::completeSubGraph(
+            tempo::testing::Resource(Capacity17, std::vector(tasks.begin() + 1, tasks.begin() + 3), demands17),
+            17, mapping, data);
     decltype(tasks17) tasks18{1, 2, 3};
     decltype(demands17) demands18{2, 1, 1};
     constexpr int Capacity18 = 3;
-    TestMinimalTopologyBuilder::completeSubGraph(Resource<int>(tasks18, demands18, {}, Capacity18), 18, data);
+    TestMinimalTopologyBuilder::completeSubGraph(
+            tempo::testing::Resource(Capacity18, std::vector(tasks.begin() + 1, tasks.end()), demands18),
+            18, mapping, data);
     ASSERT_EQ(data.taskIdx.size(), 5);
     ASSERT_EQ(data.resIdx.size(), 5);
     ASSERT_EQ(data.resDemands.size(), 5);

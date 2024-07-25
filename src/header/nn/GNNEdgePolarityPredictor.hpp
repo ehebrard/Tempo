@@ -11,13 +11,25 @@
 #include "GraphBuilder.hpp"
 #include "util/Matrix.hpp"
 #include "util/traits.hpp"
-#include "util/parsing/format.hpp"
+#include "Literal.hpp"
+
+namespace tempo {
+    template<typename T>
+    class Solver;
+}
 
 namespace tempo::nn::heuristics {
+
+    namespace detail {
+        bool choosePolarityFromHeatMap(unsigned taskFrom, unsigned taskTo, const Matrix<DataType> &heatMap);
+    }
+
+
     /**
      * GNN based value selection heuristic that predicts a probability for each edge and returns the polarity of
      * choicepoint accordingly
      */
+    template<concepts::scalar T, SchedulingResource R>
     class GNNEdgePolarityPredictor {
     public:
         /**
@@ -29,39 +41,48 @@ namespace tempo::nn::heuristics {
          */
         GNNEdgePolarityPredictor(const std::filesystem::path &modelLocation,
                                  const std::filesystem::path &featureExtractorConfigLocation,
-                                 const ProblemInstance &problemInstance);
+                                 SchedulingProblemHelper<T, R> problemInstance) :
+                gnn(modelLocation),
+                graphBuilder(featureExtractorConfigLocation, std::move(problemInstance)) {}
 
         /**
          * Returns the choice point in the appropriate polarity according to a GNN edge regressor
-         * @param cp choicepoint to evaluate
-         * @return cp or ~cp according to the GNN heat map
+         * @param x variable for which to make a choice
+         * @return corresponding positive or negative literal according to the GNN
          */
-        template<typename Sched>
-        requires(traits::is_same_template_v<DistanceConstraint, decltype(std::declval<Sched>().getEdge(
-                std::declval<lit>()))>)
-        lit choose(tempo::var cp, const Sched &scheduler) const{
-            // @TODO does not work anymore!!!
-            auto [from, to] = scheduler.getEdge(POS(cp));
-            return choosePolarityFromHeatMap(from, to, edgeHeatMap) ? POS(cp) : NEG(cp);
+        auto choose(var_t x, const Solver<T> &solver) const -> Literal<T> {
+            auto edge = solver.boolean.getEdge(true, x);
+            auto edgeRev = solver.boolean.getEdge(false, x);
+            const auto &mapping = graphBuilder.getProblem().getMapping();
+            assert(mapping.contains(edge.from));
+            assert(mapping.contains(edge.to));
+            assert(mapping.contains(edgeRev.from));
+            assert(mapping.contains(edgeRev.to));
+            unsigned from = mapping(edge.from);
+            unsigned to = mapping(edge.to);
+            unsigned rfrom = mapping(edgeRev.from);
+            unsigned rto = mapping(edgeRev.to);
+            if (from != rto or to != rfrom) {
+                // @TODO not strictly necessary. simply allow distances between different tasks and use DST for probs
+                throw std::runtime_error("positive and negative edges have different tasks as endpoints.");
+            }
+
+            return solver.boolean.getLiteral(detail::choosePolarityFromHeatMap(from, to, edgeHeatMap), x);
         }
 
         /**
          * Runs the GNN to produce an edge heat map
-         * @param scheduler scheduler instance for which to produce the heat map
+         * @param solver scheduler instance for which to produce the heat map
          */
-        template<concepts::scalar T>
-        void preEvaluation(const Scheduler<T> &scheduler) {
-            auto graph = graphBuilder.getGraph(
-                    makeSolverState([&](event from, event to) { return scheduler.distance(from, to); }));
+        void preEvaluation(const Solver<T> &solver) {
+            auto taskNetwork = graphBuilder.getProblem().getTaskDistances(solver);
+            auto graph = graphBuilder.getGraph(makeSolverState(std::move(taskNetwork), solver));
             edgeHeatMap = gnn.getHeatMap(graph);
         }
 
-    protected:
-        static bool choosePolarityFromHeatMap(event from, event to, const Matrix<DataType> &heatMap);
-
     private:
         EdgeRegressor gnn;
-        GraphBuilder graphBuilder;
+        GraphBuilder<T, R> graphBuilder;
         Matrix<DataType> edgeHeatMap{};
     };
 }

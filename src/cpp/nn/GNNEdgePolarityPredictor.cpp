@@ -11,20 +11,12 @@
 
 namespace tempo::nn::heuristics {
 
-    GNNEdgePolarityPredictor::GNNEdgePolarityPredictor(const std::filesystem::path &modelLocation,
-                                                       const std::filesystem::path &featureExtractorConfigLocation,
-                                                       const ProblemInstance &problemInstance) :
-            gnn(modelLocation),
-            graphBuilder(featureExtractorConfigLocation, problemInstance) {}
-
-    bool GNNEdgePolarityPredictor::choosePolarityFromHeatMap(event from, event to, const Matrix<DataType> &heatMap) {
-        from = TASK(from);
-        to = TASK(to);
-        const auto edgeProb = heatMap(from, to);
-        const auto inverseProb = heatMap(to, from);
+    bool detail::choosePolarityFromHeatMap(unsigned taskFrom, unsigned taskTo, const Matrix<DataType> &heatMap) {
+        const auto edgeProb = heatMap(taskFrom, taskTo);
+        const auto inverseProb = heatMap(taskTo, taskFrom);
         if (edgeProb == GNN::NoValue or inverseProb == GNN::NoValue) {
             std::stringstream ss;
-            ss << "Invalid edge in GNN: task edge " << from << " -> " << to << std::endl;
+            ss << "Invalid edge in GNN: task edge " << taskFrom << " -> " << taskTo << std::endl;
             throw std::runtime_error(ss.str());
         }
 

@@ -11,8 +11,7 @@ namespace tempo::heuristics::impl {
     /**
      * @brief Records activity for literals. Activity of inactive literals decays which each update
      */
-template<typename T>
-    class DecayingEventActivityMap : public EventActivityMap<T> {
+    class DecayingEventActivityMap : public EventActivityMap {
     public:
         /**
          * @copydoc ActivityMap::ActivityMap
@@ -25,9 +24,10 @@ template<typename T>
 //                throw std::runtime_error("invalid decay value");
 //            }
 //        }
-        
+
+        template<concepts::scalar T>
         explicit DecayingEventActivityMap(Solver<T> &solver, double decay) :
-        EventActivityMap<T>(solver), decay(decay) {
+        EventActivityMap(solver), decay(decay) {
             if (decay <= 0 or decay > 1) {
                 throw std::runtime_error("invalid decay value");
             }
@@ -43,24 +43,25 @@ template<typename T>
 //            EventActivityMap<T>::numeric_activity[x] += increment;
 //            return (EventActivityMap<T>::numeric_activity[x] > maxActivity);
 //        }
-        
+
+        template<concepts::scalar T>
         bool incrementActivity(const Literal<T> l, const Solver<T>& solver) noexcept {
             
 //            std::cout << "increment activity of " << l << std::endl;
             
             bool need_rescaling{false};
             if(l.isNumeric()) {
-                EventActivityMap<T>::numeric_activity[l.variable()] += increment;
-                need_rescaling = EventActivityMap<T>::numeric_activity[l.variable()] > maxActivity;
+                EventActivityMap::numeric_activity[l.variable()] += increment;
+                need_rescaling = EventActivityMap::numeric_activity[l.variable()] > maxActivity;
             } else {
-                EventActivityMap<T>::boolean_activity[l.variable()] += increment;
-                need_rescaling = EventActivityMap<T>::boolean_activity[l.variable()] > maxActivity;
+                EventActivityMap::boolean_activity[l.variable()] += increment;
+                need_rescaling = EventActivityMap::boolean_activity[l.variable()] > maxActivity;
                 if(l.hasSemantic()) {
                     auto c{solver.boolean.getEdge(l)};
-                    EventActivityMap<T>::numeric_activity[c.from] += increment;
-                    EventActivityMap<T>::numeric_activity[c.to] += increment;
-                    need_rescaling |= EventActivityMap<T>::numeric_activity[c.from] > maxActivity;
-                    need_rescaling |= EventActivityMap<T>::numeric_activity[c.to] > maxActivity;
+                    EventActivityMap::numeric_activity[c.from] += increment;
+                    EventActivityMap::numeric_activity[c.to] += increment;
+                    need_rescaling |= EventActivityMap::numeric_activity[c.from] > maxActivity;
+                    need_rescaling |= EventActivityMap::numeric_activity[c.to] > maxActivity;
                 }
             }
             return need_rescaling;
@@ -121,7 +122,7 @@ template<typename T>
 //            increment /= decay;
 //        }
         
-        template<class Iterable>
+        template<class Iterable, concepts::scalar T>
         void update(Iterable &clause, const Solver<T>& solver) noexcept {
 
             bool normalize = false;

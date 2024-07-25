@@ -20,8 +20,7 @@ namespace tempo::heuristics {
      * the the number of calls to the function VSIDS::updateActivity
      * The final score of a literal is inversely proportional to its activity (@see getCost)
      */
-    template<typename T>
-    class VSIDS : public RankingHeuristic<VSIDS<T>> {
+    class VSIDS : public RankingHeuristic<VSIDS> {
     public:
 
 
@@ -29,6 +28,7 @@ namespace tempo::heuristics {
          * CTor. Infers parameters from given scheduler. Subscribes to events of interest
          * @param solver target solver
          */
+        template<concepts::scalar T>
         explicit VSIDS(Solver<T> &solver) :
                 activity(solver, solver.getOptions().vsids_decay),
                 handlerToken(solver.ClauseAdded.subscribe_handled(
@@ -45,6 +45,7 @@ namespace tempo::heuristics {
 
         ~VSIDS() = default;
 
+        template<concepts::scalar T>
         [[nodiscard]] double getCost(const var_t x, const Solver<T> &solver) const {
 
             //@TODO: there shoud be a normalization thingy and Boolean variables without semantic should get the highest value
@@ -74,12 +75,13 @@ namespace tempo::heuristics {
          * @param solver
          * @todo currently only selects boolean variables
          */
+        template<concepts::scalar T>
         auto nextVariable(const Solver<T> &solver) const -> VariableSelection {
             return {this->bestVariable(solver.getBranch(), solver), VariableType::Boolean};
         }
 
     private:
-        impl::DecayingEventActivityMap<T> activity;
+        impl::DecayingEventActivityMap activity;
         SubscriberHandle handlerToken;
     };
 }
