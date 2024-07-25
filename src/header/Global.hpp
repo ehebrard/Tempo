@@ -37,17 +37,17 @@ using info_t = std::uint32_t;
 using index_t = std::uint32_t;
 // for Boolean variables that can be undefined [used only for the output of solver.satisfiable()?]
 using boolean_state = int;
-#define True 1
-#define False 0
-#define Unknown -1
+#define TrueState 1
+#define FalseState 0
+#define UnknownState -1
 // primitive type given to an explanation algorithm together with the literal to explain [used to encode the relevant info to be able to explain]
 using hint = int;
 #define NoHint -1
 
-//#define DBG_BOUND (num_fails >= 0)
-//#define DBG_CBOUND (solver.num_fails >= 0)
-//#define DBG_BBOUND (sched.num_fails >= 0) //(sched.num_fails >= 236)
-//#define DBG_TRACE 83                      // 183 //1+2+4+32+128
+#define DBG_BOUND (num_fails >= 0)
+#define DBG_CBOUND (solver.num_fails >= 0)
+#define DBG_BBOUND (sched.num_fails >= 0) //(sched.num_fails >= 236)
+#define DBG_TRACE 83                      // 183 //1+2+4+32+128
 #define SEARCH 1
 #define DOMAINS 2
 #define BRANCH 4

@@ -368,8 +368,10 @@ public:
     // a model object pointing to it
     BooleanVar<T> newDisjunct(const DistanceConstraint<T> &d1,
                               const DistanceConstraint<T> &d2, const var_t opt);
-    // return a variable
+    // returns the constant 0
     NumericVar<T> zero() { return NumericVar<T>(0); }
+    // returns the constant true
+    BooleanVar<T> truism() { return BooleanVar<T>(0); }
     // create an internal numeric variable and return a model object pointing to it
     NumericVar<T> newNumeric(const T lb = -Constant::Infinity<T>,
                              const T ub = Constant::Infinity<T>);
@@ -391,8 +393,8 @@ public:
                                      const BooleanVar<T> opt = Constant::NoVar
                             );
 
-    Interval<T> between(const NumericVar<T> s, const NumericVar<T> e);
-    Interval<T> continuefor(const NumericVar<T> s, const NumericVar<T> d);
+    Interval<T> between(const NumericVar<T> s, const NumericVar<T> e, const bool opt=false);
+    Interval<T> continuefor(const NumericVar<T> s, const NumericVar<T> d, const bool opt=false);
     //@}
 
     /**
@@ -518,8 +520,8 @@ public:
     template <typename S> void optimize(S &objective);
 
     boolean_state satisfiable();
-    void minimize(NumericVar<T> &x);
-    void maximize(NumericVar<T> &x);
+    void minimize(const NumericVar<T> x);
+    void maximize(const NumericVar<T> x);
 
     void restart(const bool on_solution = false);
     void backtrack(Explanation<T> &e);
@@ -913,8 +915,13 @@ template <typename T> bool BooleanStore<T>::hasSemantic(const var_t x) const {
 }
 
 template <typename T> BooleanStore<T>::BooleanStore(Solver<T> &s) : solver(s) {
-    edges.push_back(Constant::NoEdge<T>);
-    edges.push_back(Constant::NoEdge<T>);
+  // I don't remember what's that for
+  edges.push_back(Constant::NoEdge<T>);
+  edges.push_back(Constant::NoEdge<T>);
+
+  // this is to have the constants true/false
+  auto x{newVar()};
+  set(makeBooleanLiteral<T>(true, x.id()));
 }
 
 template <typename T> size_t BooleanStore<T>::size() const {
@@ -1390,15 +1397,17 @@ Interval<T> Solver<T>::newInterval(const T mindur, const T maxdur,
 }
 
 template <typename T>
-Interval<T> Solver<T>::between(const NumericVar<T> s, const NumericVar<T> e) {
-  Interval<T> i(*this, s, e, e - s);
+Interval<T> Solver<T>::between(const NumericVar<T> s, const NumericVar<T> e, const bool optional) {
+  Interval<T> i(*this, s, e, e - s, (optional ? newBoolean() : BooleanVar<T>(Constant::True)));
   post(i.duration >= 0);
   return i;
 }
 
 template <typename T>
-Interval<T> Solver<T>::continuefor(const NumericVar<T> s, const NumericVar<T> d) {
-  Interval<T> i(*this, s, s+d, d);
+Interval<T> Solver<T>::continuefor(const NumericVar<T> s, const NumericVar<T> d, const bool optional) {
+    
+//    BooleanVar<T> o{};
+  Interval<T> i(*this, s, s+d, d, (optional ? newBoolean() : BooleanVar<T>(Constant::True)));
   return i;
 }
 
@@ -2174,12 +2183,16 @@ template <typename T> void Solver<T>::initializeSearch() {
 template <typename T> boolean_state Solver<T>::satisfiable() {
     initializeSearch();
     auto satisfiability{search()};
-    if (satisfiability == True) {
+    if (satisfiability == TrueState) {
       boolean.saveSolution();
       numeric.saveSolution();
     }
     if(options.verbosity >= Options::QUIET)
-        displaySummary(std::cout, (satisfiability == True ? "sat " : (satisfiability == False ? "unsat " : "unknown ")));
+      displaySummary(
+          std::cout,
+          (satisfiability == TrueState
+               ? "sat "
+               : (satisfiability == FalseState ? "unsat " : "unknown ")));
     return satisfiability;
 }
 
@@ -2258,12 +2271,12 @@ template <typename T> void Solver<T>::check_clauses(const char* msg) {
   }
 }
 
-template <typename T> void Solver<T>::minimize(NumericVar<T> &x) {
+template <typename T> void Solver<T>::minimize(const NumericVar<T> x) {
   MinimizationObjective<T> objective(x);
   optimize(objective);
 }
 
-template <typename T> void Solver<T>::maximize(NumericVar<T> &x) {
+template <typename T> void Solver<T>::maximize(const NumericVar<T> x) {
   MaximizationObjective<T> objective(x);
   optimize(objective);
 }
@@ -2271,14 +2284,14 @@ template <typename T> void Solver<T>::maximize(NumericVar<T> &x) {
 template <typename T>
 template <typename S>
 void Solver<T>::optimize(S &objective) {
-
+    objective.X.extract(*this);
   initializeSearch();
 //    if(options.verbosity >= Options::QUIET)
 //    displayHeader(std::cout);
 
   while (objective.gap() and not KillHandler::instance().signalReceived()) {
     auto satisfiability = search();
-    if (satisfiability == True) {
+    if (satisfiability == TrueState) {
       auto best{objective.value(*this)};
       if (options.verbosity >= Options::NORMAL) {
         std::cout << std::setw(10) << best;
@@ -2293,7 +2306,7 @@ void Solver<T>::optimize(S &objective) {
       } catch (Failure<T> &f) {
         objective.setDual(objective.primalBound());
       }
-    } else if (satisfiability == False) {
+    } else if (satisfiability == FalseState) {
       objective.setDual(objective.primalBound());
     }
   }
@@ -2305,8 +2318,8 @@ void Solver<T>::optimize(S &objective) {
 template <typename T> boolean_state Solver<T>::search() {
 
   init_level = env.level();
-  boolean_state satisfiability{Unknown};
-  while (satisfiability == Unknown and
+  boolean_state satisfiability{UnknownState};
+  while (satisfiability == UnknownState and
          not KillHandler::instance().signalReceived()) {
 
     try {
@@ -2324,7 +2337,7 @@ template <typename T> boolean_state Solver<T>::search() {
 
       // all resource constraints are accounted for => a solution has been found
       if (boolean_search_vars.empty() /* and numeric_search_vars.empty()*/) {
-        satisfiability = True;
+        satisfiability = TrueState;
 
 #ifdef DBG_TRACE
         if (DBG_BOUND) {
@@ -2360,7 +2373,7 @@ template <typename T> boolean_state Solver<T>::search() {
           restart();
         }
       } catch (const SearchExhausted &f) {
-        satisfiability = False;
+        satisfiability = FalseState;
       }
     }
   }

@@ -232,6 +232,9 @@ public:
 var_t id() const { return (ExpressionFlag::_is_expression ? implem->id() : data._id_); }
     
     index_t semantic() const { return (ExpressionFlag::_is_expression ? implem->semantic() : data._edge_id_); }
+    
+    bool isTrue(Solver<T>& s) const { return s.boolean.isTrue(id()); }
+    bool isFalse(Solver<T>& s) const { return s.boolean.isFalse(id()); }
 
   operator var_t() const { return id(); }
 
@@ -332,39 +335,10 @@ public:
            const T latest_start = Constant::Infinity<T>,
            const T earliest_end = -Constant::Infinity<T>,
            const T latest_end = Constant::Infinity<T>,
-           const BooleanVar<T> opt = Constant::NoVar);
+           const BooleanVar<T> opt = Constant::True);
 
   Interval(Solver<T> &solver, const NumericVar<T> s, const NumericVar<T> e,
-           const NumericVar<T> d, const BooleanVar<T> opt = Constant::NoVar);
-
-  //    Interval(Solver<T> &solver, NumericVar<T>& dur,
-  //             const T earliest_start = -Constant::Infinity<T>,
-  //             const T latest_start = Constant::Infinity<T>,
-  //             const T earliest_end = -Constant::Infinity<T>,
-  //             const T latest_end = Constant::Infinity<T>,
-  //             const BooleanVar<T> opt = Constant::NoVar);
-  //
-  //    Interval(Solver<T> &solver, const T mindur = 0,
-  //             const T maxdur = Constant::Infinity<T>,
-  //             NumericVar<T>& s,
-  //             const T earliest_end = -Constant::Infinity<T>,
-  //             const T latest_end = Constant::Infinity<T>,
-  //             const BooleanVar<T> opt = Constant::NoVar);
-  //
-  //    Interval(Solver<T> &solver, const T mindur = 0,
-  //             const T maxdur = Constant::Infinity<T>,
-  //             const T earliest_start = -Constant::Infinity<T>,
-  //             const T latest_start = Constant::Infinity<T>,
-  //             NumericVar<T>& e,
-  //             const BooleanVar<T> opt = Constant::NoVar);
-
-  //
-  //
-  //           Solver<T> &s, const T mindur = 0,
-  //           const T maxdur = Constant::Infinity<T>,
-  //           const BooleanVar<T> opt = Constant::NoVar);
-
-  //    Interval(const Interval<T>&) = default;
+           const NumericVar<T> d, const BooleanVar<T> opt = Constant::True);
 
   T getEarliestStart(Solver<T> &s) const;
   T getLatestStart(Solver<T> &s) const;
@@ -389,9 +363,10 @@ public:
   NumericVar<T> end;
   NumericVar<T> duration;
 
-  bool isOptional() const { return exist.id() != Constant::NoVar; }
+  //  bool isOptional() const { return exist.id() != Constant::NoVar; }
+  bool isOptional(Solver<T> &s) const { return not exist.isTrue(s); }
 
-  BooleanVar<T> exist{Constant::NoVar};
+    BooleanVar<T> exist{Constant::True};
 };
 
 template <typename T = int>
@@ -1264,8 +1239,23 @@ public:
   void post(Solver<T> &solver) override {
     for (auto a{this->begin()}; a != this->end(); ++a) {
       for (auto b{a + 1}; b != this->end(); ++b) {
-        if (a->isOptional() and b->isOptional()) {
+        auto t_ab{0};
+        auto t_ba{0};
+        auto ai{static_cast<size_t>(a - this->begin())};
+        auto bi{static_cast<size_t>(b - this->begin())};
+        if (ai < transitions.size() and bi < transitions[ai].size()) {
+          t_ab = transitions[ai][bi];
+        }
+        if (bi < transitions.size() and ai < transitions[bi].size()) {
+          t_ba = transitions[bi][ai];
+        }
+
+        auto a_before_b{a->end.before(b->start, t_ab)};
+        auto b_before_a{b->end.before(a->start, t_ba)};
+
+        if (a->isOptional(solver) and b->isOptional(solver)) {
           BooleanVar<T> x = solver.newBoolean();
+
           std::vector<Literal<T>> cl{x == false, a->exist == true};
           solver.clauses.add(cl.begin(), cl.end());
 
@@ -1275,21 +1265,22 @@ public:
           cl = {x == true, a->exist == false, b->exist == false};
           solver.clauses.add(cl.begin(), cl.end());
 
-          disjunct.push_back(solver.newDisjunct(
-              a->end.before(b->start), b->end.before(a->start), x.id()));
+          disjunct.push_back(
+              solver.newDisjunct(a_before_b, b_before_a, x.id()));
 
           relevant.push_back(x);
-        } else if (a->isOptional()) {
-          disjunct.push_back(solver.newDisjunct(
-              a->end.before(b->start), b->end.before(a->start), a->exist.id()));
-          //                relevant.push_back(a->exist);
-        } else if (b->isOptional()) {
-          disjunct.push_back(solver.newDisjunct(
-              a->end.before(b->start), b->end.before(a->start), b->exist.id()));
-          //                relevant.push_back(b->exist);
+        } else if (a->isOptional(solver)) {
+          disjunct.push_back(
+              solver.newDisjunct(a_before_b, b_before_a, a->exist.id()));
+        } else if (b->isOptional(solver)) {
+          disjunct.push_back(
+              solver.newDisjunct(a_before_b, b_before_a, b->exist.id()));
         } else {
-          disjunct.push_back(solver.newDisjunct(a->end.before(b->start),
-                                                b->end.before(a->start)));
+
+          //            std::cout << a_before_b << " or " << b_before_a <<
+          //            std::endl;
+
+          disjunct.push_back(solver.newDisjunct(a_before_b, b_before_a));
         }
 
         solver.addToSearch(disjunct.back());
@@ -1307,6 +1298,17 @@ public:
       }
   }
 
+  template <typename Matrix> void setTransisions(const Matrix &D) {
+    transitions.resize(D.size());
+    index_t i{0};
+    for (auto &row : D) {
+      for (auto t : row) {
+        transitions[i].push_back(t);
+      }
+      ++i;
+    }
+  }
+
   std::vector<BooleanVar<T>>::iterator begDisjunct() {
     return disjunct.begin();
   }
@@ -1316,6 +1318,7 @@ private:
   Interval<T> schedule;
   std::vector<BooleanVar<T>> disjunct;
   std::vector<BooleanVar<T>> relevant;
+  std::vector<std::vector<T>> transitions;
 };
 
 template <typename T = int> class NoOverlapExpression : public BooleanVar<T> {
@@ -1345,14 +1348,26 @@ public:
     static_cast<NoOverlapExpressionImpl<T> *>(BooleanVar<T>::implem)
         ->push_back(i);
   }
+
+  template <typename Matrix> void setTransisions(const Matrix &D) {
+    static_cast<NoOverlapExpressionImpl<T> *>(BooleanVar<T>::implem)
+        ->setTransisions(D);
+  }
 };
 
-template <typename T, typename Iterable>
-NoOverlapExpression<T> NoOverlap(Interval<T> &schedule, Iterable &X) {
+template <typename T, typename Iterable, typename Matrix>
+NoOverlapExpression<T> NoOverlap(Interval<T> &schedule, const Iterable &X,
+                                 const Matrix &D) {
   auto impl{new NoOverlapExpressionImpl<T>(schedule)};
-  for (auto x : X)
-    impl->push_back(x);
+  //  for (auto x : X)
+  //    impl->push_back(x);
   NoOverlapExpression<T> exp(impl);
+
+  for (auto x : X)
+    exp.push_back(x);
+
+  exp.setTransisions(D);
+
   return exp;
 }
 
@@ -1519,9 +1534,6 @@ std::ostream &operator<<(std::ostream &os, const NumericVar<T> &x) {
 /*!
  Interval  impl
 */
-// template <typename T>
-// Interval<T>::Interval(Solver<T> &solver, const T mindur, const T maxdur,
-//                       const BooleanVar<T> opt) {
 
 template <typename T>
 Interval<T>::Interval(Solver<T> &solver, const NumericVar<T> s,
@@ -1529,7 +1541,7 @@ Interval<T>::Interval(Solver<T> &solver, const NumericVar<T> s,
                       const BooleanVar<T> o)
     : start(s), end(e), duration(d), exist(o) {
 
-//  std::cout << "\ncreate start\n";
+  //  std::cout << "\ncreate start\n";
   start.extract(solver);
 
 //  std::cout << "\ncreate end\n";
@@ -1537,6 +1549,9 @@ Interval<T>::Interval(Solver<T> &solver, const NumericVar<T> s,
 
 //  std::cout << "\ncreate duration\n";
   duration.extract(solver);
+        
+        exist.extract(solver);
+        
   //
   //  solver.post((start + duration) == end);
         if(start.id() != end.id()) {
@@ -1551,7 +1566,7 @@ template <typename T>
 Interval<T>::Interval(Solver<T> &solver, const T mindur, const T maxdur,
                       const T earliest_start, const T latest_start,
                       const T earliest_end, const T latest_end,
-                      const BooleanVar<T> opt) {
+                      const BooleanVar<T> opt) : exist(opt) {
 
   //    if(earliest_start == latest_start) {
   //        start = solver.newNumeric(earliest_start, latest_start);
@@ -1629,7 +1644,7 @@ Interval<T>::Interval(Solver<T> &solver, const T mindur, const T maxdur,
       duration = NumericVar(end.id(), -s);
     }
   }
-  exist = opt;
+//  exist = opt;
 }
 
 template <typename T> int Interval<T>::id() const { return start.id(); }

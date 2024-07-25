@@ -31,6 +31,7 @@ void parse(const std::string &fn, M &solver, J &schedule,
       int path = 0;
       int path_length;
       int nw{0};
+      int np{0};
       int w;
       
       std::vector<bool> nowait;
@@ -143,6 +144,31 @@ void parse(const std::string &fn, M &solver, J &schedule,
           intervals.push_back(j);
           resources[mach].push_back(j);
         }
+      } else {
+          iss >> np;
+          for(auto i{0}; i<np; ++i) {
+              int x, y;
+              iss >> x;
+              iss >> y;
+//              std::cout << x << " " << y+1  << " and  " << x+1 << " " << y << std::endl;
+              
+              solver.addToSearch(solver.newDisjunct(intervals[x].start.after(intervals[y+1].end), intervals[y].start.after(intervals[x+1].end)));
+          }
+//          int count{0};
+//          std::cout << "swaps!\n";
+//          while (iss) {
+//              int x, y;
+//              iss >> x;
+//              
+//              if(not iss)
+//                  break;
+//              iss >> y;
+//              if(not iss)
+//                  std::cout << "not right\n";
+//              else
+//                  std::cout << ++count << ": " << x << " " << y+1  << " and  " << x+1 << " " << y << std::endl;
+//          }
+//          exit(1);
       }
     }
   } catch (std::exception &e) {

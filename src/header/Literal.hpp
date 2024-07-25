@@ -262,9 +262,10 @@ constexpr auto makeNumericLiteral(bool sign, var_t variableId, T value) noexcept
  * @param info semantic info
  * @note prefer using this function when constructing boolean literals over the constructor
  */
-template<concepts::scalar T>
-constexpr auto makeBooleanLiteral(bool sign, var_t variableId, info_t info) noexcept {
-    return Literal<T>(sign, variableId, info, detail::Boolean{});
+template <concepts::scalar T>
+constexpr auto makeBooleanLiteral(bool sign, var_t variableId,
+                                  info_t info = Constant::NoSemantic) noexcept {
+  return Literal<T>(sign, variableId, info, detail::Boolean{});
 }
 
 template <typename T>

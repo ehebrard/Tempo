@@ -27,6 +27,7 @@
 #include "util/parsing/jstl.hpp"
 #include "util/parsing/osp.hpp"
 #include "util/parsing/path.hpp"
+#include "util/parsing/tsptw.hpp"
 
 using namespace tempo;
 
@@ -148,6 +149,7 @@ int main(int argc, char *argv[]) {
   std::vector<NoOverlapExpression<>> resources;
   std::vector<std::vector<Interval<>>> resource_tasks;
   std::vector<Interval<>> intervals;
+  std::vector<std::vector<std::vector<int>>> resource_transitions;
 
   //    SchedulingModel<T> model;
 
@@ -157,32 +159,37 @@ int main(int argc, char *argv[]) {
     jsp::parse(opt.instance_file, S, schedule, intervals, resource_tasks);
   } else if (opt.input_format == "path") {
     path::parse(opt.instance_file, S, schedule, intervals, resource_tasks);
-  }
-  //    else if (opt.input_format == "tsptw") {
-  //        tsptw::parse(opt.instance_file, S, schedule, intervals,
-  //        resources);
-  //    }
-  else if (opt.input_format == "jstl") {
+  } else if (opt.input_format == "tsptw") {
+    tsptw::parse(opt.instance_file, S, schedule, intervals, resource_tasks,
+                 resource_transitions);
+  } else if (opt.input_format == "jstl") {
     jstl::parse(opt.instance_file, S, schedule, intervals, resource_tasks);
   }
 
-//  std::vector<NoOverlapExpression<>> res;
+  resource_transitions.resize(resource_tasks.size());
+
+  //  std::vector<NoOverlapExpression<>> res;
+  index_t i{0};
   for (auto &tasks : resource_tasks) {
-    auto no_overlap{NoOverlap(schedule, tasks)};
+    auto no_overlap{NoOverlap(schedule, tasks, resource_transitions[i++])};
     resources.push_back(no_overlap);
     S.post(no_overlap);
   }
 
   // set a trivial (and the user-defined) upper bound
-  auto trivial_ub{0};
+  int total_duration{0};
+  int max_start{0};
   for (auto &j : intervals) {
     if (j.maxDuration(S) == Constant::Infinity<int>) {
-      trivial_ub = Constant::Infinity<int>;
+      total_duration = Constant::Infinity<int>;
       break;
     }
-    trivial_ub += j.maxDuration(S);
+    total_duration += j.maxDuration(S);
+
+    if (j.start.min(S) > max_start)
+      max_start = j.start.min(S);
   }
-  auto ub{std::min(opt.ub, trivial_ub)};
+  auto ub{std::min(opt.ub, max_start + total_duration)};
 
   //    S.post(schedule.end <= ub);
   S.post(schedule.end.before(ub));
@@ -191,6 +198,7 @@ int main(int argc, char *argv[]) {
     std::cout << S << std::endl;
   }
 
+    if(opt.greedy_runs > 0)
   warmstart(S, schedule, intervals, resources, ub);
 
   // search
