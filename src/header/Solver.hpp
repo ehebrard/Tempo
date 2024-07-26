@@ -323,17 +323,15 @@ public:
      * @name subscribable events
      */
     ///@{
-    mutable SubscribableEvent<> ChoicePoint; ///< triggered on choicepoints
+    mutable SubscribableEvent<Literal<T>> ChoicePoint; ///< triggered on choicepoints
     mutable SubscribableEvent<const std::vector<Literal<T>> &>
     ClauseAdded; ///< triggered when a new clause is learned
     mutable SubscribableEvent<Explanation<T> &>
     ConflictEncountered; ///< triggered when a conflict is encountered
+    mutable SubscribableEvent<> BackTrackCompleted; ///< triggered after a successful backtrack
     mutable SubscribableEvent<> SearchRestarted; ///< triggered on restart
-    //    mutable SubscribableEvent<T, T, std::function<T(event, event)>,
-    //    std::size_t> SolutionFound; ///< triggered when a solution is found
-    //    mutable SubscribableEvent<std::function<T(event, event)>, std::size_t>
-    //    SignificantSubstepFound; ///< triggered when an interesting partial
-    //    solution has been found
+    mutable SubscribableEvent<const Solver<T> &> SolutionFound; ///< triggered when a solution is found
+    mutable SubscribableEvent<const Solver<T> &> PropagationCompleted; ///< triggered after a successful propagation
     ///@}
     
     /**
@@ -1408,7 +1406,7 @@ Interval<T> Solver<T>::between(const NumericVar<T> s, const NumericVar<T> e, con
 
 template <typename T>
 Interval<T> Solver<T>::continuefor(const NumericVar<T> s, const NumericVar<T> d, const bool optional) {
-    
+
 //    BooleanVar<T> o{};
   Interval<T> i(*this, s, s+d, d, (optional ? newBoolean() : BooleanVar<T>(Constant::True)));
   return i;
@@ -1563,7 +1561,7 @@ void Solver<T>::setBoolean(Literal<T> l, const Explanation<T> &e) {
         std::cout << "set " << pretty(l) << " @" << trail.size() << " b/c " << e << std::endl;
     }
 #endif
-    
+
     reason.emplace_back(e);
     trail.push_back(l);
     boolean.set(l);
@@ -2347,6 +2345,7 @@ template <typename T> boolean_state Solver<T>::search() {
       // all resource constraints are accounted for => a solution has been found
       if (boolean_search_vars.empty() /* and numeric_search_vars.empty()*/) {
         satisfiability = TrueState;
+        SolutionFound.trigger(*this);
 
 #ifdef DBG_TRACE
         if (DBG_BOUND) {
@@ -2357,10 +2356,10 @@ template <typename T> boolean_state Solver<T>::search() {
 
       } else {
         ++num_choicepoints;
-        ChoicePoint.trigger();
 
         Literal<T> d = heuristic.branch(*this);
         decisions.push_back(d);
+        ChoicePoint.trigger(d);
 
 #ifdef DBG_TRACE
         if (DBG_BOUND) {
@@ -2377,6 +2376,7 @@ template <typename T> boolean_state Solver<T>::search() {
     } catch (Failure<T> &f) {
       try {
         backtrack(f.reason);
+        BackTrackCompleted.trigger();
         if (restartPolicy.limit()) {
           restart();
         }
