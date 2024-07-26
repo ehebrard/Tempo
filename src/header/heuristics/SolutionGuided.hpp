@@ -10,78 +10,56 @@
 #include <vector>
 
 #include "BaseBooleanHeuristic.hpp"
-#include "TightestValue.hpp"
-#include "util/SubscribableEvent.hpp"
-
-namespace tempo {
-    template <typename T> class Solver;
-}
+#include "heuristics/heuristic_interface.hpp"
 
 namespace tempo::heuristics {
 
-namespace detail {
-template <typename Sched>
-concept solution_provider = requires(const Sched &s, var_t x) {
-  { s.hasSolution() } -> std::convertible_to<bool>;
-  { s.getSolution()[x] } -> std::convertible_to<bool>;
-};
-}
+    namespace detail {
+        template<typename Sched>
+        concept solution_provider = requires(const Sched &s, var_t x) {
+            { s.boolean.hasSolution() } -> std::convertible_to<bool>;
+            { s.boolean.bestSolution() } -> std::same_as<const std::vector<bool> &>;
+        };
+    }
 
-/**
- * @brief Solution guided value selection heuristic.
- * @details @copybrief
- * Performs the first decent using tempo::heuristics::TightestValue. After that
- * follows the most recent solution
- */
-template <class BaseHeuristic>
-class SolutionGuided
-    : public BaseBooleanHeuristic<SolutionGuided<BaseHeuristic>> {
-public:
-  /**
-   * Ctor.
-   * @param epsilon see tempo::heuristics::BaseValueHeuristic
-   */
-  template <class... arguments>
-  explicit SolutionGuided(double epsilon, arguments &&...args)
-      : BaseBooleanHeuristic<SolutionGuided>(epsilon),
-        h(std::forward<arguments>(args)...) {}
+    /**
+     * @brief Solution guided value selection heuristic.
+     * @details @copybrief
+     * Performs the first decent using some base heuristic. After that follows the most recent solution
+     */
+    template<class BaseHeuristic>
+    class SolutionGuided : public BaseBooleanHeuristic<SolutionGuided<BaseHeuristic>> {
+        BaseHeuristic h;
+    public:
+        /**
+         * Ctor.
+         * @tparam Args
+         * @param epsilon see tempo::heuristics::BaseValueHeuristic
+         * @param args arguments to base heuristic
+         */
+        template<class... Args>
+        explicit SolutionGuided(double epsilon, Args &&...args): BaseBooleanHeuristic<SolutionGuided>(epsilon),
+                                                                 h(std::forward<Args>(args)...) {}
 
-  /**
-   * heuristic interface
-   * @tparam T timing type
-   * @tparam S class that provides previously encountered solutions
-   */
-  template <typename T>
-  [[nodiscard]] auto choose(var_t, const Solver<T> &) const {
+        /**
+         * heuristic interface
+         * @tparam S class that provides previously encountered solutions
+         */
+        template<detail::solution_provider S>
+        requires(heuristics::value_heuristic<BaseHeuristic, S> and boolean_info_provider<S>)
+        [[nodiscard]] auto choose(var_t x, const S &solver) {
+            const auto &b = solver.boolean;
+            if (not b.hasSolution()) {
+                return h.valueDecision({x, VariableType::Boolean}, solver);
+            }
 
-    //    if (solver.boolean.hasSolution()) {
-    //      return solver.boolean.value(x);
-    //    } else {
-    //      if (not solver.boolean.hasSemantic(x)) {
-    //        return true;
-    //      }
-    //
-    //      auto edgePos = solver.boolean.getEdge(true, x);
-    //      auto edgeNeg = solver.boolean.getEdge(false, x);
-    //      auto gapPos =
-    //          solver.numeric.upper(edgePos.from) -
-    //          solver.numeric.lower(edgePos.to);
-    //      auto gapNeg =
-    //          solver.numeric.upper(edgeNeg.from) -
-    //          solver.numeric.lower(edgeNeg.to);
-    //      return makeBooleanLiteral<T>(gapPos <= gapNeg, x);
-
-    return makeBooleanLiteral<int>(false, 0, 0);
-  }
-
-  BaseHeuristic h;
-};
-
-// MAKE_FACTORY(SolutionGuided<TightestValue>, const ValueHeuristicConfig
-// &config) {
-//   return SolutionGuided<TightestValue>(config.epsilon);
-// }
-// };
+            auto posLit = b.getLiteral(true, x);
+            auto negLit = b.getLiteral(false, x);
+            const auto &sol = b.bestSolution();
+            assert(sol[posLit] != sol[negLit]);
+            return sol[posLit] ? posLit : negLit;
+        }
+    };
 }
 
 #endif // TEMPO_SOLUTIONGUIDED_HPP

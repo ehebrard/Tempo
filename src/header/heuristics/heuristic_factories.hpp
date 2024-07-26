@@ -16,6 +16,7 @@
 #include "WeightedDegree.hpp"
 #include "RandomBinaryValue.hpp"
 #include "TightestValue.hpp"
+#include "SolutionGuided.hpp"
 
 #include "util/factory_pattern.hpp"
 #include "util/Options.hpp"
@@ -90,7 +91,8 @@ namespace tempo::heuristics {
 
     /// Add further heuristic types here
 
-    using ValueHeuristic = detail::VariantHeuristicWrapper<TightestValue, RandomBinaryValue>;
+    using TightestSolutionGuided = SolutionGuided<TightestValue>;
+    using ValueHeuristic = detail::VariantHeuristicWrapper<TightestValue, RandomBinaryValue, TightestSolutionGuided>;
 
     /// Define heuristic factory types here
 
@@ -101,7 +103,12 @@ namespace tempo::heuristics {
 
     MAKE_DEFAULT_FACTORY(RandomBinaryValue, const Options&)
 
-    MAKE_FACTORY_PATTERN(ValueHeuristic, const Options&, TightestValue, RandomBinaryValue)
+    MAKE_FACTORY(TightestSolutionGuided, const Options &options) {
+            return TightestSolutionGuided(options.polarity_epsilon, 0);
+        }
+    };
+
+    MAKE_FACTORY_PATTERN(ValueHeuristic, const Options&, TightestValue, RandomBinaryValue, TightestSolutionGuided)
 
 
     /// --- Use these factory methods ---
