@@ -2707,7 +2707,7 @@ template <typename T>
 template <typename ItLit, typename ItW>
 void Solver<T>::postPseudoBoolean(const ItLit beg_lit, const ItLit end_lit,
                                   ItW w, const T bound) {
-  post(new PseudoBoolean<T>(*this, beg_lit, end_lit, w, bound));
+  post(new PseudoBooleanConst<T>(*this, beg_lit, end_lit, w, bound));
 }
 
 template <typename T>

@@ -158,23 +158,24 @@ int main(int argc, char *argv[]) {
   std::vector<NoOverlapExpression<>> resources;
   std::vector<std::vector<size_t>> resource_tasks;
   std::vector<Interval<>> intervals;
+  std::vector<int> weights;
   std::vector<std::vector<std::vector<int>>> resource_transitions;
 
-    tsptw::parse(opt.instance_file, S, schedule, intervals, resource_tasks,
-                 resource_transitions, true);
+  tsptw::parse(opt.instance_file, S, schedule, intervals, weights,
+               resource_tasks, resource_transitions, true);
 
-    index_t i{0};
-    std::vector<Interval<int>> scope;
-    for (auto &tasks : resource_tasks) {
-        for(auto j : tasks) {
-            scope.push_back(intervals[j]);
-        }
-      auto no_overlap{NoOverlap(schedule, scope, resource_transitions[i++])};
-      resources.push_back(no_overlap);
-      S.post(no_overlap);
-        scope.clear();
+  index_t i{0};
+  std::vector<Interval<int>> scope;
+  for (auto &tasks : resource_tasks) {
+    for (auto j : tasks) {
+      scope.push_back(intervals[j]);
     }
-    
+    auto no_overlap{NoOverlap(schedule, scope, resource_transitions[i++])};
+    resources.push_back(no_overlap);
+    S.post(no_overlap);
+    scope.clear();
+  }
+
     std::vector<BooleanVar<int>> selection;
     for(auto i : intervals) {
         selection.push_back(i.exist);
@@ -185,15 +186,9 @@ int main(int argc, char *argv[]) {
     std::cout << S << std::endl;
   }
 
-//  warmstart(S, schedule, intervals, resources, ub);
-
   // search
   S.maximize(Cardinality<int>(selection));
-    
-//    MaximizationObjective<int> objective(Cardinality<int>(selection));
-//    objective.X.extract(S);
-//    
-//    std::cout << S << std::endl;
+  //    S.maximize(Sum<int>(selection, weights));
 
   if (opt.print_sol) {
     printJobs(S, intervals);

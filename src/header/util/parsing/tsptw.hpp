@@ -10,8 +10,9 @@ namespace tsptw {
 
 template <typename M, typename J, typename R, typename D>
 void parse(const std::string &fn, M &model, J &schedule,
-           std::vector<J> &intervals, std::vector<R> &resources,
-           std::vector<D> &distances, const bool optional=false) {
+           std::vector<J> &intervals, std::vector<int> &weights,
+           std::vector<R> &resources, std::vector<D> &distances,
+           const bool optional = false) {
   using std::cerr;
   try {
     std::ifstream ifs(fn);
@@ -54,6 +55,14 @@ void parse(const std::string &fn, M &model, J &schedule,
         distances[0].resize(nj);
         for (auto &d : distances[0])
           d.resize(nj, 0);
+
+        if (optional) {
+          for (auto i{0}; i < nj; ++i) {
+            int w;
+            iss >> w;
+            weights.push_back(w);
+          }
+        }
 
         gotheader = true;
       } else if (job < nj) {

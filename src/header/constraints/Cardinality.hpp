@@ -140,14 +140,7 @@ template <typename T>
 bool CardinalityInterface<T>::notify(const Literal<T> l, const int) {
     
     auto ub{upperBound()};
-    
-//    display(std::cout);
-//    std::cout << "\nnotify lit " << l
-//    << ": current bound = " << current_bound
-//    << " / upper bound = " << ub
-//    << " var =[" << lowerBound() << ".." << upperBound() << "]" << std::endl;
-//    
-    
+
     if(l.isNumeric()) {
         if(current_bound > ub) {
             throw Failure<T>({this, Constant::FactHint});
@@ -161,45 +154,24 @@ bool CardinalityInterface<T>::notify(const Literal<T> l, const int) {
         
         if(m_solver.boolean.satisfied(l)) {
             ++current_bound;
-            
+
             T lb{static_cast<T>(current_bound)};
-//            setLowerBound(lb);
-//            if(lb == bound) {
-//                for(auto p : literals) {
-//                    if(m_solver.boolean.isUndefined(p.variable()))
-//                        m_solver.set(~p, {this, Constant::FactHint});
-//                }
-//            }
-            
-//            std::cout << lb << " <> " << ub << std::endl;
-            
             if(lb > ub) {
                 throw Failure<T>({this, Constant::FactHint});
             } else {
-                
-//                std::cout << lb << " <> " << lowerBound() << std::endl;
-                
-                if(lb > lowerBound()) {
-//                    std::cout << "set lb\n";
-                    setLowerBound(lb);
+              if (lb > lowerBound()) {
+                setLowerBound(lb);
+              }
+              if (lb == ub) {
+                for (auto p : literals) {
+                  if (m_solver.boolean.isUndefined(p.variable()))
+                    m_solver.set(~p, {this, Constant::FactHint});
                 }
-                if(lb == ub) {
-                    for(auto p : literals) {
-                        if(m_solver.boolean.isUndefined(p.variable()))
-                            m_solver.set(~p, {this, Constant::FactHint});
-                    }
-                }
+              }
             }
         }
     }
-    
-    
-//    
-//    std::cout << "\nnotify lit " << l
-//    << ": current bound = " << current_bound
-//    << " / upper bound = " << upperBound()
-//    << " var =[" << lowerBound() << ".." << upperBound() << "]" << std::endl;
-//  
+
   return false;
 }
 

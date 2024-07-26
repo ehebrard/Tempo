@@ -148,6 +148,7 @@ int main(int argc, char *argv[]) {
   std::vector<NoOverlapExpression<>> resources;
     std::vector<std::vector<size_t>> resource_tasks;
   std::vector<Interval<>> intervals;
+  std::vector<int> weights;
   std::vector<std::vector<std::vector<int>>> resource_transitions;
 
   if (opt.input_format == "osp") {
@@ -157,8 +158,8 @@ int main(int argc, char *argv[]) {
   } else if (opt.input_format == "path") {
     path::parse(opt.instance_file, S, schedule, intervals, resource_tasks);
   } else if (opt.input_format == "tsptw") {
-    tsptw::parse(opt.instance_file, S, schedule, intervals, resource_tasks,
-                 resource_transitions);
+    tsptw::parse(opt.instance_file, S, schedule, intervals, weights,
+                 resource_tasks, resource_transitions);
   } else if (opt.input_format == "jstl") {
     jstl::parse(opt.instance_file, S, schedule, intervals, resource_tasks);
   }

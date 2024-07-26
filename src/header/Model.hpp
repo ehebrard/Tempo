@@ -435,326 +435,405 @@ public:
         NumericExpressionImpl<T>::self.offset() + v);
   }
 
-  var_t extract(Solver<T> &solver,
-                const var_t target = Constant::NoVar) override {
+  void preprocessNumeric(Solver<T> &solver) {
 
+    if (not numeric_arguments.empty()) {
+      // preprocessing to remove duplicates and constants
+      // there has been a first preprocessing to move all the variables' offsets
+      // into self._offset
 
-#ifdef DBG_EXTRACT_SUM
-      this->display(std::cout);
-         std::cout << std::endl;
-#endif
-
+      // order the arguments
       std::vector<index_t> order;
-      for(index_t i{0}; i < static_cast<index_t>(arguments.size()); ++i) {
-          order.push_back(i);
+      for (index_t i{0}; i < static_cast<index_t>(numeric_arguments.size());
+           ++i) {
+        order.push_back(i);
       }
+      std::sort(order.begin(), order.end(),
+                [&](const index_t i, const index_t j) {
+                  return numeric_arguments[i].id() < numeric_arguments[j].id();
+                });
 
-
-
-
-      std::sort(order.begin(), order.end(), [&](const index_t i, const index_t j) {return arguments[i].id() < arguments[j].id();});
-
-
+      // store a copy of the arguments (in index order)
       std::vector<NumericVar<T>> args;
-    std::vector<var_t> vars;
-    std::vector<T> ws;
+      std::vector<var_t> vars;
+      std::vector<T> ws;
 
-
-      // new
-      for (index_t i{0}; i < static_cast<index_t>(arguments.size()); ++i) {
-          args.push_back(arguments[order[i]]);
-          ws.push_back(weights[order[i]]);
-          args.back().extract(solver);
-
-//#ifdef DBG_EXTRACT_SUM
-//          std::cout << ws.back() << "*[" << args.back() << "]: => increase the bias by " << (ws.back() * args.back().offset()) << std::endl;
-//#endif
-//
-////          increaseBias(ws.back() * args.back().offset());
+      for (index_t i{0}; i < static_cast<index_t>(numeric_arguments.size());
+           ++i) {
+        args.push_back(numeric_arguments[order[i]]);
+        ws.push_back(num_weights[order[i]]);
+        args.back().extract(solver);
       }
 
 #ifdef DBG_EXTRACT_SUM
-      arguments = args;
-      weights = ws;
+      numeric_arguments = args;
+      num_weights = ws;
       this->display(std::cout);
-         std::cout << std::endl;
+      std::cout << std::endl;
 #endif
 
-      T lb{0};
-      T ub{0};
-      for(index_t i{static_cast<index_t>(args.size())}; i-->0;) {
-          bool rm{false};
-          auto x{args[i]};
-          auto w{ws[i]};
+      // the actual preprocessing
+      //            T lb{0};
+      //            T ub{0};
+      for (index_t i{static_cast<index_t>(args.size())}; i-- > 0;) {
+        bool rm{false};
+        auto x{args[i]};
+        auto w{ws[i]};
 
 #ifdef DBG_EXTRACT_SUM
-          std::cout << w << "*[" << x << "]" ;
+        std::cout << w << "*[" << x << "]";
 #endif
 
-          if (w == 0) {
-              rm = true;
-          } else if(i>0 and x.id() == args[i-1].id()) {
-              ws[i-1] += w;
-              rm = true;
-          } else if(x.min(solver) == x.max(solver)) {
+        if (w == 0) {
+          // coefficient is 0 -> just ignore
+          rm = true;
+        } else if (i > 0 and x.id() == args[i - 1].id()) {
+          // duplicate -> increase
+          ws[i - 1] += w;
+          rm = true;
+        } else if (x.min(solver) == x.max(solver)) {
+          // constant (after extraction) -> move it to the bias
 #ifdef DBG_EXTRACT_SUM
-              std::cout << ": => increase the bias by " << (w * x.min(solver)) ;
+          std::cout << ": => increase the bias by " << (w * x.min(solver));
 #endif
-              increaseBias(w * x.min(solver));
-              rm = true;
-          }
-
-#ifdef DBG_EXTRACT_SUM
-          std::cout << std::endl;
-#endif
-
-          if(rm) {
+          increaseBias(w * x.min(solver));
+          rm = true;
+        }
 
 #ifdef DBG_EXTRACT_SUM
-              std::cout << " rm term " << w << "*" << x << std::endl;
+        std::cout << std::endl;
 #endif
-              args[i] = args.back();
-              ws[i] = ws.back();
-              args.pop_back();
-              ws.pop_back();
-          }
+
+        if (rm) {
+
 #ifdef DBG_EXTRACT_SUM
-          else {
-              std::cout << " keep arg " << args[i] << std::endl;
-          }
+          std::cout << " rm term " << w << "*" << x << std::endl;
+#endif
+          args[i] = args.back();
+          ws[i] = ws.back();
+          args.pop_back();
+          ws.pop_back();
+        }
+#ifdef DBG_EXTRACT_SUM
+        else {
+          std::cout << " keep arg " << args[i] << std::endl;
+        }
 #endif
 
-//          increaseBias(ws[i] * args[i].offset());
-
+        //          increaseBias(ws[i] * args[i].offset());
       }
 
 #ifdef DBG_EXTRACT_SUM
       std::cout << args.size() << " arguments remaining\n";
-      arguments = args;
-      weights = ws;
+      numeric_arguments = args;
+      num_weights = ws;
       this->display(std::cout);
-         std::cout << std::endl;
+      std::cout << std::endl;
 #endif
 
+      // compute the initial bounds
       for (index_t i{0}; i < static_cast<index_t>(args.size()); ++i) {
-          auto x{args[i]};
-          auto w{ws[i]};
+        auto x{args[i]};
+        auto w{ws[i]};
 
-          vars.push_back(x.id());
-          if (w < 0) {
-              if (lb != -Constant::Infinity<T>) {
-                  if (x.max(solver) == Constant::Infinity<T>) {
-                      lb = -Constant::Infinity<T>;
-                  } else {
-                      lb += w * x.max(solver);
-                  }
-              }
-              if (ub != Constant::Infinity<T>) {
-                  if (x.min(solver) == -Constant::Infinity<T>) {
-                      ub = Constant::Infinity<T>;
-                  } else {
-                      ub += w * x.min(solver);
-                  }
-              }
-          } else {
-              if (lb != -Constant::Infinity<T>) {
-                  if (x.min(solver) == -Constant::Infinity<T>) {
-                      lb = -Constant::Infinity<T>;
-                  } else {
-                      lb += w * x.min(solver);
-                  }
-              }
-              if (ub != Constant::Infinity<T>) {
-                  if (x.max(solver) == Constant::Infinity<T>) {
-                      ub = Constant::Infinity<T>;
-                  } else {
-                      ub += w * x.max(solver);
-                  }
-              }
-              //              lb += w * x.min(solver);
-              //              ub += w * x.max(solver);
+        //                vars.push_back(x.id());
+        if (w < 0) {
+          if (num_lb != -Constant::Infinity<T>) {
+            if (x.max(solver) == Constant::Infinity<T>) {
+              num_lb = -Constant::Infinity<T>;
+            } else {
+              num_lb += w * x.max(solver);
+            }
           }
+          if (num_ub != Constant::Infinity<T>) {
+            if (x.min(solver) == -Constant::Infinity<T>) {
+              num_ub = Constant::Infinity<T>;
+            } else {
+              num_ub += w * x.min(solver);
+            }
+          }
+        } else {
+          if (num_lb != -Constant::Infinity<T>) {
+            if (x.min(solver) == -Constant::Infinity<T>) {
+              num_lb = -Constant::Infinity<T>;
+            } else {
+              num_lb += w * x.min(solver);
+            }
+          }
+          if (num_ub != Constant::Infinity<T>) {
+            if (x.max(solver) == Constant::Infinity<T>) {
+              num_ub = Constant::Infinity<T>;
+            } else {
+              num_ub += w * x.max(solver);
+            }
+          }
+          //              lb += w * x.min(solver);
+          //              ub += w * x.max(solver);
+        }
       }
 
-
-
-//      // old
-//    T lb{0};
-//    T ub{0};
-//
-//    for (unsigned i{0}; i < arguments.size(); ++i) {
-//      auto x{arguments[i]};
-//      auto w{weights[i]};
-//
-//      if (w == 0)
-//        continue;
-//
-//      x.extract(solver);
-//
-//      if (x.min(solver) != x.max(solver)) {
-//        vars.push_back(x.id());
-//        ws.push_back(w);
-//      }
-//    }
-//
-//
-//
-//      for (unsigned i{0}; i < arguments.size(); ++i) {
-//          auto x{arguments[i]};
-//          auto w{weights[i]};
-//          if (w < 0) {
-//              if (lb != -Constant::Infinity<T>) {
-//                  if (x.max(solver) == Constant::Infinity<T>) {
-//                      lb = -Constant::Infinity<T>;
-//                  } else {
-//                      lb += w * x.max(solver);
-//                  }
-//              }
-//              if (ub != Constant::Infinity<T>) {
-//                  if (x.min(solver) == -Constant::Infinity<T>) {
-//                      ub = Constant::Infinity<T>;
-//                  } else {
-//                      ub += w * x.min(solver);
-//                  }
-//              }
-//          } else {
-//              if (lb != -Constant::Infinity<T>) {
-//                  if (x.min(solver) == -Constant::Infinity<T>) {
-//                      lb = -Constant::Infinity<T>;
-//                  } else {
-//                      lb += w * x.min(solver);
-//                  }
-//              }
-//              if (ub != Constant::Infinity<T>) {
-//                  if (x.max(solver) == Constant::Infinity<T>) {
-//                      ub = Constant::Infinity<T>;
-//                  } else {
-//                      ub += w * x.max(solver);
-//                  }
-//              }
-//              //              lb += w * x.min(solver);
-//              //              ub += w * x.max(solver);
-//          }
-//      }
-//
-////    std::cout << "extract (2) ";
-////    this->display(std::cout);
-////    std::cout << std::endl;
-
-      if(vars.size() == 0) {
-          NumericExpressionImpl<T>::self.setId(Constant::K);
-          NumericExpressionImpl<T>::self._is_expression = false;
-      } else if (vars.size() == 1 and ws[0] == 1) {
-      NumericExpressionImpl<T>::self.setId(*vars.begin());
-      NumericExpressionImpl<T>::self._is_expression = false;
-    } else {
-      auto bias{NumericExpressionImpl<T>::self.offset()};
-      if (target == Constant::NoVar)
-        NumericExpressionImpl<T>::self = solver.newNumeric(lb, ub);
-      else {
-        NumericExpressionImpl<T>::self.data = NumInfo<T>(target, -bias);
-        solver.post(NumericExpressionImpl<T>::self >= lb);
-        solver.post(NumericExpressionImpl<T>::self <= ub);
-      }
-      //          NumericExpressionImpl<T>::self.setOffset(offset);
-
-      vars.push_back(NumericExpressionImpl<T>::id());
-      ws.push_back(-1);
-      //        T total{offset};
-
-      solver.post(new SumConstraint(solver, vars.begin(), vars.end(),
-                                    ws.begin(), -bias));
-      for (auto &w : ws)
-        w = -w;
-      solver.post(new SumConstraint(solver, vars.begin(), vars.end(),
-                                    ws.begin(), bias));
+      numeric_arguments = args;
+      num_weights = ws;
     }
+  }
+
+  void preprocessBoolean(Solver<T> &solver) {
+
+    if (not boolean_arguments.empty()) {
+      // preprocessing to remove duplicates and constants
+
+      // order the arguments
+      std::vector<index_t> order;
+      for (index_t i{0}; i < static_cast<index_t>(boolean_arguments.size());
+           ++i) {
+        order.push_back(i);
+      }
+      std::sort(order.begin(), order.end(),
+                [&](const index_t i, const index_t j) {
+                  return boolean_arguments[i].id() < boolean_arguments[j].id();
+                });
+
+      // store a copy of the arguments (in index order)
+      std::vector<BooleanVar<T>> args;
+      std::vector<var_t> vars;
+      std::vector<T> ws;
+
+      for (index_t i{0}; i < static_cast<index_t>(boolean_arguments.size());
+           ++i) {
+        args.push_back(boolean_arguments[order[i]]);
+        ws.push_back(bool_weights[order[i]]);
+        args.back().extract(solver);
+      }
+
+#ifdef DBG_EXTRACT_SUM
+      boolean_arguments = args;
+      bool_weights = ws;
+      this->display(std::cout);
+      std::cout << std::endl;
+#endif
+
+      // the actual preprocessing
+      //            T lb{0};
+      //            T ub{0};
+      for (index_t i{static_cast<index_t>(args.size())}; i-- > 0;) {
+        bool rm{false};
+        auto x{args[i]};
+        auto w{ws[i]};
+
+#ifdef DBG_EXTRACT_SUM
+        std::cout << w << "*[" << x << "]";
+#endif
+
+        if (w == 0 or x.isFalse(solver)) {
+          // coefficient is 0 -> just ignore
+          rm = true;
+        } else if (i > 0 and x.id() == args[i - 1].id()) {
+          // duplicate -> increase
+          ws[i - 1] += w;
+          rm = true;
+        } else if (x.isTrue(solver)) {
+          // constant (after extraction) -> move it to the bias
+#ifdef DBG_EXTRACT_SUM
+          std::cout << ": => increase the bias by " << w;
+#endif
+          increaseBias(w);
+          rm = true;
+        }
+
+#ifdef DBG_EXTRACT_SUM
+        std::cout << std::endl;
+#endif
+
+        if (rm) {
+
+#ifdef DBG_EXTRACT_SUM
+          std::cout << " rm term " << w << "*" << x << std::endl;
+#endif
+          args[i] = args.back();
+          ws[i] = ws.back();
+          args.pop_back();
+          ws.pop_back();
+        }
+#ifdef DBG_EXTRACT_SUM
+        else {
+          std::cout << " keep arg " << args[i] << std::endl;
+        }
+#endif
+
+        //          increaseBias(ws[i] * args[i].offset());
+      }
+
+#ifdef DBG_EXTRACT_SUM
+      std::cout << args.size() << " arguments remaining\n";
+      boolean_arguments = args;
+      bool_weights = ws;
+      this->display(std::cout);
+      std::cout << std::endl;
+#endif
+
+      // compute the initial bounds
+      for (index_t i{0}; i < static_cast<index_t>(args.size()); ++i) {
+        auto w{ws[i]};
+        if (w < 0) {
+          bool_lb += w;
+        } else {
+          bool_ub += w;
+        }
+      }
+
+      boolean_arguments = args;
+      bool_weights = ws;
+    }
+  }
+
+  var_t extract(Solver<T> &solver,
+                const var_t target = Constant::NoVar) override {
+
+#ifdef DBG_EXTRACT_SUM
+    this->display(std::cout);
+    std::cout << std::endl;
+#endif
+
+    //      NumericVar<T> num_part;
+
+    preprocessBoolean(solver);
+
+    if (not boolean_arguments.empty()) {
+      //        std::cout << bool_lb << ".." << bool_ub << std::endl;
+      std::vector<Literal<T>> L;
+      for (auto x : boolean_arguments) {
+        L.push_back(x == true);
+      }
+
+      auto bool_part{solver.newNumeric(bool_lb, bool_ub)};
+
+      solver.post(new PseudoBooleanLeqVar<T>(
+          solver, L.begin(), L.end(), bool_weights.begin(), bool_part.id()));
+
+      solver.post(new PseudoBooleanGeqVar<T>(
+          solver, L.begin(), L.end(), bool_weights.begin(), bool_part.id()));
+
+      assert(numeric_arguments.empty());
+
+      NumericExpressionImpl<T>::self = bool_part;
+
+      return NumericExpressionImpl<T>::self.id();
+    }
+
+    preprocessNumeric(solver);
+
+    auto bias{NumericExpressionImpl<T>::self.offset()};
+
+    if (not numeric_arguments.empty()) {
+
+      if (not boolean_arguments.empty()) {
+        std::cout << "TODO: mixed sum!\n";
+        exit(0);
+      }
+
+      std::vector<var_t> nvars;
+      for (auto x : numeric_arguments)
+        nvars.push_back(x.id());
+
+      if (nvars.size() == 1 and num_weights[0] == 1) {
+        NumericExpressionImpl<T>::self.setId(*nvars.begin());
+        NumericExpressionImpl<T>::self._is_expression = false;
+        //                      num_part.setId(*nvars.begin());
+        //                      num_part.setOffset(bias);
+        //                      num_part._is_expression = false;
+      } else {
+        if (target == Constant::NoVar) {
+          NumericExpressionImpl<T>::self = solver.newNumeric(num_lb, num_ub);
+          //                            num_part = solver.newNumeric(num_lb,
+          //                            num_ub);
+        } else {
+          NumericExpressionImpl<T>::self.data = NumInfo<T>(target, -bias);
+          //                            num_part.data = NumInfo<T>(target,
+          //                            -bias);
+          solver.post(NumericExpressionImpl<T>::self >= num_lb);
+          solver.post(NumericExpressionImpl<T>::self <= num_ub);
+        }
+
+        nvars.push_back(NumericExpressionImpl<T>::id());
+        //                      nvars.push_back(num_part.id());
+        num_weights.push_back(-1);
+        //        T total{offset};
+
+        solver.post(new SumConstraint(solver, nvars.begin(), nvars.end(),
+                                      num_weights.begin(), -bias));
+        for (auto &w : num_weights)
+          w = -w;
+        solver.post(new SumConstraint(solver, nvars.begin(), nvars.end(),
+                                      num_weights.begin(), bias));
+      }
+
+      //
+    } else {
+
+      NumericExpressionImpl<T>::self.setId(Constant::K);
+      NumericExpressionImpl<T>::self._is_expression = false;
+      //            num_part.setId(Constant::K);
+      //            num_part.setOffset(bias);
+      //            num_part._is_expression = false;
+    }
+
+    //      NumericExpressionImpl<T>::self = num_part;
+
+//    std::cout << " => " << NumericExpressionImpl<T>::self << std::endl;
 
     return NumericExpressionImpl<T>::self.id();
   }
 
   SumExpressionImpl<T> &addTerm(const NumericVar<T> &x, const T w = 1) {
+    increaseBias(w * x.offset());
+    if (x.id() != Constant::K) {
+      numeric_arguments.push_back(x);
+      num_weights.push_back(w);
+    }
+    return *this;
+  }
 
-//    std::cout << "\nhi ";
-//    this->display(std::cout);
-//    std::cout << std::endl;
-//    std::cout << "add term " << w << "*" << x << std::endl;
+  SumExpressionImpl<T> &addTerm(const BooleanVar<T> &x, const T w = 1) {
+    assert(x.id() != Constant::K);
 
-      increaseBias(w * x.offset());
-      if (x.id() != Constant::K) {
-          arguments.push_back(x);
-          weights.push_back(w);
-      }
+    boolean_arguments.push_back(x);
+    bool_weights.push_back(w);
 
-//
-//    auto idx{x.id()};
-//    if (idx == Constant::K) {
-//      //        NumericExpressionImpl<T>::self.setOffset(NumericExpressionImpl<T>::self.offset
-//      //        + w * x.offset());
-//      increaseBias(w * x.offset());
-//    } else {
-//      increaseBias(w * x.offset());
-//      if (idx != Constant::NoVar) {
-//        auto i{0};
-//        for (auto y : arguments) {
-//          if (y.id() == idx) {
-//            weights[i] += w;
-//          }
-//          ++i;
-//        }
-//      }
-//      arguments.push_back(x);
-//      weights.push_back(w);
-//    }
-
-//    //      std::cout << " ==> " << NumericExpressionImpl<T>::self.offset() << "
-//    //      / " << arguments.size() ; if(not arguments.empty())
-//    //          std::cout << " / " << arguments.back() ;
-//    //      std::cout << std::endl;
-//
-//    std::cout << "==> ";
-//    this->display(std::cout);
-//    std::cout << std::endl;
     return *this;
   }
 
   SumExpressionImpl<T> &addTerm(const T k) {
-    //    NumericExpressionImpl<T>::self.setOffset(
-    //        NumericExpressionImpl<T>::self.offset() + k);
-
-//    std::cout << "\nhi ";
-//    this->display(std::cout);
-//    std::cout << std::endl;
-//    std::cout << "add term " << k << std::endl;
-
     increaseBias(k);
-    //    bias += k;
-
-    //    std::cout << " ==> " << bias << " / " << arguments.size() <<
-    //    std::endl;
-
-    //      std::cout << "extract ";
-//    this->display(std::cout);
-//    std::cout << std::endl;
-
     return *this;
   }
 
   std::ostream &display(std::ostream &os) const;
 
 private:
-  std::vector<NumericVar<T>> arguments;
-  std::vector<T> weights;
+  T num_lb{0};
+  T num_ub{0};
+  T bool_lb{0};
+  T bool_ub{0};
+  std::vector<NumericVar<T>> numeric_arguments;
+  std::vector<T> num_weights;
+  std::vector<BooleanVar<T>> boolean_arguments;
+  std::vector<T> bool_weights;
   //  T bias{0};
 };
 
 template <typename T>
 std::ostream &SumExpressionImpl<T>::display(std::ostream &os) const {
   os << "{";
-  if (not arguments.empty()) {
-    os << weights[0] << "*[" << arguments[0] << "]";
-    for (unsigned i{1}; i < arguments.size(); ++i) {
-      os << " + " << weights[i] << "*[" << arguments[i] << "]";
+  if (not numeric_arguments.empty()) {
+    os << num_weights[0] << "*" << numeric_arguments[0];
+    for (unsigned i{1}; i < numeric_arguments.size(); ++i) {
+      os << " + " << num_weights[i] << "*" << numeric_arguments[i];
+    }
+  }
+  if (not boolean_arguments.empty()) {
+    os << bool_weights[0] << "*" << boolean_arguments[0];
+    for (unsigned i{1}; i < boolean_arguments.size(); ++i) {
+      os << " + " << bool_weights[i] << "*" << boolean_arguments[i];
     }
   }
   os << "} bias=" << NumericExpressionImpl<T>::self.offset();
@@ -797,11 +876,65 @@ NumericVar<T> operator-(const NumericVar<T> &x, const NumericVar<T> &y) {
   return exp;
 }
 
-template <typename varit, typename weightit, typename T>
-NumericVar<T> Sum(varit beg_var, varit end_var, weightit beg_weight) {
+// template <typename varit, typename weightit, typename T>
+// NumericVar<T> Sum(varit beg_var, varit end_var, weightit beg_weight) {
+//   auto sum{new SumExpressionImpl<T>()};
+//   auto wp{beg_weight};
+//   for (auto xp{beg_var}; xp != end_var; ++xp) {
+//     sum->addTerm(*xp, *wp);
+//     ++wp;
+//   }
+//   NumericVar<T> exp(sum);
+//   return exp;
+// }
+
+template <typename T = int>
+NumericVar<T> Sum(const std::vector<NumericVar<T>> &X,
+                  const std::vector<T> &W) {
   auto sum{new SumExpressionImpl<T>()};
-  auto wp{beg_weight};
-  for (auto xp{beg_var}; xp != end_var; ++xp) {
+  auto wp{W.begin()};
+  for (auto xp{X.begin()}; xp != X.end(); ++xp) {
+    sum->addTerm(*xp, *wp);
+    ++wp;
+  }
+  NumericVar<T> exp(sum);
+  return exp;
+}
+
+template <typename T = int>
+NumericVar<T> Sum(const std::vector<NumericVar<T>> &X) {
+  auto sum{new SumExpressionImpl<T>()};
+  for (auto xp{X.begin()}; xp != X.end(); ++xp) {
+    sum->addTerm(*xp, 1);
+  }
+  NumericVar<T> exp(sum);
+  return exp;
+}
+
+template <typename T = int>
+NumericVar<T> Sum(const std::vector<BooleanVar<T>> &X,
+                  const std::vector<T> &W) {
+  auto sum{new SumExpressionImpl<T>()};
+  auto wp{W.begin()};
+  for (auto xp{X.begin()}; xp != X.end(); ++xp) {
+    sum->addTerm(*xp, *wp);
+    ++wp;
+  }
+  NumericVar<T> exp(sum);
+  return exp;
+}
+
+template <typename T = int>
+NumericVar<T> Sum(const std::vector<NumericVar<T>> &X,
+                  const std::vector<BooleanVar<T>> &B,
+                  const std::vector<T> &W) {
+  auto sum{new SumExpressionImpl<T>()};
+  auto wp{W.begin()};
+  for (auto xp{X.begin()}; xp != X.end(); ++xp) {
+    sum->addTerm(*xp, *wp);
+    ++wp;
+  }
+  for (auto xp{B.begin()}; xp != B.end(); ++xp) {
     sum->addTerm(*xp, *wp);
     ++wp;
   }
@@ -900,7 +1033,6 @@ public:
   var_t extract(Solver<T> &solver, const var_t = Constant::NoVar) override {
     x.extract(solver);
     y.extract(solver);
-
     auto prec{x.before(y, -k)};
     self = solver.newDisjunct(~prec, prec);
     return self.id();
@@ -909,20 +1041,9 @@ public:
   void post(Solver<T> &solver) override {
     x.extract(solver);
     y.extract(solver);
-//
-//    std::cout << "post prec\n";
-//    std::cout << x << " in [" << x.min(solver) << ".." << x.max(solver)
-//              << "] + " << x.offset() << std::endl;
-//    std::cout << y << " in [" << y.min(solver) << ".." << y.max(solver)
-//              << "] + " << y.offset() << std::endl;
 
     auto prec{x.before(y, -k)};
-
-//    std::cout << " => " << prec << std::endl;
-
     solver.post(prec);
-
-//    std::cout << "OK\n";
   }
 
 private:
@@ -1229,8 +1350,8 @@ private:
   std::vector<BooleanVar<T>> boolean_arguments;
 };
 
-template <typename T, typename Iterable>
-NumericVar<T> Cardinality(Iterable &X) {
+template <typename T>
+NumericVar<T> Cardinality(const std::vector<BooleanVar<T>> &X) {
   NumericVar<T> exp(new CardinalityExpressionImpl(X.begin(), X.end()));
   return exp;
 }
@@ -1253,7 +1374,9 @@ public:
   }
 
   void post(Solver<T> &solver) override {
-      size_t k{0};
+    size_t k{0};
+
+    bool opt_flag{false};
     for (auto a{this->begin()}; a != this->end(); ++a) {
       for (auto b{a + 1}; b != this->end(); ++b) {
         auto t_ab{0};
@@ -1270,71 +1393,60 @@ public:
         auto a_before_b{a->end.before(b->start, t_ab)};
         auto b_before_a{b->end.before(a->start, t_ba)};
 
-//        if (a->isOptional(solver) and b->isOptional(solver)) {
-//          BooleanVar<T> x = solver.newBoolean();
-//
-//          std::vector<Literal<T>> cl{x == false, a->exist == true};
-//          solver.clauses.add(cl.begin(), cl.end());
-//
-//          cl = {x == false, b->exist == true};
-//          solver.clauses.add(cl.begin(), cl.end());
-//
-//          cl = {x == true, a->exist == false, b->exist == false};
-//          solver.clauses.add(cl.begin(), cl.end());
-//
-//          disjunct.push_back(
-//              solver.newDisjunct(a_before_b, b_before_a, x.id()));
-//
-//          relevant.push_back(x);
-//        } else if (a->isOptional(solver)) {
-//          disjunct.push_back(
-//              solver.newDisjunct(a_before_b, b_before_a, a->exist.id()));
-//        } else if (b->isOptional(solver)) {
-//          disjunct.push_back(
-//              solver.newDisjunct(a_before_b, b_before_a, b->exist.id()));
-//        } 
-          
-          if (a->isOptional(solver) or b->isOptional(solver)) {
-              
-              auto x_ab{solver.newDisjunct(Constant::NoEdge<T>, a_before_b)};
-              auto x_ba{solver.newDisjunct(Constant::NoEdge<T>, b_before_a)};
-              
-              // (a->exist and b->exist) -> (x_ab or x_ba)
-              // ~a->exist or ~b->exist or x_ab or x_ba
-              std::vector<Literal<T>> cl{x_ab == true, x_ba == true};
-              if(a->isOptional(solver))
-                  cl.push_back(a->exist == false);
-              if(b->isOptional(solver))
-                  cl.push_back(b->exist == false);
-              solver.clauses.add(cl.begin(), cl.end());
+        if (a->isOptional(solver) or b->isOptional(solver)) {
 
-              disjunct.push_back(x_ab);
-              disjunct.push_back(x_ba);
-          }
-        
-        
+          auto x_ab{solver.newDisjunct(Constant::NoEdge<T>, a_before_b)};
+          auto x_ba{solver.newDisjunct(Constant::NoEdge<T>, b_before_a)};
+
+          // (a->exist and b->exist) -> (x_ab or x_ba)
+          // ~a->exist or ~b->exist or x_ab or x_ba
+          std::vector<Literal<T>> cl{x_ab == true, x_ba == true};
+          if (a->isOptional(solver))
+            cl.push_back(a->exist == false);
+          if (b->isOptional(solver))
+            cl.push_back(b->exist == false);
+          solver.clauses.add(cl.begin(), cl.end());
+
+          disjunct.push_back(x_ab);
+          disjunct.push_back(x_ba);
+
+          opt_flag = true;
+        }
+
         else {
-
-          //            std::cout << a_before_b << " or " << b_before_a <<
-          //            std::endl;
-
           disjunct.push_back(solver.newDisjunct(a_before_b, b_before_a));
         }
 
-          while(k < disjunct.size())
-              solver.addToSearch(disjunct[k++]);
-//        solver.addToSearch(disjunct.back());
+        while (k < disjunct.size())
+          solver.addToSearch(disjunct[k++]);
       }
     }
 
       if(std::distance(this->begin(),this->end()) > 1) {
-          if (solver.getOptions().edge_finding)
-              solver.postEdgeFinding(schedule, this->begin(), this->end(),
-                                     this->begDisjunct());
+        if (solver.getOptions().edge_finding) {
+          if (opt_flag) {
+            std::cout
+                << "edge-finding for optional intervals is not implemented, "
+                   "please use '--no-edge-finding'. Aborthing\n";
+            exit(0);
+          }
 
-          if (solver.getOptions().transitivity)
-              solver.postTransitivity(schedule, this->begin(), this->end(),
-                                      this->begDisjunct());
+          solver.postEdgeFinding(schedule, this->begin(), this->end(),
+                                 this->begDisjunct());
+        }
+
+        if (solver.getOptions().transitivity) {
+
+          if (opt_flag) {
+            std::cout
+                << "transitivity for optional intervals is not implemented, "
+                   "please use '--no-transitivity'. Aborthing\n";
+            exit(0);
+          }
+
+          solver.postTransitivity(schedule, this->begin(), this->end(),
+                                  this->begDisjunct());
+        }
       }
   }
 
