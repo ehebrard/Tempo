@@ -84,7 +84,7 @@ TEST(nn_feature_extractors, ResourceEnergyExtractor) {
     auto [tasks, scheduler] = tempo::testing::createTasks({{6, 6}, {2, 4}, {1, 5}, {0, 12, 0, 12}});
     auto sched = tasks.back();
     tasks.pop_back();
-    ProblemInstance instance(tasks, {{1, tasks, {1, 1, 1}}}, {}, sched);
+    ProblemInstance instance(tasks, {{1, {0u, 1u, 2u}, {1, 1, 1}}}, {}, sched);
     const auto topology = MinimalTopologyBuilder(instance).getTopology();
     ResourceEnergyExtractor extractor;
     auto resEnergies = extractor(topology, makeSolverState(Matrix<int>{}, scheduler), instance);
@@ -101,7 +101,7 @@ TEST(nn_features_extractors, ResourceEnergyExtractor_complex_consumptions) {
     auto [tasks, scheduler] = tempo::testing::createTasks({{4, 4}, {2, 4}, {8, 10}, {0, 9, 0, 9}});
     auto sched = tasks.back();
     tasks.pop_back();
-    ProblemInstance instance(tasks, {{4, tasks, {3, 2, 2}}}, {}, sched);
+    ProblemInstance instance(tasks, {{4, {0u, 1u, 2u}, {3, 2, 2}}}, {}, sched);
     const auto topology = MinimalTopologyBuilder(instance).getTopology();
     ResourceEnergyExtractor extractor;
     auto resEnergies = extractor(topology, makeSolverState(Matrix<int>{}, scheduler), instance);

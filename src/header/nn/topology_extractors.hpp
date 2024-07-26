@@ -83,7 +83,7 @@ namespace tempo::nn {
             cache.numResources = problem.resources().size();
             impl::TopologyData topologyData{.edgeLookup = impl::EdgeLookup(cache.numTasks * 2 + 2)};
             for (auto [r, resourceSpec]: enumerate(problem.resources(), 0l)) {
-                completeSubGraph(resourceSpec, r, problem.getMapping(), topologyData);
+                completeSubGraph(resourceSpec, r, topologyData);
             }
 
             addPrecedenceEdges(problem.precedences(), problem.getMapping(), topologyData);
@@ -133,18 +133,16 @@ namespace tempo::nn {
         static void addEdge(const Edge &e, bool isResourceEdge, IndexType maskVal, impl::TopologyData &topologyData);
 
         template<SchedulingResource R>
-        static void completeSubGraph(const R &resourceSpec, IndexType resource, const VarTaskMapping &vtMapping,
-                                     impl::TopologyData &topologyData) {
-            auto taskId = [&vtMapping](const auto &t) { return vtMapping(t.start.id()); };
-            const auto &tasks = resourceSpec;
-            for (std::size_t i = 0; i < tasks.size(); ++i) {
-                topologyData.taskIdx.emplace_back(taskId(tasks[i]));
+        static void completeSubGraph(const R &resourceSpec, IndexType resource, impl::TopologyData &topologyData) {
+            const auto &taskIds = resourceSpec;
+            for (std::size_t i = 0; i < taskIds.size(); ++i) {
+                topologyData.taskIdx.emplace_back(taskIds[i]);
                 topologyData.resIdx.emplace_back(resource);
                 topologyData.resDemands.emplace_back(static_cast<DataType>(resourceSpec.getDemand(i)) /
                                                      static_cast<DataType>(resourceSpec.resourceCapacity()));
-                for (std::size_t j = i + 1; j < tasks.size(); ++j) {
-                    Edge e(taskId(tasks[i]), taskId(tasks[j]));
-                    Edge rev(taskId(tasks[j]), taskId(tasks[i]));
+                for (std::size_t j = i + 1; j < taskIds.size(); ++j) {
+                    Edge e(taskIds[i], taskIds[j]);
+                    Edge rev(taskIds[j], taskIds[i]);
                     topologyData.edgeRelResIdx.emplace_back(resource);
                     topologyData.edgeRelResIdx.emplace_back(resource);
                     if (topologyData.edgeLookup.contains(e)) {

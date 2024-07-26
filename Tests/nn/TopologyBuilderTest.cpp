@@ -149,7 +149,7 @@ auto TopologyBuilderTest::getResourceMatrix(const tempo::testing::ProblemInstanc
     tempo::Matrix<int> ret(probInstance.resources().size(), probInstance.tasks().size());
     for (const auto [r, res] : iterators::const_enumerate(probInstance.resources())) {
         for (auto [idx, t] : iterators::enumerate(res)) {
-            ret.at(r, probInstance.getMapping()(t.id())) = res.getDemand(idx);
+            ret.at(r, t) = res.getDemand(idx);
         }
     }
 

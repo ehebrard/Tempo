@@ -21,9 +21,9 @@
  * @tparam T timing type
  */
 template<typename T = int>
-class DisjunctiveResource : public std::vector<tempo::Interval<T>> {
+class DisjunctiveResource : public std::vector<unsigned> {
 public:
-    using std::vector<tempo::Interval<T>>::vector;
+    using std::vector<unsigned>::vector;
 
     static constexpr auto resourceCapacity() noexcept { return 1; }
 
