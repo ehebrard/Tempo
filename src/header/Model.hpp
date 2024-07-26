@@ -331,11 +331,12 @@ Stores
 the schedule
  */
 template <typename T = int> class Interval {
+protected:
+  Interval(NumericVar<T> start, NumericVar<T> end, NumericVar<T> duration) :
+    start(start), end(end), duration(duration) {}
 public:
   constexpr Interval() noexcept : start(), end(), duration() {}
 
-//  Interval(NumericVar<T> start, NumericVar<T> end, NumericVar<T> duration) :
-//    start(start), end(end), duration(duration) {}
 
   Interval(Solver<T> &solver, const T mindur = 0,
            const T maxdur = Constant::Infinity<T>,

@@ -24,6 +24,11 @@ namespace tempo::testing {
         static constexpr auto TestNN = __TEST_DATA_DIR__ "/Identity_export.pt";
     };
 
+    struct Task : public Interval<int> {
+        Task(NumericVar<int> start, NumericVar<int> end, NumericVar<int> duration) :
+                Interval<int>(start, end, duration) {}
+    };
+
     struct Resource : public std::vector<Interval<int>> {
         std::vector<int> demands;
         int capacity;

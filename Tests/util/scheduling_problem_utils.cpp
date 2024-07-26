@@ -75,9 +75,10 @@ TEST(util, SchedulingProblemHelper_basic) {
 
 TEST(util, SchedulingProblemView_task_distances) {
     using namespace tempo;
-    std::vector<Interval<int>> tasks{{{0, 0}, {1, 0}, NumericVar{}},
-                                     {{2, 0}, {2, 5}, NumericVar{}},
-                                     {{3, 0}, {4, 0}, NumericVar{}}};
+    using tempo::testing::Task;
+    std::vector<Interval<int>> tasks{Task{{0, 0}, {1, 0}, NumericVar{}},
+                                     Task{{2, 0}, {2, 5}, NumericVar{}},
+                                     Task{{3, 0}, {4, 0}, NumericVar{}}};
     SchedulingProblemHelper<int, tempo::testing::Resource> schedulingProb(tasks, {}, {}, Interval<int>{});
     BacktrackEnvironment env;
     DirectedGraph<LabeledEdge<int>> graph(5, &env);

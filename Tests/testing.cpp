@@ -39,9 +39,9 @@ namespace tempo::testing {
         unsigned idx = 0;
         for (const auto &spec : specs) {
             if (spec.minDur == spec.maxDur) {
-                ret.emplace_back(NumericVar{idx, 0}, NumericVar{idx, spec.minDur}, NumericVar{idx + 1, 0});
+                ret.emplace_back(Task(NumericVar{idx, 0}, NumericVar{idx, spec.minDur}, NumericVar{idx + 1, 0}));
             } else {
-                ret.emplace_back(NumericVar{idx, 0}, NumericVar{idx + 1, 0}, NumericVar{idx + 2, 0});
+                ret.emplace_back(Task(NumericVar{idx, 0}, NumericVar{idx + 1, 0}, NumericVar{idx + 2, 0}));
                 ++idx;
             }
 
@@ -59,7 +59,7 @@ namespace tempo::testing {
         std::vector<Interval<int>> ret;
         ret.reserve(numberOfTasks);
         for (unsigned i = 0; i < numberOfTasks; ++i) {
-            ret.emplace_back(NumericVar{i, 0}, NumericVar{i, 0}, NumericVar{i, 0});
+            ret.emplace_back(Task(NumericVar{i, 0}, NumericVar{i, 0}, NumericVar{i, 0}));
         }
 
         return ret;
