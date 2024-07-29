@@ -34,6 +34,7 @@
 #include "Model.hpp"
 
 //#define DBG_LTRANS
+//#define DBG_SPANNING
 
 namespace tempo {
 
@@ -73,7 +74,8 @@ private:
   T length(const size_t e) const {
       auto i{first(e)};
       auto j{second(e)};
-      return transition_time(i,j);
+      return setup_time(i,j);
+//      return transition_time(i,j);
   }
     size_t edge(const size_t i, const size_t j) const {
       return the_tasks.size() * i + j;
@@ -81,6 +83,7 @@ private:
   size_t first(const size_t e) const { return e / the_tasks.size(); }
   size_t second(const size_t e) const { return e % the_tasks.size(); }
   T transition_time(const int i, const int j) const;
+    T setup_time(const int i, const int j) const;
 
 public:
   template <typename ItTask, typename ItVar>
@@ -157,14 +160,23 @@ Transitivity<T>::Transitivity(Solver<T> &solver, Interval<T> &sched,
       disjunct[i][j] = m_solver.boolean.getLiteral(false, x);
       disjunct[j][i] = m_solver.boolean.getLiteral(true, x);
 
-      //      if (not transition_flag) {
-      //        transition_flag =
-      //            ((transition_time(i, j) > 0) or (transition_time(j, i) >
-      //            0));
-      //      }
+            if (not transition_flag) {
+              transition_flag |=
+                  ((setup_time(i, j) > 0) or (setup_time(j, i) >
+                  0));
+            }
+        
+//        std::cout << *ip << " -- " << *jp << ": " << transition_time(i, j) << "-" << ip->minDuration(m_solver) << ":" << setup_time(i,j) << "/" << transition_time(j, i) << "-" << jp->minDuration(m_solver) << ":" << setup_time(j,i) << std::endl;
+//        
       ++ep;
     }
   }
+          
+          
+//          if(transition_flag) {
+//              std::cout << "transtions!!\n";
+//              exit(0);
+//          }
 }
 
 template <typename T> Transitivity<T>::~Transitivity() {}
@@ -172,6 +184,15 @@ template <typename T> Transitivity<T>::~Transitivity() {}
 template <typename T>
 T Transitivity<T>::transition_time(const int i, const int j) const {
   return -m_solver.boolean.getEdge(disjunct[i][j]).distance;
+}
+
+template <typename T>
+T Transitivity<T>::setup_time(const int i, const int j) const {
+    auto eij{m_solver.boolean.getEdge(disjunct[i][j])};
+    if(eij.from == the_tasks[j].start.id())
+        return -eij.distance - the_tasks[i].minDuration(m_solver);
+    else
+        return -eij.distance;
 }
 
 template <typename T> void Transitivity<T>::post(const int idx) {
@@ -381,6 +402,7 @@ bool Transitivity<T>::notify(const Literal<T> l, const int r) {
       }
     }
 
+#ifdef DBG_SPANNING
     std::cout << "\nTRANS:\n";
     for (size_t i{0}; i < the_tasks.size(); ++i) {
       std::cout << "t" << the_tasks[i].id() << ":";
@@ -400,6 +422,7 @@ bool Transitivity<T>::notify(const Literal<T> l, const int r) {
       std::cout << std::endl;
     }
     std::cout << std::endl;
+#endif
 
   }
 
@@ -408,8 +431,10 @@ bool Transitivity<T>::notify(const Literal<T> l, const int r) {
 
 template <typename T> void Transitivity<T>::min_spanning_tree() {
 
+#ifdef DBG_SPANNING
   std::cout << "\nmin spanning tree\n";
-
+#endif
+    
   std::sort(transitive_reduction.begin(), transitive_reduction.end(),
             [&](const int a, const int b) { return length(a) < length(b); });
   transitive_reduction.re_index(transitive_reduction.begin(),
@@ -427,16 +452,25 @@ template <typename T> void Transitivity<T>::min_spanning_tree() {
       path_length += length(e);
       ++path_count;
 
+#ifdef DBG_SPANNING
       std::cout << "add " << first(e) << " -> " << second(e) << " ("
                 << length(e) << ") ==> " << path_length << "\n";
-
+#endif
+        
       if (path_count == the_tasks.size() - 1) {
+          
+#ifdef DBG_SPANNING
         std::cout << "the tree has " << (the_tasks.size() - 1) << " edges\n";
+#endif
+          
         break;
       }
-    } else {
+    }
+#ifdef DBG_SPANNING
+    else {
       std::cout << "skip " << first(e) << " -> " << second(e) << "\n";
     }
+#endif
   }
 
   T min_start{Constant::Infinity<T>};
@@ -450,8 +484,10 @@ template <typename T> void Transitivity<T>::min_spanning_tree() {
   }
   path_length += min_start;
 
+#ifdef DBG_SPANNING
     std::cout << "lb = " << path_length << " / " << schedule.getEarliestEnd(m_solver) << ".." << schedule.getLatestEnd(m_solver) << std::endl;
-
+#endif
+    
   forest.clear();
 }
 

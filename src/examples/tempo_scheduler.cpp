@@ -179,23 +179,25 @@ int main(int argc, char *argv[]) {
             scope.clear();
         }
 
-  // set a trivial (and the user-defined) upper bound
-  int total_duration{0};
-  int max_start{0};
-  for (auto &j : intervals) {
-    if (j.maxDuration(S) == Constant::Infinity<int>) {
-      total_duration = Constant::Infinity<int>;
-      break;
-    }
-    total_duration += j.maxDuration(S);
-
-    if (j.start.min(S) > max_start)
-      max_start = j.start.min(S);
-  }
-  auto ub{std::min(opt.ub, max_start + total_duration)};
-
-  //    S.post(schedule.end <= ub);
-  S.post(schedule.end.before(ub));
+//  // set a trivial (and the user-defined) upper bound
+//  int total_duration{0};
+//  int max_start{0};
+//  for (auto &j : intervals) {
+//    if (j.maxDuration(S) == Constant::Infinity<int>) {
+//      total_duration = Constant::Infinity<int>;
+//      break;
+//    }
+//    total_duration += j.maxDuration(S);
+//
+//    if (j.start.min(S) > max_start)
+//      max_start = j.start.min(S);
+//  }
+//  auto ub{std::min(opt.ub, max_start + total_duration)};
+//
+//  //    S.post(schedule.end <= ub);
+//  S.post(schedule.end.before(ub));
+    
+    auto ub{Constant::Infinity<int>};
 
   if (opt.print_mod) {
     std::cout << S << std::endl;

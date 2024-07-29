@@ -27,7 +27,7 @@
 #include "constraints/Constraint.hpp"
 #include "ReversibleObject.hpp"
 
-//#define DBG_LTRANS
+//#define DBG_CARD
 
 namespace tempo {
 

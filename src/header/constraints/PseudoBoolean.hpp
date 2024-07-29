@@ -201,12 +201,29 @@ template <typename T> int PseudoBooleanInterface<T>::getType() const {
 template <typename T>
 void PseudoBooleanInterface<T>::xplain(const Literal<T> l, const hint,
                                        std::vector<Literal<T>> &Cl) {
+    
+//    std::cout << "explain " << l << std::endl;
 
   auto l_lvl{(l == Solver<T>::Contradiction ? m_solver.numLiteral()
                                             : m_solver.propagationLevel(l))};
   for (auto p : literals) {
-    if (m_solver.boolean.satisfied(p) and m_solver.propagationLevel(p) < l_lvl)
-      Cl.push_back(p);
+      
+//      if(not m_solver.boolean.satisfied(p)) {
+//          std::cout << " - "<< p << " has not contributed (not set)\n";
+//      }
+//      
+//      if(m_solver.propagationLevel(p) >= l_lvl) {
+//          std::cout << " - "<< p << " has not contributed (set later than " << l << ")\n";
+//      }
+      
+      if (m_solver.boolean.satisfied(p) and m_solver.propagationLevel(p) < l_lvl) {
+          
+//          if(m_solver.propagationLevel(p) >= l_lvl) {
+//              std::cout << " - "<< p << " !\n";
+//          }
+//          
+          Cl.push_back(p);
+      }
   }
 }
 
@@ -313,7 +330,7 @@ public:
   std::cout << "pruning " << p << std::endl;
 #endif
 
-    PseudoBooleanInterface<T>::m_solver.set(p);
+      PseudoBooleanInterface<T>::m_solver.set(p, {this, Constant::FactHint});
   };
 
   void post(const int idx) override;
@@ -358,7 +375,7 @@ public:
   std::cout << "pruning " << p << std::endl;
 #endif
 
-    PseudoBooleanInterface<T>::m_solver.set(p);
+      PseudoBooleanInterface<T>::m_solver.set(p, {this, Constant::FactHint});
   };
 
   void post(const int idx) override;

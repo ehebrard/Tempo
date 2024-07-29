@@ -187,8 +187,8 @@ int main(int argc, char *argv[]) {
   }
 
   // search
-  S.maximize(Cardinality<int>(selection));
-  //    S.maximize(Sum<int>(selection, weights));
+//  S.maximize(Cardinality<int>(selection));
+   S.maximize(Sum(selection, weights));
 
   if (opt.print_sol) {
     printJobs(S, intervals);
