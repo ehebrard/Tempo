@@ -25,7 +25,7 @@ namespace tempo {
      * Automatically creates required folder structure and generates file names
      * @tparam T timing type
      */
-    template<concepts::scalar T>
+    template<concepts::scalar T = int>
     class Serializer {
         fs::path targetDirectory;
         unsigned solutionId = 0;
@@ -102,11 +102,11 @@ namespace tempo {
     };
 
     /**
-     * @brief Follows the solver'S progress and generates solutions and sub problems at appropriate points.
+     * @brief Follows the solver's progress and generates solutions and sub problems at appropriate points.
      * @details @copybrief
      * @tparam T timing type
      */
-    template<concepts::scalar T>
+    template<concepts::scalar T = int>
     class Tracer {
         class Aligned {
             const Solver<T> &s;
@@ -144,7 +144,7 @@ namespace tempo {
          * @param saveDirectory directory where to save the generated problems and solutions
          */
         Tracer(const Solver<T> &solver, Interval<T> schedule, fs::path saveDirectory) :
-            traceWatcher(solver.boolean_search_vars.size()), serializer(std::move(saveDirectory)), schedule(schedule),
+            traceWatcher(solver.boolean_search_vars), serializer(std::move(saveDirectory)), schedule(schedule),
             solutionHandler(solver.SolutionFound.subscribe_handled([this](const auto &solver) {
                 this->handleSolution(solver);
             })),
@@ -212,11 +212,11 @@ namespace tempo {
 
             serialization::Branch decisions;
             decisions.reserve(traceWatcher.getLastSolution().size());
-            for (auto [var, val] : iterators::enumerate(traceWatcher.getLastSolution(), 0u)) {
+            for (auto [var, val] : iterators::enumerate(traceWatcher.getLastSolution(), traceWatcher.getOffset())) {
                 decisions.emplace_back(var, val);
             }
 
-            serializer.addSolution(schedule.getLatestEnd(solver), std::move(decisions));
+            serializer.addSolution(schedule.getEarliestEnd(solver), std::move(decisions));
         }
 
     };

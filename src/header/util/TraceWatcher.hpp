@@ -10,6 +10,8 @@
 #include <vector>
 #include <Iterators.hpp>
 #include <cassert>
+#include <ranges>
+#include <algorithm>
 
 #include "util/traits.hpp"
 #include "Model.hpp"
@@ -24,13 +26,21 @@ namespace tempo {
     class TraceWatcher {
         std::vector<bool> varPolarity;
         bool onTrack;
+        var_t offset;
     public:
 
         /**
          * CTor
-         * @param numVariables number of binary decision variables
+         * @param vars range containing ids of all search variables
          */
-        explicit TraceWatcher(std::size_t numVariables);
+        template<concepts::ctyped_range<var_t> Vars>
+        requires(std::ranges::sized_range<Vars>)
+        explicit TraceWatcher(const Vars &vars): varPolarity(std::ranges::size(vars), false), onTrack(false),
+                                                 offset(std::ranges::min(vars)) {
+            if (std::ranges::max(vars) - offset + 1 != varPolarity.size()) {
+                throw std::runtime_error("expected continuous range of search variables");
+            }
+        }
 
         /**
          * registers a complete solution
@@ -39,7 +49,7 @@ namespace tempo {
          */
         template<concepts::callable_r<bool, var_t> TF>
         void registerSolution(TF &&truthFunction) {
-            for (auto [var, val] : iterators::enumerate(varPolarity, var_t(0))) {
+            for (auto [var, val] : iterators::enumerate(varPolarity, offset)) {
                 val = std::forward<TF>(truthFunction)(var);
             }
 
@@ -59,7 +69,7 @@ namespace tempo {
         template<concepts::callable_r<bool, var_t, bool> AF>
         auto updateOnTrack(AF &&isAligned) -> std::vector<std::pair<var_t, bool>> {
             std::vector<std::pair<var_t, bool>> ret;
-            for (auto [var, val] : iterators::const_enumerate(varPolarity, var_t(0))) {
+            for (auto [var, val] : iterators::const_enumerate(varPolarity, offset)) {
                 if (not std::forward<AF>(isAligned)(var, val)) {
                     ret.emplace_back(var, val);
                 }
@@ -77,7 +87,7 @@ namespace tempo {
         template<concepts::scalar T>
         void step(Literal<T> decision) noexcept {
             assert(decision.isBoolean());
-            onTrack &= varPolarity[decision.variable()] == decision.sign();
+            onTrack &= varPolarity[decision.variable() - offset] == decision.sign();
         }
 
         /**
@@ -97,6 +107,8 @@ namespace tempo {
          * @return Vector with truth value for each variable (indexed by variable id)
          */
         [[nodiscard]] auto getLastSolution() const noexcept -> const std::vector<bool>&;
+
+        [[nodiscard]] var_t getOffset() const noexcept;
 
     };
 }

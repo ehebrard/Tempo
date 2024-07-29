@@ -26,6 +26,7 @@ int main(int argc, char **argv) {
     const auto problemName = fs::path(options.instance_file).filename();
     const auto destinationFolder = fs::path(saveTo) / problemName;
     Tracer tracer(*solver, schedule, destinationFolder);
+    fs::copy(options.instance_file, destinationFolder, fs::copy_options::overwrite_existing);
     solver->minimize(schedule.end);
     return 0;
 }
