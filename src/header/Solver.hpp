@@ -317,6 +317,8 @@ public:
     size_t numConstraint() const;
     /// Number of  changes
     size_t numLiteral() const;
+    /// Decision level
+    int level() const {return env.level();}
     //@}
     
     /**

@@ -171,12 +171,25 @@ Transitivity<T>::Transitivity(Solver<T> &solver, Interval<T> &sched,
       ++ep;
     }
   }
-          
-          
-//          if(transition_flag) {
-//              std::cout << "transtions!!\n";
-//              exit(0);
+
+////           TODO: get "back edges" in the core graph to detect negative cycles
+//          std::cout << m_solver.core << std::endl;
+//          
+//          
+//          for(unsigned i{0}; i<the_tasks.size(); ++i) {
+//              auto x{the_tasks[i].start.id()};
+//              for(auto e : m_solver.core[x]) {
+//                  auto y{static_cast<int>(e)};
+//                  if(task_map[y] != -1) {
+//                      std::cout << "edge " << x << " - " << y << " (length=" << e.label() << ")\n";
+//                  }
+//              }
 //          }
+//          
+//          
+//          exit(1);
+          
+          
 }
 
 template <typename T> Transitivity<T>::~Transitivity() {}
@@ -496,6 +509,15 @@ template <typename T> void Transitivity<T>::propagate() {
 #ifdef DBG_LTRANS
   bool pruning{false};
 #endif
+    
+    
+    // as long as there is no UB, lbs are relatively useless and negative cycles are not detected (could try to do that, btw)
+    if(schedule.end.max(m_solver) == Constant::Infinity<T>)
+        return;
+    
+    
+    
+//    std::cout << "level = " << m_solver.level() << std::endl;
 
     /// Update the upper bounds
   for (size_t x{0}; x < the_tasks.size(); ++x) {
@@ -515,9 +537,13 @@ template <typename T> void Transitivity<T>::propagate() {
     }
 #endif
     
+    
+//    if(the_tasks[sorted_tasks[0]].id() == 8 and the_tasks[sorted_tasks[0]].getEarliestStart(m_solver) == 5464)
+//        exit(0);
+    
     // starting with the earliest task
   for (auto x : sorted_tasks) {
-
+      
 #ifdef DBG_TRANSITIVITY
     if (DBG_TRANSITIVITY) {
 
@@ -528,6 +554,15 @@ template <typename T> void Transitivity<T>::propagate() {
       std::cout << std::endl;
     }
 #endif
+      
+      if(the_tasks[x].getLatestEnd(m_solver) == Constant::Infinity<T>) {
+#ifdef DBG_TRANSITIVITY
+    if (DBG_TRANSITIVITY) {
+      std::cout << " * stop (inifite latest end from here on)" << std::endl;
+    }
+#endif
+          break;
+      }
 
     // get all the successors y of x in the graph, (so predecessors in the
     // schedule: y < x)
@@ -595,6 +630,16 @@ template <typename T> void Transitivity<T>::propagate() {
     }
     std::cout << std::endl;
 #endif
+      
+      if(the_tasks[y].getEarliestStart(m_solver) == -Constant::Infinity<T>) {
+#ifdef DBG_TRANSITIVITY
+    if (DBG_TRANSITIVITY) {
+      std::cout << " * stop (inifite earliest start from here on)" << std::endl;
+    }
+#endif
+          break;
+      }
+
 
       // the successors of y are pushed by y's duration
     for (auto xp{DAG[y].fbegin()}; xp != DAG[y].fend(); ++xp) {
