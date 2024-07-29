@@ -29,8 +29,8 @@ namespace tempo::heuristics::detail {
         switch (heuristic) {
             case Options::PolarityHeuristic::Tightest:
                 RETURN_NAME(TightestValue);
-            case Options::PolarityHeuristic::SolutionGuided:
-                throw std::runtime_error("not implemented yet");
+            case Options::PolarityHeuristic::TSG:
+                RETURN_NAME(TightestSolutionGuided);
             case Options::PolarityHeuristic::Random:
                 RETURN_NAME(RandomBinaryValue);
             default:

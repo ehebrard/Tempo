@@ -26,11 +26,25 @@ struct TestValueHeuristic
     }
 };
 
+struct TestBaseHeuristic {
+    bool &called;
+    tempo::Literal<int> response;
+
+    TestBaseHeuristic(bool &called, tempo::Literal<int> response) : called(called), response(response) {}
+
+    template<typename S>
+    auto valueDecision(const tempo::heuristics::VariableSelection &, const S &) {
+        called = true;
+        return response;
+    }
+};
+
 struct LitProvider {
     struct Storage {
         explicit Storage(tempo::Literal<int> lit) : lit(lit) {}
 
         tempo::Literal<int> lit;
+        std::vector<bool> solution{};
 
         auto getLiteral(bool sign, tempo::var_t) const { return sign ? lit : ~lit; }
 
@@ -41,6 +55,14 @@ struct LitProvider {
 
         bool hasSemantic(tempo::var_t) const {
             return lit.hasSemantic();
+        }
+
+        bool hasSolution() const {
+            return not solution.empty();
+        }
+
+        const auto &bestSolution() const {
+            return solution;
         }
     };
 
@@ -85,19 +107,26 @@ TEST(value_heuristics, TightestValue) {
     provider = LitProvider{lit};
     EXPECT_EQ(TightestValue::choose(2, provider), ~lit);
 }
-/*
+
+
 TEST(value_heuristics, SolutionGuided) {
     using namespace tempo;
     using namespace tempo::heuristics;
-    EXPECT_TRUE((value_heuristic<SolutionGuided, Scheduler<int>>));
-    DummyScheduler sched;
-    SolutionGuided h(0);
-    EXPECT_EQ(h.choose(1, sched), TightestValue::choose(1, sched));
-    sched.invert = true;
-    EXPECT_EQ(h.choose(1, sched), TightestValue::choose(1, sched));
-    sched.solution = {true, false, false};
-    sched.hasSol = true;
-    EXPECT_EQ(h.choose(0, sched), POS(0));
-    EXPECT_EQ(h.choose(1, sched), NEG(1));
-    EXPECT_EQ(h.choose(2, sched), NEG(2));
-}*/
+    bool called = false;
+    const auto baseResponse = makeBooleanLiteral<int>(true, 24, 19);
+    SolutionGuided<TestBaseHeuristic> h(0, called, baseResponse);
+    LitProvider solver(Literal<int>(3, 17, tempo::detail::Boolean{}));
+    auto res = h.valueDecision({3, VariableType::Boolean}, solver);
+    EXPECT_TRUE(called);
+    EXPECT_EQ(baseResponse, res);
+    EXPECT_EQ(res.semantic(), baseResponse.semantic());
+    called = false;
+    solver.boolean.solution = {true, false, false, true};
+    res = h.valueDecision({0, VariableType::Boolean}, solver);
+    EXPECT_FALSE(called);
+    EXPECT_EQ(res.id(), 3);
+    solver.boolean.lit = {1, 15, tempo::detail::Boolean{}};
+    res = h.valueDecision({0, VariableType::Boolean}, solver);
+    EXPECT_FALSE(called);
+    EXPECT_EQ(res.id(), 0);
+}

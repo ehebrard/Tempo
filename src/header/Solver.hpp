@@ -136,6 +136,7 @@ public:
   // saves the current solution
   void saveSolution() { best_solution = polarity; }
   bool hasSolution() const { return not best_solution.empty(); }
+  auto bestSolution() const noexcept -> const std::vector<bool> & { return best_solution; }
   //@}
 
 protected:

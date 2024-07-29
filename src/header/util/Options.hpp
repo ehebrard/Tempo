@@ -117,7 +117,7 @@ public:
   enum class ChoicePointHeuristics { Tightest = 0, WeightedDegree, VSIDS };
   ChoicePointHeuristics choice_point_heuristics{ChoicePointHeuristics::VSIDS};
 
-  enum class PolarityHeuristic { Tightest, SolutionGuided, Random };
+  enum class PolarityHeuristic { Tightest, TSG, Random };
 
   double polarity_epsilon{0};
 
