@@ -132,6 +132,32 @@ namespace tempo {
         }
 
         /**
+         * @tparam F matrix like type that supports function call operator
+         * @param nRows number of rows
+         * @param nCols  number of columns
+         * @param matrixLike functor object with init values
+         * @param initValue initial value (optional, if non is specified, default constructs elements)
+         * @param layout storage layout (default is row major)
+         */
+        template<concepts::callable_r<T, std::size_t, std::size_t> F>
+        constexpr Matrix(std::size_t nRows, std::size_t nCols, F &&matrixLike, Layout layout = Layout::RowMajor):
+                data(nRows * nCols), nRows(nRows), nCols(nCols), layout(layout) {
+            if (layout == Layout::RowMajor) {
+                for (std::size_t i = 0; i < numRows(); ++i) {
+                    for (std::size_t j = 0; j < numColumns(); ++j) {
+                        operator()(i, j) = std::forward<F>(matrixLike)(i, j);
+                    }
+                }
+            } else {
+                for (std::size_t j = 0; j < numColumns(); ++j) {
+                    for (std::size_t i = 0; i < numRows(); ++i) {
+                        operator()(i, j) = std::forward<F>(matrixLike)(i, j);
+                    }
+                }
+            }
+        }
+
+        /**
          * Resize the matrix. Does not change the stored items. Depending on the new size, old items might be lost
          * @param numRows new number of rows
          * @param numCols new number of columns
