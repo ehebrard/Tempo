@@ -24,13 +24,14 @@
 //#define DBG_EXTRACT
 //#define DBG_EXTRACT_SUM
 
+#include <utility>
+
 #include "util/traits.hpp"
 #include "Literal.hpp"
 #include "constraints/Cardinality.hpp"
 #include "constraints/PseudoBoolean.hpp"
 #include "constraints/SumConstraint.hpp"
 
-using namespace std;
 
 /// @TODO rewritte:
 /// ExpressionImpl should be an interface with var_id(); post(solver);
@@ -48,7 +49,7 @@ template<typename T> class Solver;
 //! "This expression is not a constraint" exception
 class ModelingException : public std::exception {
 public:
-  ModelingException(std::string msg) : msg(msg) {}
+  ModelingException(std::string msg) : msg(std::move(msg)) {}
 
   virtual const char *what() const throw() { return msg.c_str(); }
 
@@ -72,7 +73,7 @@ public:
     throw ModelingException("This predicate cannot be a constraint");
   }
 
-  virtual string name() const { return "some expression"; }
+  virtual std::string name() const { return "some expression"; }
   virtual var_t id() const = 0; //{ return Constant::NoVar; }
   virtual T offset() const { return 0; }
   virtual index_t semantic() const { return Constant::NoSemantic; }
@@ -429,7 +430,7 @@ public:
 #endif
     }
 
-  virtual string name() const override { return "sum"; }
+  virtual std::string name() const override { return "sum"; }
 
   void increaseBias(const T v) {
     NumericExpressionImpl<T>::self.setOffset(
@@ -956,7 +957,7 @@ public:
 #endif
     }
 
-  virtual string name() const override { return "eq"; }
+  virtual std::string name() const override { return "eq"; }
 
   var_t extract(Solver<T> &solver, const var_t = Constant::NoVar) override {
     x.extract(solver);
@@ -1029,7 +1030,7 @@ public:
 //              << " <= " << y << " + " << y.offset() << std::endl;
   }
 
-  virtual string name() const override { return "leq"; }
+  virtual std::string name() const override { return "leq"; }
 
   var_t extract(Solver<T> &solver, const var_t = Constant::NoVar) override {
     x.extract(solver);
@@ -1147,7 +1148,7 @@ public:
     }
   }
 
-  virtual string name() const override { return "and"; }
+  virtual std::string name() const override { return "and"; }
 
   var_t extract(Solver<T> &solver, const var_t = Constant::NoVar) override {
     std::vector<Literal<T>> L;
@@ -1203,7 +1204,7 @@ public:
     }
   }
 
-  virtual string name() const override { return "or"; }
+  virtual std::string name() const override { return "or"; }
 
   var_t extract(Solver<T> &solver, const var_t = Constant::NoVar) override {
     std::vector<Literal<T>> L;
@@ -1255,7 +1256,7 @@ public:
   LogicalImplicationExpression(BooleanVar<T> x, BooleanVar<T> y)
       : implicant(x), implied(y) {}
 
-  virtual string name() const override { return "implication"; }
+  virtual std::string name() const override { return "implication"; }
 
   var_t extract(Solver<T> &solver, const var_t = Constant::NoVar) override {
     implicant.extract(solver);
@@ -1309,7 +1310,7 @@ public:
     }
   }
 
-  virtual string name() const override { return "cardinality"; }
+  virtual std::string name() const override { return "cardinality"; }
 
   var_t extract(Solver<T> &solver, const var_t = Constant::NoVar) override {
     std::vector<Literal<T>> L;
@@ -1367,7 +1368,7 @@ public:
     std::cout << "delete " << name() << std::endl;
   }
 
-  virtual string name() const override { return "no-overlap"; }
+  virtual std::string name() const override { return "no-overlap"; }
 
   var_t extract(Solver<T> &, const var_t) override {
     throw ModelingException("NoOverlap is not a predicate");
@@ -1785,7 +1786,7 @@ template <typename T> var_t Interval<T>::getStart() const { return start.id(); }
 
 template <typename T> var_t Interval<T>::getEnd() const { return end.id(); }
 
-template <typename T> ostream &Interval<T>::display(ostream &os) const {
+template <typename T> std::ostream &Interval<T>::display(std::ostream &os) const {
   os << "t" << id(); //<< ": [" << start.earliest(solver) << ".." <<
                      // end.latest(solver) << "]";
 
@@ -1804,7 +1805,7 @@ template <typename T> ostream &Interval<T>::display(ostream &os) const {
   return os;
 }
 
-template <typename T> ostream &operator<<(ostream &os, const Interval<T> &x) {
+template <typename T> std::ostream &operator<<(std::ostream &os, const Interval<T> &x) {
   return x.display(os);
 }
 }

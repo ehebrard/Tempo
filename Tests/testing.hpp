@@ -29,10 +29,10 @@ namespace tempo::testing {
                 Interval<int>(start, end, duration) {}
     };
 
-    struct Resource : public std::vector<Interval<int>> {
+    struct Resource : public std::vector<unsigned> {
         std::vector<int> demands;
         int capacity;
-        Resource(int capacity, std::vector<Interval<int>> tasks, std::vector<int> demands);
+        Resource(int capacity, std::vector<unsigned> tasks, std::vector<int> demands);
         [[nodiscard]] int getDemand(unsigned taskId) const;
         [[nodiscard]] int resourceCapacity() const;
     };

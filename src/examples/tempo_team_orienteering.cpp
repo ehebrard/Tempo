@@ -61,7 +61,7 @@ void warmstart(Solver<T> &S, Interval<T> &schedule,
 }
 
 template<typename T>
-string prettyJob(const Interval<T>& task, const Solver<T>& S, const bool dur_flag) {
+std::string prettyJob(const Interval<T>& task, const Solver<T>& S, const bool dur_flag) {
   std::stringstream ss;
 
   auto est{S.numeric.lower(task.start)};

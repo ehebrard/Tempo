@@ -17,8 +17,8 @@ namespace tempo::testing {
                                                TaskSpec{.minDur = 0, .maxDur = Constant::Infinity<int>}});
         auto schedule = tasks.back();
         tasks.pop_back();
-        std::vector<Resource> resources{{2, {tasks[0], tasks[2]},           {2, 1}},
-                                        {3, {tasks[1], tasks[2], tasks[3]}, {3, 1, 1}}};
+        std::vector<Resource> resources{{2, {0, 2},    {2, 1}},
+                                        {3, {1, 2, 3}, {3, 1, 1}}};
         std::vector<DistanceConstraint<int>> precedences{{tasks[1].start.id(), tasks[0].end.id(), 0}};
         return {ProblemInstance(std::move(tasks), std::move(resources), std::move(precedences), schedule),
                 std::move(scheduler)} ;
@@ -27,7 +27,7 @@ namespace tempo::testing {
     auto createExtendedTestProblem() -> std::pair<ProblemInstance, DummyScheduler> {
         auto [problem, scheduler] = createTestProblem();
         auto &resources = const_cast<std::remove_cvref_t<decltype(problem.resources())>&>(problem.resources());
-        resources.emplace_back(2, std::vector{problem.tasks().at(1), problem.tasks().at(3)}, std::vector{2, 1});
+        resources.emplace_back(2, std::vector{1u, 3u}, std::vector{2, 1});
         return {std::move(problem), std::move(scheduler)};
     }
 
@@ -102,13 +102,13 @@ namespace tempo::testing {
         std::vector<Resource> resources;
         resources.reserve(numResources);
         for (auto r = 0ul; r < numResources; ++r) {
-            decltype(tasks) consuming;
+            std::vector<unsigned> consuming;
             std::vector<int> demands;
             const auto capacity = random_int(1, 5);
             for (auto t = 0ul; t < numTasks; ++t) {
                 auto demand = random_int(0, capacity);
                 if (demand > 0) {
-                    consuming.emplace_back(tasks.at(t));
+                    consuming.emplace_back(t);
                     demands.emplace_back(demand);
                 }
             }
@@ -121,8 +121,8 @@ namespace tempo::testing {
 
     }
 
-    Resource::Resource(int capacity, std::vector<Interval<int>> tasks, std::vector<int> demands)
-            : std::vector<Interval<int>>(std::move(tasks)), demands(std::move(demands)), capacity(capacity) {}
+    Resource::Resource(int capacity, std::vector<unsigned> tasks, std::vector<int> demands)
+            : std::vector<unsigned>(std::move(tasks)), demands(std::move(demands)), capacity(capacity) {}
 
     int Resource::getDemand(unsigned int taskId) const {
         return demands.at(taskId);
