@@ -13,6 +13,9 @@
 #include <fstream>
 #include <Iterators.hpp>
 #include <optional>
+#include <vector>
+
+#include "util/traits.hpp"
 
 #define DELIM ,
 
@@ -72,6 +75,23 @@ namespace tempo::serialization {
     concept serializable = requires(const T &instance, nlohmann::json &j) {
         nlohmann::to_json(j, instance);
     };
+
+    using Branch = std::vector<std::pair<var_t, bool>>;
+
+    template<concepts::scalar T>
+    struct Solution {
+        unsigned id;
+        T objective;
+        Branch decisions;
+    };
+
+    struct PartialProblem {
+        unsigned associatedSolution;
+        Branch decisions;
+    };
+
+    DEFINE_SERIALIZATION(concepts::scalar T, Solution<T>, id, objective, decisions)
+    NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(PartialProblem, associatedSolution, decisions)
 
     /**
      * Converts a serializable object to json and writes it to the specified destination

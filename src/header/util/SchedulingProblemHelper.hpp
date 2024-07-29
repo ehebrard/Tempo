@@ -83,7 +83,7 @@ namespace tempo {
     }
 
     template<typename T>
-    concept SchedulingResource = concepts::ttyped_range<T, Interval> and requires(const T instance, unsigned taskId) {
+    concept SchedulingResource = concepts::ctyped_range<T, unsigned > and requires(const T instance, unsigned taskId) {
         { instance.resourceCapacity() } -> concepts::scalar;
         { instance.getDemand(taskId) } -> concepts::scalar;
     };
