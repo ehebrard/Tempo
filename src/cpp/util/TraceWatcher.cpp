@@ -23,4 +23,16 @@ namespace tempo {
     var_t TraceWatcher::getOffset() const noexcept {
         return offset;
     }
+
+    void Tracer::handleConflict() {
+        if (watcher.isOnTrack()) {
+            DeviationOccurred.trigger(DeviationType::Fail, TraceWatcher::Conflicts{});
+        }
+
+        watcher.setOnTrack(false);
+    }
+
+    auto Tracer::getWatcher() const noexcept -> const TraceWatcher & {
+        return watcher;
+    }
 }
