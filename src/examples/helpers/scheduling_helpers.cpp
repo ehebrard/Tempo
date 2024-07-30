@@ -46,3 +46,12 @@ auto loadSchedulingProblem(const tempo::Options &options)
     solver->set(schedule.end.before(trivialUb));
     return {std::move(solver), std::move(problem), optSol};
 }
+
+void loadBranch(tempo::Solver<int> &solver, const tempo::serialization::Branch &branch) {
+    for (auto [id, val] : branch) {
+        auto lit = solver.boolean.getLiteral(val, id);
+        solver.set(lit);
+    }
+
+    solver.propagate();
+}

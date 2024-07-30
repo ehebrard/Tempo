@@ -53,13 +53,6 @@ auto getSolutions(const fs::path &solutionDir) -> std::vector<tempo::serializati
     return ret;
 }
 
-void loadConstraints(tempo::Solver<int> &solver, const tempo::serialization::Branch &constraints) {
-    for (auto [id, val] : constraints) {
-        auto lit = solver.boolean.getLiteral(val, id);
-        solver.set(lit);
-    }
-}
-
 
 int main(int argc, char **argv) {
     using namespace tempo;
@@ -103,7 +96,7 @@ int main(int argc, char **argv) {
     std::vector<nlohmann::json> solutionsPayloads;
     for (const auto &sol : solutions) {
         auto [s, p, _] = loadSchedulingProblem(options);
-        loadConstraints(*s, sol.decisions);
+        loadBranch(*s, sol.decisions);
         auto taskDistances = p.getTaskDistances(*s);
         Matrix<int> network(p.tasks().size(), p.tasks().size(), taskDistances);
         nlohmann::json j;
@@ -124,8 +117,7 @@ int main(int argc, char **argv) {
 
         auto partial = serialization::deserializeFromFile<serialization::PartialProblem>(file);
         auto [s, p, _] = loadSchedulingProblem(options);
-        loadConstraints(*s, partial.decisions);
-        s->propagate();
+        loadBranch(*s, partial.decisions);
         auto newGraph = builder.getGraph(nn::makeSolverState(p.getTaskDistances(*s), *s));
         bool equal = false;
         if (filterDuplicates) {

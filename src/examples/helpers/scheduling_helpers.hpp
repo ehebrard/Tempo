@@ -15,6 +15,7 @@
 #include "Solver.hpp"
 #include "util/Options.hpp"
 #include "util/SchedulingProblemHelper.hpp"
+#include "util/serialization.hpp"
 #include "Model.hpp"
 
 /**
@@ -41,5 +42,14 @@ using ProblemInstance = tempo::SchedulingProblemHelper<int, DisjunctiveResource<
  * and optionally the optimal solution
  */
 auto loadSchedulingProblem(const tempo::Options &options) -> std::tuple<SolverPtr, ProblemInstance, std::optional<int>>;
+
+
+/**
+ * Puts the solver on a branch
+ * @param solver solver to configure
+ * @param branch branch to set the solver on
+ */
+void loadBranch(tempo::Solver<int> &solver, const tempo::serialization::Branch &branch);
+
 
 #endif //TEMPO_SCHEDULING_HELPERS_HPP
