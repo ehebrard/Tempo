@@ -30,29 +30,6 @@ constexpr auto LabelFileName = "task_network";
 constexpr auto LabelName = "label";
 constexpr auto InfoFileName = "info.json";
 
-auto getInstance(const fs::path &problemDir) -> fs::path {
-    for (const auto &file : fs::directory_iterator(problemDir)) {
-        if (file.is_regular_file() and file.path().extension() == ".txt") {
-            return file.path();
-        }
-    }
-
-    throw std::runtime_error("no problem definition file found in '" + problemDir.string() + "'");
-}
-
-auto getSolutions(const fs::path &solutionDir) -> std::vector<tempo::serialization::Solution<int>> {
-    using namespace tempo::serialization;
-    std::vector<Solution<int>> ret;
-    for (const auto &file : fs::directory_iterator(solutionDir)) {
-        if (file.is_regular_file()) {
-            ret.emplace_back(deserializeFromFile<Solution<int>>(file));
-        }
-    }
-
-    std::ranges::sort(ret, [](const auto &a, const auto &b) { return a.id < b.id; });
-    return ret;
-}
-
 
 int main(int argc, char **argv) {
     using namespace tempo;
@@ -73,8 +50,8 @@ int main(int argc, char **argv) {
     }
 
 
-    const auto problemsDir = fs::path(options.instance_file) / Serializer<>::SubProblemDir;
-    const auto solutionsDir = fs::path(options.instance_file) / Serializer<>::SolutionDir;
+    const auto mainDir = fs::path(options.instance_file);
+    const auto problemsDir = mainDir / Serializer<>::SubProblemDir;
     options.instance_file = getInstance(options.instance_file);
     const auto inputsDir = fs::path(saveTo) / InputsName;
     const auto labelDir = fs::path(saveTo) / OutputsName;
@@ -92,7 +69,7 @@ int main(int argc, char **argv) {
                         rootInputDir);
 
     // Serialize solutions
-    auto solutions = getSolutions(solutionsDir);
+    auto solutions = getSolutions(mainDir);
     std::vector<nlohmann::json> solutionsPayloads;
     for (const auto &sol : solutions) {
         auto [s, p, _] = loadSchedulingProblem(options);

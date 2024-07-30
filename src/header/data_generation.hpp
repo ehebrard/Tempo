@@ -11,6 +11,8 @@
 #include <utility>
 #include <cassert>
 #include <iostream>
+#include <algorithm>
+#include <vector>
 
 #include "util/traits.hpp"
 #include "util/SubscribableEvent.hpp"
@@ -267,6 +269,48 @@ namespace tempo {
 
     };
 
+    /**
+     * Gets the path to the problem definition under a given problem directory
+     * @param problemDir directory containing data points
+     * @return path to instance file
+     * @throws std::runtime_error if instance file could not be found under given path
+     */
+    auto getInstance(const fs::path &problemDir) -> fs::path;
+
+    /**
+     * Loads all solutions under problem directory
+     * @tparam T timing type
+     * @param problemDir path to directory with data points
+     * @return vector with deserialized solutions sorted by their id
+     * @throws std::runtime_error if solutions directory could not be found under given path
+     */
+    template<concepts::scalar T = int>
+    auto getSolutions(const fs::path &problemDir) -> std::vector<serialization::Solution<T>> {
+        using namespace tempo::serialization;
+        std::vector<Solution<T>> ret;
+        const auto dir = problemDir / Serializer<>::SolutionDir;
+        if (not fs::is_directory(dir)) {
+            throw std::runtime_error("no solutions directory under " + problemDir.string());
+        }
+
+        for (const auto &file : fs::directory_iterator(dir)) {
+            if (file.is_regular_file() and
+                file.path().filename().string().starts_with(Serializer<>::SolutionBaseName)) {
+                ret.emplace_back(deserializeFromFile<Solution<T>>(file));
+            }
+        }
+
+        std::ranges::sort(ret, [](const auto &a, const auto &b) { return a.id < b.id; });
+        return ret;
+    }
+
+    /**
+     * Loads all sub problems under problem directory
+     * @param problemDir path to directory with data points
+     * @return vector with deserialized partial problems
+     * @throws std::runtime_error if sub_problems directory could not be found under given path
+     */
+    auto getProblems(const fs::path &problemDir) -> std::vector<serialization::PartialProblem>;
 }
 
 #endif //TEMPO_DATA_GENERATION_HPP
