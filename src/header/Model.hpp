@@ -1365,7 +1365,9 @@ public:
   NoOverlapExpressionImpl(Interval<T> &sched) : schedule(sched) {}
 
   virtual ~NoOverlapExpressionImpl() {
+#ifdef DBG_EXTRACT
     std::cout << "delete " << name() << std::endl;
+#endif
   }
 
   virtual std::string name() const override { return "no-overlap"; }
@@ -1528,6 +1530,128 @@ NoOverlapExpression<T> NoOverlap(Interval<T> &schedule, const Iterable &X,
 template <typename T> NoOverlapExpression<T> NoOverlap(Interval<T> &schedule) {
   auto impl{new NoOverlapExpressionImpl<T>(schedule)};
   NoOverlapExpression<T> exp(impl);
+  return exp;
+}
+
+/*!
+ Cumulative Resource
+ */
+
+template <typename T = int>
+class CumulativeExpressionImpl : public BooleanExpressionImpl<T>,
+                                 public std::vector<Interval<T>> {
+public:
+  CumulativeExpressionImpl(const NumericVar<T> c) : capacity(c) {}
+
+  virtual ~CumulativeExpressionImpl() {
+#ifdef DBG_EXTRACT
+    std::cout << "delete " << name() << std::endl;
+#endif
+  }
+
+  virtual std::string name() const override { return "cumulative"; }
+
+  var_t extract(Solver<T> &, const var_t) override {
+    throw ModelingException("Cumulative is not a predicate");
+    return Constant::NoVar;
+  }
+
+  void provide(const NumericVar<T> d, const Interval<T> i) {
+    this->push_back(i);
+    demand.push_back(d);
+  }
+
+  void post(Solver<T> &solver) override {
+    size_t k{0};
+
+    for (auto a{this->begin()}; a != this->end(); ++a) {
+      for (auto b{a + 1}; b != this->end(); ++b) {
+
+        auto ea_before_sb{a->end.before(b->start)};
+        auto eb_before_sa{b->end.before(a->start)};
+
+        disjunct.push_back(solver.newDisjunct(~ea_before_sb, ea_before_sb));
+        disjunct.push_back(solver.newDisjunct(~eb_before_sa, eb_before_sa));
+
+        while (k < disjunct.size())
+          solver.addToSearch(disjunct[k++]);
+      }
+    }
+
+    if (std::distance(this->begin(), this->end()) > 1) {
+      solver.postCumulative(capacity, this->begin(), this->end(),
+                            this->begDemand(), this->begDisjunct());
+    }
+  }
+
+  std::vector<BooleanVar<T>>::iterator begDisjunct() {
+    return disjunct.begin();
+  }
+  std::vector<BooleanVar<T>>::iterator endDisjunct() { return disjunct.end(); }
+
+  std::vector<NumericVar<T>>::iterator begDemand() { return demand.begin(); }
+  std::vector<NumericVar<T>>::iterator endDemand() { return demand.end(); }
+
+private:
+  NumericVar<T> capacity;
+  std::vector<BooleanVar<T>> disjunct;
+  std::vector<NumericVar<T>> demand;
+};
+
+template <typename T = int> class CumulativeExpression : public BooleanVar<T> {
+
+public:
+  CumulativeExpression(CumulativeExpressionImpl<T> *i) : BooleanVar<T>(i) {}
+
+  std::vector<Interval<T>>::iterator begin() {
+    return static_cast<CumulativeExpressionImpl<T> *>(BooleanVar<T>::implem)
+        ->begin();
+  }
+  std::vector<Interval<T>>::iterator end() {
+    return static_cast<CumulativeExpressionImpl<T> *>(BooleanVar<T>::implem)
+        ->end();
+  }
+
+  std::vector<BooleanVar<T>>::iterator begDisjunct() {
+    return static_cast<CumulativeExpressionImpl<T> *>(BooleanVar<T>::implem)
+        ->begDisjunct();
+  }
+  std::vector<BooleanVar<T>>::iterator endDisjunct() {
+    return static_cast<CumulativeExpressionImpl<T> *>(BooleanVar<T>::implem)
+        ->endDisjunct();
+  }
+
+  std::vector<BooleanVar<T>>::iterator begDemand() {
+    return static_cast<CumulativeExpressionImpl<T> *>(BooleanVar<T>::implem)
+        ->begDemand();
+  }
+  std::vector<BooleanVar<T>>::iterator endDemand() {
+    return static_cast<CumulativeExpressionImpl<T> *>(BooleanVar<T>::implem)
+        ->endDemand();
+  }
+
+  //    void provide(const NumericVar<T> d, const Interval<T> i) {
+  //        static_cast<CumulativeExpressionImpl<T> *>(BooleanVar<T>::implem)
+  //            ->provide(d,i);
+  //    }
+};
+
+template <typename T>
+CumulativeExpression<T> Cumulative(const NumericVar<T> c,
+                                   const std::vector<Interval<T>> &I,
+                                   const std::vector<NumericVar<T>> &D) {
+  auto impl{new CumulativeExpressionImpl<T>(c)};
+
+  auto i{I.begin()};
+  auto d{D.begin()};
+  while (i != I.end()) {
+    impl->provide(*d, *i);
+    ++i;
+    ++d;
+  }
+
+  CumulativeExpression<T> exp(impl);
+
   return exp;
 }
 

@@ -514,9 +514,7 @@ template <typename T> void Transitivity<T>::propagate() {
     // as long as there is no UB, lbs are relatively useless and negative cycles are not detected (could try to do that, btw)
     if(schedule.end.max(m_solver) == Constant::Infinity<T>)
         return;
-    
-    
-    
+
 //    std::cout << "level = " << m_solver.level() << std::endl;
 
     /// Update the upper bounds

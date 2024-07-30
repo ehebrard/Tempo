@@ -72,6 +72,7 @@ using hint = int;
 //#define DBG_EXPL_TRANS true
 //#define DBG_SOL
 //#define DBG_FAIL true
+#define DBG_CCHEK true
 
 // priority values for constraint propagation
 enum class Priority {
@@ -92,8 +93,8 @@ constexpr auto to_underlying(E e) noexcept {
     return static_cast<std::underlying_type_t<E>>(e);
 }
 
-
-#define CARDEXPL 7
+#define CUMULEXPL 8
+#define CARDEXPL 8
 #define TRANSITIVITYEXPL 7
 #define EDGEFINDINGEXPL 6
 #define EDGEEXPL 5

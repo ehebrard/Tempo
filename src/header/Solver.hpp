@@ -36,6 +36,7 @@
 #include "Objective.hpp"
 #include "Restart.hpp"
 #include "constraints/Cardinality.hpp"
+#include "constraints/CumulativeCheck.hpp"
 #include "constraints/DisjunctiveEdgeFinding.hpp"
 #include "constraints/EdgeConstraint.hpp"
 #include "constraints/OptionalEdgeConstraint.hpp"
@@ -488,6 +489,12 @@ public:
     template <typename ItTask, typename ItVar>
     void postTransitivity(Interval<T> &schedule, const ItTask beg_task,
                           const ItTask end_task, const ItVar beg_var);
+
+    // create and post a new precedence reasoning propagator
+    template <typename ItTask, typename ItNVar, typename ItBVar>
+    void postCumulative(const NumericVar<T> c, const ItTask beg_task,
+                        const ItTask end_task, const ItNVar beg_dem,
+                        const ItBVar beg_disj);
     //@}
 
     /**
@@ -2729,6 +2736,14 @@ void Solver<T>::postTransitivity(Interval<T> &schedule, ItTask beg_task,
   post(new Transitivity<T>(*this, schedule, beg_task, end_task,
                                   beg_var
                                   ));
+}
+
+template <typename T>
+template <typename ItTask, typename ItNVar, typename ItBVar>
+void Solver<T>::postCumulative(const NumericVar<T> c, const ItTask beg_task,
+                               const ItTask end_task, const ItNVar beg_dem,
+                               const ItBVar beg_disj) {
+  post(new CumulativeCheck<T>(*this, c, beg_task, end_task, beg_dem, beg_disj));
 }
 
 template <typename T> double Solver<T>::looseness(const Literal<T> &l) const {
