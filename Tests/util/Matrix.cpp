@@ -47,6 +47,17 @@ TEST(util, Matrix_Ctor_range_exception) {
     EXPECT_THROW((Matrix<int>(2, 3, vals)), std::runtime_error);
 }
 
+TEST(util, Matrix_Ctor_functor) {
+    using namespace tempo;
+    Matrix<int> source(2, 3, {1, 2, 3, 4, 5, 6});
+    Matrix<int> destination(2, 2, source);
+    EXPECT_EQ(destination, Matrix<int>(2, 2, {1, 2, 4, 5}));
+    EXPECT_EQ(destination.storageLayout(), Layout::RowMajor);
+    destination = {2, 2, source, Layout::ColMajor};
+    EXPECT_EQ(destination, Matrix<int>(2, 2, {1, 2, 4, 5}));
+    EXPECT_EQ(destination.storageLayout(), Layout::ColMajor);
+}
+
 TEST(util, Matrix_move) {
     using namespace tempo;
     Matrix<int> matrix(2, 3, {1, 2, 3, 4, 5, 6});

@@ -10,7 +10,7 @@
 namespace osp {
 
 template <typename M, typename J, typename R>
-void parse(const std::string &fn, M &model, J &schedule,
+int parse(const std::string &fn, M &model, J &schedule,
            std::vector<J> &Intervals, std::vector<R> &resources) {
   using std::cerr;
   try {
@@ -80,6 +80,8 @@ void parse(const std::string &fn, M &model, J &schedule,
         ++j;
       }
     }
+
+    return optimalSolution;
   } catch (std::exception &e) {
     std::cout.flush();
     cerr << "ERROR: " << e.what() << std::endl;

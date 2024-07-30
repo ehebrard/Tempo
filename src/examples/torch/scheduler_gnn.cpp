@@ -21,7 +21,7 @@ int main(int argc, char **argv) {
                                  cli::ArgSpec("feat-config", "Location of the feature extractor config", true,
                                               featureExtractorConf));
 
-    auto [solver, problem] = loadSchedulingProblem(opt);
+    auto [solver, problem, _] = loadSchedulingProblem(opt);
     auto schedule = problem.schedule();
     GNNFullGuidance valBranching(opt.polarity_epsilon, gnnLocation, featureExtractorConf, std::move(problem));
     auto varBranching = make_variable_heuristic(*solver);
