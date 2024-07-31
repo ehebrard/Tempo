@@ -11,16 +11,18 @@
 #include "util/parsing/osp.hpp"
 
 
-auto loadSchedulingProblem(const tempo::Options &options) -> std::pair<SolverPtr, ProblemInstance> {
+auto loadSchedulingProblem(const tempo::Options &options)
+-> std::tuple<SolverPtr, ProblemInstance, std::optional<int>> {
     using namespace tempo;
     using namespace std::views;
     auto solver = std::make_unique<Solver<>>(options);
     auto schedule{solver->newInterval(0, Constant::Infinity<int>, 0, 0, 0, Constant::Infinity<int>)};
     std::vector<DisjunctiveResource<>> resources;
     std::vector<Interval<>> tasks;
+    std::optional<int> optSol;
 
     if (options.input_format == "osp") {
-        osp::parse(options.instance_file, *solver, schedule, tasks, resources);
+        optSol = osp::parse(options.instance_file, *solver, schedule, tasks, resources);
     } else {
         std::cerr << "problem type " << options.input_format << " is not (yet) supported" << std::endl;
         std::exit(1);
@@ -42,5 +44,14 @@ auto loadSchedulingProblem(const tempo::Options &options) -> std::pair<SolverPtr
 
     trivialUb = std::min(trivialUb, options.ub);
     solver->set(schedule.end.before(trivialUb));
-    return {std::move(solver), std::move(problem)};
+    return {std::move(solver), std::move(problem), optSol};
+}
+
+void loadBranch(tempo::Solver<int> &solver, const tempo::serialization::Branch &branch) {
+    for (auto [id, val] : branch) {
+        auto lit = solver.boolean.getLiteral(val, id);
+        solver.set(lit);
+    }
+
+    solver.propagate();
 }

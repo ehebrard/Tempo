@@ -8,8 +8,6 @@
 
 namespace tempo {
 
-    TraceWatcher::TraceWatcher(std::size_t numVariables): varPolarity(numVariables, false), onTrack(false) {}
-
     auto TraceWatcher::getLastSolution() const noexcept -> const std::vector<bool> & {
         return varPolarity;
     }
@@ -20,5 +18,21 @@ namespace tempo {
 
     void TraceWatcher::setOnTrack(bool truthVal) noexcept {
         onTrack = truthVal;
+    }
+
+    var_t TraceWatcher::getOffset() const noexcept {
+        return offset;
+    }
+
+    void Tracer::handleConflict() {
+        if (watcher.isOnTrack()) {
+            DeviationOccurred.trigger(DeviationType::Fail, TraceWatcher::Conflicts{});
+        }
+
+        watcher.setOnTrack(false);
+    }
+
+    auto Tracer::getWatcher() const noexcept -> const TraceWatcher & {
+        return watcher;
     }
 }

@@ -19,13 +19,14 @@ int main(int argc, char **argv) {
     std::string saveTo;
     auto options = cli::parseOptions(argc, argv,
                                      cli::ArgSpec("save-to", "Where to save the data points", true, saveTo));
-    auto [solver, problem] = loadSchedulingProblem(options);
+    auto [solver, problem, _] = loadSchedulingProblem(options);
     auto schedule = problem.schedule();
     auto heuristic = make_compound_heuristic(make_variable_heuristic(*solver), TightestSolutionGuided(0, 0));
     solver->setBranchingHeuristic(std::move(heuristic));
     const auto problemName = fs::path(options.instance_file).filename();
     const auto destinationFolder = fs::path(saveTo) / problemName;
-    Tracer tracer(*solver, schedule, destinationFolder);
+    DataGenerator dataGenerator(*solver, schedule, destinationFolder);
+    fs::copy(options.instance_file, destinationFolder, fs::copy_options::overwrite_existing);
     solver->minimize(schedule.end);
     return 0;
 }

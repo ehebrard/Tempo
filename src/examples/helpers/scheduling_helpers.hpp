@@ -9,11 +9,13 @@
 
 #include <vector>
 #include <memory>
-#include <utility>
+#include <tuple>
+#include <optional>
 
 #include "Solver.hpp"
 #include "util/Options.hpp"
 #include "util/SchedulingProblemHelper.hpp"
+#include "util/serialization.hpp"
 #include "Model.hpp"
 
 /**
@@ -37,7 +39,17 @@ using ProblemInstance = tempo::SchedulingProblemHelper<int, DisjunctiveResource<
  * loads a problem instance and instantiates the solver using the given options
  * @param options options for the solver
  * @return ready to run scheduler (with default heuristics) and problem scheduling problem instance struct
+ * and optionally the optimal solution
  */
-auto loadSchedulingProblem(const tempo::Options &options) -> std::pair<SolverPtr, ProblemInstance>;
+auto loadSchedulingProblem(const tempo::Options &options) -> std::tuple<SolverPtr, ProblemInstance, std::optional<int>>;
+
+
+/**
+ * Puts the solver on a branch
+ * @param solver solver to configure
+ * @param branch branch to set the solver on
+ */
+void loadBranch(tempo::Solver<int> &solver, const tempo::serialization::Branch &branch);
+
 
 #endif //TEMPO_SCHEDULING_HELPERS_HPP

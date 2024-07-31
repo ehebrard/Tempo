@@ -10,6 +10,7 @@
 #include <filesystem>
 #include <utility>
 #include <cassert>
+#include <iostream>
 
 #include "util/traits.hpp"
 #include "util/SubscribableEvent.hpp"
@@ -25,7 +26,7 @@ namespace tempo {
      * Automatically creates required folder structure and generates file names
      * @tparam T timing type
      */
-    template<concepts::scalar T>
+    template<concepts::scalar T = int>
     class Serializer {
         fs::path targetDirectory;
         unsigned solutionId = 0;
@@ -82,6 +83,46 @@ namespace tempo {
             problems.clear();
         }
 
+        /**
+         * Clears all registered solutions and problems
+         */
+        void clear() noexcept {
+            solutions.clear();
+            problems.clear();
+        }
+
+        /**
+         * Gets the number of registered solutions
+         * @return number of registered solutions
+         */
+        [[nodiscard]] std::size_t solutionCount() const noexcept {
+            return solutions.size();
+        }
+
+        /**
+         * Gets the number of registered sub problems
+         * @return number of registered sub problems
+         */
+        [[nodiscard]] std::size_t problemCount() const noexcept {
+            return problems.size();
+        }
+
+        /**
+         * Access the solutions
+         * @return const ref to solutions
+         */
+        const auto &getSolutions() const {
+            return solutions;
+        }
+
+        /**
+         * Access the problems
+         * @return const ref to problems
+         */
+        const auto &getProblems() const {
+            return problems;
+        }
+
     private:
         [[nodiscard]] auto generateFileName(bool solution, unsigned id) const -> std::string {
             using namespace std::filesystem;
@@ -102,38 +143,29 @@ namespace tempo {
     };
 
     /**
-     * @brief Follows the solver'S progress and generates solutions and sub problems at appropriate points.
+     * @brief Follows the solver's progress and generates solutions and sub problems at appropriate points.
      * @details @copybrief
      * @tparam T timing type
      */
-    template<concepts::scalar T>
-    class Tracer {
-        class Aligned {
-            const Solver<T> &s;
-        public:
-            explicit constexpr Aligned(const Solver<T> &solver) noexcept: s(solver) {}
-            constexpr bool operator()(var_t var, bool truthVal) const noexcept {
-                return s.boolean.isUndefined(var) or s.boolean.isTrue(var) == truthVal;
-            }
-        };
-
-        TraceWatcher traceWatcher;
+    template<concepts::scalar T = int>
+    class DataGenerator {
+        Tracer tracer;
         Serializer<T> serializer;
         Interval<T> schedule;
         SubscriberHandle solutionHandler;
-        SubscriberHandle decisionHandler;
-        SubscriberHandle conflictHandler;
-        SubscriberHandle backtrackHandler;
-        SubscriberHandle propagationHandler;
+        SubscriberHandle deviationHandler;
 
     public:
-        Tracer(Tracer &&) noexcept = default;
-        Tracer &operator=(Tracer &&) noexcept = default;
+        SubscribableEvent<const serialization::PartialProblem&> DataPointCreated;
+        ///< Triggers when a data point is found
+
+        DataGenerator(DataGenerator &&) noexcept = default;
+        DataGenerator &operator=(DataGenerator &&) noexcept = default;
 
         /**
          * Dtor. Saves all obtained solutions and problems
          */
-        ~Tracer() {
+        ~DataGenerator() {
             serializeData();
         }
 
@@ -143,22 +175,25 @@ namespace tempo {
          * @param schedule interval representing the overall schedule
          * @param saveDirectory directory where to save the generated problems and solutions
          */
-        Tracer(const Solver<T> &solver, Interval<T> schedule, fs::path saveDirectory) :
-            traceWatcher(solver.boolean_search_vars.size()), serializer(std::move(saveDirectory)), schedule(schedule),
+        DataGenerator(const Solver<T> &solver, Interval<T> schedule, fs::path saveDirectory) :
+            tracer(solver), serializer(std::move(saveDirectory)), schedule(schedule),
             solutionHandler(solver.SolutionFound.subscribe_handled([this](const auto &solver) {
                 this->handleSolution(solver);
             })),
-            decisionHandler(solver.ChoicePoint.subscribe_handled([this](auto lit) {
-                this->traceWatcher.step(lit);
-            })),
-            conflictHandler(solver.ConflictEncountered.subscribe_handled([this, &solver](const auto &) {
-                this->handleConflict(solver);
-            })),
-            backtrackHandler(solver.BackTrackCompleted.subscribe_handled([this, &solver]() {
-                this->traceWatcher.updateOnTrack(Aligned(solver));
-            })),
-            propagationHandler(solver.PropagationCompleted.subscribe_handled([this](const auto &solver) {
-                this->handlePropagation(solver);
+            deviationHandler(tracer.DeviationOccurred.subscribe_handled(
+                    [this, &solver](DeviationType type, const auto &conflicts) {
+                switch (type) {
+                    case DeviationType::Propagation:
+                        handlePropagation(solver, conflicts);
+                        break;
+                    case DeviationType::Fail:
+                        handleConflict(solver);
+                        break;
+                    case DeviationType::Decision:
+                        break;
+                    default:
+                        throw std::runtime_error("enum out of bounds");
+                }
             })) {}
 
         /**
@@ -166,6 +201,29 @@ namespace tempo {
          */
         void serializeData() {
             serializer.flush();
+        }
+
+        /**
+         * Clears all found solutions and problems
+         */
+        void clear() noexcept {
+            serializer.clear();
+        }
+
+        /**
+         * Access the solutions
+         * @return const ref to solutions
+         */
+        [[nodiscard]] std::size_t solutionCount() const noexcept {
+            return serializer.solutionCount();
+        }
+
+        /**
+         * Access the problems
+         * @return const ref to problems
+         */
+        [[nodiscard]] std::size_t problemCount() const noexcept {
+            return serializer.problemCount();
         }
 
     private:
@@ -182,41 +240,29 @@ namespace tempo {
         }
 
         void handleConflict(const Solver<T> &solver) {
-            if (not traceWatcher.isOnTrack()) {
-                return;
-            }
-
             serializer.addSubProblem(getDecisions(solver));
-            traceWatcher.setOnTrack(false);
+            DataPointCreated.trigger(serializer.getProblems().back());
         }
 
-        void handlePropagation(const Solver<T> &solver) {
-            if (not traceWatcher.isOnTrack()) {
-                return;
-            }
-
-            const auto conflicting = traceWatcher.updateOnTrack(Aligned(solver));
+        void handlePropagation(const Solver<T> &solver, const TraceWatcher::Conflicts &conflicts) {
             auto currentDecisions = getDecisions(solver);
-            for (auto [var, val] : conflicting) {
+            for (auto [var, val] : conflicts) {
                 currentDecisions.emplace_back(var, val);
                 serializer.addSubProblem(currentDecisions);
+                DataPointCreated.trigger(serializer.getProblems().back());
                 currentDecisions.pop_back();
             }
         }
 
         void handleSolution(const Solver<T> &solver) {
-            traceWatcher.registerSolution([&solver](auto var) {
-                assert(not solver.boolean.isUndefined(var));
-                return solver.boolean.isTrue(var);
-            });
-
             serialization::Branch decisions;
+            const auto &traceWatcher = tracer.getWatcher();
             decisions.reserve(traceWatcher.getLastSolution().size());
-            for (auto [var, val] : iterators::enumerate(traceWatcher.getLastSolution(), 0u)) {
+            for (auto [var, val] : iterators::enumerate(traceWatcher.getLastSolution(), traceWatcher.getOffset())) {
                 decisions.emplace_back(var, val);
             }
 
-            serializer.addSolution(schedule.getLatestEnd(solver), std::move(decisions));
+            serializer.addSolution(schedule.getEarliestEnd(solver), std::move(decisions));
         }
 
     };
