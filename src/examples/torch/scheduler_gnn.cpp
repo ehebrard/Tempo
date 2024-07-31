@@ -26,6 +26,10 @@ int main(int argc, char **argv) {
     GNNFullGuidance valBranching(opt.polarity_epsilon, gnnLocation, featureExtractorConf, std::move(problem));
     auto varBranching = make_variable_heuristic(*solver);
     solver->setBranchingHeuristic(make_compound_heuristic(std::move(varBranching), std::move(valBranching)));
-    solver->minimize(schedule.end);
+    solver->minimize(schedule.duration);
+    if (solver->numeric.hasSolution()) {
+        std::cout << "makespan " << solver->numeric.lower(schedule.duration);
+    }
+
     return 0;
 }
