@@ -34,12 +34,24 @@ using namespace tempo;
 template <typename T>
 void warmstart(Solver<T> &S, Interval<T> &schedule,
                std::vector<Interval<T>> intervals,
-               std::vector<NoOverlapExpression<>> &resources, T &ub) {
+               //               std::vector<NoOverlapExpression<>> &resources,
+               T &ub) {
   // try to get a better ub with an initial upper bound insertion heuristic
   Greedy greedy_insertion(S);
   greedy_insertion.addIntervals(intervals);
-  for (auto &R : resources) {
-    greedy_insertion.addResource(R.begDisjunct(), R.endDisjunct());
+  //  for (auto &R : resources) {
+  //    greedy_insertion.addResource(R.begDisjunct(), R.endDisjunct());
+  //  }
+  for (auto x : S.boolean_search_vars) {
+      
+//      auto l{solver.boolean.getLiteral(true, x)};
+//      auto pc{solver.boolean.getEdge(l)};
+//        auto nc{solver.boolean.getEdge(~l)};
+//      
+//      std::cout <<
+      
+      
+    greedy_insertion.addVar(x);
   }
 
   // the insertion heuristic is randomized so multiple runs can be useful
@@ -47,8 +59,8 @@ void warmstart(Solver<T> &S, Interval<T> &schedule,
   S.propagate();
   for (auto i{0}; i < S.getOptions().greedy_runs; ++i) {
     auto st{S.saveState()};
-    auto sat{greedy_insertion.runEarliestStart()};
-//      auto sat{greedy_insertion.runLex()};
+        auto sat{greedy_insertion.runEarliestStart()};
+//    auto sat{greedy_insertion.runLex()};
     if (sat) {
       if (schedule.getEarliestEnd(S) <= ub) {
           S.set(schedule.end.before(schedule.getEarliestEnd(S)));
@@ -166,6 +178,11 @@ int main(int argc, char *argv[]) {
     jstl::parse(opt.instance_file, S, schedule, intervals, resource_tasks);
   }
 
+  //    for(auto i : intervals) {
+  //        std::cout << i.id() << ": " << i << std::endl;
+  //    }
+  //    exit(1);
+
   resource_transitions.resize(resource_tasks.size());
 
     
@@ -210,7 +227,7 @@ int main(int argc, char *argv[]) {
   auto optimal{false};
   if (opt.greedy_runs > 0)
     try {
-      warmstart(S, schedule, intervals, resources, ub);
+      warmstart(S, schedule, intervals /*, resources*/, ub);
     } catch (Failure<int> &f) {
       //            std::cout << " optimal solution found in a greedy run\n";
       optimal = true;

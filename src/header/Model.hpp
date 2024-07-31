@@ -378,6 +378,8 @@ public:
 
   std::ostream &display(std::ostream &os) const;
 
+  index_t _id_{Constant::NoIndex};
+
   NumericVar<T> start;
   NumericVar<T> end;
   NumericVar<T> duration;
@@ -386,7 +388,11 @@ public:
   bool isOptional(Solver<T> &s) const { return not exist.isTrue(s); }
 
     BooleanVar<T> exist{Constant::True};
+
+    static index_t num_intervals;
 };
+
+template <typename T> index_t Interval<T>::num_intervals = 0;
 
 template <typename T = int>
 class BooleanExpressionImpl : public ExpressionImpl<T> {
@@ -1789,44 +1795,45 @@ template <typename T>
 Interval<T>::Interval(Solver<T> &solver, const NumericVar<T> s,
                       const NumericVar<T> e, const NumericVar<T> d,
                       const BooleanVar<T> o)
-    : start(s), end(e), duration(d), exist(o) {
+    : _id_(num_intervals++), start(s), end(e), duration(d), exist(o) {
 
   //  std::cout << "\ncreate start\n";
   start.extract(solver);
 
-//  std::cout << "\ncreate end\n";
+  //  std::cout << "\ncreate end\n";
   end.extract(solver);
 
-//  std::cout << "\ncreate duration\n";
+  //  std::cout << "\ncreate duration\n";
   duration.extract(solver);
-        
-        exist.extract(solver);
-        
+
+  exist.extract(solver);
+
   //
   //  solver.post((start + duration) == end);
-        if(start.id() != end.id()) {
-            solver.post(start.before(end, duration.min(solver)));
-            //
-            if (duration.max(solver) != Constant::Infinity<T>)
-                solver.post(end.before(start, -duration.max(solver)));
-        }
+  if (start.id() != end.id()) {
+    solver.post(start.before(end, duration.min(solver)));
+    //
+    if (duration.max(solver) != Constant::Infinity<T>)
+      solver.post(end.before(start, -duration.max(solver)));
+  }
 }
 
 template <typename T>
 Interval<T>::Interval(Solver<T> &solver, const T mindur, const T maxdur,
                       const T earliest_start, const T latest_start,
                       const T earliest_end, const T latest_end,
-                      const BooleanVar<T> opt) : exist(opt) {
+                      const BooleanVar<T> opt)
+    : _id_(num_intervals++), exist(opt) {
 
- 
-//                          exist.extract(solver);
-//                          std::cout << "here " << opt << " / " << exist._is_expression << " / " << exist.id() << " / " << Constant::NoVar << std::endl;
-                          
-//                          if(exist.id() == Constant::NoVar) {
-//                              exist = BooleanVar<T>(Constant::True);
-//                          }
-                          
-                          
+  //                          exist.extract(solver);
+  //                          std::cout << "here " << opt << " / " <<
+  //                          exist._is_expression << " / " << exist.id() << " /
+  //                          " << Constant::NoVar << std::endl;
+
+  //                          if(exist.id() == Constant::NoVar) {
+  //                              exist = BooleanVar<T>(Constant::True);
+  //                          }
+
   if (earliest_start == latest_start) {
     start = NumericVar(Constant::K, earliest_start);
   } else {
@@ -1853,10 +1860,11 @@ Interval<T>::Interval(Solver<T> &solver, const T mindur, const T maxdur,
       duration = NumericVar(end.id(), -s);
     }
   }
-
 }
 
-template <typename T> int Interval<T>::id() const { return start.id(); }
+template <typename T> int Interval<T>::id() const {
+  return /*start.id()*/ _id_;
+}
 
 template <typename T> bool Interval<T>::operator==(const Interval<T> &t) const {
   return id() == t.id();

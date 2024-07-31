@@ -35,20 +35,25 @@ template <typename T> class Greedy  {
 public:
     
     Greedy(Solver<T>& s) : solver(s) {
-      Interval_map.resize(solver.numeric.size(), -1);
+//      Interval_map.resize(solver.numeric.size(), -1);
+        precedences.resize(solver.numeric.size());
     }
 
     void addIntervals(std::vector<Interval<T>> &J) {
       Intervals = J;
       unscheduled_Intervals.reserve(Intervals.size());
       unscheduled_Intervals.fill();
-      precedences.resize(Intervals.size());
-      int i{0};
-      for (auto &j : Intervals) {
-        Interval_map[j.start.id()] = i;
-        Interval_map[j.end.id()] = i;
-        ++i;
-      }
+//      precedences.resize(Intervals.size());
+//      int i{0};
+//      for (auto &j : Intervals) {
+//        Interval_map[j.start.id()] = i;
+//        Interval_map[j.end.id()] = i;
+//        ++i;
+//      }
+        
+//        for (auto &j : Intervals) {
+//            std::cout << j << std::endl;
+//        }
     }
 
     //    void addResource(const std::vector<DisjunctVar<T>>::iterator bx,
@@ -80,11 +85,23 @@ public:
     }
     
     void addDisjunct(const BooleanVar<T> b) {
-        auto l{solver.boolean.getLiteral(true, b.id())};
-        auto c{solver.boolean.getEdge(l)};
+        addVar(b.id());
+    }
 
-        precedences[Interval_map[c.to]].push_back(l);
-        precedences[Interval_map[c.from]].push_back(~l);
+    void addVar(const var_t b) {
+      auto l{solver.boolean.getLiteral(true, b)};
+      auto pc{solver.boolean.getEdge(l)};
+        auto nc{solver.boolean.getEdge(~l)};
+        
+//        std::cout << pc << " OR " << nc << std::endl;
+        
+        
+//      precedences[Interval_map[c.to]].push_back(l);
+//      precedences[Interval_map[c.from]].push_back(~l);
+        precedences[pc.to].push_back(l);
+        precedences[nc.to].push_back(~l);
+        
+//        exit(1);
     }
 
     bool runEarliestStart();
@@ -95,7 +112,9 @@ private:
     Solver<T>& solver;
     std::vector<Interval<T>> Intervals;
     SparseSet<> unscheduled_Intervals;
-    std::vector<int> Interval_map;
+//    std::vector<int> Interval_map;
+
+    // for each numeric var, all its conditional precedences
     std::vector<std::vector<Literal<T>>> precedences;
 
     //    std::vector<SparseSet<>> unscheduled_Intervals_of;
@@ -133,15 +152,21 @@ bool Greedy<T>::runLex() {
                     std::endl;
 
         unscheduled_Intervals.remove_back(next);
-        for (auto p : precedences[next]) {
+        for (auto p : precedences[Intervals[next].start.id()]) {
           if (solver.boolean.isUndefined(p.variable())) {
-              std::cout << " -> "<< p << std::endl;
+            std::cout << " -> " << solver.pretty(p) << std::endl;
             solver.set(p);
           }
         }
-        if (unscheduled_Intervals.backsize() == 1)
-          solver.set(Intervals[next].end.before(
-              Intervals[next].getEarliestEnd(solver)));
+          for (auto p : precedences[Intervals[next].end.id()]) {
+            if (solver.boolean.isUndefined(p.variable())) {
+              std::cout << " -> " << solver.pretty(p) << std::endl;
+              solver.set(p);
+            }
+          }
+//        if (unscheduled_Intervals.backsize() == 1)
+//          solver.set(Intervals[next].end.before(
+//              Intervals[next].getEarliestEnd(solver)));
 
         solver.propagate();
 
@@ -198,11 +223,21 @@ bool Greedy<T>::runEarliestStart() {
         //            std::endl;
 
         unscheduled_Intervals.remove_back(next);
-        for (auto p : precedences[next]) {
-          if (solver.boolean.isUndefined(p.variable())) {
-            solver.set(p);
+//        for (auto p : precedences[next]) {
+//          if (solver.boolean.isUndefined(p.variable())) {
+//            solver.set(p);
+//          }
+//        }
+          for (auto p : precedences[Intervals[next].start.id()]) {
+            if (solver.boolean.isUndefined(p.variable())) {
+              solver.set(p);
+            }
           }
-        }
+          for (auto p : precedences[Intervals[next].end.id()]) {
+            if (solver.boolean.isUndefined(p.variable())) {
+              solver.set(p);
+            }
+          }
         if (unscheduled_Intervals.backsize() == 1)
           solver.set(Intervals[next].end.before(
               Intervals[next].getEarliestEnd(solver)));
@@ -261,11 +296,22 @@ bool Greedy<T>::runLatestEnd() {
         //            std::endl;
 
         unscheduled_Intervals.remove_back(next);
-        for (auto p : precedences[next]) {
-          if (solver.boolean.isUndefined(p.variable())) {
-            solver.set(p);
+//        for (auto p : precedences[next]) {
+//          if (solver.boolean.isUndefined(p.variable())) {
+//            solver.set(p);
+//          }
+//        }
+          for (auto p : precedences[Intervals[next].start.id()]) {
+            if (solver.boolean.isUndefined(p.variable())) {
+              solver.set(p);
+            }
           }
-        }
+          for (auto p : precedences[Intervals[next].end.id()]) {
+            if (solver.boolean.isUndefined(p.variable())) {
+              solver.set(p);
+            }
+          }
+          
         if (unscheduled_Intervals.backsize() == 1)
           solver.set(Intervals[next].end.before(
               Intervals[next].getEarliestEnd(solver)));
