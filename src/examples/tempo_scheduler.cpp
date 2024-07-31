@@ -48,9 +48,12 @@ void warmstart(Solver<T> &S, Interval<T> &schedule,
   for (auto i{0}; i < S.getOptions().greedy_runs; ++i) {
     auto st{S.saveState()};
     auto sat{greedy_insertion.runEarliestStart()};
+//      auto sat{greedy_insertion.runLex()};
     if (sat) {
       if (schedule.getEarliestEnd(S) <= ub) {
+          S.set(schedule.end.before(schedule.getEarliestEnd(S)));
         S.boolean.saveSolution();
+        S.numeric.saveSolution();
         ub = schedule.getEarliestEnd(S) - 1;
         std::cout << std::setw(10) << (ub + 1);
         S.displayProgress(std::cout);
@@ -59,7 +62,6 @@ void warmstart(Solver<T> &S, Interval<T> &schedule,
     S.restoreState(st);
   }
 
-  // set the ub (again)
   S.set(schedule.end.before(ub));
 }
 
@@ -195,19 +197,28 @@ int main(int argc, char *argv[]) {
 //  auto ub{std::min(opt.ub, max_start + total_duration)};
 //
 //  //    S.post(schedule.end <= ub);
-//  S.post(schedule.end.before(ub));
-    
-    auto ub{Constant::Infinity<int>};
 
-  if (opt.print_mod) {
-    std::cout << S << std::endl;
+        if (opt.ub != Constant::Infinity<int>)
+          S.post(schedule.end.before(opt.ub));
+
+        auto ub{Constant::Infinity<int>};
+
+        if (opt.print_mod) {
+          std::cout << S << std::endl;
   }
 
-    if(opt.greedy_runs > 0)
-  warmstart(S, schedule, intervals, resources, ub);
+  auto optimal{false};
+  if (opt.greedy_runs > 0)
+    try {
+      warmstart(S, schedule, intervals, resources, ub);
+    } catch (Failure<int> &f) {
+      //            std::cout << " optimal solution found in a greedy run\n";
+      optimal = true;
+    }
 
   // search
-  S.minimize(schedule.duration);
+  if (not optimal)
+    S.minimize(schedule.duration);
 
   if (opt.print_sol) {
     printJobs(S, intervals);

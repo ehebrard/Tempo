@@ -79,6 +79,7 @@ public:
 
     bool runEarliestStart();
     bool runLatestEnd();
+    bool runLex();
     
 private:
     Solver<T>& solver;
@@ -89,6 +90,65 @@ private:
 
     //    std::vector<SparseSet<>> unscheduled_Intervals_of;
 };
+
+
+template <typename T>
+bool Greedy<T>::runLex() {
+ 
+    solver.propagate();
+    
+    std::cout << solver << std::endl;
+
+    while (not unscheduled_Intervals.empty()) {
+      ++solver.num_choicepoints;
+
+      int next{-1};
+      for (auto j : unscheduled_Intervals) {
+        if (next == -1) {
+          next = j;
+        } else if (Intervals[next].getEarliestStart(solver) >
+                   Intervals[j].getEarliestStart(solver)) {
+          next = j;
+        } else if (Intervals[next].getEarliestStart(solver) ==
+                       Intervals[j].getEarliestStart(solver) and
+                   Intervals[next].id() >
+                       Intervals[j].id()) {
+          next = j;
+        }
+      }
+
+      try {
+
+                    std::cout << std::endl << "next="<< Intervals[next] <<
+                    std::endl;
+
+        unscheduled_Intervals.remove_back(next);
+        for (auto p : precedences[next]) {
+          if (solver.boolean.isUndefined(p.variable())) {
+              std::cout << " -> "<< p << std::endl;
+            solver.set(p);
+          }
+        }
+        if (unscheduled_Intervals.backsize() == 1)
+          solver.set(Intervals[next].end.before(
+              Intervals[next].getEarliestEnd(solver)));
+
+        solver.propagate();
+
+                    std::cout << solver << std::endl;
+
+      } catch (Failure<T> &f) {
+                    std::cout << "FAILED!\n";
+          exit(1);
+        break;
+      }
+    }
+
+    bool r{unscheduled_Intervals.empty()};
+    unscheduled_Intervals.fill();
+    return r;
+}
+
 
 
 template <typename T>
@@ -142,7 +202,7 @@ bool Greedy<T>::runEarliestStart() {
         //            std::cout << solver << std::endl;
 
       } catch (Failure<T> &f) {
-        //            std::cout << "FAILED!\n";
+//                    std::cout << "FAILED!\n";
         break;
       }
     }

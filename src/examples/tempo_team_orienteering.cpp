@@ -154,6 +154,9 @@ int main(int argc, char *argv[]) {
   // an interval standing for the makespan of schedule
   auto schedule{S.newInterval(0, Constant::Infinity<int>, 0, 0, 0,
                               Constant::Infinity<int>)};
+  //    auto s{S.newNumeric()};
+  //    auto e{S.newNumeric()};
+  //    auto schedule{S.newInterval(s,e)};
 
   std::vector<NoOverlapExpression<>> resources;
   std::vector<std::vector<size_t>> resource_tasks;
@@ -187,8 +190,8 @@ int main(int argc, char *argv[]) {
   }
 
   // search
-//  S.maximize(Cardinality<int>(selection));
-   S.maximize(Sum(selection, weights));
+  //  S.maximize(schedule.duration);
+  S.maximize(Sum(selection, weights));
 
   if (opt.print_sol) {
     printJobs(S, intervals);

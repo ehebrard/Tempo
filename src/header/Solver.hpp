@@ -562,10 +562,10 @@ public:
      */
     //@{
     std::ostream &display(std::ostream &os, const bool dom = true,
-                          const bool bra = true, const bool sva = true,
-                          const bool pre = true, const bool cla = true,
+                          const bool bra = true, const bool sva = false,
+                          const bool pre = false, const bool cla = false,
                           const bool bgr = false, const bool ngr = false,
-                          const bool con = true, const bool trl = false) const;
+                          const bool con = false, const bool trl = false) const;
     std::ostream &displayTrail(std::ostream &os) const;
     std::ostream &displayDomains(std::ostream &os) const;
     std::ostream &displayBranches(std::ostream &os) const;
@@ -2401,12 +2401,13 @@ template <typename T> boolean_state Solver<T>::search() {
 template <typename T> void tempo::Solver<T>::propagate() {
 
 #ifdef DBG_TRACE
-      if (DBG_BOUND and (DBG_TRACE)) {
-          std::cout << "propagate\n";
-          for(index_t i{propag_pointer}; i<trail.size(); ++i)
-              std::cout << " * " << pretty(trail[i]) << std::endl;
-          std::cout << std::endl;
-      }
+  if (DBG_BOUND and (DBG_TRACE & PROPAGATION) and
+      static_cast<index_t>(propag_pointer) < trail.size()) {
+    std::cout << "propagate\n";
+    for (index_t i{propag_pointer}; i < trail.size(); ++i)
+      std::cout << " * " << pretty(trail[i]) << std::endl;
+    std::cout << std::endl;
+  }
 #endif
 
   index_t p_index{static_cast<index_t>(propag_pointer)};
@@ -2501,12 +2502,6 @@ template <typename T> void tempo::Solver<T>::propagate() {
     //          up_done = true;
     //      }
   }
-
-#ifdef DBG_TRACE
-  if (DBG_BOUND and (DBG_TRACE)) {
-    std::cout << "ok propagate" << std::endl;
-  }
-#endif
 
   propag_pointer = p_index;
 }
@@ -2825,10 +2820,15 @@ std::ostream &Solver<T>::displayDomains(std::ostream &os) const {
 
 template <typename T>
 std::ostream &Solver<T>::displayBranches(std::ostream &os) const {
-  for (size_t i{0}; i < decisions.size(); ++i) {
-    os << std::setw(3) << i << ": " << decisions[i] << std::endl;
-  }
-  return os;
+//  for (size_t i{0}; i < decisions.size(); ++i) {
+//    os << std::setw(3) << i << ": " << decisions[i] << std::endl;
+//  }
+//  return os;
+    for (auto b{boolean_search_vars.bbegin()}; b!=boolean_search_vars.bend(); ++b) {
+      os << " " << pretty(boolean.getLiteral(boolean.isTrue(*b), *b)) ;
+    }
+    
+    return os;
 }
 
 template <typename T>
