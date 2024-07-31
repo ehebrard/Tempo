@@ -149,11 +149,14 @@ namespace tempo {
         SubscriberHandle decisionHandler;
         SubscriberHandle conflictHandler;
         SubscriberHandle backtrackHandler;
-        SubscriberHandle propagationHandler;
+        SubscriberHandle propStartedHandler;
+        SubscriberHandle propCompletedHandler;
+        std::vector<var_t> decisionsBeforeProp{};
     public:
-        SubscribableEvent<DeviationType, TraceWatcher::Conflicts> DeviationOccurred;
+        using Decisions = std::vector<var_t>;
+        SubscribableEvent<DeviationType, const TraceWatcher::Conflicts &, const Decisions &> DeviationOccurred;
         ///< triggered when the solver deviates from path to the last solution. Arguments: deviation type,
-        ///< conflicts after propagation
+        ///< conflicts after propagation, variables fixed before propagation
 
         /**
          * Ctor
@@ -174,7 +177,10 @@ namespace tempo {
         backtrackHandler(solver.BackTrackCompleted.subscribe_handled([this, &solver]() {
             this->watcher.updateOnTrack(Aligned(solver));
         })),
-        propagationHandler(solver.PropagationCompleted.subscribe_handled([this](const auto &solver) {
+        propStartedHandler(solver.PropagationInitiated.subscribe_handled([this](const auto &solver) {
+            this->saveChoices(solver);
+        })),
+        propCompletedHandler(solver.PropagationCompleted.subscribe_handled([this](const auto &solver) {
             this->handlePropagation(solver);
         })) {}
 
@@ -186,6 +192,11 @@ namespace tempo {
 
     private:
         template<concepts::scalar T>
+        void saveChoices(const Solver<T> &solver) {
+            decisionsBeforeProp = {solver.getBranch().bbegin(), solver.getBranch().bend()};
+        }
+
+        template<concepts::scalar T>
         void handlePropagation(const Solver<T> &solver) {
             if (not watcher.isOnTrack()) {
                 return;
@@ -193,7 +204,7 @@ namespace tempo {
 
             auto conflicts = watcher.updateOnTrack(Aligned(solver));
             if (not watcher.isOnTrack()) {
-                DeviationOccurred.trigger(DeviationType::Propagation, std::move(conflicts));
+                DeviationOccurred.trigger(DeviationType::Propagation, conflicts, decisionsBeforeProp);
             }
         }
 
@@ -210,7 +221,7 @@ namespace tempo {
             bool ot = watcher.isOnTrack();
             watcher.step(lit);
             if (ot != watcher.isOnTrack()) {
-                DeviationOccurred.trigger(DeviationType::Decision, TraceWatcher::Conflicts{});
+                DeviationOccurred.trigger(DeviationType::Decision, TraceWatcher::Conflicts{}, Decisions{});
             }
         }
 

@@ -65,6 +65,10 @@ namespace tempo {
          * @param decisions all decisions made by the solver
          */
         void addSubProblem(serialization::Branch decisions) {
+
+#ifdef __DEBUG_BUILD__
+            std::ranges::sort(decisions);
+#endif
             problems.emplace_back(lastSolutionId(), std::move(decisions));
         }
 
@@ -183,10 +187,10 @@ namespace tempo {
                 this->handleSolution(solver);
             })),
             deviationHandler(tracer.DeviationOccurred.subscribe_handled(
-                    [this, &solver](DeviationType type, const auto &conflicts) {
+                    [this, &solver](DeviationType type, const auto &conflicts, const auto &decisions) {
                 switch (type) {
                     case DeviationType::Propagation:
-                        handlePropagation(solver, conflicts);
+                        handlePropagation(solver, conflicts, decisions);
                         break;
                     case DeviationType::Fail:
                         handleConflict(solver);
@@ -229,11 +233,15 @@ namespace tempo {
         }
 
     private:
-        static auto getDecisions(const Solver<T> &solver) -> serialization::Branch {
+        template<concepts::typed_range<var_t> D>
+        auto getDecisions(const Solver<T> &solver, const D &decisions) -> serialization::Branch {
             serialization::Branch branch;
-            std::ranges::subrange currentDecisions(solver.getBranch().bbegin(), solver.getBranch().bend());
-            branch.reserve(currentDecisions.size() + 1);
-            for (var_t var : currentDecisions) {
+            branch.reserve(decisions.size() + 1);
+            for (var_t var : decisions) {
+                if (var < tracer.getWatcher().getOffset()) {
+                    continue;
+                }
+
                 assert(not solver.boolean.isUndefined(var));
                 branch.emplace_back(var, solver.boolean.isTrue(var));
             }
@@ -242,12 +250,14 @@ namespace tempo {
         }
 
         void handleConflict(const Solver<T> &solver) {
-            serializer.addSubProblem(getDecisions(solver));
+            serializer.addSubProblem(getDecisions(solver, std::ranges::subrange(solver.getBranch().bbegin(),
+                                                                                solver.getBranch().bend())));
             DataPointCreated.trigger(serializer.getProblems().back());
         }
 
-        void handlePropagation(const Solver<T> &solver, const TraceWatcher::Conflicts &conflicts) {
-            auto currentDecisions = getDecisions(solver);
+        void handlePropagation(const Solver<T> &solver, const TraceWatcher::Conflicts &conflicts,
+                               const Tracer::Decisions &decisions) {
+            auto currentDecisions = getDecisions(solver, decisions);
             for (auto [var, val] : conflicts) {
                 currentDecisions.emplace_back(var, val);
                 serializer.addSubProblem(currentDecisions);
