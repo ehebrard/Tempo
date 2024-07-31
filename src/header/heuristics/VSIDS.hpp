@@ -62,11 +62,12 @@ namespace tempo::heuristics {
                 auto gap_b = (prec_b == Constant::NoEdge<T> ? Constant::Infinity<T> : solver.numeric.upper(prec_b.from) - solver.numeric.lower(prec_b.to));
                 
                 if(gap_a == Constant::Infinity<T>) {
-                    assert(gap_b != Constant::Infinity<T>);
-                    dom = static_cast<double>(2*gap_b);
+                    
+//                    if(gap_b == Constant::Infinity<T>);
+                    dom = static_cast<double>(gap_a/2 + gap_b/2);
                 } else if(gap_b == Constant::Infinity<T>) {
-                    assert(gap_a != Constant::Infinity<T>);
-                    dom = static_cast<double>(2*gap_a);
+//                    assert(gap_a != Constant::Infinity<T>);
+                    dom = static_cast<double>(gap_a/2 + gap_b/2);
                 } else {
                     dom = static_cast<double>(std::max(gap_a, gap_b));
                 }
