@@ -133,13 +133,4 @@ foreach(EXEC ${EXECUTABLES})
     target_link_libraries(${NAME} PRIVATE nlohmann_json::nlohmann_json)
 endforeach()
 
-
-# Creating a library, following tutorial here: https://stackoverflow.com/a/45843676
-message("Generating target for library")
-add_library(tempo STATIC ${SOURCES})
-include(GNUInstallDirs)
-install(TARGETS tempo
-    LIBRARY DESTINATION ${CMAKE_INSTALL_TEMPO}
-    PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
-
 add_subdirectory(Tests)
