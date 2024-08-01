@@ -13,29 +13,32 @@
 #include "helpers/scheduling_helpers.hpp"
 #include "helpers/cli.hpp"
 
-bool isSubset(const tempo::serialization::Branch &a, const tempo::serialization::Branch &b) {
+auto setDifference(const tempo::serialization::Branch &a, const tempo::serialization::Branch &b) {
     tempo::serialization::Branch out;
-    std::ranges::set_intersection(a, b, std::back_inserter(out));
-    return out.size() == std::min(a.size(), b.size());
+    std::ranges::set_difference(a, b, std::back_inserter(out));
+    return out;
 }
 
 auto findMatchingSolution(const tempo::serialization::PartialProblem &p,
-                          const std::filesystem::path &mainDir) -> std::optional<tempo::serialization::Solution<int>> {
+                          const std::filesystem::path &mainDir)
+                          -> std::pair<std::optional<tempo::serialization::Solution<int>>,
+                          tempo::serialization::Branch> {
     using namespace tempo;
     const auto solutions = getSolutions(mainDir);
     auto decisions = p.decisions;
     std::ranges::sort(decisions);
-    if (isSubset(decisions, solutions.at(p.associatedSolution).decisions)) {
-        return solutions.at(p.associatedSolution);
+    auto diff = setDifference(decisions, solutions.at(p.associatedSolution).decisions);
+    if (diff.empty()) {
+        return {solutions.at(p.associatedSolution), std::move(diff)};
     }
 
     for (const auto &sol : solutions) {
-        if (isSubset(decisions, sol.decisions)) {
-            return sol;
+        if (setDifference(decisions, sol.decisions).empty()) {
+            return {sol, std::move(diff)};
         }
     }
 
-    return {};
+    return {{}, std::move(diff)};
 }
 
 
@@ -69,7 +72,16 @@ int main(int argc, char **argv) {
         std::exit(1);
     }
 
-    auto matching = findMatchingSolution(*partialProblem, mainDir);
+    auto [matching, diff] = findMatchingSolution(*partialProblem, mainDir);
+    if (not diff.empty()) {
+        std::cout << "indicated solution is no superset of partial problem. Conflicts: ";
+        for (auto [var, val]: diff) {
+            std::cout << "(" << var << ", " << val << "); ";
+        }
+
+        std::cout << std::endl;
+    }
+
     if (matching.has_value()) {
         std::cout << "found solution that is super set of constraints in partial problem. ID " << matching->id
                   << " vs indicated " << partialProblem->associatedSolution << std::endl;
