@@ -45,11 +45,11 @@ private:
     std::vector<NumericVar<T>> demand;
 
     
-    // tasks that are in parallel with at least another task
-    SparseSet<int, Reversible<size_t>> parallel;
+  // tasks that are in relevant with at least another task
+  SparseSet<int, Reversible<size_t>> relevant;
     
-  // j in parallel[i] <=> arc (i,j) <=> task[i] and task[j] are in parallel
-//  std::vector<SparseSet<int, Reversible<size_t>>> parallel;
+  // j in relevant[i] <=> arc (i,j) <=> task[i] and task[j] are in relevant
+  std::vector<SparseSet<int, Reversible<size_t>>> parallel;
   // precedence[i][j] <=> (e_i <= s_j or e_i > s_j)
   std::vector<std::vector<Literal<T>>> precedence;
   std::vector<int> scopex;
@@ -89,7 +89,7 @@ template <typename ItTask, typename ItNVar, typename ItBVar>
 CumulativeCheck<T>::CumulativeCheck(Solver<T> &solver, const NumericVar<T> c,
                               const ItTask beg_task, const ItTask end_task,
                               const ItNVar beg_dem, ItBVar beg_disj)
-    : m_solver(solver), capacity(c), parallel(std::distance(beg_task, end_task), &solver.getEnv()) {
+    : m_solver(solver), capacity(c), relevant(std::distance(beg_task, end_task), &solver.getEnv()) {
 
   Constraint<T>::priority = Priority::Low;
 
@@ -104,14 +104,14 @@ CumulativeCheck<T>::CumulativeCheck(Solver<T> &solver, const NumericVar<T> c,
 
   precedence.resize(the_tasks.size());
         
-        parallel.clear();
+        relevant.clear();
 
   for (size_t i{0}; i < the_tasks.size(); ++i) {
 
     precedence[i].resize(the_tasks.size());
 
-//    parallel.emplace_back(the_tasks.size(), &m_solver.getEnv());
-//    parallel.back().clear();
+    parallel.emplace_back(the_tasks.size(), &m_solver.getEnv());
+      parallel.back().clear();
   }
 
   auto ep{beg_disj};
@@ -136,7 +136,7 @@ CumulativeCheck<T>::CumulativeCheck(Solver<T> &solver, const NumericVar<T> c,
 
 template <typename T> CumulativeCheck<T>::~CumulativeCheck() {}
 
-//template <typename T> bool CumulativeCheck<T>::parallel(const int i, const int j) const {
+//template <typename T> bool CumulativeCheck<T>::relevant(const int i, const int j) const {
 //        return precedence[i][j].satisfied(m_solver) and precedence[j][i].satisfied(m_solver)
 //}
 
@@ -179,7 +179,7 @@ bool CumulativeCheck<T>::notify(const Literal<T> l, const int r) {
         //    std::cout << std::endl;
         //    for (size_t i{0}; i < the_tasks.size(); ++i) {
         //      std::cout << "t" << the_tasks[i].id() << ":";
-        //      for (auto j : parallel[i]) {
+        //      for (auto j : relevant[i]) {
         //        std::cout << " t" << the_tasks[*j].id();
         //      }
         //      std::cout << std::endl;
@@ -190,7 +190,7 @@ bool CumulativeCheck<T>::notify(const Literal<T> l, const int r) {
         
         std::cout << start_before_end(y,x) << "|" << start_before_end(x,y) << std::endl;
         
-        std::cout << "level=" << m_solver.level() << " parallel: " << parallel << std::endl;
+        std::cout << "level=" << m_solver.level() << " relevant: " << relevant << std::endl;
         
         for(unsigned i{0}; i<the_tasks.size(); ++i) {
             std::cout << "t" << the_tasks[i].id()+1
@@ -203,8 +203,10 @@ bool CumulativeCheck<T>::notify(const Literal<T> l, const int r) {
             for(unsigned j{0}; j<the_tasks.size(); ++j) 
                 if(i!=j and start_before_end(i, j) and start_before_end(j, i)) {
                     std::cout << "*" ;
+                    assert(parallel[i].has(j));
                 } else {
                     std::cout << "." ;
+                    assert(not parallel[i].has(j));
                 }
             std::cout << std::endl;
         }
@@ -228,25 +230,29 @@ bool CumulativeCheck<T>::notify(const Literal<T> l, const int r) {
 //    std::cout << m_solver.pretty(precedence[x][y]) << " <> "
 //    << m_solver.pretty(precedence[y][x]) << std::endl;
     
-//    bool new_parallel{false};
+//    bool new_relevant{false};
 //    if(m_solver.boolean.satisfied(precedence[y][x])) {
     if(start_before_end(x,y)) {
-        if(not parallel.has(x)) {
-            parallel.add(x);
-//            new_parallel = true;
+        if(not relevant.has(x)) {
+            relevant.add(x);
+//            new_relevant = true;
         }
-        if(not parallel.has(y)) {
-            parallel.add(y);
-//            new_parallel = true;
+        if(not relevant.has(y)) {
+            relevant.add(y);
+//            new_relevant = true;
         }
         
+        assert(not parallel[x].has(y) and not parallel[y].has(x));
+        parallel[x].add(y);
+        parallel[y].add(x);
+        
         return true;
-//        std::cout << "parallel: " << parallel << std::endl;
+//        std::cout << "relevant: " << relevant << std::endl;
     }
     
 #ifdef DBG_CCHEK
     if (DBG_CCHEK) {
-        std::cout << "no new parallelism\n";
+        std::cout << "no new relevantism\n";
     }
 #endif
     
@@ -260,16 +266,16 @@ template <typename T> void CumulativeCheck<T>::propagate() {
 #ifdef DBG_CCHEK
     if (DBG_CCHEK) {
         std::cout << "propagate " <<  *this << std::endl;
-        std::cout << "parallel: " << parallel << std::endl;
+        std::cout << "relevant: " << relevant << std::endl;
     }
 #endif
     
-    assert(not parallel.empty());
+    assert(not relevant.empty());
     
     sorted_tasks.clear();
     //    for(unsigned i{0}; i<the_tasks.size(); ++i)
     //        sorted_tasks.push_back(i);
-    for(auto i : parallel) {
+    for(auto i : relevant) {
         sorted_tasks.push_back(i);
     }
     
@@ -322,8 +328,10 @@ template <typename T> void CumulativeCheck<T>::propagate() {
             for(unsigned j{0}; j<the_tasks.size(); ++j)
                 if(i!=j and start_before_end(i, j) and start_before_end(j, i)) {
                     std::cout << "*" ;
+                    assert(parallel[i].has(j));
                 } else {
                     std::cout << "." ;
+                    assert(not parallel[i].has(j));
                 }
             std::cout << std::endl;
         }
