@@ -30,6 +30,7 @@
 #include "constraints/Constraint.hpp"
 #include "util/DisjointSet.hpp"
 #include "util/SparseSet.hpp"
+#include "util/LexBFS.hpp"
 #include "Model.hpp"
 
 namespace tempo {
@@ -56,7 +57,11 @@ private:
   std::vector<int> scopey;
 
     
-    std::vector<unsigned> sorted_tasks;
+    LexBFS simplicial;
+    
+//    std::vector<unsigned> sorted_tasks;
+    
+    std::vector<int> fail_xpl;
 
 public:
   template <typename ItTask, typename ItNVar, typename ItBVar>
@@ -167,24 +172,13 @@ template <typename T> void CumulativeCheck<T>::post(const int idx) {
 
 
 template <typename T>
-bool CumulativeCheck<T>::notify(const Literal<T> l, const int r) {
+bool CumulativeCheck<T>::notify(const Literal<T>, const int r) {
   
     auto x{scopex[r]};
     auto y{scopey[r]};
 
 #ifdef DBG_CCHEK
     if (DBG_CCHEK) {
-        
-        //
-        //    std::cout << std::endl;
-        //    for (size_t i{0}; i < the_tasks.size(); ++i) {
-        //      std::cout << "t" << the_tasks[i].id() << ":";
-        //      for (auto j : relevant[i]) {
-        //        std::cout << " t" << the_tasks[*j].id();
-        //      }
-        //      std::cout << std::endl;
-        //    }
-        
         std::cout << "\nnotify  end(" << the_tasks[x] << ") > start(" << the_tasks[y]
         << ") / " << m_solver.pretty(l) << std::endl;
         
@@ -193,26 +187,19 @@ bool CumulativeCheck<T>::notify(const Literal<T> l, const int r) {
         std::cout << "level=" << m_solver.level() << " relevant: " << relevant << std::endl;
         
         for(unsigned i{0}; i<the_tasks.size(); ++i) {
-            std::cout << "t" << the_tasks[i].id()+1
+            std::cout << "t" << the_tasks[i].id()
             << ": ";
-//            for(unsigned j{0}; j<the_tasks.size(); ++j) if(i!=j) {
-//                std::cout << start_before_end(i, j);
-//            } else {
-//                std::cout << "*" ;
-//            }
-            for(unsigned j{0}; j<the_tasks.size(); ++j) 
+            for(unsigned j{0}; j<the_tasks.size(); ++j)
                 if(i!=j and start_before_end(i, j) and start_before_end(j, i)) {
-                    std::cout << "*" ;
-                    assert(parallel[i].has(j));
+                  std::cout << "*";
                 } else {
-                    std::cout << "." ;
-                    assert(not parallel[i].has(j));
+                  std::cout << ".";
                 }
             std::cout << std::endl;
         }
         
         for(unsigned i{0}; i<the_tasks.size(); ++i) {
-            std::cout << "t" << the_tasks[i].id()+1
+            std::cout << "t" << the_tasks[i].id()
             << " ["
             << the_tasks[i].getEarliestStart(m_solver)
             << "-" << the_tasks[i].getLatestStart(m_solver)
@@ -226,33 +213,25 @@ bool CumulativeCheck<T>::notify(const Literal<T> l, const int r) {
         }
     }
 #endif
-    
-//    std::cout << m_solver.pretty(precedence[x][y]) << " <> "
-//    << m_solver.pretty(precedence[y][x]) << std::endl;
-    
-//    bool new_relevant{false};
-//    if(m_solver.boolean.satisfied(precedence[y][x])) {
+  
     if(start_before_end(x,y)) {
         if(not relevant.has(x)) {
             relevant.add(x);
-//            new_relevant = true;
         }
         if(not relevant.has(y)) {
             relevant.add(y);
-//            new_relevant = true;
         }
         
         assert(not parallel[x].has(y) and not parallel[y].has(x));
         parallel[x].add(y);
         parallel[y].add(x);
-        
+
         return true;
-//        std::cout << "relevant: " << relevant << std::endl;
     }
     
 #ifdef DBG_CCHEK
     if (DBG_CCHEK) {
-        std::cout << "no new relevantism\n";
+      std::cout << "no new parallelism\n";
     }
 #endif
     
@@ -270,232 +249,70 @@ template <typename T> void CumulativeCheck<T>::propagate() {
     }
 #endif
     
-    assert(not relevant.empty());
-    
-    sorted_tasks.clear();
-    //    for(unsigned i{0}; i<the_tasks.size(); ++i)
-    //        sorted_tasks.push_back(i);
-    for(auto i : relevant) {
-        sorted_tasks.push_back(i);
-    }
-    
-    
-    //    std::sort(sorted_tasks.begin(), sorted_tasks.end(),
-    //              [&](const int x, const int y) -> bool {
-    //        return the_tasks[x].getEarliestEnd(m_solver) <
-    //        the_tasks[y].getEarliestEnd(m_solver);
-    //    });
-    
-    std::sort(sorted_tasks.begin(), sorted_tasks.end(),
-              [&](const int x, const int y) -> bool {
-        return not start_before_end(x,y);
-    });
+    simplicial.explore(relevant, parallel);
     
 #ifdef DBG_CCHEK
     if (DBG_CCHEK) {
-        for(auto i : sorted_tasks) {
-            std::cout << "t" << the_tasks[i].id()+1
-            << " ["
-            << the_tasks[i].getEarliestStart(m_solver)
-            << "-" << the_tasks[i].getLatestStart(m_solver)
-            << ".."
-            << the_tasks[i].getEarliestEnd(m_solver)
-            << "-" << the_tasks[i].getLatestEnd(m_solver)
-            << "] p=" << the_tasks[i].minDuration(m_solver)
-            << " d=" <<
-            //            m_solver.numeric.lower(demand[i])
-            demand[i].min(m_solver)
-//            << ": ";
-//            for(auto j : sorted_tasks) if(i!=j) {
-//                if(start_before_end(i, j)) {
-//                    if(start_before_end(j, i))
-//                        std::cout << "*";
-//                    else
-//                        std::cout << ">";
-//                } else {
-//                    if(start_before_end(j, i))
-//                        std::cout << "<";
-//                    else
-//                        std::cout << ".";
-//                }
-//            }
-//            std::cout 
-            << std::endl;
-        }
-        
-        for(unsigned i{0}; i<the_tasks.size(); ++i) {
-            std::cout << "t" << the_tasks[i].id()+1 << ": ";
-            for(unsigned j{0}; j<the_tasks.size(); ++j)
-                if(i!=j and start_before_end(i, j) and start_before_end(j, i)) {
-                    std::cout << "*" ;
-                    assert(parallel[i].has(j));
-                } else {
-                    std::cout << "." ;
-                    assert(not parallel[i].has(j));
-                }
-            std::cout << std::endl;
-        }
-        
-        for(unsigned i{0}; i<the_tasks.size(); ++i) {
-            std::cout << "t" << the_tasks[i].id()+1 << ": ";
-            for(unsigned j{0}; j<the_tasks.size(); ++j)
-                if(i!=j) {
-                    std::cout << start_before_end(i, j) ;
-                } else {
-                    std::cout << "." ;
-                }
-            std::cout << std::endl;
-        }
+        std::cout << "simplicial elimination:" << std::endl;
     }
-    
-    std::vector<index_t> neighbors;
 #endif
     
-    
-    
-    while(not sorted_tasks.empty()) {
-        auto i{sorted_tasks.back()};
-        sorted_tasks.pop_back();
-        
-        T size_clique{demand[i].min(m_solver)};
+    for(auto v{simplicial.ordering.rbegin()}; v!=simplicial.ordering.rend(); ++v) {
         
 #ifdef DBG_CCHEK
-        if (DBG_CCHEK) {
-            std::cout << "clique: " << the_tasks[i].id()+1 << " (" << size_clique << ")";
+    if (DBG_CCHEK) {
+        std::cout << " * clique " << *v << ":";
+        for(auto w : parallel[*v]) if(simplicial.before(*v,w)) {
+            std::cout << " " << w;
+            for(auto u : parallel[*v]) if(simplicial.before(*v,u) and u!=w) {
+                if(not parallel[u].has(w) or not parallel[w].has(u)) {
+                    std::cout << std::endl << *v << " is not simplicial because "
+                    << u << " and " <<  w << " are not adjacent\n";
+                    exit(1);
+                }
+            }
         }
+        std::cout << std::endl;
+    }
 #endif
         
         
-        for(auto j : sorted_tasks) {
-            if(start_before_end(i,j) and start_before_end(j,i)) {
-                size_clique += demand[j].min(m_solver);
-                
+        T size_clique{demand[*v].min(m_solver)};
+        for(auto w : parallel[*v]) {
+            if(simplicial.before(*v,w))
+                size_clique += demand[w].min(m_solver);
+        }
+        
 #ifdef DBG_CCHEK
                 if (DBG_CCHEK) {
-                    
-                    std::cout << " + " << the_tasks[j].id()+1 << " (" << size_clique << ")";
-                    
-                    for(auto k : neighbors) if(j != k)
-                        if(not start_before_end(j,k) or not start_before_end(k,j)) {
-                            std::cout << std::endl << the_tasks[i].id()+1 << " is not simplicial because "
-                            << the_tasks[j].id()+1 << " and " <<  the_tasks[k].id()+1 << " are not adjacent\n";
-                            exit(1);
-                        }
-                    neighbors.push_back(j);
+                    std::cout << " = " << size_clique ;
                 }
 #endif
-                
-                if(size_clique > capacity.max(m_solver)) {
-                    
+        
+        if(size_clique > capacity.max(m_solver)) {
 #ifdef DBG_CCHEK
                 if (DBG_CCHEK) {
                     std::cout << "fail!\n";
                 }
 #endif
                     
-                    throw Failure<T>({this,Constant::FactHint});
-                }
+            fail_xpl.clear();
+            fail_xpl.push_back(*v);
+            for(auto w : parallel[*v]) {
+                if(simplicial.before(*v,w))
+                    fail_xpl.push_back(w);
             }
+            
+           throw Failure<T>({this,Constant::FactHint});
         }
         
-        neighbors.clear();
 #ifdef DBG_CCHEK
-                if (DBG_CCHEK) {
+                else {
                     std::cout << "\n";
                 }
 #endif
         
     }
-    
-    
-    
-    
-    
-//    auto start_clique{sorted_tasks.begin()};
-//    auto end_clique{start_clique};
-//    T size_clique{demand[*start_clique].min(m_solver)};
-//    while(++end_clique != sorted_tasks.end()) {
-//        
-//#ifdef DBG_CCHEK
-//        if (DBG_CCHEK) {
-//            std::cout << "\nadd t" << the_tasks[*end_clique].id()+1 << "\n";
-//        }
-//#endif
-//        
-//        size_clique += demand[*end_clique].min(m_solver);
-//        
-//#ifdef DBG_CCHEK
-//        if (DBG_CCHEK) {
-//            std::cout << "size=" << size_clique << " need to reduce clique " << "?\n";
-//            
-//            if(start_before_end(*end_clique, *start_clique))
-//                std::cout << "t" << the_tasks[*end_clique].id()+1 << " must start before "
-//                << "t" << the_tasks[*start_clique].id()+1 << " ends" << std::endl;
-//            else
-//                std::cout << "t" << the_tasks[*end_clique].id()+1 << " may start after "
-//                << "t" << the_tasks[*start_clique].id()+1 << " ends" << std::endl;
-//        }
-//#endif
-//        
-//        while(not (start_before_end(*end_clique, *start_clique) and start_before_end(*start_clique, *end_clique))) {
-//            size_clique -= demand[*start_clique].min(m_solver);
-//#ifdef DBG_CCHEK
-//            if (DBG_CCHEK) {
-//                std::cout << "remove t" << the_tasks[*start_clique].id()+1 << ", size=" << size_clique << "\n";
-//            }
-//#endif
-//            if(++start_clique == end_clique) {
-//                break;
-//            }
-//            
-//#ifdef DBG_CCHEK
-//            if (DBG_CCHEK) {
-//                if(start_before_end(*end_clique, *start_clique))
-//                    std::cout << "t" << the_tasks[*end_clique].id()+1 << " must start before "
-//                    << "t" << the_tasks[*start_clique].id()+1 << " ends" << std::endl;
-//                else
-//                    std::cout << "t" << the_tasks[*end_clique].id()+1 << " may start after "
-//                    << "t" << the_tasks[*start_clique].id()+1 << " ends" << std::endl;
-//                
-//                if(start_before_end(*start_clique, *end_clique))
-//                    std::cout << "t" << the_tasks[*start_clique].id()+1 << " must start before "
-//                    << "t" << the_tasks[*end_clique].id()+1 << " ends" << std::endl;
-//                else
-//                    std::cout << "t" << the_tasks[*start_clique].id()+1 << " may start after "
-//                    << "t" << the_tasks[*end_clique].id()+1 << " ends" << std::endl;
-//            }
-//#endif
-//        }
-//        
-//        
-//#ifdef DBG_CCHEK
-//        if (DBG_CCHEK) {
-//            auto i{start_clique};
-//            
-//            std::cout << "\ncurrent clique (size=" << size_clique << "):\n";
-//            do {
-//                std::cout << "t" << the_tasks[*i].id()+1 << " [" << the_tasks[*i].getEarliestStart(m_solver) << ".."
-//                << the_tasks[*i].getLatestEnd(m_solver) << "] p=" << the_tasks[*i].minDuration(m_solver)
-//                << " d=" <<
-//                //            m_solver.numeric.lower(demand[*i])
-//                demand[*i].min(m_solver)
-//                << std::endl;
-//            } while(i++ != end_clique);
-//        }
-//#endif
-//        
-//        //        if(size_clique > m_solver.numeric.upper(capacity))
-//        if(size_clique > capacity.max(m_solver)) {
-//            
-//#ifdef DBG_CCHEK
-//            if (DBG_CCHEK) {
-//                std::cout << "FAIL!\n";
-//            }
-//#endif
-//            
-//            throw Failure<T>({this,Constant::FactHint});
-//        }
-//    }
 }
 
 template <typename T> int CumulativeCheck<T>::getType() const {
@@ -503,8 +320,22 @@ template <typename T> int CumulativeCheck<T>::getType() const {
 }
 
 template <typename T>
-void CumulativeCheck<T>::xplain(const Literal<T>, const hint,
-                             std::vector<Literal<T>> &) {
+void CumulativeCheck<T>::xplain(const Literal<T> l, const hint,
+                             std::vector<Literal<T>> &Cl) {
+    if(l != Solver<T>::Contradiction) {
+        std::cout << "bug xplain cumulative!\n";
+        exit(1);
+    } else {
+//        std::cout << "explain failure : clique with";
+        for(auto v{fail_xpl.begin()}; v!=fail_xpl.end(); ++v) {
+//            std::cout << " " << the_tasks[*v] ;
+            for(auto w{v+1}; w!=fail_xpl.end(); ++w) {
+                Cl.push_back(precedence[*v][*w]);
+                Cl.push_back(precedence[*w][*v]);
+            }
+        }
+//        std::cout << std::endl;
+    }
 }
 
 template <typename T>
