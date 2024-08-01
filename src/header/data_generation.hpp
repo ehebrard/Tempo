@@ -13,6 +13,7 @@
 #include <iostream>
 #include <algorithm>
 #include <vector>
+#include <Iterators.hpp>
 
 #include "util/traits.hpp"
 #include "util/SubscribableEvent.hpp"
@@ -31,8 +32,6 @@ namespace tempo {
     template<concepts::scalar T = int>
     class Serializer {
         fs::path targetDirectory;
-        unsigned solutionId = 0;
-        unsigned problemId = 0;
         std::vector<serialization::Solution<T>> solutions;
         std::vector<serialization::PartialProblem> problems;
     public:
@@ -57,7 +56,7 @@ namespace tempo {
          * @param decisions all decisions made by the solver
          */
         void addSolution(T objective, serialization::Branch decisions) {
-            solutions.emplace_back(solutionId++, objective, std::move(decisions));
+            solutions.emplace_back(solutions.size(), objective, std::move(decisions));
         }
 
         /**
@@ -82,8 +81,8 @@ namespace tempo {
             }
 
             solutions.clear();
-            for (const auto &prob : problems) {
-                serializeToFile(prob, generateFileName(false, problemId++));
+            for (auto [id, prob] : iterators::const_enumerate(problems)) {
+                serializeToFile(prob, generateFileName(false, id));
             }
 
             problems.clear();
@@ -117,7 +116,7 @@ namespace tempo {
          * Access the solutions
          * @return const ref to solutions
          */
-        const auto &getSolutions() const {
+        [[nodiscard]] const auto &getSolutions() const noexcept {
             return solutions;
         }
 
@@ -125,7 +124,7 @@ namespace tempo {
          * Access the problems
          * @return const ref to problems
          */
-        const auto &getProblems() const {
+        [[nodiscard]] const auto &getProblems() const noexcept {
             return problems;
         }
 
@@ -139,11 +138,11 @@ namespace tempo {
         }
 
         [[nodiscard]] std::size_t lastSolutionId() const {
-            if (solutionId == 0) {
+            if (solutions.size() == 0) {
                 throw std::runtime_error("no solution has been found yet");
             }
 
-            return solutionId - 1;
+            return solutions.size() - 1;
         }
 
     };
