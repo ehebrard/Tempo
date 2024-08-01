@@ -45,6 +45,16 @@ TEST(util, VarTaskMapping_non_continuous) {
     EXPECT_THROW(VarTaskMapping{tasks}, std::runtime_error);
 }
 
+TEST(util, VarTaskMapping_non_unique) {
+    using namespace tempo;
+    std::vector<Interval<>> tasks(3);
+    tasks[0].start = {4, 0};
+    tasks[0].end = {5, 0};
+    tasks[1].start = {5, 0};
+    tasks[1].end = {6, 0};
+    EXPECT_THROW(VarTaskMapping{tasks}, std::runtime_error);
+}
+
 TEST(util, SchedulingProblemHelper_basic) {
     using namespace tempo;
     using T = tempo::testing::TaskSpec;
