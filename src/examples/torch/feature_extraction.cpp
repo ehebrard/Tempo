@@ -8,7 +8,6 @@
 #include <vector>
 #include <string>
 #include <ranges>
-#include <algorithm>
 #include <nlohmann/json.hpp>
 #include <Iterators.hpp>
 
@@ -73,6 +72,7 @@ int main(int argc, char **argv) {
     std::vector<nlohmann::json> solutionsPayloads;
     for (const auto &sol : solutions) {
         auto [s, p, _] = loadSchedulingProblem(options);
+        s->set(leq(p.schedule().duration.id(), sol.objective));
         loadBranch(*s, sol.decisions);
         auto taskDistances = p.getTaskDistances(*s);
         Matrix<int> network(p.tasks().size(), p.tasks().size(), taskDistances);
@@ -94,6 +94,8 @@ int main(int argc, char **argv) {
 
         auto partial = serialization::deserializeFromFile<serialization::PartialProblem>(file);
         auto [s, p, _] = loadSchedulingProblem(options);
+        const auto &sol = solutions.at(partial.associatedSolution);
+        s->set(leq(p.schedule().duration.id(), sol.objective));
         loadBranch(*s, partial.decisions);
         auto newGraph = builder.getGraph(nn::makeSolverState(p.getTaskDistances(*s), *s));
         bool equal = false;
