@@ -30,7 +30,7 @@ namespace tempo {
 
     void Tracer::handleConflict() {
         if (watcher.isOnTrack()) {
-            DeviationOccurred.trigger(DeviationType::Fail, TraceWatcher::Conflicts{}, Decisions{});
+            DeviationOccurred.trigger(DeviationType::Fail, TraceWatcher::Conflicts{}, watcher.getVariablesOnTrack());
         }
 
         watcher.setOnTrack(false);

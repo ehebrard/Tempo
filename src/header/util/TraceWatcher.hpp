@@ -159,6 +159,10 @@ namespace tempo {
         }
     };
 
+    /**
+     * @brief Functor object that gets the truth value of a binary variable from the solver
+     * @tparam T timing type
+     */
     template<concepts::scalar T>
     class TruthFunction {
         const Solver<T> &s;
@@ -196,14 +200,12 @@ namespace tempo {
         SubscriberHandle decisionHandler;
         SubscriberHandle conflictHandler;
         SubscriberHandle backtrackHandler;
-        SubscriberHandle propStartedHandler;
         SubscriberHandle propCompletedHandler;
-        std::vector<var_t> decisionsBeforeProp{};
     public:
-        using Decisions = std::vector<var_t>;
-        SubscribableEvent<DeviationType, const TraceWatcher::Conflicts &, const Decisions &> DeviationOccurred;
+        SubscribableEvent<DeviationType, const TraceWatcher::Conflicts &,
+                const serialization::Branch &> DeviationOccurred;
         ///< triggered when the solver deviates from path to the last solution. Arguments: deviation type,
-        ///< conflicts after propagation, variables fixed before propagation
+        ///< conflicts after propagation, fixed variables on track
 
         /**
          * Ctor
@@ -224,9 +226,6 @@ namespace tempo {
         backtrackHandler(solver.BackTrackCompleted.subscribe_handled([this, &solver]() {
             this->watcher.updateOnTrack(TruthFunction(solver));
         })),
-        propStartedHandler(solver.PropagationInitiated.subscribe_handled([this](const auto &solver) {
-            this->saveChoices(solver);
-        })),
         propCompletedHandler(solver.PropagationCompleted.subscribe_handled([this](const auto &solver) {
             this->handlePropagation(solver);
         })) {}
@@ -238,10 +237,6 @@ namespace tempo {
         [[nodiscard]] auto getWatcher() const noexcept -> const TraceWatcher &;
 
     private:
-        template<concepts::scalar T>
-        void saveChoices(const Solver<T> &solver) {
-            decisionsBeforeProp = {solver.getBranch().bbegin(), solver.getBranch().bend()};
-        }
 
         template<concepts::scalar T>
         void handlePropagation(const Solver<T> &solver) {
@@ -249,9 +244,10 @@ namespace tempo {
                 return;
             }
 
+            auto variablesOnTrack = watcher.getVariablesOnTrack();
             auto conflicts = watcher.updateOnTrack(TruthFunction(solver));
             if (not watcher.isOnTrack()) {
-                DeviationOccurred.trigger(DeviationType::Propagation, conflicts, decisionsBeforeProp);
+                DeviationOccurred.trigger(DeviationType::Propagation, conflicts, variablesOnTrack);
             }
         }
 
@@ -265,7 +261,8 @@ namespace tempo {
             bool ot = watcher.isOnTrack();
             watcher.step(lit);
             if (ot != watcher.isOnTrack()) {
-                DeviationOccurred.trigger(DeviationType::Decision, TraceWatcher::Conflicts{}, Decisions{});
+                DeviationOccurred.trigger(DeviationType::Decision, TraceWatcher::Conflicts{},
+                                          watcher.getVariablesOnTrack());
             }
         }
 
