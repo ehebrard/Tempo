@@ -236,8 +236,13 @@ int main(int argc, char *argv[]) {
     }
 
   // search
-  if (not optimal)
+  if (not optimal) {
     S.minimize(schedule.duration);
+  }
+
+  if (S.numeric.hasSolution()) {
+      std::cout << "makespan " << S.numeric.lower(schedule.duration) << std::endl;
+  }
 
   if (opt.print_sol) {
     printJobs(S, intervals);

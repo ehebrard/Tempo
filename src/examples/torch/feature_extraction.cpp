@@ -8,9 +8,11 @@
 #include <vector>
 #include <string>
 #include <ranges>
-#include <algorithm>
 #include <nlohmann/json.hpp>
 #include <Iterators.hpp>
+#include <cstdio>
+#include <chrono>
+#include <sstream>
 
 #include "data_generation.hpp"
 #include "nn/torch_types.hpp"
@@ -30,27 +32,42 @@ constexpr auto LabelFileName = "task_network";
 constexpr auto LabelName = "label";
 constexpr auto InfoFileName = "info.json";
 
-auto getInstance(const fs::path &problemDir) -> fs::path {
-    for (const auto &file : fs::directory_iterator(problemDir)) {
-        if (file.is_regular_file() and file.path().extension() == ".txt") {
-            return file.path();
-        }
+
+// stolen from https://dev.to/aggsol/calling-shell-commands-from-c-8ej
+template<std::size_t BufferSize = 256>
+auto execCommand(const std::string &cmd) -> std::pair<int, std::string> {
+    int exitStatus = 0;
+    auto pPipe = ::popen(cmd.c_str(), "r");
+    if (pPipe == nullptr) {
+        throw std::runtime_error("Cannot open pipe");
     }
 
-    throw std::runtime_error("no problem definition file found in '" + problemDir.string() + "'");
+    std::array<char, BufferSize> buffer{};
+    std::string result;
+    while (not std::feof(pPipe)) {
+        auto bytes = std::fread(buffer.data(), 1, buffer.size(), pPipe);
+        result.append(buffer.data(), bytes);
+    }
+
+    auto rc = ::pclose(pPipe);
+    if (WIFEXITED(rc)) {
+        exitStatus = WEXITSTATUS(rc);
+    }
+
+    return {exitStatus, std::move(result)};
 }
 
-auto getSolutions(const fs::path &solutionDir) -> std::vector<tempo::serialization::Solution<int>> {
-    using namespace tempo::serialization;
-    std::vector<Solution<int>> ret;
-    for (const auto &file : fs::directory_iterator(solutionDir)) {
-        if (file.is_regular_file()) {
-            ret.emplace_back(deserializeFromFile<Solution<int>>(file));
-        }
-    }
-
-    std::ranges::sort(ret, [](const auto &a, const auto &b) { return a.id < b.id; });
-    return ret;
+std::string getTimeStamp() {
+    using namespace std::chrono;
+    auto now = high_resolution_clock::now();
+    year_month_day date(floor<days>(now));
+    std::stringstream ss;
+    // this needs to be this ugly because the std implementation on older g++ versions is broken
+    auto d = static_cast<unsigned>(date.day());
+    auto m = static_cast<unsigned>(date.month());
+    ss << static_cast<int>(date.year()) << "-" << (m < 10 ? "0" : "") << m << "-"
+       << (d < 10 ? "0" : "") << d;
+    return ss.str();
 }
 
 
@@ -73,8 +90,8 @@ int main(int argc, char **argv) {
     }
 
 
-    const auto problemsDir = fs::path(options.instance_file) / Serializer<>::SubProblemDir;
-    const auto solutionsDir = fs::path(options.instance_file) / Serializer<>::SolutionDir;
+    const auto mainDir = fs::path(options.instance_file);
+    const auto problemsDir = mainDir / Serializer<>::SubProblemDir;
     options.instance_file = getInstance(options.instance_file);
     const auto inputsDir = fs::path(saveTo) / InputsName;
     const auto labelDir = fs::path(saveTo) / OutputsName;
@@ -92,10 +109,11 @@ int main(int argc, char **argv) {
                         rootInputDir);
 
     // Serialize solutions
-    auto solutions = getSolutions(solutionsDir);
+    auto solutions = getSolutions(mainDir);
     std::vector<nlohmann::json> solutionsPayloads;
-    for (const auto &sol : solutions) {
+    for (const auto &sol: solutions) {
         auto [s, p, _] = loadSchedulingProblem(options);
+        s->set(leq(p.schedule().duration.id(), sol.objective));
         loadBranch(*s, sol.decisions);
         auto taskDistances = p.getTaskDistances(*s);
         Matrix<int> network(p.tasks().size(), p.tasks().size(), taskDistances);
@@ -109,7 +127,7 @@ int main(int argc, char **argv) {
     // create input features
     std::vector<std::tuple<nn::InputGraph, unsigned>> problemGraphs;
     unsigned numDuplicates = 0;
-    for (const auto &file : fs::directory_iterator(problemsDir)) {
+    for (const auto &file: fs::directory_iterator(problemsDir)) {
         using std::views::elements;
         if (not file.is_regular_file()) {
             continue;
@@ -117,11 +135,13 @@ int main(int argc, char **argv) {
 
         auto partial = serialization::deserializeFromFile<serialization::PartialProblem>(file);
         auto [s, p, _] = loadSchedulingProblem(options);
+        const auto &sol = solutions.at(partial.associatedSolution);
+        s->set(leq(p.schedule().duration.id(), sol.objective));
         loadBranch(*s, partial.decisions);
         auto newGraph = builder.getGraph(nn::makeSolverState(p.getTaskDistances(*s), *s));
         bool equal = false;
         if (filterDuplicates) {
-            for (const auto &g : problemGraphs | elements<0>) {
+            for (const auto &g: problemGraphs | elements<0>) {
                 if (KillHandler::instance().signalReceived() or nn::util::graphsEquivalent(g, newGraph)) {
                     equal = true;
                     break;
@@ -140,7 +160,7 @@ int main(int argc, char **argv) {
     }
 
     std::cout << "filtered out " << numDuplicates << " duplicates" << std::endl;
-    for (auto [id, g] : iterators::const_enumerate(problemGraphs)) {
+    for (auto [id, g]: iterators::const_enumerate(problemGraphs)) {
         const auto &[graph, solId] = g;
         const auto destination = inputsDir / (GraphName + std::to_string(id));
         fs::create_directories(destination);
@@ -156,7 +176,7 @@ int main(int argc, char **argv) {
         serialization::serializeToFile(solPayload, lDir / LabelFileName);
     }
 
-    for (const auto &solPayload : solutionsPayloads) {
+    for (const auto &solPayload: solutionsPayloads) {
         const auto destination = labelDir / (RootName + std::to_string(solPayload.at("id").get<unsigned>()));
         fs::create_directories(destination);
         serialization::serializeToFile(solPayload, destination / LabelFileName);
@@ -167,6 +187,18 @@ int main(int argc, char **argv) {
     meta["bestSolutionKnown"] = bestSolution;
     meta["numSubProblems"] = problemGraphs.size();
     meta["numRootProblems"] = solutions.size();
+    meta["date"] = getTimeStamp();
+    auto [status, res] = execCommand("git rev-parse HEAD");
+    if (status != 0) {
+        std::cout << "Warning: Could not get the current commit hash";
+    } else {
+        if (res.ends_with("\n")) {
+            res.pop_back();
+        }
+
+        meta["commit"] = res;
+    }
+
     serialization::serializeToFile(meta, fs::path(saveTo) / InfoFileName);
     return 0;
 }
