@@ -102,8 +102,9 @@ CumulativeCheck<T>::CumulativeCheck(Solver<T> &solver, const NumericVar<T> c,
           for (auto jp{beg_task}; jp != end_task; ++jp) {
             the_tasks.push_back(*jp);
               demand.push_back(*dp);
-              
-              std::cout << *jp << " requires " << *dp << std::endl;
+
+              //              std::cout << *jp << " requires " << *dp <<
+              //              std::endl;
               ++dp;
           }
 
@@ -132,8 +133,9 @@ CumulativeCheck<T>::CumulativeCheck(Solver<T> &solver, const NumericVar<T> c,
         
       precedence[j][i] = m_solver.boolean.getLiteral(false, x);
 
-        std::cout << *ip << " // " << *jp << " iff (" << precedence[i][j] << " and " << precedence[j][i] << ")\n";
-        
+      //        std::cout << *ip << " // " << *jp << " iff (" <<
+      //        precedence[i][j] << " and " << precedence[j][i] << ")\n";
+
       ++ep;
     }
   }

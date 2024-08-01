@@ -43,14 +43,13 @@ void warmstart(Solver<T> &S, Interval<T> &schedule,
   //    greedy_insertion.addResource(R.begDisjunct(), R.endDisjunct());
   //  }
   for (auto x : S.boolean_search_vars) {
-      
-//      auto l{solver.boolean.getLiteral(true, x)};
-//      auto pc{solver.boolean.getEdge(l)};
-//        auto nc{solver.boolean.getEdge(~l)};
-//      
-//      std::cout <<
-      
-      
+
+    //      auto l{solver.boolean.getLiteral(true, x)};
+    //      auto pc{solver.boolean.getEdge(l)};
+    //        auto nc{solver.boolean.getEdge(~l)};
+    //
+    //      std::cout <<
+
     greedy_insertion.addVar(x);
   }
 
@@ -59,11 +58,11 @@ void warmstart(Solver<T> &S, Interval<T> &schedule,
   S.propagate();
   for (auto i{0}; i < S.getOptions().greedy_runs; ++i) {
     auto st{S.saveState()};
-        auto sat{greedy_insertion.runEarliestStart()};
-//    auto sat{greedy_insertion.runLex()};
+    auto sat{greedy_insertion.runEarliestStart()};
+    //    auto sat{greedy_insertion.runLex()};
     if (sat) {
       if (schedule.getEarliestEnd(S) <= ub) {
-          S.set(schedule.end.before(schedule.getEarliestEnd(S)));
+        S.set(schedule.end.before(schedule.getEarliestEnd(S)));
         S.boolean.saveSolution();
         S.numeric.saveSolution();
         ub = schedule.getEarliestEnd(S) - 1;
@@ -77,8 +76,9 @@ void warmstart(Solver<T> &S, Interval<T> &schedule,
   S.set(schedule.end.before(ub));
 }
 
-template<typename T>
-std::string prettyJob(const Interval<T>& task, const Solver<T>& S, const bool dur_flag) {
+template <typename T>
+std::string prettyJob(const Interval<T> &task, const Solver<T> &S,
+                      const bool dur_flag) {
   std::stringstream ss;
 
   auto est{S.numeric.lower(task.start)};
@@ -120,29 +120,31 @@ void printJobs(const Solver<T>& S, const std::vector<Interval<T>>& intervals) {
 template<typename T>
 void printResources(const Solver<T>& S, const std::vector<Interval<T>>& intervals, std::vector<std::vector<size_t>>& resource_tasks) {
   int i{0};
-    
+
   for (auto &tasks_idx : resource_tasks) {
-      ++i;
+    ++i;
     if (tasks_idx.size() > 1) {
-        
-        std::vector<index_t> order;
-        for(auto j : tasks_idx) {
-            auto job{intervals[j]};
-            if(S.boolean.value(job.exist))
-                order.push_back(j);
-        }
-        
-        std::sort(order.begin(), order.end(),
-                  [&](const index_t a, const index_t b) {
-                    return S.numeric.lower(intervals[a].start) < S.numeric.lower(intervals[b].start);
-                  });
- 
-        std::cout << "resource " << i << ":";
-        for (auto o : order) {
-          std::cout << " job" << (o+1) << ":" << prettyJob(intervals[o], S, false);
-        }
-        std::cout << std::endl;
+
+      std::vector<index_t> order;
+      for (auto j : tasks_idx) {
+        auto job{intervals[j]};
+        if (S.boolean.value(job.exist))
+          order.push_back(j);
       }
+
+      std::sort(order.begin(), order.end(),
+                [&](const index_t a, const index_t b) {
+                  return S.numeric.lower(intervals[a].start) <
+                         S.numeric.lower(intervals[b].start);
+                });
+
+      std::cout << "resource " << i << ":";
+      for (auto o : order) {
+        std::cout << " job" << (o + 1) << ":"
+                  << prettyJob(intervals[o], S, false);
+      }
+      std::cout << std::endl;
+    }
   }
 }
 
@@ -152,6 +154,7 @@ int main(int argc, char *argv[]) {
 
   Options opt = tempo::parse(argc, argv);
   Solver<> S(opt);
+  seed(opt.seed);
 
   // an interval standing for the makespan of schedule
   auto schedule{S.newInterval(0, Constant::Infinity<int>, 0, 0, 0,
@@ -160,7 +163,7 @@ int main(int argc, char *argv[]) {
   // depending on the option "input-format", parse a disjunctive scheduling
   // instance, and collect resources and interval objects
   std::vector<NoOverlapExpression<>> resources;
-    std::vector<std::vector<size_t>> resource_tasks;
+  std::vector<std::vector<size_t>> resource_tasks;
   std::vector<Interval<>> intervals;
   std::vector<int> weights;
   std::vector<std::vector<std::vector<int>>> resource_transitions;
@@ -185,18 +188,17 @@ int main(int argc, char *argv[]) {
 
   resource_transitions.resize(resource_tasks.size());
 
-    
-        index_t i{0};
-        std::vector<Interval<int>> scope;
-        for (auto &tasks : resource_tasks) {
-            for(auto j : tasks) {
-                scope.push_back(intervals[j]);
-            }
-          auto no_overlap{NoOverlap(schedule, scope, resource_transitions[i++])};
-          resources.push_back(no_overlap);
-          S.post(no_overlap);
-            scope.clear();
-        }
+  index_t i{0};
+  std::vector<Interval<int>> scope;
+  for (auto &tasks : resource_tasks) {
+    for (auto j : tasks) {
+      scope.push_back(intervals[j]);
+    }
+    auto no_overlap{NoOverlap(schedule, scope, resource_transitions[i++])};
+    resources.push_back(no_overlap);
+    S.post(no_overlap);
+    scope.clear();
+  }
 
 //  // set a trivial (and the user-defined) upper bound
 //  int total_duration{0};
@@ -215,13 +217,13 @@ int main(int argc, char *argv[]) {
 //
 //  //    S.post(schedule.end <= ub);
 
-        if (opt.ub != Constant::Infinity<int>)
-          S.post(schedule.end.before(opt.ub));
+  if (opt.ub != Constant::Infinity<int>)
+    S.post(schedule.end.before(opt.ub));
 
-        auto ub{Constant::Infinity<int>};
+  auto ub{Constant::Infinity<int>};
 
-        if (opt.print_mod) {
-          std::cout << S << std::endl;
+  if (opt.print_mod) {
+    std::cout << S << std::endl;
   }
 
   auto optimal{false};
