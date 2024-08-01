@@ -121,8 +121,14 @@ namespace tempo {
             }
 
             for (auto [idx, task]: iterators::enumerate(tasks)) {
-                varToTask[task.start.id() - offset] = idx;
-                varToTask[task.end.id() - offset] = idx;
+                auto &start = varToTask[task.start.id() - offset];
+                auto &end = varToTask[task.end.id() - offset];
+                if (start != NoTask or end != NoTask) {
+                    throw std::runtime_error("multiple tasks with same variables");
+                }
+
+                start = idx;
+                end = idx;
             }
         }
 
