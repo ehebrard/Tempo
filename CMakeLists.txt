@@ -73,6 +73,7 @@ set(CMAKE_CXX_FLAGS "-Wall -Wextra -Wpedantic -mtune=native")
 string(TOLOWER ${CMAKE_BUILD_TYPE} BUILD_TYPE)
 if (BUILD_TYPE STREQUAL "debug")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -fno-omit-frame-pointer -g")
+    add_compile_definitions(__DEBUG_BUILD__)
     message("Building for debug")
 elseif (BUILD_TYPE STREQUAL "release")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
@@ -131,14 +132,5 @@ foreach(EXEC ${EXECUTABLES})
     endif ()
     target_link_libraries(${NAME} PRIVATE nlohmann_json::nlohmann_json)
 endforeach()
-
-
-# Creating a library, following tutorial here: https://stackoverflow.com/a/45843676
-message("Generating target for library")
-add_library(tempo STATIC ${SOURCES})
-include(GNUInstallDirs)
-install(TARGETS tempo
-    LIBRARY DESTINATION ${CMAKE_INSTALL_TEMPO}
-    PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 add_subdirectory(Tests)

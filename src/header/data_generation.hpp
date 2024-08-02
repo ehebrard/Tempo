@@ -11,6 +11,9 @@
 #include <utility>
 #include <cassert>
 #include <iostream>
+#include <algorithm>
+#include <vector>
+#include <Iterators.hpp>
 
 #include "util/traits.hpp"
 #include "util/SubscribableEvent.hpp"
@@ -29,8 +32,6 @@ namespace tempo {
     template<concepts::scalar T = int>
     class Serializer {
         fs::path targetDirectory;
-        unsigned solutionId = 0;
-        unsigned problemId = 0;
         std::vector<serialization::Solution<T>> solutions;
         std::vector<serialization::PartialProblem> problems;
     public:
@@ -55,7 +56,7 @@ namespace tempo {
          * @param decisions all decisions made by the solver
          */
         void addSolution(T objective, serialization::Branch decisions) {
-            solutions.emplace_back(solutionId++, objective, std::move(decisions));
+            solutions.emplace_back(solutions.size(), objective, std::move(decisions));
         }
 
         /**
@@ -63,6 +64,10 @@ namespace tempo {
          * @param decisions all decisions made by the solver
          */
         void addSubProblem(serialization::Branch decisions) {
+
+#ifdef __DEBUG_BUILD__
+            std::ranges::sort(decisions);
+#endif
             problems.emplace_back(lastSolutionId(), std::move(decisions));
         }
 
@@ -76,8 +81,8 @@ namespace tempo {
             }
 
             solutions.clear();
-            for (const auto &prob : problems) {
-                serializeToFile(prob, generateFileName(false, problemId++));
+            for (auto [id, prob] : iterators::const_enumerate(problems)) {
+                serializeToFile(prob, generateFileName(false, id));
             }
 
             problems.clear();
@@ -111,7 +116,7 @@ namespace tempo {
          * Access the solutions
          * @return const ref to solutions
          */
-        const auto &getSolutions() const {
+        [[nodiscard]] const auto &getSolutions() const noexcept {
             return solutions;
         }
 
@@ -119,7 +124,7 @@ namespace tempo {
          * Access the problems
          * @return const ref to problems
          */
-        const auto &getProblems() const {
+        [[nodiscard]] const auto &getProblems() const noexcept {
             return problems;
         }
 
@@ -133,11 +138,11 @@ namespace tempo {
         }
 
         [[nodiscard]] std::size_t lastSolutionId() const {
-            if (solutionId == 0) {
+            if (solutions.size() == 0) {
                 throw std::runtime_error("no solution has been found yet");
             }
 
-            return solutionId - 1;
+            return solutions.size() - 1;
         }
 
     };
@@ -156,7 +161,7 @@ namespace tempo {
         SubscriberHandle deviationHandler;
 
     public:
-        SubscribableEvent<const serialization::PartialProblem&> DataPointCreated;
+        SubscribableEvent<const serialization::PartialProblem&, const serialization::Solution<T> &> DataPointCreated;
         ///< Triggers when a data point is found
 
         DataGenerator(DataGenerator &&) noexcept = default;
@@ -181,13 +186,13 @@ namespace tempo {
                 this->handleSolution(solver);
             })),
             deviationHandler(tracer.DeviationOccurred.subscribe_handled(
-                    [this, &solver](DeviationType type, const auto &conflicts) {
+                    [this](DeviationType type, const auto &conflicts, const auto &decisions) {
                 switch (type) {
                     case DeviationType::Propagation:
-                        handlePropagation(solver, conflicts);
+                        handlePropagation(conflicts, decisions);
                         break;
                     case DeviationType::Fail:
-                        handleConflict(solver);
+                        handleConflict(decisions);
                         break;
                     case DeviationType::Decision:
                         break;
@@ -227,30 +232,18 @@ namespace tempo {
         }
 
     private:
-        static auto getDecisions(const Solver<T> &solver) -> serialization::Branch {
-            serialization::Branch branch;
-            std::ranges::subrange currentDecisions(solver.getBranch().bbegin(), solver.getBranch().bend());
-            branch.reserve(currentDecisions.size() + 1);
-            for (var_t var : currentDecisions) {
-                assert(not solver.boolean.isUndefined(var));
-                branch.emplace_back(var, solver.boolean.isTrue(var));
-            }
 
-            return branch;
+        void handleConflict(serialization::Branch decisions) {
+            serializer.addSubProblem(std::move(decisions));
+            DataPointCreated.trigger(serializer.getProblems().back(), serializer.getSolutions().back());
         }
 
-        void handleConflict(const Solver<T> &solver) {
-            serializer.addSubProblem(getDecisions(solver));
-            DataPointCreated.trigger(serializer.getProblems().back());
-        }
-
-        void handlePropagation(const Solver<T> &solver, const TraceWatcher::Conflicts &conflicts) {
-            auto currentDecisions = getDecisions(solver);
+        void handlePropagation(const TraceWatcher::Conflicts &conflicts, serialization::Branch decisionsOnTrack) {
             for (auto [var, val] : conflicts) {
-                currentDecisions.emplace_back(var, val);
-                serializer.addSubProblem(currentDecisions);
-                DataPointCreated.trigger(serializer.getProblems().back());
-                currentDecisions.pop_back();
+                decisionsOnTrack.emplace_back(var, val);
+                serializer.addSubProblem(decisionsOnTrack);
+                DataPointCreated.trigger(serializer.getProblems().back(), serializer.getSolutions().back());
+                decisionsOnTrack.pop_back();
             }
         }
 
@@ -267,6 +260,48 @@ namespace tempo {
 
     };
 
+    /**
+     * Gets the path to the problem definition under a given problem directory
+     * @param problemDir directory containing data points
+     * @return path to instance file
+     * @throws std::runtime_error if instance file could not be found under given path
+     */
+    auto getInstance(const fs::path &problemDir) -> fs::path;
+
+    /**
+     * Loads all solutions under problem directory
+     * @tparam T timing type
+     * @param problemDir path to directory with data points
+     * @return vector with deserialized solutions sorted by their id
+     * @throws std::runtime_error if solutions directory could not be found under given path
+     */
+    template<concepts::scalar T = int>
+    auto getSolutions(const fs::path &problemDir) -> std::vector<serialization::Solution<T>> {
+        using namespace tempo::serialization;
+        std::vector<Solution<T>> ret;
+        const auto dir = problemDir / Serializer<>::SolutionDir;
+        if (not fs::is_directory(dir)) {
+            throw std::runtime_error("no solutions directory under " + problemDir.string());
+        }
+
+        for (const auto &file : fs::directory_iterator(dir)) {
+            if (file.is_regular_file() and
+                file.path().filename().string().starts_with(Serializer<>::SolutionBaseName)) {
+                ret.emplace_back(deserializeFromFile<Solution<T>>(file));
+            }
+        }
+
+        std::ranges::sort(ret, [](const auto &a, const auto &b) { return a.id < b.id; });
+        return ret;
+    }
+
+    /**
+     * Loads all sub problems under problem directory
+     * @param problemDir path to directory with data points
+     * @return vector with deserialized partial problems
+     * @throws std::runtime_error if sub_problems directory could not be found under given path
+     */
+    auto getProblems(const fs::path &problemDir) -> std::vector<serialization::PartialProblem>;
 }
 
 #endif //TEMPO_DATA_GENERATION_HPP

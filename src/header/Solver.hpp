@@ -335,6 +335,7 @@ public:
     mutable SubscribableEvent<> SearchRestarted; ///< triggered on restart
     mutable SubscribableEvent<const Solver<T> &> SolutionFound; ///< triggered when a solution is found
     mutable SubscribableEvent<const Solver<T> &> PropagationCompleted; ///< triggered after a successful propagation
+    mutable SubscribableEvent<const Solver<T> &> PropagationInitiated; ///< triggered before propagation
     ///@}
     
     /**
@@ -2346,7 +2347,9 @@ template <typename T> boolean_state Solver<T>::search() {
       }
 #endif
 
+      PropagationInitiated.trigger(*this);
       propagate();
+      PropagationCompleted.trigger(*this);
 
       // make a checkpoint
       saveState();

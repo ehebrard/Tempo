@@ -15,6 +15,7 @@
 
 #include "util/traits.hpp"
 #include "util/SubscribableEvent.hpp"
+#include "util/serialization.hpp"
 #include "Model.hpp"
 
 namespace tempo {
@@ -29,9 +30,16 @@ namespace tempo {
      */
     class TraceWatcher {
         std::vector<bool> varPolarity;
+        serialization::Branch varsOnTrack{};
         bool onTrack;
         var_t offset;
     public:
+        enum class TruthVal {
+            False = 0,
+            True = 1,
+            Undefined = -1
+        };
+
         using Conflicts = std::vector<std::pair<var_t, bool>>;
 
         /**
@@ -45,37 +53,47 @@ namespace tempo {
             if (std::ranges::max(vars) - offset + 1 != varPolarity.size()) {
                 throw std::runtime_error("expected continuous range of search variables");
             }
+
+            varsOnTrack.reserve(varPolarity.size());
         }
 
         /**
          * registers a complete solution
          * @tparam TF truth function type
-         * @param truthFunction function object that maps variable ids to boolean values
+         * @param truthFunction function object that maps variable ids to truth values
          */
-        template<concepts::callable_r<bool, var_t> TF>
+        template<concepts::callable_r<TruthVal, var_t> TF>
         void registerSolution(TF &&truthFunction) {
             for (auto [var, val] : iterators::enumerate(varPolarity, offset)) {
-                val = std::forward<TF>(truthFunction)(var);
+                auto tv = std::forward<TF>(truthFunction)(var);
+                assert(tv != TruthVal::Undefined);
+                val = to_underlying(tv);
             }
 
             onTrack = true;
+            varsOnTrack.clear();
         }
 
         /**
          * Checks if still on track to last solution and sets the internal on track flag to false if this is not the
          * case. Also returns a list with variables in conflict with the previous solution along with their
          * corresponding truth values
-         * @tparam AF alignment function
-         * @param isAligned function object that checks if the truth value of a variable aligns with a given boolean.
+         * @tparam TF truth function
+         * @param truthFunction function object that maps variable ids to truth values
          * For example: undefined aligns with true and false but false only aligns with false.
          * @return Vector of pairs of conflicting variables along with their corresponding truth value from the last
          * solution
          */
-        template<concepts::callable_r<bool, var_t, bool> AF>
-        auto updateOnTrack(AF &&isAligned) -> Conflicts {
+        template<concepts::callable_r<TruthVal, var_t> TF>
+        auto updateOnTrack(TF &&truthFunction) -> Conflicts {
             Conflicts ret;
+            varsOnTrack.clear();
             for (auto [var, val] : iterators::const_enumerate(varPolarity, offset)) {
-                if (not std::forward<AF>(isAligned)(var, val)) {
+                if (isEqual(std::forward<TF>(truthFunction)(var), val)) {
+                    varsOnTrack.emplace_back(var, val);
+                }
+
+                if (not isAligned(std::forward<TF>(truthFunction)(var), val)) {
                     ret.emplace_back(var, val);
                 }
             }
@@ -93,6 +111,9 @@ namespace tempo {
         void step(Literal<T> decision) noexcept {
             assert(decision.isBoolean());
             onTrack &= varPolarity[decision.variable() - offset] == decision.sign();
+            if (onTrack) {
+                varsOnTrack.emplace_back(decision.variable(), decision.sign());
+            }
         }
 
         /**
@@ -113,17 +134,47 @@ namespace tempo {
          */
         [[nodiscard]] auto getLastSolution() const noexcept -> const std::vector<bool>&;
 
+        /**
+         * Gets the variable id offset. This value is necessary when iterating a solution because a variable x does
+         * not correspond to a polarity value at index x but rather x - offset
+         * @return variable id offset
+         */
         [[nodiscard]] var_t getOffset() const noexcept;
 
+        /**
+         * Gets the decided variables up to this point that are contained in the last solution (that are on track).
+         * @return All set variables that have the same polarity as in the last solutions
+         * @note the contents are not updated when isOnTrack() evaluates to false. Also note that contained variables
+         * are might have been fixed by propagation or pruning
+         */
+        [[nodiscard]] auto getVariablesOnTrack() const noexcept -> const serialization::Branch &;
+
+    protected:
+        static bool isAligned(TruthVal tv, bool polarity) noexcept {
+            return tv == TruthVal::Undefined or to_underlying(tv) == polarity;
+        }
+
+        static bool isEqual(TruthVal tv, bool polarity) noexcept {
+            return tv != TruthVal::Undefined and to_underlying(tv) == polarity;
+        }
     };
 
+    /**
+     * @brief Functor object that gets the truth value of a binary variable from the solver
+     * @tparam T timing type
+     */
     template<concepts::scalar T>
-    class Aligned {
+    class TruthFunction {
         const Solver<T> &s;
     public:
-        explicit constexpr Aligned(const Solver<T> &solver) noexcept: s(solver) {}
-        constexpr bool operator()(var_t var, bool truthVal) const noexcept {
-            return s.boolean.isUndefined(var) or s.boolean.isTrue(var) == truthVal;
+        explicit constexpr TruthFunction(const Solver<T> &solver) noexcept: s(solver) {}
+
+        constexpr auto operator()(var_t var) const noexcept -> TraceWatcher::TruthVal {
+            if (s.boolean.isUndefined(var)) {
+                return TraceWatcher::TruthVal::Undefined;
+            }
+
+            return static_cast<TraceWatcher::TruthVal>(s.boolean.isTrue(var));
         }
     };
 
@@ -149,11 +200,12 @@ namespace tempo {
         SubscriberHandle decisionHandler;
         SubscriberHandle conflictHandler;
         SubscriberHandle backtrackHandler;
-        SubscriberHandle propagationHandler;
+        SubscriberHandle propCompletedHandler;
     public:
-        SubscribableEvent<DeviationType, TraceWatcher::Conflicts> DeviationOccurred;
+        SubscribableEvent<DeviationType, const TraceWatcher::Conflicts &,
+                const serialization::Branch &> DeviationOccurred;
         ///< triggered when the solver deviates from path to the last solution. Arguments: deviation type,
-        ///< conflicts after propagation
+        ///< conflicts after propagation, fixed variables on track
 
         /**
          * Ctor
@@ -172,9 +224,9 @@ namespace tempo {
             this->handleConflict();
         })),
         backtrackHandler(solver.BackTrackCompleted.subscribe_handled([this, &solver]() {
-            this->watcher.updateOnTrack(Aligned(solver));
+            this->watcher.updateOnTrack(TruthFunction(solver));
         })),
-        propagationHandler(solver.PropagationCompleted.subscribe_handled([this](const auto &solver) {
+        propCompletedHandler(solver.PropagationCompleted.subscribe_handled([this](const auto &solver) {
             this->handlePropagation(solver);
         })) {}
 
@@ -185,24 +237,23 @@ namespace tempo {
         [[nodiscard]] auto getWatcher() const noexcept -> const TraceWatcher &;
 
     private:
+
         template<concepts::scalar T>
         void handlePropagation(const Solver<T> &solver) {
             if (not watcher.isOnTrack()) {
                 return;
             }
 
-            auto conflicts = watcher.updateOnTrack(Aligned(solver));
+            auto variablesOnTrack = watcher.getVariablesOnTrack();
+            auto conflicts = watcher.updateOnTrack(TruthFunction(solver));
             if (not watcher.isOnTrack()) {
-                DeviationOccurred.trigger(DeviationType::Propagation, std::move(conflicts));
+                DeviationOccurred.trigger(DeviationType::Propagation, conflicts, variablesOnTrack);
             }
         }
 
         template<concepts::scalar T>
         void handleSolution(const Solver<T> &solver) {
-            watcher.registerSolution([&solver](auto var) {
-                assert(not solver.boolean.isUndefined(var));
-                return solver.boolean.isTrue(var);
-            });
+            watcher.registerSolution(TruthFunction(solver));
         }
 
         template<concepts::scalar T>
@@ -210,7 +261,8 @@ namespace tempo {
             bool ot = watcher.isOnTrack();
             watcher.step(lit);
             if (ot != watcher.isOnTrack()) {
-                DeviationOccurred.trigger(DeviationType::Decision, TraceWatcher::Conflicts{});
+                DeviationOccurred.trigger(DeviationType::Decision, TraceWatcher::Conflicts{},
+                                          watcher.getVariablesOnTrack());
             }
         }
 

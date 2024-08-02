@@ -24,9 +24,13 @@ namespace tempo {
         return offset;
     }
 
+    auto TraceWatcher::getVariablesOnTrack() const noexcept -> const serialization::Branch & {
+        return varsOnTrack;
+    }
+
     void Tracer::handleConflict() {
         if (watcher.isOnTrack()) {
-            DeviationOccurred.trigger(DeviationType::Fail, TraceWatcher::Conflicts{});
+            DeviationOccurred.trigger(DeviationType::Fail, TraceWatcher::Conflicts{}, watcher.getVariablesOnTrack());
         }
 
         watcher.setOnTrack(false);

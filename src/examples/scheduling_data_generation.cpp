@@ -27,7 +27,7 @@ int main(int argc, char **argv) {
     const auto destinationFolder = fs::path(saveTo) / problemName;
     DataGenerator dataGenerator(*solver, schedule, destinationFolder);
     fs::copy(options.instance_file, destinationFolder, fs::copy_options::overwrite_existing);
-    solver->minimize(schedule.end);
+    solver->minimize(schedule.duration);
     return 0;
 }
 
