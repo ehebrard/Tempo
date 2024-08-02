@@ -79,7 +79,7 @@ namespace tempo::serialization {
     using Branch = std::vector<std::pair<var_t, bool>>;
 
     template<concepts::scalar T>
-    struct Solution {
+    struct Solution {      
         unsigned id;
         T objective;
         Branch decisions;

@@ -1642,7 +1642,7 @@ public:
   //    }
 };
 
-template <typename T>
+template <typename T=int>
 CumulativeExpression<T> Cumulative(const NumericVar<T> c,
                                    const std::vector<Interval<T>> &I,
                                    const std::vector<NumericVar<T>> &D) {

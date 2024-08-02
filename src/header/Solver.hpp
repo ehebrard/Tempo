@@ -563,9 +563,9 @@ public:
     //@{
     std::ostream &display(std::ostream &os, const bool dom = true,
                           const bool bra = true, const bool sva = false,
-                          const bool pre = false, const bool cla = false,
+                          const bool pre = true, const bool cla = false,
                           const bool bgr = false, const bool ngr = false,
-                          const bool con = false, const bool trl = false) const;
+                          const bool con = true, const bool trl = false) const;
     std::ostream &displayTrail(std::ostream &os) const;
     std::ostream &displayDomains(std::ostream &os) const;
     std::ostream &displayBranches(std::ostream &os) const;

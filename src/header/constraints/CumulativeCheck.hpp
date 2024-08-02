@@ -174,7 +174,11 @@ template <typename T> void CumulativeCheck<T>::post(const int idx) {
 
 
 template <typename T>
-bool CumulativeCheck<T>::notify(const Literal<T>, const int r) {
+bool CumulativeCheck<T>::notify(const Literal<T>
+#ifdef DBG_CCHEK
+                                l
+#endif
+                                , const int r) {
   
     auto x{scopex[r]};
     auto y{scopey[r]};
@@ -191,12 +195,21 @@ bool CumulativeCheck<T>::notify(const Literal<T>, const int r) {
         for(unsigned i{0}; i<the_tasks.size(); ++i) {
             std::cout << "t" << the_tasks[i].id()
             << ": ";
-            for(unsigned j{0}; j<the_tasks.size(); ++j)
+            for(unsigned j{0}; j<the_tasks.size(); ++j) {
                 if(i!=j and start_before_end(i, j) and start_before_end(j, i)) {
-                  std::cout << "*";
+                    if(parallel[i].has(j))
+                        std::cout << "*";
+                    else
+                        std::cout << "?";
                 } else {
-                  std::cout << ".";
+                    if(not parallel[i].has(j))
+                        std::cout << ".";
+                    else
+                        std::cout << "~";
                 }
+                
+                assert(parallel[i].has(j) == parallel[j].has(i));
+            }
             std::cout << std::endl;
         }
         
@@ -224,9 +237,11 @@ bool CumulativeCheck<T>::notify(const Literal<T>, const int r) {
             relevant.add(y);
         }
         
-        assert(not parallel[x].has(y) and not parallel[y].has(x));
-        parallel[x].add(y);
-        parallel[y].add(x);
+//        assert(not parallel[x].has(y) and not parallel[y].has(x));
+        if(not parallel[x].has(y)) {
+            parallel[x].add(y);
+            parallel[y].add(x);
+        }
 
         return true;
     }
