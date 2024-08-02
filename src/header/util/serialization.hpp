@@ -14,6 +14,7 @@
 #include <Iterators.hpp>
 #include <optional>
 #include <vector>
+#include <sstream>
 
 #include "util/traits.hpp"
 

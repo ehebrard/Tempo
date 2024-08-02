@@ -54,11 +54,9 @@ int main(int argc, char *argv[]) {
 
     rcpsp::parse(opt.instance_file, S, schedule, intervals, tasks_requirements, task_demands, resource_capacities);
 
-
-      for(auto i : intervals) {
-          std::cout << i.id() << ": " << i << std::endl;
-      }
-
+    //      for(auto i : intervals) {
+    //          std::cout << i.id() << ": " << i << std::endl;
+    //      }
 
     std::vector<std::vector<Interval<int>>> resource_tasks(resource_capacities.size());
     std::vector<std::vector<NumericVar<int>>> resource_demands(resource_capacities.size());
@@ -92,10 +90,24 @@ int main(int argc, char *argv[]) {
 //
 //  // search
 //  if (not optimal)
-    S.minimize(schedule.duration);
-//
-//  if (opt.print_sol) {
-//    printJobs(S, intervals);
-//    printResources(S, intervals, resource_tasks);
-//  }
+
+  // set a trivial (and the user-defined) upper bound
+  int total_duration{0};
+  for (auto &j : intervals) {
+    if (j.maxDuration(S) == Constant::Infinity<int>) {
+      total_duration = Constant::Infinity<int>;
+      break;
+    }
+    total_duration += j.maxDuration(S);
+  }
+  auto ub{std::min(opt.ub, total_duration)};
+
+  S.post(schedule.end.before(opt.ub));
+
+  S.minimize(schedule.duration);
+  //
+  //  if (opt.print_sol) {
+  //    printJobs(S, intervals);
+  //    printResources(S, intervals, resource_tasks);
+  //  }
 }
