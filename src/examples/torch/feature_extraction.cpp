@@ -10,9 +10,6 @@
 #include <ranges>
 #include <nlohmann/json.hpp>
 #include <Iterators.hpp>
-#include <cstdio>
-#include <chrono>
-#include <sstream>
 
 #include "data_generation.hpp"
 #include "nn/torch_types.hpp"
@@ -22,6 +19,7 @@
 #include "util/Matrix.hpp"
 #include "../helpers/scheduling_helpers.hpp"
 #include "../helpers/cli.hpp"
+#include "../helpers/shell.hpp"
 
 namespace fs = std::filesystem;
 constexpr auto RootName = "root";
@@ -31,45 +29,6 @@ constexpr auto OutputsName = "outputs";
 constexpr auto LabelFileName = "task_network";
 constexpr auto LabelName = "label";
 constexpr auto InfoFileName = "info.json";
-
-
-// stolen from https://dev.to/aggsol/calling-shell-commands-from-c-8ej
-template<std::size_t BufferSize = 256>
-auto execCommand(const std::string &cmd) -> std::pair<int, std::string> {
-    int exitStatus = 0;
-    auto pPipe = ::popen(cmd.c_str(), "r");
-    if (pPipe == nullptr) {
-        throw std::runtime_error("Cannot open pipe");
-    }
-
-    std::array<char, BufferSize> buffer{};
-    std::string result;
-    while (not std::feof(pPipe)) {
-        auto bytes = std::fread(buffer.data(), 1, buffer.size(), pPipe);
-        result.append(buffer.data(), bytes);
-    }
-
-    auto rc = ::pclose(pPipe);
-    if (WIFEXITED(rc)) {
-        exitStatus = WEXITSTATUS(rc);
-    }
-
-    return {exitStatus, std::move(result)};
-}
-
-std::string getTimeStamp() {
-    using namespace std::chrono;
-    auto now = high_resolution_clock::now();
-    year_month_day date(floor<days>(now));
-    std::stringstream ss;
-    // this needs to be this ugly because the std implementation on older g++ versions is broken
-    auto d = static_cast<unsigned>(date.day());
-    auto m = static_cast<unsigned>(date.month());
-    ss << static_cast<int>(date.year()) << "-" << (m < 10 ? "0" : "") << m << "-"
-       << (d < 10 ? "0" : "") << d;
-    return ss.str();
-}
-
 
 int main(int argc, char **argv) {
     using namespace tempo;
@@ -187,17 +146,8 @@ int main(int argc, char **argv) {
     meta["bestSolutionKnown"] = bestSolution;
     meta["numSubProblems"] = problemGraphs.size();
     meta["numRootProblems"] = solutions.size();
-    meta["date"] = getTimeStamp();
-    auto [status, res] = execCommand("git rev-parse HEAD");
-    if (status != 0) {
-        std::cout << "Warning: Could not get the current commit hash";
-    } else {
-        if (res.ends_with("\n")) {
-            res.pop_back();
-        }
-
-        meta["commit"] = res;
-    }
+    meta["date"] = shell::getTimeStamp();
+    meta["commit"] = shell::getCommit();
 
     serialization::serializeToFile(meta, fs::path(saveTo) / InfoFileName);
     return 0;
