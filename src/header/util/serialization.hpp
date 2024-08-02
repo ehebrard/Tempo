@@ -78,14 +78,33 @@ namespace tempo::serialization {
 
     using Branch = std::vector<std::pair<var_t, bool>>;
 
+    /**
+     * @brief Represents a serializable solution of a scheduling problem
+     * @details @copybrief
+     * @tparam T timing type
+     */
     template<concepts::scalar T>
-    struct Solution {      
+    struct Solution {
+        Solution() = default;
+
+        Solution(unsigned int id, T objective, Branch decisions) : id(id), objective(objective),
+                                                                   decisions(std::move(decisions)) {}
+
         unsigned id;
         T objective;
         Branch decisions;
     };
 
+    /**
+     * @brief Represents a serializable intermediate state or partial problem state of a scheduling problem.
+     * @details @copybrief
+     */
     struct PartialProblem {
+        PartialProblem() = default;
+
+        PartialProblem(unsigned int associatedSolution, Branch decisions)
+                : associatedSolution(associatedSolution), decisions(std::move(decisions)) {}
+
         unsigned associatedSolution;
         Branch decisions;
     };
