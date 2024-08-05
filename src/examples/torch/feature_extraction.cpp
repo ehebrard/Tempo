@@ -30,6 +30,24 @@ constexpr auto LabelFileName = "task_network";
 constexpr auto LabelName = "label";
 constexpr auto InfoFileName = "info.json";
 
+template<tempo::concepts::scalar T>
+bool distanceSanityCheck(const tempo::Matrix<T> &distances) {
+    for (std::size_t i = 0; i < distances.numRows(); ++i) {
+        for (std::size_t j = 0; j < distances.numColumns(); ++j) {
+            if (i == j) {
+                continue;
+            }
+
+            auto dist = distances(i, j) + distances(j, i);
+            if (dist < 0) {
+                return false;
+            }
+        }
+    }
+
+    return true;
+}
+
 int main(int argc, char **argv) {
     using namespace tempo;
     using namespace heuristics;
@@ -76,6 +94,11 @@ int main(int argc, char **argv) {
         loadBranch(*s, sol.decisions);
         auto taskDistances = p.getTaskDistances(*s);
         Matrix<int> network(p.tasks().size(), p.tasks().size(), taskDistances);
+        if (not distanceSanityCheck(network)) {
+            std::cerr << "solution " << sol.id << " of problem '" << mainDir << "' has negative cycle" << std::endl;
+            std::exit(-1);
+        }
+
         nlohmann::json j;
         j["taskNetwork"] = network;
         j["objective"] = sol.objective;
