@@ -14,6 +14,13 @@
 
 constexpr auto InfoFileName = "info.json";
 
+template<typename T>
+auto optMin(const std::optional<T> &lhs, const std::optional<T> &rhs) -> std::optional<T> {
+    if (not lhs.has_value() and not rhs.has_value()) { return lhs; }
+    if (lhs.has_value() and rhs.has_value()) { return std::min(*lhs, *rhs); }
+    return lhs.has_value() ? lhs : rhs;
+}
+
 int main(int argc, char **argv) {
     using namespace tempo;
     using namespace heuristics;
@@ -41,7 +48,7 @@ int main(int argc, char **argv) {
     meta["commit"] = shell::getCommit();
     meta["numSubProblems"] = dataGenerator.problemCount();
     meta["numSolutions"] = dataGenerator.solutionCount();
-    meta["bestSolutionKnown"] = std::min(opt, makespan);
+    meta["bestSolutionKnown"] = optMin(opt, makespan);
     serialization::serializeToFile(meta, destinationFolder / InfoFileName);
     return 0;
 }

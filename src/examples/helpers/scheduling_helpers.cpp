@@ -9,6 +9,7 @@
 #include "scheduling_helpers.hpp"
 #include "util/SchedulingProblemHelper.hpp"
 #include "util/parsing/osp.hpp"
+#include "util/parsing/jsp.hpp"
 
 
 auto loadSchedulingProblem(const tempo::Options &options)
@@ -23,6 +24,8 @@ auto loadSchedulingProblem(const tempo::Options &options)
 
     if (options.input_format == "osp") {
         optSol = osp::parse(options.instance_file, *solver, schedule, tasks, resources);
+    } else if (options.input_format == "jsp") {
+        jsp::parse(options.instance_file, *solver, schedule, tasks, resources);
     } else {
         std::cerr << "problem type " << options.input_format << " is not (yet) supported" << std::endl;
         std::exit(1);
