@@ -448,15 +448,15 @@ namespace tempo::nn::util{
         using K = tempo::nn::GraphKeys;
         const auto &edgesA = graphA.at(K::EdgeIdx);
         const auto &edgesB = graphB.at(K::EdgeIdx);
-        return impl::compareIndexTensors(edgesA, edgesB, "edge indices", verbose) &&
+        return impl::compareFeatureTensors(graphA.at(K::TaskFeatures), graphB.at(K::TaskFeatures), "task features",
+                                           verbose) &&
+               impl::compareFeatureTensors(graphA.at(K::ResourceFeatures), graphB.at(K::ResourceFeatures),
+                                           "resource features", verbose) &&
+               impl::compareIndexTensors(edgesA, edgesB, "edge indices", verbose) &&
                impl::compareIndexTensors(graphA.at(K::ResourceDependencies), graphB.at(K::ResourceDependencies),
                                          "resource dependencies", verbose) &&
                impl::compareEdgeResourceRelations(graphA.at(K::EdgeResourceRelations),
                                                   graphB.at(K::EdgeResourceRelations), edgesA, edgesB, verbose) &&
-               impl::compareFeatureTensors(graphA.at(K::TaskFeatures), graphB.at(K::TaskFeatures), "task features",
-                                           verbose) &&
-               impl::compareFeatureTensors(graphA.at(K::ResourceFeatures), graphB.at(K::ResourceFeatures),
-                                           "resource features", verbose) &&
                impl::compareRelationFeatures(graphA.at(K::ResourceConsumptions), graphB.at(K::ResourceConsumptions),
                                              graphA.at(K::ResourceDependencies), graphB.at(K::ResourceDependencies),
                                              "resource consumptions", verbose) &&
