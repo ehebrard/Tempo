@@ -12,6 +12,7 @@
 
 #include "nn/tensor_utils.hpp"
 #include "nn/torch_types.hpp"
+#include "util/Matrix.hpp"
 
 namespace tempo::nn::util{
     auto makeIndexTensor(const std::vector<IndexType> &from, const std::vector<IndexType> &to) -> torch::Tensor {
@@ -138,6 +139,24 @@ namespace tempo::nn::util{
             return std::pair(intersection, diff);
         }
 
+        static auto getAdjacency(const torch::Tensor &cooMat) -> Matrix<bool> {
+            if (cooMat.numel() == 0) {
+                return {};
+            }
+
+            if (cooMat.sizes().size() != 2 or cooMat.sizes().front() != 2) {
+                throw std::runtime_error("invalid coo tensor");
+            }
+
+            auto maxIdx = cooMat.max().item<IndexType>() + 1;
+            Matrix<bool> adj(maxIdx, maxIdx);
+            for (auto [f, t] : getEdgeView(cooMat)) {
+                adj(f, t) = true;
+            }
+
+            return adj;
+        }
+
         static bool compareIndexTensors(const torch::Tensor &original, const torch::Tensor &refactored,
                                         std::string_view msg, bool verbose) {
             using namespace tempo::nn;
@@ -153,8 +172,10 @@ namespace tempo::nn::util{
                 }
             }
 
-            auto equality = original == refactored;
-            if (equality.all().item<bool>()) {
+            const auto adjO = getAdjacency(original);
+            const auto adjR = getAdjacency(refactored);
+
+            if (adjR.rawData() == adjO.rawData()) {
                 if (verbose) {
                     std::cout << "----- tensors equal -----" << std::endl;
                 }
@@ -162,18 +183,11 @@ namespace tempo::nn::util{
                 return true;
             }
 
-            const auto origEdges = util::getEdgeView(original);
-            const auto refacEdges = util::getEdgeView(refactored);
-            EdgeSet originalEdges(origEdges.begin(), origEdges.end());
-            EdgeSet refactoredEdges(refacEdges.begin(), refacEdges.end());
-            if (originalEdges == refactoredEdges) {
-                if (verbose) {
-                    std::cout << "----- index sets equal -----" << std::endl;
-                }
-
-                return true;
-            }
             if (verbose) {
+                const auto origEdges = util::getEdgeView(original);
+                const auto refacEdges = util::getEdgeView(refactored);
+                EdgeSet originalEdges(origEdges.begin(), origEdges.end());
+                EdgeSet refactoredEdges(refacEdges.begin(), refacEdges.end());
                 auto [intersection, diff] = setIntersection(originalEdges, refactoredEdges);
                 std::cout << "----- index set intersection -----" << std::endl;
                 printRange(intersection);
