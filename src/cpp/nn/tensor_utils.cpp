@@ -360,20 +360,6 @@ namespace tempo::nn::util{
             return mismatches == 0;
         }
 
-        static auto getEdgesByMask(const torch::Tensor &edges, const torch::Tensor &mask,
-                                   tempo::nn::IndexType maskVal) -> EdgeSet {
-            using namespace torch::indexing;
-            auto edgeSet = edges.index({Slice{None}, mask == maskVal});
-            assert(edgeSet.size(0) == 2);
-            assert(edgeSet.sizes().size() == 2);
-            EdgeSet ret;
-            for (auto idx = 0; idx < edgeSet.size(1); ++idx) {
-                ret.emplace(edgeSet[0][idx].item<tempo::nn::IndexType>(), edgeSet[1][idx].item<tempo::nn::IndexType>());
-            }
-
-            return ret;
-        }
-
         static bool checkEdgePairMask(const torch::Tensor &original, const torch::Tensor &refactored,
                                       const torch::Tensor &origEdgeIdx, const torch::Tensor &refEdgeIDx, bool verbose) {
             using namespace tempo::nn::util;
@@ -404,10 +390,16 @@ namespace tempo::nn::util{
                     }
                 }
 
-                auto oEdges = getEdgesByMask(origEdgeIdx, original, original[oEdgeIdx].item<tempo::nn::IndexType>());
-                auto rEdges = getEdgesByMask(refEdgeIDx, refactored, refactored[*rEdgeIdx].item<tempo::nn::IndexType>());
-                if (oEdges != rEdges) {
+                auto oMaskedEdgeTensor = origEdgeIdx.index({torch::indexing::Slice{torch::indexing::None},
+                                                            original == c_index<IndexType>(original, {oEdgeIdx})});
+                auto rMaskedEdgeTensor = refEdgeIDx.index({torch::indexing::Slice{torch::indexing::None},
+                                                           refactored == c_index<IndexType>(refactored, {*rEdgeIdx})});
+                auto oAdj = getAdjacency(oMaskedEdgeTensor);
+                auto rAdj = getAdjacency(rMaskedEdgeTensor);
+                if (oAdj.rawData() != rAdj.rawData()) {
                     if (verbose) {
+                        auto oEdges = getEdgeView(oMaskedEdgeTensor);
+                        auto rEdges = getEdgeView(rMaskedEdgeTensor);
                         std::cout << "mismatch for edge group including " << edge << std::endl;
                         printRange(oEdges);
                         std::cout << "vs" << std::endl;
