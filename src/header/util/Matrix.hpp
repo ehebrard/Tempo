@@ -40,8 +40,10 @@ namespace tempo {
         [[nodiscard]] unsigned printLength() const noexcept {
             unsigned max = 0;
             for_each([&max](const auto &val) {
-                if constexpr (concepts::scalar<T>) {
-                    max = std::max(max, static_cast<unsigned>(std::log(std::abs(val) + 1) / std::log(10)) + (val < 0));
+                if constexpr (std::integral<T>) {
+                    auto decimals = static_cast<unsigned>(std::log(static_cast<float>(std::abs(val)) + 1)
+                            / std::log(10)) + (val < 0);
+                    max = std::max(max, decimals);
                 } else {
                     std::stringstream ss;
                     ss << val;
@@ -277,13 +279,7 @@ namespace tempo {
 
         template<typename U = T> requires(concepts::printable<U>)
         friend std::ostream &operator<<(std::ostream &os, const Matrix &matrix) {
-            auto printLen = 0;
-            if constexpr (std::floating_point<U>) {
-                printLen = 4;
-            } else {
-                printLen = matrix.printLength();
-            }
-
+            auto printLen = matrix.printLength();
             os << std::setprecision(2);
             for (std::size_t i = 0; i < matrix.numRows(); ++i) {
                 for (std::size_t j = 0; j < matrix.numColumns(); ++j) {

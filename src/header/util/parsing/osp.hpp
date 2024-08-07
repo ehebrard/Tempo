@@ -10,8 +10,8 @@
 namespace osp {
 
 template <typename M, typename J, typename R>
-int parse(const std::string &fn, M &model, J &schedule,
-           std::vector<J> &Intervals, std::vector<R> &resources) {
+std::optional<int> parse(const std::string &fn, M &model, J &schedule,
+                         std::vector<J> &Intervals, std::vector<R> &resources) {
   using std::cerr;
   try {
     std::ifstream ifs(fn);
@@ -22,7 +22,7 @@ int parse(const std::string &fn, M &model, J &schedule,
     bool gotheader{false};
 
     int lowerBound;
-    int optimalSolution;
+    std::optional<int> optimalSolution;
 
     std::string lt;
     int ln{1};
@@ -38,9 +38,13 @@ int parse(const std::string &fn, M &model, J &schedule,
       std::istringstream iss(line);
 
       if (!gothints) {
+        int o;
         gothints = true;
         char _;
-        iss >> lowerBound >> _ >> optimalSolution;
+        iss >> lowerBound >> _ >> o;
+        if (line.find('*') != std::string::npos) {
+            optimalSolution = o;
+        }
         continue;
       } else if (!gotheader) {
         iss >> nj;

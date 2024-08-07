@@ -98,9 +98,9 @@ TEST(util, SchedulingProblemView_task_distances) {
     tempo::testing::BoundProvider bounds({6, 5, 3, 8, 4}, {3, 2, 0, 4, 1});
     auto distance = schedulingProb.getTaskDistances(graph, bounds);
     EXPECT_EQ(distance(0, 1), 4);
-    EXPECT_EQ(distance(1, 0), 1);
-    EXPECT_EQ(distance(0, 2), 5);
-    EXPECT_EQ(distance(2, 0), 6);
-    EXPECT_EQ(distance(2, 1), 13);
+    EXPECT_EQ(distance(1, 0), 5);
+    EXPECT_EQ(distance(0, 2), 1);
+    EXPECT_EQ(distance(2, 0), 1);
+    EXPECT_EQ(distance(2, 1), 4);
     EXPECT_EQ(distance(1, 2), -2);
 }

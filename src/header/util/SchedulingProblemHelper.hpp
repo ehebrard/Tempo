@@ -39,10 +39,12 @@ namespace tempo {
         inline constexpr auto NoDistance = detail::NoValue<T>::value();
 
         template<typename T, typename Arc>
-        void getDistances(Matrix<T> &matrix, const std::vector<std::vector<Arc>> &adjacency) noexcept {
-            for (auto [src, neighbors] : iterators::enumerate(adjacency)) {
+        void getDistances(Matrix<T> &matrix, const std::vector<std::vector<Arc>> &adjacency, bool incoming) noexcept {
+            for (auto [src, neighbors] : iterators::enumerate(adjacency, 0)) {
                 for (const auto &dest : neighbors) {
-                    matrix(src, dest) = dest.label();
+                    const auto s = incoming ? static_cast<int>(dest) : src;
+                    const auto d = incoming ? src : static_cast<int>(dest);
+                    matrix(s, d) = dest.label();
                 }
             }
         }
@@ -69,14 +71,18 @@ namespace tempo {
                                  const BoundProvider &boundProvider) :
                     tasks(tasks), boundProvider(boundProvider),
                     graphDistances(varGraph.size(), varGraph.size(), NoDistance<T>) {
-                getDistances(graphDistances, varGraph.forward());
-                getDistances(graphDistances, varGraph.backward());
+                getDistances(graphDistances, varGraph.forward(), false);
+                getDistances(graphDistances, varGraph.backward(), true);
             }
 
             [[nodiscard]] T operator()(unsigned taskFrom, unsigned taskTo) const {
+                if (taskFrom == taskTo) {
+                    return NoDistance<T>;
+                }
+
                 const auto srcVar = tasks[taskFrom].start;
                 const auto destVar = tasks[taskTo].end;
-                const auto boundDistance = boundProvider.upper(srcVar.id()) - boundProvider.lower(destVar.id());
+                const auto boundDistance = boundProvider.upper(destVar.id()) - boundProvider.lower(srcVar.id());
                 return std::min(graphDistances(srcVar.id(), destVar.id()), boundDistance) + destVar.offset();
             }
         };

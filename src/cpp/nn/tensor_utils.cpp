@@ -12,6 +12,7 @@
 
 #include "nn/tensor_utils.hpp"
 #include "nn/torch_types.hpp"
+#include "util/Matrix.hpp"
 
 namespace tempo::nn::util{
     auto makeIndexTensor(const std::vector<IndexType> &from, const std::vector<IndexType> &to) -> torch::Tensor {
@@ -138,6 +139,24 @@ namespace tempo::nn::util{
             return std::pair(intersection, diff);
         }
 
+        static auto getAdjacency(const torch::Tensor &cooMat) -> Matrix<bool> {
+            if (cooMat.numel() == 0) {
+                return {};
+            }
+
+            if (cooMat.sizes().size() != 2 or cooMat.sizes().front() != 2) {
+                throw std::runtime_error("invalid coo tensor");
+            }
+
+            auto maxIdx = cooMat.max().item<IndexType>() + 1;
+            Matrix<bool> adj(maxIdx, maxIdx);
+            for (auto [f, t] : getEdgeView(cooMat)) {
+                adj(f, t) = true;
+            }
+
+            return adj;
+        }
+
         static bool compareIndexTensors(const torch::Tensor &original, const torch::Tensor &refactored,
                                         std::string_view msg, bool verbose) {
             using namespace tempo::nn;
@@ -153,8 +172,10 @@ namespace tempo::nn::util{
                 }
             }
 
-            auto equality = original == refactored;
-            if (equality.all().item<bool>()) {
+            const auto adjO = getAdjacency(original);
+            const auto adjR = getAdjacency(refactored);
+
+            if (adjR.rawData() == adjO.rawData()) {
                 if (verbose) {
                     std::cout << "----- tensors equal -----" << std::endl;
                 }
@@ -162,18 +183,11 @@ namespace tempo::nn::util{
                 return true;
             }
 
-            const auto origEdges = util::getEdgeView(original);
-            const auto refacEdges = util::getEdgeView(refactored);
-            EdgeSet originalEdges(origEdges.begin(), origEdges.end());
-            EdgeSet refactoredEdges(refacEdges.begin(), refacEdges.end());
-            if (originalEdges == refactoredEdges) {
-                if (verbose) {
-                    std::cout << "----- index sets equal -----" << std::endl;
-                }
-
-                return true;
-            }
             if (verbose) {
+                const auto origEdges = util::getEdgeView(original);
+                const auto refacEdges = util::getEdgeView(refactored);
+                EdgeSet originalEdges(origEdges.begin(), origEdges.end());
+                EdgeSet refactoredEdges(refacEdges.begin(), refacEdges.end());
                 auto [intersection, diff] = setIntersection(originalEdges, refactoredEdges);
                 std::cout << "----- index set intersection -----" << std::endl;
                 printRange(intersection);
@@ -346,20 +360,6 @@ namespace tempo::nn::util{
             return mismatches == 0;
         }
 
-        static auto getEdgesByMask(const torch::Tensor &edges, const torch::Tensor &mask,
-                                   tempo::nn::IndexType maskVal) -> EdgeSet {
-            using namespace torch::indexing;
-            auto edgeSet = edges.index({Slice{None}, mask == maskVal});
-            assert(edgeSet.size(0) == 2);
-            assert(edgeSet.sizes().size() == 2);
-            EdgeSet ret;
-            for (auto idx = 0; idx < edgeSet.size(1); ++idx) {
-                ret.emplace(edgeSet[0][idx].item<tempo::nn::IndexType>(), edgeSet[1][idx].item<tempo::nn::IndexType>());
-            }
-
-            return ret;
-        }
-
         static bool checkEdgePairMask(const torch::Tensor &original, const torch::Tensor &refactored,
                                       const torch::Tensor &origEdgeIdx, const torch::Tensor &refEdgeIDx, bool verbose) {
             using namespace tempo::nn::util;
@@ -390,10 +390,16 @@ namespace tempo::nn::util{
                     }
                 }
 
-                auto oEdges = getEdgesByMask(origEdgeIdx, original, original[oEdgeIdx].item<tempo::nn::IndexType>());
-                auto rEdges = getEdgesByMask(refEdgeIDx, refactored, refactored[*rEdgeIdx].item<tempo::nn::IndexType>());
-                if (oEdges != rEdges) {
+                auto oMaskedEdgeTensor = origEdgeIdx.index({torch::indexing::Slice{torch::indexing::None},
+                                                            original == c_index<IndexType>(original, {oEdgeIdx})});
+                auto rMaskedEdgeTensor = refEdgeIDx.index({torch::indexing::Slice{torch::indexing::None},
+                                                           refactored == c_index<IndexType>(refactored, {*rEdgeIdx})});
+                auto oAdj = getAdjacency(oMaskedEdgeTensor);
+                auto rAdj = getAdjacency(rMaskedEdgeTensor);
+                if (oAdj.rawData() != rAdj.rawData()) {
                     if (verbose) {
+                        auto oEdges = getEdgeView(oMaskedEdgeTensor);
+                        auto rEdges = getEdgeView(rMaskedEdgeTensor);
                         std::cout << "mismatch for edge group including " << edge << std::endl;
                         printRange(oEdges);
                         std::cout << "vs" << std::endl;
@@ -442,15 +448,15 @@ namespace tempo::nn::util{
         using K = tempo::nn::GraphKeys;
         const auto &edgesA = graphA.at(K::EdgeIdx);
         const auto &edgesB = graphB.at(K::EdgeIdx);
-        return impl::compareIndexTensors(edgesA, edgesB, "edge indices", verbose) &&
+        return impl::compareFeatureTensors(graphA.at(K::TaskFeatures), graphB.at(K::TaskFeatures), "task features",
+                                           verbose) &&
+               impl::compareFeatureTensors(graphA.at(K::ResourceFeatures), graphB.at(K::ResourceFeatures),
+                                           "resource features", verbose) &&
+               impl::compareIndexTensors(edgesA, edgesB, "edge indices", verbose) &&
                impl::compareIndexTensors(graphA.at(K::ResourceDependencies), graphB.at(K::ResourceDependencies),
                                          "resource dependencies", verbose) &&
                impl::compareEdgeResourceRelations(graphA.at(K::EdgeResourceRelations),
                                                   graphB.at(K::EdgeResourceRelations), edgesA, edgesB, verbose) &&
-               impl::compareFeatureTensors(graphA.at(K::TaskFeatures), graphB.at(K::TaskFeatures), "task features",
-                                           verbose) &&
-               impl::compareFeatureTensors(graphA.at(K::ResourceFeatures), graphB.at(K::ResourceFeatures),
-                                           "resource features", verbose) &&
                impl::compareRelationFeatures(graphA.at(K::ResourceConsumptions), graphB.at(K::ResourceConsumptions),
                                              graphA.at(K::ResourceDependencies), graphB.at(K::ResourceDependencies),
                                              "resource consumptions", verbose) &&
