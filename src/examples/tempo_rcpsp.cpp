@@ -29,7 +29,129 @@ using namespace tempo;
 
 
 
+template <typename T>
+std::string prettyJob(const Interval<T> &task, const Solver<T> &S,
+                      const bool dur_flag) {
+  std::stringstream ss;
 
+  auto est{S.numeric.lower(task.start)};
+  auto lst{S.numeric.upper(task.start)};
+  auto ect{S.numeric.lower(task.end)};
+  auto lct{S.numeric.upper(task.end)};
+    
+  ss << "[";
+
+  if (est == lst)
+    ss << est;
+  else
+    ss << est << "-" << lst;
+  ss << "..";
+  if (ect == lct)
+    ss << ect;
+  else
+    ss << ect << "-" << lct;
+  ss << "]";
+
+  if (dur_flag) {
+    auto pmin{S.numeric.lower(task.duration)};
+    auto pmax{S.numeric.upper(task.duration)};
+      if(pmin == pmax)
+          ss << "(" << pmin << ")";
+      else
+          ss << " (" << pmin << "-" << pmax << ")";
+  }
+
+  return ss.str();
+}
+
+template<typename T>
+void printJobs(const Solver<T>& S, const std::vector<Interval<T>>& intervals) {
+  int i{0};
+for(auto task : intervals)
+    std::cout << "job" << ++i << ": " << prettyJob(task, S, true) << std::endl;
+}
+
+
+template<typename T>
+void checkResource(const Solver<T>& S, const std::vector<Interval<T>>& tasks, const std::vector<NumericVar<T>>& demands, const T capacity) {
+
+    std::vector<std::pair<T,T>> events;
+    int i{0};
+    for (auto job : tasks) {
+        
+        std::cout << job << std::endl;
+        
+        auto s{S.numeric.lower(job.start)};
+        auto d{S.numeric.lower(job.duration)};
+        auto e{S.numeric.lower(job.end)};
+        auto dem{S.numeric.lower(demands[i])};
+        
+        if(s+d!=e) {
+            std::cout << "bug span task " << i << ": " << job << std::endl;
+        }
+        
+        events.emplace_back(s,dem);
+        events.emplace_back(e,-dem);
+        
+        ++i;
+    }
+    
+    std::sort(events.begin(), events.end(),
+              [&](const std::pair<T,T>& a, const std::pair<T,T>& b) {
+        return a.first < b.first or (a.first == b.first and a.second < b.second);
+              });
+    
+    T profile{0};
+    for(auto e : events) {
+        profile += e.second;
+        std::cout << e.first << " " << profile << std::endl;
+        if(profile > capacity) {
+            std::cout << "bug at time " << e.first << ": profile=" << profile << std::endl;
+            exit(1);
+        }
+        
+    }
+    
+}
+
+template<typename T>
+void printResources(const Solver<T>& S, const std::vector<std::vector<Interval<T>>>& resource_tasks, const std::vector<std::vector<NumericVar<T>>>& resource_demands, std::vector<int>& resource_capacities) {
+  int i{0};
+
+    auto demands{resource_demands.begin()};
+  for (auto &tasks : resource_tasks) {
+    ++i;
+    if (tasks.size() > 1) {
+
+      std::vector<int> order;
+        int j{0};
+      for (auto job : tasks) {
+          if (S.boolean.value(job.exist)) {
+              order.push_back(j);
+//              order.push_back(job);
+          }
+          ++j;
+      }
+
+      std::sort(order.begin(), order.end(),
+                [&](const int a, const int b) {
+                  return S.numeric.lower(tasks[a].start) <
+                         S.numeric.lower(tasks[b].start);
+                });
+
+      std::cout << "resource " << i << " (" << resource_capacities[i] << "):";
+      for (auto o : order) {
+        std::cout << " " << S.numeric.lower((*demands)[o]) << "x"
+                  << prettyJob(tasks[o], S, false);
+      }
+      std::cout << std::endl;
+    }
+    
+      checkResource(S, tasks, *demands, resource_capacities[i]);
+      
+      ++demands;
+  }
+}
 
 
 // implementation of a scheduling solver
@@ -102,12 +224,12 @@ int main(int argc, char *argv[]) {
   }
   auto ub{std::min(opt.ub, total_duration)};
 
-  S.post(schedule.end.before(opt.ub));
+  S.post(schedule.end.before(ub));
 
   S.minimize(schedule.duration);
-  //
-  //  if (opt.print_sol) {
-  //    printJobs(S, intervals);
-  //    printResources(S, intervals, resource_tasks);
-  //  }
+  
+    if (opt.print_sol) {
+      printJobs(S, intervals);
+      printResources(S, resource_tasks, resource_demands, resource_capacities);
+    }
 }
