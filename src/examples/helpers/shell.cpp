@@ -16,7 +16,7 @@ namespace shell {
 
     std::string getTimeStamp() {
         using namespace std::chrono;
-        auto now = high_resolution_clock::now();
+        auto now = system_clock::now();
         year_month_day date(floor<days>(now));
         std::stringstream ss;
         // this needs to be this ugly because the std implementation on older g++ versions is broken
