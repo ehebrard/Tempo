@@ -50,29 +50,17 @@ int main(int argc, char **argv) {
 
     auto options = cli::parseOptions(argc, argv, cli::ArgSpec("dp-id", "id of the data point", true, dpId));
     const auto mainDir = fs::path(options.instance_file);
-    std::optional<ser::PartialProblem> partialProblem;
-    for (const auto &file : fs::directory_iterator(mainDir / Serializer<>::SubProblemDir)) {
-        if (file.path().filename() ==
-            Serializer<>::SubProblemBaseName + std::to_string(dpId) + Serializer<>::FileExtension) {
-            partialProblem = ser::deserializeFromFile<ser::PartialProblem>(file);
-            break;
-        }
-    }
-
-    if (not partialProblem.has_value()) {
+    const auto [dataPoint, status] = loadDataPoint(mainDir, dpId, false);
+    const auto &[partialProblem, solution] = dataPoint;
+    if (status == DataPointStatus::ProblemNotFound) {
         std::cerr << "sub problem with id " << dpId << " not found" << std::endl;
         std::exit(1);
-    }
-
-    ser::Solution<int> solution;
-    try {
-        solution = getSolutions(mainDir).at(partialProblem->associatedSolution);
-    } catch (const std::out_of_range&) {
-        std::cerr << "associated solution " << partialProblem->associatedSolution << " not found" << std::endl;
+    } else if (status == DataPointStatus::SolutionNotFound) {
+        std::cerr << "associated solution " << partialProblem.associatedSolution << " not found" << std::endl;
         std::exit(1);
     }
 
-    auto [matching, diff] = findMatchingSolution(*partialProblem, mainDir);
+    auto [matching, diff] = findMatchingSolution(partialProblem, mainDir);
     if (not diff.empty()) {
         std::cout << "indicated solution is no superset of partial problem. Conflicts: ";
         for (auto [var, val]: diff) {
@@ -84,7 +72,7 @@ int main(int argc, char **argv) {
 
     if (matching.has_value()) {
         std::cout << "found solution that is super set of constraints in partial problem. ID " << matching->id
-                  << " vs indicated " << partialProblem->associatedSolution << std::endl;
+                  << " vs indicated " << partialProblem.associatedSolution << std::endl;
     } else {
         std::cout << "none of the solutions is a super set of the constraints in the partial problems" << std::endl;
     }
@@ -92,7 +80,7 @@ int main(int argc, char **argv) {
     options.instance_file = getInstance(options.instance_file);
     auto [solver, problem, _] = loadSchedulingProblem(options);
     try {
-        loadBranch(*solver, partialProblem->decisions);
+        loadBranch(*solver, partialProblem.decisions);
     } catch(const Failure<int> &f) {
         std::cout << "inconsistent snapshot: " << f.what() << std::endl;
         std::exit(2);

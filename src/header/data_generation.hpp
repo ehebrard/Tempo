@@ -270,38 +270,50 @@ namespace tempo {
 
     /**
      * Loads all solutions under problem directory
-     * @tparam T timing type
      * @param problemDir path to directory with data points
      * @return vector with deserialized solutions sorted by their id
      * @throws std::runtime_error if solutions directory could not be found under given path
      */
-    template<concepts::scalar T = int>
-    auto getSolutions(const fs::path &problemDir) -> std::vector<serialization::Solution<T>> {
-        using namespace tempo::serialization;
-        std::vector<Solution<T>> ret;
-        const auto dir = problemDir / Serializer<>::SolutionDir;
-        if (not fs::is_directory(dir)) {
-            throw std::runtime_error("no solutions directory under " + problemDir.string());
-        }
-
-        for (const auto &file : fs::directory_iterator(dir)) {
-            if (file.is_regular_file() and
-                file.path().filename().string().starts_with(Serializer<>::SolutionBaseName)) {
-                ret.emplace_back(deserializeFromFile<Solution<T>>(file));
-            }
-        }
-
-        std::ranges::sort(ret, [](const auto &a, const auto &b) { return a.id < b.id; });
-        return ret;
-    }
+    auto getSolutions(const fs::path &problemDir) -> std::vector<serialization::Solution<int>>;
 
     /**
      * Loads all sub problems under problem directory
      * @param problemDir path to directory with data points
-     * @return vector with deserialized partial problems
+     * @return vector with deserialized partial problems sorted by their id indicated in the file name
      * @throws std::runtime_error if sub_problems directory could not be found under given path
      */
     auto getProblems(const fs::path &problemDir) -> std::vector<serialization::PartialProblem>;
+
+    /**
+     * @brief Datapoint load status
+     * @details @copybrief
+     */
+    enum class DataPointStatus {
+        Valid, ///< Data point was loaded correctly and is valid
+        SolutionNotFound, ///< The associated solution to the data point was not found
+        ProblemNotFound ///< Sub problem with the requested ID was not found
+    };
+
+    /**
+     * @brief Represents a data point
+     * @details @copybrief
+     */
+    struct DataPoint {
+        serialization::PartialProblem problem; ///< partial problem representing the input
+        serialization::Solution<int> solution; ///< expected locally optimal solution
+    };
+
+    /**
+     * Loads a partial problem together with its associated solution
+     * @param mainDir root directory of the problem
+     * @param id number of the sub problem
+     * @param rootInstance whether to load a root instance. In this case, the id is the id of the solution
+     * @return DataPoint with problem and solution along with a status value.
+     * Check the status to now if loading was successful
+     */
+    auto loadDataPoint(const fs::path &mainDir, unsigned id,
+                       bool rootInstance) -> std::pair<DataPoint, DataPointStatus>;
+
 }
 
 #endif //TEMPO_DATA_GENERATION_HPP
