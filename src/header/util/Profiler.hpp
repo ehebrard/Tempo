@@ -15,6 +15,8 @@
 #include <iomanip>
 #include <algorithm>
 
+#include "heuristics/heuristic_interface.hpp"
+
 namespace tempo::util {
 
     namespace detail {
@@ -235,6 +237,91 @@ namespace tempo::util {
          */
         ~ScopeWatch();
     };
+
+    /**
+     * @brief Wrapper class that measures the evaluation times of heuristics.
+     * @details @copybrief.
+     * It satisfies the heuristic interfaces and forwards all calls to the actual heuristic while measuring their
+     * execution time.
+     * @tparam H heuristic type
+     * @tparam Resolution time resolution
+     */
+    template<typename H, concepts::same_template<std::chrono::duration> Resolution>
+    class HeuristicProfiler {
+        H h;
+        Profiler profiler;
+        std::ostream &out;
+    public:
+        /**
+         * Ctor
+         * @tparam Args argument types for the actual heuristic
+         * @param out ostream for the profiler
+         * @param args arguments for the actual heuristic
+         */
+        template<typename ...Args>
+        constexpr explicit HeuristicProfiler(std::ostream &out, Args &&...args) :
+                h(std::forward<Args>(args)...), profiler(), out(out) {}
+
+        /**
+         * Variable heuristic interface
+         * @tparam T timing type
+         * @param solver
+         * @return variable selection
+         */
+        template<concepts::scalar T> requires(heuristics::variable_heuristic<H, T>)
+        auto nextVariable(const Solver<T> &solver) -> heuristics::VariableSelection {
+            ScopeWatch sw(profiler, "variable branching");
+            return h.nextVariable(solver);
+        }
+
+        /**
+         * Value heuristic interface
+         * @tparam T timing type
+         * @param x variable selection
+         * @param solver
+         * @return branching literal
+         */
+        template<concepts::scalar T> requires(heuristics::value_heuristic<H, Solver<T>>)
+        auto valueDecision(heuristics::VariableSelection x, const Solver<T> &solver) -> Literal<T> {
+            ScopeWatch sw(profiler, "value branching");
+            return h.valueDecision(x, solver);
+        }
+
+        /**
+         * Heuristic interface
+         * @tparam T timing type
+         * @param solver
+         * @return branching literal
+         */
+        template<concepts::scalar T> requires(heuristics::heuristic<H, T>)
+        auto branch(const Solver<T> &solver) -> Literal<T> {
+            ScopeWatch sw(profiler, "branching heuristic");
+            return h.branch(solver);
+        }
+
+        /**
+         * Access to the actual heuristic
+         * @return pointer to the stored heuristic
+         */
+        constexpr auto operator->() const noexcept {
+            return &h;
+        }
+
+        /**
+         * Dtor. Prints summary to ostream
+         */
+        ~HeuristicProfiler() {
+            profiler.printAll<Resolution>(out);
+        }
+    };
+
+    /**
+     * Movable wrapper around HeuristicProfiler
+     * @tparam H heuristic type
+     * @tparam Resolution time resolution
+     */
+    template<typename H, concepts::same_template<std::chrono::duration> Resolution = std::chrono::milliseconds>
+    using ProfiledHeuristic = heuristics::MovableHeuristic<HeuristicProfiler<H, Resolution>>;
 
 }
 
