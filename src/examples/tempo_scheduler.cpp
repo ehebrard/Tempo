@@ -28,6 +28,8 @@
 #include "util/parsing/osp.hpp"
 #include "util/parsing/path.hpp"
 #include "util/parsing/tsptw.hpp"
+#include "helpers/cli.hpp"
+#include "util/Profiler.hpp"
 
 using namespace tempo;
 
@@ -151,8 +153,12 @@ void printResources(const Solver<T>& S, const std::vector<Interval<T>>& interval
 
 // implementation of a scheduling solver
 int main(int argc, char *argv[]) {
-
-  Options opt = tempo::parse(argc, argv);
+  auto parser = tempo::getBaseParser();
+  bool profileHeuristic;
+  cli::detail::configureParser(parser, cli::SwitchSpec("heuristic-profiling", "activate heuristic profiling",
+                                                       profileHeuristic, false));
+  parser.parse(argc, argv);
+  Options opt = parser.getOptions();
   Solver<> S(opt);
   seed(opt.seed);
 
@@ -224,6 +230,14 @@ int main(int argc, char *argv[]) {
 
   if (opt.print_mod) {
     std::cout << S << std::endl;
+  }
+
+  if (profileHeuristic) {
+      using namespace tempo::heuristics;
+      using Mu = std::chrono::microseconds;
+      util::ProfiledHeuristic<VariableHeuristic, Mu> varBranching(std::cout, make_variable_heuristic(S));
+      util::ProfiledHeuristic<ValueHeuristic, Mu> valBranching(std::cout, make_value_heuristic(S));
+      S.setBranchingHeuristic(make_compound_heuristic(std::move(varBranching), std::move(valBranching)));
   }
 
   auto optimal{false};
