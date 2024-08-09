@@ -242,21 +242,19 @@ namespace tempo::util {
      * @tparam H heuristic type
      * @tparam Resolution time resolution
      */
-    template<typename H, concepts::same_template<std::chrono::duration> Resolution>
+    template<typename H>
     class HeuristicProfiler {
         H h;
-        Profiler profiler;
-        std::ostream &out;
+        Profiler &profiler;
     public:
         /**
          * Ctor
          * @tparam Args argument types for the actual heuristic
-         * @param out ostream for the profiler
-         * @param args arguments for the actual heuristic
+         * @param profiler profiler to use
          */
         template<typename ...Args>
-        constexpr explicit HeuristicProfiler(std::ostream &out, Args &&...args) :
-                h(std::forward<Args>(args)...), profiler(), out(out) {}
+        constexpr explicit HeuristicProfiler(Profiler &profiler, Args &&...args) :
+                h(std::forward<Args>(args)...), profiler(profiler) {}
 
         /**
          * Variable heuristic interface
@@ -302,13 +300,6 @@ namespace tempo::util {
         constexpr auto operator->() const noexcept {
             return &h;
         }
-
-        /**
-         * Dtor. Prints summary to ostream
-         */
-        ~HeuristicProfiler() {
-            profiler.printAll<Resolution>(out);
-        }
     };
 
     /**
@@ -316,8 +307,8 @@ namespace tempo::util {
      * @tparam H heuristic type
      * @tparam Resolution time resolution
      */
-    template<typename H, concepts::same_template<std::chrono::duration> Resolution = std::chrono::milliseconds>
-    using ProfiledHeuristic = heuristics::MovableHeuristic<HeuristicProfiler<H, Resolution>>;
+    template<typename H>
+    using ProfiledHeuristic = heuristics::MovableHeuristic<HeuristicProfiler<H>>;
 
 }
 

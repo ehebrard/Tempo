@@ -26,7 +26,8 @@ int main(int argc, char **argv) {
     auto schedule = problem.schedule();
     using PType = decltype(problem);
     using GNNH = util::ProfiledHeuristic<GNNFullGuidance<PType::Time, PType::Resource>>;
-    GNNH valBranching(std::cout, opt.polarity_epsilon, gnnLocation, featureExtractorConf, std::move(problem));
+    util::Profiler profiler;
+    GNNH valBranching(profiler, opt.polarity_epsilon, gnnLocation, featureExtractorConf, std::move(problem));
     auto varBranching = make_variable_heuristic(*solver);
     solver->setBranchingHeuristic(make_compound_heuristic(std::move(varBranching), std::move(valBranching)));
     solver->minimize(schedule.duration);
@@ -34,5 +35,6 @@ int main(int argc, char **argv) {
         std::cout << "makespan " << solver->numeric.lower(schedule.duration);
     }
 
+    profiler.printAll<std::chrono::milliseconds>(std::cout);
     return 0;
 }

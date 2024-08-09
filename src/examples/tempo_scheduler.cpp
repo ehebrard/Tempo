@@ -232,11 +232,11 @@ int main(int argc, char *argv[]) {
     std::cout << S << std::endl;
   }
 
+  util::Profiler profiler;
   if (profileHeuristic) {
       using namespace tempo::heuristics;
-      using Mu = std::chrono::microseconds;
-      util::ProfiledHeuristic<VariableHeuristic, Mu> varBranching(std::cout, make_variable_heuristic(S));
-      util::ProfiledHeuristic<ValueHeuristic, Mu> valBranching(std::cout, make_value_heuristic(S));
+      util::ProfiledHeuristic<VariableHeuristic> varBranching(profiler, make_variable_heuristic(S));
+      util::ProfiledHeuristic<ValueHeuristic> valBranching(profiler, make_value_heuristic(S));
       S.setBranchingHeuristic(make_compound_heuristic(std::move(varBranching), std::move(valBranching)));
   }
 
@@ -262,4 +262,6 @@ int main(int argc, char *argv[]) {
     printJobs(S, intervals);
     printResources(S, intervals, resource_tasks);
   }
+
+  profiler.printAll<std::chrono::microseconds>(std::cout);
 }
