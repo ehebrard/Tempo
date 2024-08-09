@@ -108,6 +108,10 @@ namespace tempo::heuristics {
         auto branch(const Solver<T> &solver) const -> Literal<T> {
             return heuristic->branch(solver);
         }
+
+        auto operator->() const noexcept {
+            return heuristic.operator->();
+        }
     };
 
     namespace detail {

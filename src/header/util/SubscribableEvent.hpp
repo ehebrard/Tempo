@@ -105,11 +105,13 @@ namespace tempo {
 
         SubscribableEvent(const SubscribableEvent &) = delete;
         SubscribableEvent &operator=(const SubscribableEvent &) = delete;
-        SubscribableEvent(SubscribableEvent &&) noexcept = default;
-        SubscribableEvent &operator=(SubscribableEvent &&) noexcept = default;
+        SubscribableEvent(SubscribableEvent &&) noexcept = delete;
+        SubscribableEvent &operator=(SubscribableEvent &&) noexcept = delete;
 
         ~SubscribableEvent() {
-            eventStatus->invalidate();
+            if (nullptr != eventStatus) {
+                eventStatus->invalidate();
+            }
         }
 
         /**
