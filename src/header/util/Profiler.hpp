@@ -194,10 +194,6 @@ namespace tempo::util {
     protected:
         detail::TP startTp;
     public:
-        StopWatch(const StopWatch &) = delete;
-        StopWatch(StopWatch &&) = delete;
-        StopWatch &operator=(const StopWatch &) = delete;
-        StopWatch &operator=(StopWatch &&) = delete;
 
         /**
          * Ctor. Starts the timer
