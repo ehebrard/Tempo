@@ -21,12 +21,6 @@ namespace shell {
     auto execCommand(const std::string &cmd) -> std::pair<int, std::string>;
 
     /**
-     * Gets the current commit hash
-     * @return commit hash or nothing if command failed to run
-     */
-    auto getCommit() -> std::optional<std::string>;
-
-    /**
      * get the current day
      * @return day in yyyy-mm-dd format
      */

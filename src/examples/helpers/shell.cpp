@@ -49,17 +49,4 @@ namespace shell {
 
         return {exitStatus, std::move(result)};
     }
-
-    auto getCommit() -> std::optional<std::string> {
-        auto [status, res] = execCommand("git rev-parse HEAD");
-        if (status != 0) {
-            return {};
-        }
-
-        if (res.ends_with("\n")) {
-            res.pop_back();
-        }
-
-        return res;
-    }
 }
