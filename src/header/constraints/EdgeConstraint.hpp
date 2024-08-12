@@ -56,7 +56,7 @@ public:
   void propagate() override;
 
   void xplain(const Literal<T>, const hint, std::vector<Literal<T>> &) override;
-  int getType() const override;
+//  int getType() const override;
 
   std::ostream &display(std::ostream &os) const override;
 
@@ -120,9 +120,9 @@ bool EdgeConstraint<T>::notify(const Literal<T>, const int) {
 
 template <typename T> void EdgeConstraint<T>::propagate() {}
 
-template <typename T> int EdgeConstraint<T>::getType() const {
-  return EDGEEXPL;
-}
+//template <typename T> int EdgeConstraint<T>::getType() const {
+//  return EDGEEXPL;
+//}
 
 template <typename T>
 void EdgeConstraint<T>::xplain(const Literal<T>, const hint,

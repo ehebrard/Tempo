@@ -59,7 +59,7 @@ public:
 
   void xplain(const Literal<T> l, const hint h,
               std::vector<Literal<T>> &Cl) override;
-  int getType() const override;
+//  int getType() const override;
 
   std::ostream &display(std::ostream &os) const override;
 
@@ -346,7 +346,7 @@ bool SumConstraint<T>::notify(const Literal<T>, const int) {
   return true;
 }
 
-template <typename T> int SumConstraint<T>::getType() const { return CARDEXPL; }
+//template <typename T> int SumConstraint<T>::getType() const { return CARDEXPL; }
 
 template <typename T>
 void SumConstraint<T>::xplain(const Literal<T>, const hint i,

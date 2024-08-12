@@ -94,16 +94,17 @@ constexpr auto to_underlying(E e) noexcept {
     return static_cast<std::underlying_type_t<E>>(e);
 }
 
-#define CUMULEXPL 8
-#define CARDEXPL 8
-#define TRANSITIVITYEXPL 7
-#define EDGEFINDINGEXPL 6
-#define EDGEEXPL 5
-#define BOUNDEXPL 4
-#define CYCLEEXPL 3
-#define CLAUSEEXPL 2
-#define PATHEXPL 1
-#define NOEXPL 0
+//#define FTRANSEXPL 10
+//#define CUMULEXPL 9
+//#define CARDEXPL 8
+//#define TRANSITIVITYEXPL 7
+//#define EDGEFINDINGEXPL 6
+//#define EDGEEXPL 5
+//#define BOUNDEXPL 4
+//#define CYCLEEXPL 3
+//#define CLAUSEEXPL 2
+//#define PATHEXPL 1
+//#define NOEXPL 0
 
 
 // arbitrary system to index both directions in a directed graph

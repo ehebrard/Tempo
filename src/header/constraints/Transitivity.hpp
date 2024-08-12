@@ -99,7 +99,7 @@ public:
   void min_spanning_tree();
 
   void xplain(const Literal<T> l, const hint h, std::vector<Literal<T>> &Cl) override;
-  int getType() const override;
+//  int getType() const override;
 
   std::ostream &display(std::ostream &os) const override;
 
@@ -680,9 +680,9 @@ template <typename T> void Transitivity<T>::propagate() {
 #endif
 }
 
-template <typename T> int Transitivity<T>::getType() const {
-  return TRANSITIVITYEXPL;
-}
+//template <typename T> int Transitivity<T>::getType() const {
+//  return TRANSITIVITYEXPL;
+//}
 
 template <typename T>
 void Transitivity<T>::xplain(const Literal<T> l, const hint h,

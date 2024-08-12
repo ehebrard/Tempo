@@ -79,7 +79,7 @@ public:
 
   void xplain(const Literal<T> l, const hint h,
               std::vector<Literal<T>> &Cl) override;
-  int getType() const override;
+//  int getType() const override;
 
   bool start_before_end(const int i, const int j) const;
   bool end_before_start(const int i, const int j) const;
@@ -456,9 +456,9 @@ template <typename T> void CumulativeCheck<T>::propagate() {
   }
 }
 
-template <typename T> int CumulativeCheck<T>::getType() const {
-  return CUMULEXPL;
-}
+//template <typename T> int CumulativeCheck<T>::getType() const {
+//  return CUMULEXPL;
+//}
 
 template <typename T>
 void CumulativeCheck<T>::xplain(const Literal<T> l, const hint,

@@ -140,7 +140,7 @@ public:
   //@{
   void xplain(const Literal<T> l, const hint h, std::vector<Literal<T>> &Cl);
   std::ostream &print_reason(std::ostream &, const hint) const;
-  int getType() const;
+//  int getType() const;
   //@}
 
   /**
@@ -1418,9 +1418,9 @@ std::ostream &ClauseBase<T>::print_reason(std::ostream &os,
     return os;
 }
 
-template <typename T> int ClauseBase<T>::getType() const {
-  return CLAUSEEXPL;
-}
+//template <typename T> int ClauseBase<T>::getType() const {
+//  return CLAUSEEXPL;
+//}
 
 template <typename T>
 std::ostream &ClauseBase<T>::display(std::ostream &os) const {

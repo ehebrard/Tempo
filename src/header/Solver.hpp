@@ -39,9 +39,10 @@
 #include "constraints/CumulativeCheck.hpp"
 #include "constraints/DisjunctiveEdgeFinding.hpp"
 #include "constraints/EdgeConstraint.hpp"
-#include "constraints/OptionalEdgeConstraint.hpp"
+//#include "constraints/OptionalEdgeConstraint.hpp"
 #include "constraints/PseudoBoolean.hpp"
 #include "constraints/Transitivity.hpp"
+#include "constraints/FullTransitivity.hpp"
 #include "heuristics/heuristic_factories.hpp"
 #include "heuristics/impl/DecayingEventActivityMap.hpp"
 #include "util/KillHandler.hpp"
@@ -275,7 +276,7 @@ public:
     GraphExplainer(Solver<T> &s);
     void xplain(const Literal<T>, const hint, std::vector<Literal<T>> &) override;
     std::ostream &print_reason(std::ostream &os, const hint) const override;
-    int getType() const override;
+//    int getType() const override;
     
 private:
     Solver<T> &solver;
@@ -288,7 +289,7 @@ public:
     BoundExplainer(Solver<T> &s);
     void xplain(const Literal<T>, const hint, std::vector<Literal<T>> &) override;
     std::ostream &print_reason(std::ostream &os, const hint) const override;
-    int getType() const override;
+//    int getType() const override;
     
 private:
     Solver<T> &solver;
@@ -365,11 +366,11 @@ public:
     // it
     BooleanVar<T> newDisjunct(const DistanceConstraint<T> &,
                               const DistanceConstraint<T> &);
-    // create an internal Boolean variable with a difference logic semantic,
-    // post the channelling constraints (including the optionality), and return
-    // a model object pointing to it
-    BooleanVar<T> newDisjunct(const DistanceConstraint<T> &d1,
-                              const DistanceConstraint<T> &d2, const var_t opt);
+//    // create an internal Boolean variable with a difference logic semantic,
+//    // post the channelling constraints (including the optionality), and return
+//    // a model object pointing to it
+//    BooleanVar<T> newDisjunct(const DistanceConstraint<T> &d1,
+//                              const DistanceConstraint<T> &d2, const var_t opt);
     // returns the constant 0
     NumericVar<T> zero() { return NumericVar<T>(0); }
     // returns the constant true
@@ -490,6 +491,10 @@ public:
     template <typename ItTask, typename ItVar>
     void postTransitivity(Interval<T> &schedule, const ItTask beg_task,
                           const ItTask end_task, const ItVar beg_var);
+    
+    // create and post a new full transitivity propagator
+    template <typename ItRes>
+    void postFullTransitivity(const ItRes beg_res, const ItRes end_res);
 
     // create and post a new precedence reasoning propagator
     template <typename ItTask, typename ItNVar, typename ItBVar>
@@ -802,9 +807,9 @@ std::ostream &GraphExplainer<T>::print_reason(std::ostream &os,
     return os;
 }
 
-template <typename T> int GraphExplainer<T>::getType() const {
-    return CYCLEEXPL;
-}
+//template <typename T> int GraphExplainer<T>::getType() const {
+//    return CYCLEEXPL;
+//}
 
 template <typename T>
 GraphExplainer<T>::GraphExplainer(Solver<T> &s) : solver(s) {}
@@ -872,9 +877,9 @@ std::ostream &BoundExplainer<T>::print_reason(std::ostream &os,
     return os;
 }
 
-template <typename T> int BoundExplainer<T>::getType() const {
-    return BOUNDEXPL;
-}
+//template <typename T> int BoundExplainer<T>::getType() const {
+//    return BOUNDEXPL;
+//}
 
 template <typename T>
 BoundExplainer<T>::BoundExplainer(Solver<T> &s) : solver(s) {}
@@ -1340,18 +1345,18 @@ BooleanVar<T> Solver<T>::newDisjunct(const DistanceConstraint<T> &d1,
   return x;
 }
 
-template <typename T>
-BooleanVar<T> Solver<T>::newDisjunct(const DistanceConstraint<T> &d1,
-                                     const DistanceConstraint<T> &d2,
-                                     const var_t opt) {
-  auto x{boolean.newDisjunct(d1, d2)};
-  clauses.newBooleanVar(x.id());
-  boolean_constraints.resize(std::max(numConstraint(), 2 * boolean.size()));
-
-  post(new OptionalEdgeConstraint<T>(*this, x.id(), opt));
-
-  return x;
-}
+//template <typename T>
+//BooleanVar<T> Solver<T>::newDisjunct(const DistanceConstraint<T> &d1,
+//                                     const DistanceConstraint<T> &d2,
+//                                     const var_t opt) {
+//  auto x{boolean.newDisjunct(d1, d2)};
+//  clauses.newBooleanVar(x.id());
+//  boolean_constraints.resize(std::max(numConstraint(), 2 * boolean.size()));
+//
+//  post(new OptionalEdgeConstraint<T>(*this, x.id(), opt));
+//
+//  return x;
+//}
 
 template <typename T> NumericVar<T> Solver<T>::newConstant(const T k) {
   return newNumeric(k, k);
@@ -2332,6 +2337,44 @@ void Solver<T>::optimize(S &objective) {
   displaySummary(std::cout, (objective.gap() > 0 ? "killed" : "optimal"));
 }
 
+
+
+//
+//template <typename T>
+//template <typename S>
+//void Solver<T>::optimize(S &objective) {
+//    objective.X.extract(*this);
+//  initializeSearch();
+//    
+//    // first, find an initial
+//    
+//
+//  while (objective.gap() and not KillHandler::instance().signalReceived()) {
+//    auto satisfiability = search();
+//    if (satisfiability == TrueState) {
+//      auto best{objective.value(*this)};
+//      if (options.verbosity >= Options::NORMAL) {
+//        std::cout << std::setw(10) << best;
+//        displayProgress(std::cout);
+//      }
+//        objective.apply(best, *this);
+//      boolean.saveSolution();
+//      numeric.saveSolution();
+//      restart(true);
+//      try {
+//        objective.setPrimal(best, *this);
+//      } catch (Failure<T> &f) {
+//        objective.setDual(objective.primalBound());
+//      }
+//    } else if (satisfiability == FalseState) {
+//      objective.setDual(objective.primalBound());
+//    }
+//  }
+//
+//    if(options.verbosity >= Options::QUIET)
+//  displaySummary(std::cout, (objective.gap() > 0 ? "killed" : "optimal"));
+//}
+
 template <typename T> boolean_state Solver<T>::search() {
 
   init_level = env.level();
@@ -2342,7 +2385,8 @@ template <typename T> boolean_state Solver<T>::search() {
     try {
 #ifdef DBG_TRACE
       if (DBG_BOUND) {
-        std::cout << "--- propag [i=" << num_choicepoints << "] ---\n";
+        std::
+          |<< "--- propag [i=" << num_choicepoints << "] ---\n";
           printTrace();
       }
 #endif
@@ -2734,6 +2778,16 @@ void Solver<T>::postTransitivity(Interval<T> &schedule, ItTask beg_task,
   post(new Transitivity<T>(*this, schedule, beg_task, end_task,
                                   beg_var
                                   ));
+}
+
+template <typename T>
+template <typename ItRes>
+void Solver<T>::postFullTransitivity(const ItRes beg_res, const ItRes end_res) {
+    auto c{new FullTransitivity<T>(*this)};
+    for(auto res{beg_res}; res!=end_res; ++res) {
+        c->addResource(res->begDisjunct(), res->endDisjunct());
+    }
+    post(c);
 }
 
 template <typename T>

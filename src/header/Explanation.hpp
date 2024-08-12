@@ -46,7 +46,7 @@ public:
   virtual std::ostream &print_reason(std::ostream &, const hint) const;
 
   // for introspection
-  virtual int getType() const;
+//  virtual int getType() const;
 
   virtual ~Explainer() = default;
   Explainer() = default;
@@ -72,7 +72,7 @@ public:
   std::ostream &display(std::ostream &os) const;
   bool operator==(const Explanation<T> &e) const;
 
-  int getType() const;
+//  int getType() const;
 
   // private:
   Explainer<T> *expl{NULL};
@@ -90,7 +90,7 @@ std::ostream &Explainer<T>::print_reason(std::ostream &os,
   return os;
 }
 
-template <typename T> int Explainer<T>::getType() const { return NOEXPL; }
+//template <typename T> int Explainer<T>::getType() const { return NOEXPL; }
 
 template <typename T>
 void Explanation<T>::explain(const Literal<T> l,
@@ -119,9 +119,9 @@ Explanation<T>::Explanation(Explainer<T> *e, hint h)
 
 // Explanation Constant::NoReason = Explanation(new Explainer(), NoHint);
 
-template <typename T> int Explanation<T>::getType() const {
-  return expl->getType();
-}
+//template <typename T> int Explanation<T>::getType() const {
+//  return expl->getType();
+//}
 
 template <typename T>
 std::ostream &operator<<(std::ostream &os, const Explanation<T> &x) {

@@ -66,7 +66,7 @@ public:
 
   void xplain(const Literal<T> l, const hint h,
               std::vector<Literal<T>> &Cl) override;
-  int getType() const override;
+//  int getType() const override;
 
   //    void setBound(const T ub);
 
@@ -194,9 +194,9 @@ bool PseudoBooleanInterface<T>::notify(const Literal<T> l, const int rank) {
   return false;
 }
 
-template <typename T> int PseudoBooleanInterface<T>::getType() const {
-  return CARDEXPL;
-}
+//template <typename T> int PseudoBooleanInterface<T>::getType() const {
+//  return CARDEXPL;
+//}
 
 template <typename T>
 void PseudoBooleanInterface<T>::xplain(const Literal<T> l, const hint,

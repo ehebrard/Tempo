@@ -68,7 +68,7 @@ public:
 
   void xplain(const Literal<T> l, const hint h,
               std::vector<Literal<T>> &Cl) override;
-  int getType() const override;
+//  int getType() const override;
 
 //  void setBound(const unsigned b);
 
@@ -177,9 +177,9 @@ bool CardinalityInterface<T>::notify(const Literal<T> l, const int) {
 
 
 
-template <typename T> int CardinalityInterface<T>::getType() const {
-  return CARDEXPL;
-}
+//template <typename T> int CardinalityInterface<T>::getType() const {
+//  return CARDEXPL;
+//}
 
 template <typename T>
 void CardinalityInterface<T>::xplain(const Literal<T> l, const hint, std::vector<Literal<T>> &Cl) {

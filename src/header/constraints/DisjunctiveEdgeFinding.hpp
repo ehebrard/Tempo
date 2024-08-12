@@ -91,7 +91,7 @@ public:
 
   void xplain(const Literal<T> l, const hint h,
               std::vector<Literal<T>> &Cl) override;
-  int getType() const override;
+//  int getType() const override;
 
   std::ostream &display(std::ostream &os) const override;
 
@@ -807,9 +807,9 @@ template <typename T> void DisjunctiveEdgeFinding<T>::propagateBackward() {
   }
 }
 
-template <typename T> int DisjunctiveEdgeFinding<T>::getType() const {
-  return EDGEFINDINGEXPL;
-}
+//template <typename T> int DisjunctiveEdgeFinding<T>::getType() const {
+//  return EDGEFINDINGEXPL;
+//}
 
 template <typename T>
 void DisjunctiveEdgeFinding<T>::xplain(const Literal<T> l, const hint h,
