@@ -6,6 +6,7 @@
 
 #ifndef TEMPO_PROFILER_HPP
 #define TEMPO_PROFILER_HPP
+
 #include <string>
 #include <cmath>
 #include <chrono>
@@ -14,6 +15,9 @@
 #include <ostream>
 #include <iomanip>
 #include <algorithm>
+#include <bit>
+#include <ranges>
+#include <Iterators.hpp>
 
 #include "heuristics/heuristic_interface.hpp"
 
@@ -42,7 +46,7 @@ namespace tempo::util {
 
         template<std::integral T>
         int printLen(T val) {
-            return static_cast<int>(std::log(val) / std::log(10)) + 1;
+            return static_cast<int>(std::log(val + 1) / std::log(10)) + 1;
         }
     }
 
@@ -79,7 +83,7 @@ namespace tempo::util {
      */
     template<typename T>
     struct Result {
-        T min, max, avg, sum, stddev, med;
+        T min, max, avg, stddev, med, sum;
     };
 
     /**
@@ -143,7 +147,7 @@ namespace tempo::util {
             }
 
             auto stddev = static_cast<Res>(std::sqrt(sqSum / eventList.size() - mean * mean));
-            return Result<Res>{.min=min, .max=max, .avg=mean, .sum=sum, .stddev=stddev, .med = med};
+            return Result<Res>{.min=min, .max=max, .avg=mean, .stddev=stddev, .med = med, .sum=sum};
 
         }
 
@@ -156,12 +160,9 @@ namespace tempo::util {
          * @param valWidth optional width formatting parameter for the result values
          */
         template<typename T>
-        void print(const std::string &eventName, std::ostream &os, int nameWidth = -1, int valWidth = -1) {
+        void print(const std::string &eventName, std::ostream &os, int nameWidth = 0, int valWidth = 0) const {
             auto [min, max, avg, sum, stddev, med] = getResult<T>(eventName);
             constexpr auto s = detail::timing_symbol<T>::symbol;
-            nameWidth = nameWidth != -1 ? nameWidth : static_cast<int>(eventName.length());
-            valWidth = valWidth != -1 ? valWidth : static_cast<int>(detail::printLen(
-                    std::max({min, max, avg, sum, stddev, med})));
             os << "-- " << std::setw(nameWidth) << std::left << eventName << ": \tmin: " << std::setw(valWidth)
                << std::left << min << s
                << ", max: " << std::setw(valWidth) << std::left << max << s << ", avg : " << std::setw(valWidth)
@@ -175,13 +176,32 @@ namespace tempo::util {
          * prints all events to an out stream
          * @tparam T timing type
          * @param os out stream
-         * @param nameWidth optional width formatting parameter for the event name
-         * @param valWidth optional width formatting parameter for the result values
          */
         template<typename T>
-        void printAll(std::ostream &os, int nameWidth = -1, int valWidth = -1) {
+        void printAll(std::ostream &os) const {
+            using ResT = decltype(getResult<T>("").min);
+            constexpr auto NumFields = sizeof(Result<ResT>) / sizeof(T);
+            constexpr auto s = detail::timing_symbol<T>::symbol;
+            int nameWidth = 0;
+            std::array<int, NumFields> valWidths{0};
+            std::vector<Result<ResT>> results;
             for (const auto &[name, _] : events) {
-                print<T>(name, os, nameWidth, valWidth);
+                nameWidth = std::max(nameWidth, static_cast<int>(name.length()) + 1);
+                results.emplace_back(getResult<T>(name));
+                const auto fields = std::bit_cast<std::array<ResT, NumFields>>(results.back());
+                for (auto [f, fWidth] : iterators::zip(fields, valWidths)) {
+                    fWidth = std::max(fWidth, static_cast<int>(detail::printLen(f) + 1));
+                }
+            }
+
+            for (auto [name, res] : iterators::zip(events | std::views::keys, results)) {
+                os << "-- " << std::setw(nameWidth)
+                   << std::left << name << ": \tmin: " << std::setw(valWidths[0]) << std::left << res.min << s
+                   << ", max: " << std::setw(valWidths[1]) << std::left << res.max << s
+                   << ", avg : " << std::setw(valWidths[2]) << std::left << res.avg << s
+                   << ", std: " << std::setw(valWidths[3]) << std::left << res.stddev << s
+                   << ", median: " << std::setw(valWidths[4]) << std::left << res.med << s
+                   << ", total: " << std::setw(valWidths[5]) << std::left << res.sum << s << "\n";
             }
         }
     };
