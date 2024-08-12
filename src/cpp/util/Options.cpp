@@ -61,9 +61,7 @@ auto tempo::getBaseParser() -> Parser {
                                    "Clause-learning dbg file []", false, "",
                                    "string");
 
-    cmd.add<SwitchArg>(opt.learning, "", "learning", "learn clauses", false);
-    cmd.add<SwitchArg>(opt.learning, "", "no-learning",
-                       "do not use clause learning", true);
+    cmd.add<SwitchArg>(opt.learning, "", "learning", "learn clauses", true);
 
     cmd.add<SwitchArg>(opt.edge_finding, "", "edge-finding", "use edge-finding",
                        false);

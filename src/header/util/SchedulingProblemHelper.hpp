@@ -172,6 +172,8 @@ namespace tempo {
         Interval<T> sched;
 
     public:
+        using Time = T;
+        using Resource = R;
         SchedulingProblemHelper() = default;
 
         /**

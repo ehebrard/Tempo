@@ -20,6 +20,7 @@
 #include "../helpers/scheduling_helpers.hpp"
 #include "../helpers/cli.hpp"
 #include "../helpers/shell.hpp"
+#include "../helpers/git_sha.hpp"
 
 namespace fs = std::filesystem;
 constexpr auto RootName = "root";
@@ -170,7 +171,7 @@ int main(int argc, char **argv) {
     meta["numSubProblems"] = problemGraphs.size();
     meta["numRootProblems"] = solutions.size();
     meta["date"] = shell::getTimeStamp();
-    meta["commit"] = shell::getCommit();
+    meta["commit"] = GitSha;
 
     serialization::serializeToFile(meta, fs::path(saveTo) / InfoFileName);
     return 0;

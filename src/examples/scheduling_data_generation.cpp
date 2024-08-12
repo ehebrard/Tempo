@@ -11,6 +11,7 @@
 #include "helpers/scheduling_helpers.hpp"
 #include "helpers/shell.hpp"
 #include "data_generation.hpp"
+#include "helpers/git_sha.hpp"
 
 constexpr auto InfoFileName = "info.json";
 
@@ -45,7 +46,7 @@ int main(int argc, char **argv) {
     fs::copy(options.instance_file, destinationFolder, fs::copy_options::overwrite_existing);
     nlohmann::json meta;
     meta["date"] = shell::getTimeStamp();
-    meta["commit"] = shell::getCommit();
+    meta["commit"] = GitSha;
     meta["numSubProblems"] = dataGenerator.problemCount();
     meta["numSolutions"] = dataGenerator.solutionCount();
     meta["bestSolutionKnown"] = optMin(opt, makespan);

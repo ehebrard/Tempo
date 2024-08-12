@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.10)
 project(tempo)
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake_modules/")
+include(GetGitRevisionDescription)
 include(FetchContent)
 
 # Also requires one of: libbfd (gnu binutils), libdwarf, libdw (elfutils)
@@ -54,6 +56,9 @@ else ()
 endif ()
 
 add_compile_definitions(__TEST_DATA_DIR__="${CMAKE_SOURCE_DIR}/Tests/data")
+get_git_head_revision(GIT_REFSPEC GIT_SHA1)
+configure_file("${CMAKE_SOURCE_DIR}/git_sha.cpp.in"
+        "${CMAKE_CURRENT_BINARY_DIR}/git_sha.cpp" @ONLY)
 
 if (${TORCH_ENABLED})
     add_compile_definitions(__TORCH_ENABLED__=1)
@@ -89,7 +94,8 @@ else ()
 endif ()
 
 file(GLOB SOURCES ${CMAKE_SOURCE_DIR}/src/cpp/*.cpp ${CMAKE_SOURCE_DIR}/src/cpp/util/*.cpp
-        ${CMAKE_SOURCE_DIR}/src/cpp/constraints/*.cpp ${CMAKE_SOURCE_DIR}/src/cpp/heuristics/*.cpp)
+        ${CMAKE_SOURCE_DIR}/src/cpp/constraints/*.cpp ${CMAKE_SOURCE_DIR}/src/cpp/heuristics/*.cpp
+        ${CMAKE_CURRENT_BINARY_DIR}/git_sha.cpp)
 
 file(GLOB EXAMPLE_HELPER_SOURCES ${CMAKE_SOURCE_DIR}/src/examples/helpers/*.cpp)
 

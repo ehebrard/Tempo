@@ -7,6 +7,7 @@
 #include "heuristics/GNNValueHeuristics.hpp"
 #include "heuristics/heuristic_factories.hpp"
 #include "util/parsing/jsp.hpp"
+#include "util/Profiler.hpp"
 #include "../helpers/cli.hpp"
 #include "../helpers/scheduling_helpers.hpp"
 
@@ -23,7 +24,10 @@ int main(int argc, char **argv) {
 
     auto [solver, problem, _] = loadSchedulingProblem(opt);
     auto schedule = problem.schedule();
-    GNNFullGuidance valBranching(opt.polarity_epsilon, gnnLocation, featureExtractorConf, std::move(problem));
+    using PType = decltype(problem);
+    using GNNH = util::ProfiledHeuristic<GNNFullGuidance<PType::Time, PType::Resource>>;
+    util::Profiler profiler;
+    GNNH valBranching(profiler, opt.polarity_epsilon, gnnLocation, featureExtractorConf, std::move(problem));
     auto varBranching = make_variable_heuristic(*solver);
     solver->setBranchingHeuristic(make_compound_heuristic(std::move(varBranching), std::move(valBranching)));
     solver->minimize(schedule.duration);
@@ -31,5 +35,6 @@ int main(int argc, char **argv) {
         std::cout << "makespan " << solver->numeric.lower(schedule.duration);
     }
 
+    profiler.printAll<std::chrono::milliseconds>(std::cout);
     return 0;
 }

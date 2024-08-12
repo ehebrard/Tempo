@@ -10,6 +10,7 @@
 #include <filesystem>
 
 #include "util/traits.hpp"
+#include "util/SubscribableEvent.hpp"
 #include "Global.hpp"
 #include "nn/GNNEdgePolarityPredictor.hpp"
 #include "BaseBooleanHeuristic.hpp"
@@ -36,6 +37,7 @@ namespace tempo::heuristics {
     class GNNFullGuidance: public BaseBooleanHeuristic<GNNFullGuidance<T, R>> {
         nn::heuristics::GNNEdgePolarityPredictor<T, R> polarityPredictor;
     public:
+
         /**
          * Ctor
          * @param epsilon epsilon greedy value (see BaseBooleanHeuristic)
