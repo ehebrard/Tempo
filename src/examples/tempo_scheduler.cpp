@@ -225,6 +225,12 @@ int main(int argc, char *argv[]) {
 
   if (opt.ub != Constant::Infinity<int>)
     S.post(schedule.end.before(opt.ub));
+    
+    
+    if(opt.full_transitivity) {
+        std::cout << "hello\n";
+        S.postFullTransitivity(resources.begin(), resources.end());
+    }
 
   auto ub{Constant::Infinity<int>};
 

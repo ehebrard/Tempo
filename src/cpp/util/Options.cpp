@@ -81,6 +81,9 @@ auto tempo::getBaseParser() -> Parser {
 
     cmd.add<SwitchArg>(opt.order_bound_watch, "", "order-watched",
                        "order bound watched lists", false);
+    
+    cmd.add<SwitchArg>(opt.full_transitivity, "", "full-transitivity",
+                       "use full-transitivity", false);
 
     cmd.add<ValueArg<int>>(opt.choice_point_heuristics, "", "cp-heuristic",
                            "type of heuristic used for choice point selection "

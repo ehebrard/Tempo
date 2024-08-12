@@ -74,6 +74,8 @@ using hint = int;
 //#define DBG_FAIL true
 //#define DBG_CCHECK m_solver.num_choicepoints >= 8620
 //#define DBG_LEXBFS true
+#define DBG_FTRANS true
+#define DBG_BELLMAN_FT true
 
 // priority values for constraint propagation
 enum class Priority {

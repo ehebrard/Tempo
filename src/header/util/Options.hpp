@@ -113,6 +113,8 @@ public:
 
   bool full_up{false};
   bool order_bound_watch{false};
+    
+    bool full_transitivity{false};
 
   enum class ChoicePointHeuristics { Tightest = 0, WeightedDegree, VSIDS };
   ChoicePointHeuristics choice_point_heuristics{ChoicePointHeuristics::VSIDS};
