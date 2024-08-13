@@ -9,6 +9,8 @@
 
 #include "heuristics/SolutionGuided.hpp"
 #include "heuristics/TightestValue.hpp"
+#include "heuristics/PerfectValueOracle.hpp"
+#include "util/serialization.hpp"
 #include "util/traits.hpp"
 #include "Solver.hpp"
 
@@ -129,4 +131,16 @@ TEST(value_heuristics, SolutionGuided) {
     res = h.valueDecision({0, VariableType::Boolean}, solver);
     EXPECT_FALSE(called);
     EXPECT_EQ(res.id(), 0);
+}
+
+TEST(value_heuristics, oracle) {
+    using namespace tempo;
+    using namespace tempo::heuristics;
+    const serialization::Solution solution(0, 0, {{0, true}, {1, true}, {2, false}, {3, true}, {4, false}});
+    PerfectValueHeuristic oracle(0, solution);
+    const auto lit = makeBooleanLiteral<int>(true, 0, 0);
+    LitProvider provider(lit);
+    for (auto [var, val] : solution.decisions) {
+        EXPECT_EQ(oracle.choose(var, provider), (val ? lit : ~lit));
+    }
 }
