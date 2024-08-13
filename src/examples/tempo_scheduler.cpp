@@ -30,6 +30,8 @@
 #include "util/parsing/tsptw.hpp"
 #include "helpers/cli.hpp"
 #include "util/Profiler.hpp"
+#include "helpers/shell.hpp"
+#include "helpers/git_sha.hpp"
 
 using namespace tempo;
 
@@ -267,7 +269,7 @@ int main(int argc, char *argv[]) {
   }
 
   if (S.numeric.hasSolution()) {
-      std::cout << "makespan " << S.numeric.lower(schedule.duration) << std::endl;
+      std::cout << "-- makespan " << S.numeric.lower(schedule.duration) << std::endl;
   }
 
   if (opt.print_sol) {
@@ -276,4 +278,7 @@ int main(int argc, char *argv[]) {
   }
 
   profiler.printAll<std::chrono::microseconds>(std::cout);
+  std::cout << "-- date: " << shell::getTimeStamp() << std::endl;
+  std::cout << "-- commit: " << GitSha << std::endl;
+
 }
