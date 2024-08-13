@@ -15,11 +15,15 @@
 #include "util/traits.hpp"
 
 namespace tempo::heuristics {
+    /**
+     * @brief The perfect value heuristic. Follows the path to a given (possibly optimal) solution.
+     * @details @copybrief
+     */
     class PerfectValueHeuristic: public BaseBooleanHeuristic<PerfectValueHeuristic> {
         std::vector<bool> polarities;
     public:
         /**
-         * @brief The perfect value heuristic. Follows the path to a given (possibly optimal) solution
+         * Ctor
          * @tparam T timing type
          * @param epsilon error chance
          * @param solution solution to follow
