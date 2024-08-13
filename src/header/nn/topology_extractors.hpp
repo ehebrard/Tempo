@@ -120,7 +120,10 @@ namespace tempo::nn {
         static void addPrecedenceEdges(const R &precedences, const VarTaskMapping &vtMapping,
                                        impl::TopologyData &topologyData) {
             for (const auto &p : precedences) {
-                assert(vtMapping.contains(p.from) and vtMapping.contains(p.to));
+                if(not vtMapping.contains(p.from) or not vtMapping.contains(p.to)) {
+                    continue;
+                }
+
                 Edge e(vtMapping(p.from), vtMapping(p.to));
                 if (e.first == e.second or topologyData.edgeLookup.contains(e)) {
                     continue;
