@@ -40,18 +40,15 @@ public:
   static constexpr var_t K = 0;
   static constexpr var_t True = 0;
 
-  template <typename T> const static T Infinity;
+  template <typename T> static constexpr T Infinity = std::numeric_limits<T>::max();
 
   template <typename T> static Explanation<T> Decision;
   template <typename T> static Explanation<T> GroundFact;
-  template <typename T> static DistanceConstraint<T> NoEdge;
+  template<typename T> static constexpr DistanceConstraint<T> NoEdge =
+          DistanceConstraint<T>(Constant::NoVar, Constant::NoVar, Constant::Infinity<T>);
 
 };
 
-template <typename T>
-DistanceConstraint<T>
-    Constant::NoEdge = DistanceConstraint<T>(Constant::NoVar, Constant::NoVar,
-                                             Constant::Infinity<T>);
 
 template <typename T>
 Explanation<T> Constant::Decision =
@@ -60,9 +57,6 @@ Explanation<T> Constant::Decision =
 template <typename T>
 Explanation<T> Constant::GroundFact =
     Explanation<T>(new Explainer<T>(), Constant::FactHint);
-
-template <typename T>
-const T Constant::Infinity = std::numeric_limits<T>::max();
 
 } // namespace tempo
 

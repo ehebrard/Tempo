@@ -35,10 +35,9 @@ namespace tempo {
 template <typename T> class DistanceConstraint {
 
 public:
-  DistanceConstraint() {}
+  DistanceConstraint() = default;
 
-  DistanceConstraint(const var_t f, const var_t t, const T d)
-      : from(f), to(t), distance(d) {}
+  constexpr DistanceConstraint(const var_t f, const var_t t, const T d): from(f), to(t), distance(d) {}
 
   var_t from;
   var_t to;
