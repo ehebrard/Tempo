@@ -1243,6 +1243,7 @@ Solver<T>::Solver()
       bound_exp(*this) {
   trail.emplace_back(Constant::NoVar, Constant::Infinity<T>, detail::Numeric{});
   reason.push_back(Constant::GroundFact<T>);
+          core.newVertex(0);
   seed(options.seed);
 }
 
@@ -1270,6 +1271,7 @@ Solver<T>::Solver(Options opt)
       bound_exp(*this) {
   trail.emplace_back(Constant::NoVar, Constant::Infinity<T>, detail::Numeric{});
   reason.push_back(Constant::Decision<T>);
+          core.newVertex(0);
   seed(options.seed);
 
 #ifdef DBG_CL

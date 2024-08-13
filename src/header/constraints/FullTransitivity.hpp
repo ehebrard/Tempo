@@ -85,8 +85,12 @@ public:
   void propagate() override;
     
     T distance(const int x, const int y) const;
-    void addEdge(const int x, const int y, const T d, const PathExplanation<T> r=NoReason);
+    bool addEdge(const int x, const int y, const T d, const PathExplanation<T> r=NoReason);
     void undo();
+    
+    void propagateForward(const DistanceConstraint<T> e, const Literal<T> l=Solver<T>::Contradiction);
+    void propagateBackward(const DistanceConstraint<T> e, const Literal<T> l=Solver<T>::Contradiction);
+    
     template <typename G>
     void update(const int x, const int y, const G &neighbors, std::vector<T>& distance);
 
@@ -96,6 +100,8 @@ public:
   std::ostream &display(std::ostream &os) const override;
 
   std::ostream &print_reason(std::ostream &os, const hint h) const override;
+    
+    void printMatrix() const;
     
     
     static PathExplanation<T> NoReason;
@@ -112,14 +118,14 @@ T FullTransitivity<T>::distance(const int x, const int y) const {
 }
 
 template <typename T>
-void FullTransitivity<T>::addEdge(const int x, const int y, const T d, const PathExplanation<T> r) {
+bool FullTransitivity<T>::addEdge(const int x, const int y, const T d, const PathExplanation<T> r) {
     
     if(distance(x,y) <= d)
-        return;
+        return false;
     
 #ifdef DBG_FTRANS
     if (DBG_FTRANS) {
-        std::cout << "  - x" << x << " -> " << y << " (" << distance(x,y) << "/" << d <<  ")\n";
+        std::cout << "  - x" << x << " -> x" << y << " (" << distance(x,y) << "/" << d <<  ")\n";
     }
 #endif
     
@@ -134,7 +140,7 @@ void FullTransitivity<T>::addEdge(const int x, const int y, const T d, const Pat
     reason.push_back(r);
     
 
-    if(m_solver.boolean.getEdge(literal[y][x]).distance + distance_from[x][y] < 0) {
+    if(literal[y][x] != Solver<T>::Contradiction and m_solver.boolean.getEdge(literal[y][x]).distance + distance_from[x][y] < 0) {
         
 #ifdef DBG_FTRANS
     if (DBG_FTRANS) {
@@ -144,6 +150,8 @@ void FullTransitivity<T>::addEdge(const int x, const int y, const T d, const Pat
         
         m_solver.set(literal[x][y], {this, static_cast<hint>(i)});
     }
+    
+    return true;
 }
 
 
@@ -161,6 +169,8 @@ void FullTransitivity<T>::undo() {
     edges.pop_back();
     previous.pop_back();
 }
+
+
 
 template <typename T>
 FullTransitivity<T>::FullTransitivity(Solver<T> &solver)
@@ -194,19 +204,118 @@ FullTransitivity<T>::FullTransitivity(Solver<T> &solver)
         for(auto &row : literal)
             row.resize(n, Solver<T>::Contradiction);
         
-        for(auto x : m_solver.core) {
-            for(auto e : m_solver.core[x]) {
-                int y{e};
-                addEdge(x,y,e.label());
-                update(x,y,m_solver.core,distance_to[x]);
-                update(y,x,m_solver.core.backward(),distance_from[y]);
-            }
-        }
-        
         for(size_t x{0}; x<_index_.size(); ++x) {
             _index_[x][x] = Constant::NoIndex;
+            distance_from[x][x] = 0;
+            distance_to[x][x] = 0;
         }
         
+//        std::cout << "\nforward:\n";
+//        for(auto x : m_solver.core) {
+//        std::cout << x;
+//            for(auto e : m_solver.core[x]) {
+//                int y{e};
+//                std::cout << " " << y;
+//            }
+//            std::cout << std::endl;
+//        }
+//        
+//        std::cout << "\nbackward:\n";
+//        for(auto x : m_solver.core) {
+//        std::cout << x;
+//            for(auto e : m_solver.core.backward()[x]) {
+//                int y{e};
+//                std::cout << " " << y;
+//            }
+//            std::cout << std::endl;
+//        }
+        printMatrix();
+        
+        for(auto x : m_solver.core) {
+            
+            
+            
+            if(x != 0) {
+                if(m_solver.numeric.upper(x) != Constant::Infinity<T>) {
+                    
+                    std::cout << "\n**upper bound of " << x << std::endl;
+                    
+                    if(addEdge(0,x,m_solver.numeric.upper(x))) {
+                        propagateForward(edges.back());
+                        propagateBackward(edges.back());
+                    }
+//                    propagateForward({0,x,m_solver.numeric.upper(x)});
+//                    propagateBackward({0,x,m_solver.numeric.upper(x)});
+                    
+//                    update(0,x,m_solver.core,distance_from[0]);
+//                    update(x,0,m_solver.core.backward(),distance_to[x]);
+                    
+                    printMatrix();
+                }
+                
+                if(m_solver.numeric.lower(x) != -Constant::Infinity<T>) {
+                    
+                    std::cout << "\n**lower bound of " << x << std::endl;
+                    
+                    if(addEdge(x,0,-m_solver.numeric.lower(x))) {
+                        propagateForward(edges.back());
+                        propagateBackward(edges.back());
+                    }
+//                    propagateForward({x,0,-m_solver.numeric.lower(x)});
+//                    propagateBackward({x,0,-m_solver.numeric.lower(x)});
+                    
+//                    update(x,0,m_solver.core,distance_from[x]);
+//                    update(0,x,m_solver.core.backward(),distance_to[0]);
+                    
+                    printMatrix();
+                }
+            }
+            
+            for(auto e : m_solver.core[x]) {
+                
+                int y{e};
+                
+                std::cout << "\n**edge " << x << " -> " << y << std::endl;
+                
+                if(addEdge(x,y,e.label())) {
+                    propagateForward(edges.back());
+                    propagateBackward(edges.back());
+                }
+                
+                
+//                
+//                update(x,y,m_solver.core,distance_from[x]);
+//                
+//                
+//                for(auto b : changed) {
+//                    addEdge(x,b,distance_from[x][b]);
+//                    for(int a{0}; a<n; ++a) {
+//                        if(distance_from[a][x] + distance_from[y][b] < distance_from[a][b]) {
+//                            addEdge(a,b,distance_from[a][y] + distance_from[y][b]);
+//                        }
+//                    }
+//                }
+//                
+//                update(y,x,m_solver.core.backward(),distance_to[y]);
+//                
+//                
+//                for(auto a : changed) {
+//                    addEdge(a,y,distance_to[y][a]);
+//                    for(int b{0}; b<n; ++b) {
+//                        if(distance_from[a][x] + distance_from[y][b] < distance_from[a][b]) {
+//                            addEdge(a,b,distance_from[a][y] + distance_from[y][b]);
+//                        }
+//                    }
+//                }
+                
+                
+
+                printMatrix();
+            }
+        }
+
+//        printMatrix();
+        exit(1);
 }
 
 template <typename T> FullTransitivity<T>::~FullTransitivity() {}
@@ -300,32 +409,89 @@ bool FullTransitivity<T>::notify(const Literal<T> l, const int) {
 //    }
     
     
-    int n{static_cast<int>(_index_.size())};
+//    int n{static_cast<int>(_index_.size())};
     auto e{m_solver.boolean.getEdge(l)};
     
+    if(addEdge(e.from, e.to, e.distance)) {
+        propagateForward(edges.back());
+        propagateBackward(edges.back());
+    }
     
+//    
+//    update(e.from, e.to, m_solver.core, distance_from[e.from]);
+//    
+//    
+//#ifdef DBG_FTRANS
+//  if (DBG_FTRANS) {
+//      std::cout << "new distances from x" << e.from << ":\n";
+//  }
+//#endif
+//    
+//    
+//    for(auto y : changed) {
+//        addEdge(e.from,y,distance_from[e.from][y],{l,Constant::NoIndex,_index_[e.to][y]});
+//        for(int x{0}; x<n; ++x) {
+//            if(distance_from[x][e.from] + distance_from[e.from][y] < distance_from[x][y]) {
+//                addEdge(x,y,distance_from[x][e.from] + distance_from[e.from][y],{l,_index_[x][e.from],_index_[e.to][y]});
+//            }
+//        }
+//    }
+//    
+//    
+//    update(e.to, e.from, m_solver.core.backward(), distance_to[e.to]);
+//    
+//
+//#ifdef DBG_FTRANS
+//  if (DBG_FTRANS) {
+//      std::cout << "new distances to x" << e.from << ":\n";
+//  }
+//#endif
+//    
+//    for(auto x : changed) {
+//        addEdge(x,e.to,distance_to[e.to][x],{l,_index_[x][e.from],Constant::NoIndex});
+//        for(int y{0}; y<n; ++y) {
+//            if(distance_from[x][e.from] + distance_from[e.from][y] < distance_from[x][y]) {
+//                addEdge(x,y,distance_from[x][e.from] + distance_from[e.from][y],{l,_index_[x][e.from],_index_[e.to][y]});
+//            }
+//        }
+//    }
+    
+  return false;
+}
+
+
+
+template <typename T>
+void FullTransitivity<T>::propagateForward(const DistanceConstraint<T> e, const Literal<T> l) {
     update(e.from, e.to, m_solver.core, distance_from[e.from]);
     
     
 #ifdef DBG_FTRANS
   if (DBG_FTRANS) {
       std::cout << "new distances from x" << e.from << ":\n";
-//      for(auto x : changed) {
-//          std::cout << "  - x" << x << "(" << distance_matrix[e.from][x] << " -> " << distance_from[e.from][x] <<  ")\n";
-//      }
   }
 #endif
     
-    
+    int n{static_cast<int>(_index_.size())};
     for(auto y : changed) {
-        addEdge(e.from,y,distance_from[e.from][y],{l,Constant::NoIndex,_index_[e.to][y]});
+        if(l == Solver<T>::Contradiction)
+            addEdge(e.from,y,distance_from[e.from][y]);
+        else
+            addEdge(e.from,y,distance_from[e.from][y],{l,Constant::NoIndex,_index_[e.to][y]});
         for(int x{0}; x<n; ++x) {
             if(distance_from[x][e.from] + distance_from[e.from][y] < distance_from[x][y]) {
-                addEdge(x,y,distance_from[x][e.from] + distance_from[e.from][y],{l,_index_[x][e.from],_index_[e.to][y]});
+                if(l == Solver<T>::Contradiction)
+                    addEdge(x,y,distance_from[x][e.from] + distance_from[e.from][y]);
+                else
+                    addEdge(x,y,distance_from[x][e.from] + distance_from[e.from][y],{l,_index_[x][e.from],_index_[e.to][y]});
             }
         }
     }
-    
+}
+
+
+template <typename T>
+void FullTransitivity<T>::propagateBackward(const DistanceConstraint<T> e, const Literal<T> l) {
     
     update(e.to, e.from, m_solver.core.backward(), distance_to[e.to]);
     
@@ -333,24 +499,25 @@ bool FullTransitivity<T>::notify(const Literal<T> l, const int) {
 #ifdef DBG_FTRANS
   if (DBG_FTRANS) {
       std::cout << "new distances to x" << e.from << ":\n";
-//      for(auto x : changed) {
-//          std::cout << "  - x" << x << "(" << distance_matrix[x][e.to] << " -> " << distance_to[e.to][x] <<  ")\n";
-//      }
   }
 #endif
     
+    int n{static_cast<int>(_index_.size())};
     for(auto x : changed) {
-        addEdge(x,e.to,distance_from[x][e.to],{l,_index_[x][e.from],Constant::NoIndex});
+        if(l == Solver<T>::Contradiction)
+            addEdge(x,e.to,distance_to[e.to][x]);
+        else
+            addEdge(x,e.to,distance_to[e.to][x],{l,_index_[x][e.from],Constant::NoIndex});
         for(int y{0}; y<n; ++y) {
             if(distance_from[x][e.from] + distance_from[e.from][y] < distance_from[x][y]) {
-                addEdge(x,y,distance_from[x][e.from] + distance_from[e.from][y],{l,_index_[x][e.from],_index_[e.to][y]});
+                if(l == Solver<T>::Contradiction)
+                    addEdge(x,y,distance_from[x][e.from] + distance_from[e.from][y]);
+                else
+                    addEdge(x,y,distance_from[x][e.from] + distance_from[e.from][y],{l,_index_[x][e.from],_index_[e.to][y]});
             }
         }
     }
-    
-  return false;
 }
-
 
 
 // update the distance
@@ -377,7 +544,7 @@ void FullTransitivity<T>::update(const int x, const int y, const G &neighbors, s
     if (max_iter-- < 0)
       exit(1);
     if (DBG_BELLMAN_FT) {
-      std::cout << "pop " << u << " q=(";
+      std::cout << "pop " << u << " d=" << shortest_path[u] << ", q=(";
       for (auto evt : changed)
         std::cout << " " << evt;
       std::cout << " )" << std::endl;
@@ -388,7 +555,7 @@ void FullTransitivity<T>::update(const int x, const int y, const G &neighbors, s
       int v{edge};
       auto w{edge.label()};
 
-      if (w != Constant::Infinity<T> and shortest_path[u] + w < shortest_path[v]) {
+      if (shortest_path[u] + w < shortest_path[v]) {
 
 #ifdef DBG_BELLMAN_FT
         if (DBG_BELLMAN_FT) {
@@ -462,6 +629,31 @@ std::ostream &FullTransitivity<T>::display(std::ostream &os) const {
 
 
   return os;
+}
+
+template <typename T>
+void FullTransitivity<T>::printMatrix() const {
+    var_t endv{static_cast<var_t>(_index_.size())};
+    std::cout << "     ";
+    for(var_t x{0}; x<endv; ++x) {
+        std::cout << "x" << std::setw(4) << std::left << x;
+    }
+    std::cout << std::endl;
+    for(var_t x{0}; x<endv; ++x) {
+        std::cout << "x" << std::setw(4) << std::left << x;
+        for(var_t y{0}; y<endv; ++y) {
+            assert(distance_from[x][y] == distance_to[y][x]);
+            assert(distance_from[x][y] == distance(x,y));
+            if(distance_from[x][y] == Constant::Infinity<T>)
+                std::cout << "    .";
+            else if(distance_from[x][y] > Constant::Infinity<T>/2)
+                std::cout << "    *";
+                //std::cout << "i-" << std::setw(2) << (Constant::Infinity<T> - distance_from[x][y]);
+            else
+                std::cout << std::right << std::setw(5) << distance_from[x][y];
+        }
+        std::cout << std::endl;
+    }
 }
 
 template <typename T>

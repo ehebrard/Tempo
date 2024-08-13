@@ -62,7 +62,7 @@ public:
     auto gapNeg = (edgeNeg.isNull() ? 1000000 :
         solver.numeric.upper(edgeNeg.from) - solver.numeric.lower(edgeNeg.to));
       
-    return solver.boolean.getLiteral(gapPos <= gapNeg, x);
+    return solver.boolean.getLiteral(gapPos >= gapNeg, x);
   }
 };
 }

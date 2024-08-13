@@ -232,7 +232,7 @@ int main(int argc, char *argv[]) {
         S.postFullTransitivity(resources.begin(), resources.end());
     }
 
-  auto ub{Constant::Infinity<int>};
+  
 
   if (opt.print_mod) {
     std::cout << S << std::endl;
@@ -249,6 +249,7 @@ int main(int argc, char *argv[]) {
   auto optimal{false};
   if (opt.greedy_runs > 0)
     try {
+        auto ub{Constant::Infinity<int>};
       warmstart(S, schedule, intervals /*, resources*/, ub);
     } catch (Failure<int> &f) {
       //            std::cout << " optimal solution found in a greedy run\n";
