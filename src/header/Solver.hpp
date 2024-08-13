@@ -334,6 +334,7 @@ public:
     ConflictEncountered; ///< triggered when a conflict is encountered
     mutable SubscribableEvent<> BackTrackCompleted; ///< triggered after a successful backtrack
     mutable SubscribableEvent<> SearchRestarted; ///< triggered on restart
+    //    mutable SubscribableEvent<> FailureDetected; ///< triggered on failure
     mutable SubscribableEvent<const Solver<T> &> SolutionFound; ///< triggered when a solution is found
     mutable SubscribableEvent<const Solver<T> &> PropagationCompleted; ///< triggered after a successful propagation
     mutable SubscribableEvent<const Solver<T> &> PropagationInitiated; ///< triggered before propagation
@@ -1237,13 +1238,13 @@ bool NumericStore<T>::satisfied(const Literal<T> l) const {
 template <typename T>
 Solver<T>::Solver()
     : ReversibleObject(&env), boolean(*this), numeric(*this), clauses(*this),
-      core(&env), boolean_search_vars(0, &env), numeric_search_vars(0, &env), propag_pointer(1, &env),
-      propagation_queue(constraints), boolean_constraints(&env),
-      numeric_constraints(&env), restartPolicy(*this), graph_exp(*this),
-      bound_exp(*this) {
+      core(&env), boolean_search_vars(0, &env), numeric_search_vars(0, &env),
+      propag_pointer(1, &env), propagation_queue(constraints),
+      boolean_constraints(&env), numeric_constraints(&env),
+      restartPolicy(*this), graph_exp(*this), bound_exp(*this) {
   trail.emplace_back(Constant::NoVar, Constant::Infinity<T>, detail::Numeric{});
   reason.push_back(Constant::GroundFact<T>);
-          core.newVertex(0);
+  core.newVertex(0);
   seed(options.seed);
 }
 
@@ -1271,7 +1272,7 @@ Solver<T>::Solver(Options opt)
       bound_exp(*this) {
   trail.emplace_back(Constant::NoVar, Constant::Infinity<T>, detail::Numeric{});
   reason.push_back(Constant::Decision<T>);
-          core.newVertex(0);
+  core.newVertex(0);
   seed(options.seed);
 
 #ifdef DBG_CL
@@ -1627,10 +1628,6 @@ template <typename T> void Solver<T>::restart(const bool on_solution) {
 
 template <typename T> void Solver<T>::backtrack(Explanation<T> &e) {
     
-    avg_fail_level = (avg_fail_level * num_fails + env.level()) / (num_fails + 1);
-    ++num_fails;
-    
-
 #ifdef DBG_TRACE
     if (DBG_BOUND and (DBG_TRACE & SEARCH)) {
         std::cout << "failure @level " << env.level() << "/" << init_level
@@ -2313,7 +2310,8 @@ void Solver<T>::optimize(S &objective) {
 //    if(options.verbosity >= Options::QUIET)
 //    displayHeader(std::cout);
 
-  while (objective.gap() and not KillHandler::instance().signalReceived()) {
+  while (objective.gap() and not KillHandler::instance().signalReceived() and
+         not(num_fails >= options.search_limit)) {
     auto satisfiability = search();
     if (satisfiability == TrueState) {
       auto best{objective.value(*this)};
@@ -2382,8 +2380,9 @@ template <typename T> boolean_state Solver<T>::search() {
   init_level = env.level();
   boolean_state satisfiability{UnknownState};
   while (satisfiability == UnknownState and
-         not KillHandler::instance().signalReceived()) {
-
+         not KillHandler::instance().signalReceived() and
+         not(num_fails >= options.search_limit)) {
+      
     try {
 #ifdef DBG_TRACE
       if (DBG_BOUND) {
@@ -2432,6 +2431,10 @@ template <typename T> boolean_state Solver<T>::search() {
         set(d);
       }
     } catch (Failure<T> &f) {
+                
+        avg_fail_level = (avg_fail_level * num_fails + env.level()) / (num_fails + 1);
+        ++num_fails;
+        
       try {
         backtrack(f.reason);
         BackTrackCompleted.trigger();

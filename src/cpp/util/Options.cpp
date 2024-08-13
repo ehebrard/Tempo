@@ -123,6 +123,11 @@ auto tempo::getBaseParser() -> Parser {
             "number of randomized greedy runs (default 1)",
             false, 1, "int");
 
+    cmd.add<ValueArg<unsigned long>>(
+        opt.search_limit, "", "search-limit",
+        "limit in number of fails (default = a lot)", false, std::numeric_limits<unsigned long>::max(),
+        "unsigned long");
+
     cmd.add<ValueArg<int>>(opt.forget_strategy, "", "forget-strategy",
                            "strategy for clause forgetting "
                            "(0: size (default), 1: literal looseness,"

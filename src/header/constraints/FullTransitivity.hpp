@@ -229,54 +229,62 @@ FullTransitivity<T>::FullTransitivity(Solver<T> &solver)
 //            }
 //            std::cout << std::endl;
 //        }
-        printMatrix();
-        
+
+        // HACK!!: add an edge from origin to end to allow propagation of
+        // shirtest path
+        m_solver.set({0, 1, m_solver.numeric.upper(1)});
+
+        //        printMatrix();
+
         for(auto x : m_solver.core) {
             
             
             
             if(x != 0) {
                 if(m_solver.numeric.upper(x) != Constant::Infinity<T>) {
-                    
-                    std::cout << "\n**upper bound of " << x << std::endl;
-                    
-                    if(addEdge(0,x,m_solver.numeric.upper(x))) {
-                        propagateForward(edges.back());
-                        propagateBackward(edges.back());
-                    }
+
+                  //                    std::cout << "\n**upper bound of " << x
+                  //                    << std::endl;
+
+                  if (addEdge(0, x, m_solver.numeric.upper(x))) {
+                    propagateForward(edges.back());
+                    propagateBackward(edges.back());
+                  }
 //                    propagateForward({0,x,m_solver.numeric.upper(x)});
 //                    propagateBackward({0,x,m_solver.numeric.upper(x)});
                     
 //                    update(0,x,m_solver.core,distance_from[0]);
 //                    update(x,0,m_solver.core.backward(),distance_to[x]);
-                    
-                    printMatrix();
+
+//                    printMatrix();
                 }
                 
                 if(m_solver.numeric.lower(x) != -Constant::Infinity<T>) {
-                    
-                    std::cout << "\n**lower bound of " << x << std::endl;
-                    
-                    if(addEdge(x,0,-m_solver.numeric.lower(x))) {
-                        propagateForward(edges.back());
-                        propagateBackward(edges.back());
-                    }
+
+                  //                    std::cout << "\n**lower bound of " << x
+                  //                    << std::endl;
+
+                  if (addEdge(x, 0, -m_solver.numeric.lower(x))) {
+                    propagateForward(edges.back());
+                    propagateBackward(edges.back());
+                  }
 //                    propagateForward({x,0,-m_solver.numeric.lower(x)});
 //                    propagateBackward({x,0,-m_solver.numeric.lower(x)});
                     
 //                    update(x,0,m_solver.core,distance_from[x]);
 //                    update(0,x,m_solver.core.backward(),distance_to[0]);
-                    
-                    printMatrix();
+
+//                    printMatrix();
                 }
             }
             
             for(auto e : m_solver.core[x]) {
                 
                 int y{e};
-                
-                std::cout << "\n**edge " << x << " -> " << y << std::endl;
-                
+
+                //                std::cout << "\n**edge " << x << " -> " << y
+                //                << std::endl;
+
                 if(addEdge(x,y,e.label())) {
                     propagateForward(edges.back());
                     propagateBackward(edges.back());
@@ -314,8 +322,8 @@ FullTransitivity<T>::FullTransitivity(Solver<T> &solver)
             }
         }
 
-//        printMatrix();
-        exit(1);
+        //        printMatrix();
+        //        exit(1);
 }
 
 template <typename T> FullTransitivity<T>::~FullTransitivity() {}

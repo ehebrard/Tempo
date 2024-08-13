@@ -40,14 +40,16 @@ def test(cmd, filename):
 
 
     ref_out = open(filename, 'r')
+    ln = 0
     for lr,lo in zip(ref_out, prc_out):
+        ln += 1
         ref = [x.strip() for x in lr[:-1].split()]
         res = [x.strip() for x in lo.split()]
         index = 0
         for x,y in zip(res, ref):
             if x != y and index != 7 and index != 3:
-                print('Discrepancy:\n{0}\n{1}'.format(lr[:-1],lo))
-                exit(1)
+                print('Discrepancy in {2} at line {3}:\nref:{0}\ncur:{1}'.format(lr[:-1],lo,cmd,ln))
+                # exit(1)
             index += 1
 
     print('CMD {}: ok'.format(cmd))

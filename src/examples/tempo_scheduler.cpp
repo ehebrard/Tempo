@@ -223,10 +223,15 @@ int main(int argc, char *argv[]) {
 //
 //  //    S.post(schedule.end <= ub);
 
-  if (opt.ub != Constant::Infinity<int>)
+  if (opt.ub != Constant::Infinity<int>) {
     S.post(schedule.end.before(opt.ub));
-    
-    
+    //        S.set(schedule.end.before(schedule.start, -opt.ub));
+    //        S.propagate();
+
+    //        std::cout << (schedule.end.before(schedule.start, -opt.ub)) <<
+    //        std::endl;
+  }
+
     if(opt.full_transitivity) {
         std::cout << "hello\n";
         S.postFullTransitivity(resources.begin(), resources.end());

@@ -136,6 +136,9 @@ public:
 
   int greedy_runs{1};
 
+  unsigned long search_limit{std::numeric_limits<unsigned long>::max()};
+  //    double time_limit;
+
   enum class LiteralScore {
     Size = 0,
     Looseness,
