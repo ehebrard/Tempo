@@ -113,6 +113,30 @@ TEST(nn_MinimalTopologyBuilder, MinimalBuilder_addPrecedenceEdges) {
     }
 }
 
+TEST(nn_MinimalTopologyBuilder, MinimalBuilder_addPrecedenceEdges_bidirectional) {
+    using tempo::nn::Edge;
+    using iterators::const_zip_enumerate;
+    using namespace tempo;
+    using std::views::transform;
+    tempo::nn::impl::TopologyData data{.edgeLookup = tempo::nn::impl::EdgeLookup(100)};
+    auto tasks = tempo::testing::createDummyTasks(5);
+    VarTaskMapping mapping(tasks);
+    auto evtViewer = transform(
+            [&tasks](const auto &dc) {
+                return DistanceConstraint<int>(tasks.at(dc.from).start.id(), tasks.at(dc.to).end.id(), dc.distance);
+            });
+    std::vector<DistanceConstraint<int>> edges{{1, 2, 0}, {2, 3, 2}, {2, 1, -1}};
+    TestMinimalTopologyBuilder::addPrecedenceEdges(edges | evtViewer, mapping, data, true);
+    ASSERT_EQ(data.edges.size(), 4);
+    EXPECT_EQ(data.edgeIdx.size(), 0);
+    EdgeSet gtEdges{{1, 2}, {2, 1}, {2, 3}, {3, 2}};
+    EXPECT_EQ(gtEdges, EdgeSet(data.edges.begin(), data.edges.end()));
+    for (auto [idx, e, m] : const_zip_enumerate(data.edges, data.edgePairMask)) {
+        EXPECT_EQ(data.edgeLookup.at(e.first, e.second), idx);
+        EXPECT_EQ(m, idx / 2);
+    }
+}
+
 
 auto edgeFromTensor(const torch::Tensor &tensor) -> tempo::nn::Edge {
     using tempo::nn::Edge;
