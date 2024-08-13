@@ -75,9 +75,10 @@ namespace tempo::nn {
         /**
          * Ctor
          * @param problem initial problem instance
+         * @param bidirectionalPrecedences Whether to insert bidirectional precedence edges
          */
         template<concepts::scalar T, SchedulingResource R>
-        explicit MinimalTopologyBuilder(const SchedulingProblemHelper<T, R> &problem) {
+        explicit MinimalTopologyBuilder(const SchedulingProblemHelper<T, R> &problem, bool bidirectionalPrecedences) {
             using namespace iterators;
             cache.numTasks = problem.tasks().size();
             cache.numResources = problem.resources().size();
@@ -86,7 +87,7 @@ namespace tempo::nn {
                 completeSubGraph(resourceSpec, r, topologyData);
             }
 
-            addPrecedenceEdges(problem.precedences(), problem.getMapping(), topologyData);
+            addPrecedenceEdges(problem.precedences(), problem.getMapping(), topologyData, bidirectionalPrecedences);
             cache.edgeIndices = util::makeIndexTensor(topologyData.edges);
             cache.edgePairMask = torch::from_blob(topologyData.edgePairMask.data(),
                                                   static_cast<long>(topologyData.edgePairMask.size()),
@@ -118,7 +119,7 @@ namespace tempo::nn {
     protected:
         template<concepts::ttyped_range<DistanceConstraint> R>
         static void addPrecedenceEdges(const R &precedences, const VarTaskMapping &vtMapping,
-                                       impl::TopologyData &topologyData) {
+                                       impl::TopologyData &topologyData, bool bidirectional) {
             for (const auto &p : precedences) {
                 if(not vtMapping.contains(p.from) or not vtMapping.contains(p.to)) {
                     continue;
@@ -129,7 +130,13 @@ namespace tempo::nn {
                     continue;
                 }
 
-                addEdge(e, false, topologyData.pairMaskVal++, topologyData);
+                addEdge(e, false, topologyData.pairMaskVal, topologyData);
+                if (bidirectional) {
+                    Edge rev(e.second, e.first);
+                    addEdge(rev, false, topologyData.pairMaskVal, topologyData);
+                }
+
+                ++topologyData.pairMaskVal;
             }
         }
 
@@ -166,8 +173,9 @@ namespace tempo::nn {
     };
 
     MAKE_TEMPLATE_FACTORY(MinimalTopologyBuilder, ESCAPE(concepts::scalar T, SchedulingResource R),
-                          const ESCAPE(SchedulingProblemHelper<T, R>) &problemInstance) {
-            return MinimalTopologyBuilder(problemInstance);
+                          const ESCAPE(SchedulingProblemHelper<T, R> &problemInstance, const nlohmann::json &params)) {
+            auto bidir = params.at("bidirectionalPrecedences").get<bool>();
+            return MinimalTopologyBuilder(problemInstance, bidir);
         }
     };
 }
