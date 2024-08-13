@@ -102,10 +102,10 @@ TEST(value_heuristics, TightestValue) {
     EXPECT_TRUE((value_heuristic<TightestValue, Solver<int>>));
     auto lit = makeBooleanLiteral<int>(true, 0, 4);
     LitProvider provider(lit);
-    EXPECT_EQ(TightestValue::choose(5, provider), ~lit);
+    EXPECT_EQ(TightestValue::choose(5, provider), lit);
     lit = makeBooleanLiteral<int>(true, 0, 4);
     provider = LitProvider{lit};
-    EXPECT_EQ(TightestValue::choose(2, provider), lit);
+    EXPECT_EQ(TightestValue::choose(2, provider), ~lit);
 }
 
 
