@@ -16,7 +16,7 @@
 auto getInput() -> std::pair<tempo::testing::ProblemInstance, tempo::nn::Topology> {
     using namespace tempo;
     auto [problem, _] = tempo::testing::createTestProblem();
-    nn::MinimalTopologyBuilder topologyBuilder(problem);
+    nn::MinimalTopologyBuilder topologyBuilder(problem, false);
     auto topology = topologyBuilder.getTopology();
     return {std::move(problem), std::move(topology)};
 }
@@ -37,7 +37,7 @@ TEST(nn_feature_extractors, TaskTimingExtractor) {
     auto sched = tasks.back();
     tasks.pop_back();
     ProblemInstance instance(std::move(tasks), {}, {}, sched);
-    auto topology = MinimalTopologyBuilder(instance).getTopology();
+    auto topology = MinimalTopologyBuilder(instance, false).getTopology();
     auto taskFeatures = extractor(topology, makeSolverState(Matrix<int>{}, scheduler), instance);
     for (auto [idx, task] : iterators::const_enumerate(instance.tasks())) {
         auto features = taskFeatures.slice(0, idx, idx + 1);
@@ -61,7 +61,7 @@ TEST(nn_feature_extractors, TaskTimingExtractor_legacy) {
     auto sched = tasks.back();
     tasks.pop_back();
     ProblemInstance instance(std::move(tasks), {}, {}, sched);
-    auto topology = MinimalTopologyBuilder(instance).getTopology();
+    auto topology = MinimalTopologyBuilder(instance, false).getTopology();
     auto taskFeatures = extractor(topology, makeSolverState(Matrix<int>{}, scheduler), instance);
     ASSERT_EQ(taskFeatures.numel(), 4);
     EXPECT_FLOAT_EQ(taskFeatures[0][0].item<DataType>(), 0.4);
@@ -85,7 +85,7 @@ TEST(nn_feature_extractors, ResourceEnergyExtractor) {
     auto sched = tasks.back();
     tasks.pop_back();
     ProblemInstance instance(tasks, {{1, {0u, 1u, 2u}, {1, 1, 1}}}, {}, sched);
-    const auto topology = MinimalTopologyBuilder(instance).getTopology();
+    const auto topology = MinimalTopologyBuilder(instance, false).getTopology();
     ResourceEnergyExtractor extractor;
     auto resEnergies = extractor(topology, makeSolverState(Matrix<int>{}, scheduler), instance);
     ASSERT_EQ(resEnergies.size(0), 1);
@@ -102,7 +102,7 @@ TEST(nn_features_extractors, ResourceEnergyExtractor_complex_consumptions) {
     auto sched = tasks.back();
     tasks.pop_back();
     ProblemInstance instance(tasks, {{4, {0u, 1u, 2u}, {3, 2, 2}}}, {}, sched);
-    const auto topology = MinimalTopologyBuilder(instance).getTopology();
+    const auto topology = MinimalTopologyBuilder(instance, false).getTopology();
     ResourceEnergyExtractor extractor;
     auto resEnergies = extractor(topology, makeSolverState(Matrix<int>{}, scheduler), instance);
     ASSERT_EQ(resEnergies.size(0), 1);

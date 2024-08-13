@@ -32,32 +32,32 @@ using EdgeMap = tempo::nn::impl::EdgeLookup;
 
 TEST_F(TopologyBuilderTest, MinimalBuilder_resource_dependencies) {
     using namespace tempo::nn;
-    MinimalTopologyBuilder topologyBuilder(instance());
+    MinimalTopologyBuilder topologyBuilder(instance(), false);
     const auto& topology = topologyBuilder.getTopology();
     testResourceDependencies(topology);
 }
 
 TEST_F(TopologyBuilderTest, MinimalBuilder_edges) {
     using namespace tempo::nn;
-    MinimalTopologyBuilder topologyBuilder(instance());
+    MinimalTopologyBuilder topologyBuilder(instance(), false);
     const auto& topology = topologyBuilder.getTopology();
     testEdges(topology);
 }
 
 TEST_F(TopologyBuilderTest, MinimalBuilder_edge_mask) {
     using namespace tempo::nn;
-    MinimalTopologyBuilder topologyBuilder(instance());
+    MinimalTopologyBuilder topologyBuilder(instance(), false);
     const auto& topology = topologyBuilder.getTopology();
     testEdgePairMask(topology);
 }
 
 TEST_F(TopologyBuilderTest, MinimalBuilder_edge_resource_relations) {
-    tempo::nn::MinimalTopologyBuilder topologyBuilder(instance());
+    tempo::nn::MinimalTopologyBuilder topologyBuilder(instance(), false);
     auto topology = topologyBuilder.getTopology();
     auto edgeView = tempo::nn::util::getEdgeView(topology.edgeIndices);
     std::vector edges(edgeView.begin(), edgeView.end());
     testEdgeResourceRelations(topology.edgeResourceRelations, getResourceMatrix(instance()), edges);
-    topologyBuilder = tempo::nn::MinimalTopologyBuilder(extendedInstance());
+    topologyBuilder = tempo::nn::MinimalTopologyBuilder(extendedInstance(), false);
     topology = topologyBuilder.getTopology();
     testEdgeResourceRelations(topology.edgeResourceRelations, getResourceMatrix(extendedInstance()), edges);
 }
@@ -100,7 +100,7 @@ TEST(nn_MinimalTopologyBuilder, MinimalBuilder_addPrecedenceEdges) {
     std::vector<DistanceConstraint<int>> edges{{1, 2, 0}, {2, 3, 2}, {3, 4, -1}};
     TestMinimalTopologyBuilder::addEdge({2, 5}, true, -2, data);
     TestMinimalTopologyBuilder::addEdge({2, 3}, true, -1, data);
-    TestMinimalTopologyBuilder::addPrecedenceEdges(edges | evtViewer, mapping, data);
+    TestMinimalTopologyBuilder::addPrecedenceEdges(edges | evtViewer, mapping, data, false);
     ASSERT_EQ(data.edges.size(), 4);
     EXPECT_EQ(data.edgeIdx.size(), 2);
     EXPECT_EQ(data.edgeIdx.front(), 0);
