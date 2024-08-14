@@ -165,3 +165,13 @@ TEST(value_heuristics, oracle_determinism) {
         }
     }
 }
+
+TEST(value_heuristics, oracle_polarity_oob) {
+    using namespace tempo;
+    using namespace tempo::heuristics;
+    const serialization::Solution solution(0, 0, {{0, true}});
+    PerfectValueHeuristic oracle(0, solution);
+    const auto lit = makeBooleanLiteral<int>(true, 0, 0);
+    LitProvider provider(lit);
+    EXPECT_EQ(oracle.choose(0, provider), lit);
+}

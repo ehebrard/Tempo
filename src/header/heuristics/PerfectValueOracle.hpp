@@ -32,13 +32,13 @@ namespace tempo::heuristics {
         template<concepts::scalar T>
         PerfectValueHeuristic(double epsilon, const serialization::Solution<T> &solution)
                 : BaseBooleanHeuristic<PerfectValueHeuristic>(0), polarities(
-                std::ranges::max(solution.decisions | std::views::elements<0>)) {
+                std::ranges::max(solution.decisions | std::views::elements<0>) + 1) {
             if (epsilon < 0 or epsilon > 1) {
                 throw std::runtime_error("epsilon must be between 0 and one");
             }
 
             for (auto [var, val] : solution.decisions) {
-                polarities[var] = (random() % EpsScale >= static_cast<unsigned long>(epsilon * EpsScale)) == val;
+                polarities.at(var) = (random() % EpsScale >= static_cast<unsigned long>(epsilon * EpsScale)) == val;
             }
         }
 
