@@ -335,7 +335,7 @@ public:
     mutable SubscribableEvent<> BackTrackCompleted; ///< triggered after a successful backtrack
     mutable SubscribableEvent<> SearchRestarted; ///< triggered on restart
     //    mutable SubscribableEvent<> FailureDetected; ///< triggered on failure
-    mutable SubscribableEvent<const Solver<T> &> SolutionFound; ///< triggered when a solution is found
+    mutable SubscribableEvent<Solver<T> &> SolutionFound; ///< triggered when a solution is found
     mutable SubscribableEvent<const Solver<T> &> PropagationCompleted; ///< triggered after a successful propagation
     mutable SubscribableEvent<const Solver<T> &> PropagationInitiated; ///< triggered before propagation
     ///@}
@@ -495,7 +495,8 @@ public:
     
     // create and post a new full transitivity propagator
     template <typename ItRes>
-    void postFullTransitivity(const ItRes beg_res, const ItRes end_res);
+    FullTransitivity<T> *postFullTransitivity(const ItRes beg_res,
+                                              const ItRes end_res);
 
     // create and post a new precedence reasoning propagator
     template <typename ItTask, typename ItNVar, typename ItBVar>
@@ -916,15 +917,6 @@ const DistanceConstraint<T> &BooleanStore<T>::getEdge(const index_t i) const {
 }
 
 template <typename T> bool BooleanStore<T>::hasSemantic(const var_t x) const {
-  //    assert(edge_index[x] < 2 or edge_index[x] != Constant::NoSemantic);
-
-  //    return edge_index[x] != Constant::NoSemantic;
-
-  //    if(edge_index[x] == 1) {
-  //        std::cout << "hello\n";
-  //    }
-
-  //    return edge_index[x] != Constant::NoSemantic;
   return edge_index[x] >= Constant::SomeSemantic;
 }
 
@@ -1946,7 +1938,10 @@ template <typename T> void Solver<T>::analyze(Explanation<T> &e) {
                         }
                     }
                     std::cout << "]\n";
-                    assert(count == num_lit);
+                    if (count != num_lit) {
+                      std::cout << "bug\n";
+                      exit(1);
+                    }
                 }
 #endif
             }
@@ -2319,7 +2314,21 @@ void Solver<T>::optimize(S &objective) {
         std::cout << std::setw(10) << best;
         displayProgress(std::cout);
       }
+
+      try {
         objective.apply(best, *this);
+      } catch (Failure<T> &f) {
+        std::cout << "applying " << best << " should not fail! ("
+                  << num_choicepoints << ")\n";
+
+        display(std::cout, true, true, false, true, false, false, false, false,
+                false);
+        std::cout << std::endl;
+
+        exit(1);
+      }
+
+      //        objective.apply(best, *this);
       boolean.saveSolution();
       numeric.saveSolution();
       restart(true);
@@ -2386,9 +2395,8 @@ template <typename T> boolean_state Solver<T>::search() {
     try {
 #ifdef DBG_TRACE
       if (DBG_BOUND) {
-        std::
-          |<< "--- propag [i=" << num_choicepoints << "] ---\n";
-          printTrace();
+        std::cout << "--- propag [i=" << num_choicepoints << "] ---\n";
+        printTrace();
       }
 #endif
 
@@ -2704,11 +2712,14 @@ template <typename T> void Solver<T>::post(Constraint<T> *con) {
 }
 
 template <typename T> void Solver<T>::relax(Constraint<T> *con) {
-
-  if (boolean_constraints.indegree(con->id()) > 0)
+  if (boolean_constraints.indegree(con->id()) > 0) {
     boolean_constraints.remove(con->id(), IN);
-  if (numeric_constraints.indegree(con->id()) > 0)
+  }
+  if (numeric_constraints.indegree(con->id()) > 0) {
     numeric_constraints.remove(con->id(), IN);
+  }
+    
+//    exit(1);
 }
 
 template <typename T> void Solver<T>::addToSearch(const NumericVar<T> &x) {
@@ -2733,14 +2744,10 @@ template <typename T>
 void Solver<T>::wake_me_on(const Literal<T> l, const int c) {
   if (l.isNumeric()) {
       if(numeric_constraints[l].empty() or numeric_constraints[l].back() != c)
-          numeric_constraints.add(l, c);
-      else
-          std::cout << "hello\n";
+        numeric_constraints.add(l, c);
   } else {
       if(boolean_constraints[l].empty() or boolean_constraints[l].back() != c)
-          boolean_constraints.add(l, c);
-      else
-          std::cout << "hi\n";
+        boolean_constraints.add(l, c);
   }
 
 //    std::cout <<
@@ -2787,12 +2794,14 @@ void Solver<T>::postTransitivity(Interval<T> &schedule, ItTask beg_task,
 
 template <typename T>
 template <typename ItRes>
-void Solver<T>::postFullTransitivity(const ItRes beg_res, const ItRes end_res) {
-    auto c{new FullTransitivity<T>(*this)};
-    for(auto res{beg_res}; res!=end_res; ++res) {
-        c->addResource(res->begDisjunct(), res->endDisjunct());
-    }
-    post(c);
+FullTransitivity<T> *Solver<T>::postFullTransitivity(const ItRes beg_res,
+                                                     const ItRes end_res) {
+    auto c = new FullTransitivity<T>(*this);
+  for (auto res{beg_res}; res != end_res; ++res) {
+    c->addResource(res->begDisjunct(), res->endDisjunct());
+  }
+  post(c);
+  return c;
 }
 
 template <typename T>

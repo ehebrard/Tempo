@@ -232,12 +232,25 @@ int main(int argc, char *argv[]) {
     //        std::endl;
   }
 
-    if(opt.full_transitivity) {
-        std::cout << "hello\n";
-        S.postFullTransitivity(resources.begin(), resources.end());
-    }
-
-  
+      bool relaxed{false};
+  std::unique_ptr<SubscriberHandle> handlerToken;
+    FullTransitivity<int>* primal{NULL};
+  if (opt.full_transitivity or opt.primal_boost) {
+    primal = S.postFullTransitivity(resources.begin(), resources.end());
+    if (opt.primal_boost)
+      handlerToken = std::unique_ptr<SubscriberHandle>(
+          new SubscriberHandle(S.SearchRestarted.subscribe_handled([&relaxed
+                                                                   ,&S
+                                                                   ,primal]() {
+              if(not relaxed and S.boolean.hasSolution() and S.num_fails >= 250) {
+                  
+//                  handlerToken->unregister();
+                  
+                  S.relax(primal);
+                  relaxed = true;
+              }
+          })));
+  }
 
   if (opt.print_mod) {
     std::cout << S << std::endl;

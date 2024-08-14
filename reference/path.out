@@ -1,5 +1,1 @@
  objective   failures   branches    nds/s    lvl   clauses  size   cpu
-       252          7        291   598765     98         7     2   0.000486
-       237         32        476   302606     36        30     2   0.001573
-   optimal         32        476   289185     36        30     2   0.001646
-makespan 237

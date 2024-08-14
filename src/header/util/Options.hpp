@@ -115,43 +115,44 @@ public:
   bool order_bound_watch{false};
     
     bool full_transitivity{false};
+    bool primal_boost{true};
 
-  enum class ChoicePointHeuristics { Tightest = 0, WeightedDegree, VSIDS };
-  ChoicePointHeuristics choice_point_heuristics{ChoicePointHeuristics::VSIDS};
+    enum class ChoicePointHeuristics { Tightest = 0, WeightedDegree, VSIDS };
+    ChoicePointHeuristics choice_point_heuristics{ChoicePointHeuristics::VSIDS};
 
-  enum class PolarityHeuristic { Tightest, TSG, Random };
+    enum class PolarityHeuristic { Tightest, TSG, Random };
 
-  double polarity_epsilon{0};
+    double polarity_epsilon{0};
 
-  PolarityHeuristic polarity_heuristic{PolarityHeuristic::Tightest};
+    PolarityHeuristic polarity_heuristic{PolarityHeuristic::Tightest};
 
-  double vsids_decay{0.999};
-  double vsids_epsilon{0.05};
+    double vsids_decay{0.999};
+    double vsids_epsilon{0.05};
 
-  double forgetfulness{0.3};
+    double forgetfulness{0.3};
 
-  //  enum class Minimization { None = 0, Greedy, QuickXplain };
+    //  enum class Minimization { None = 0, Greedy, QuickXplain };
 
-  int minimization{1};
+    int minimization{1};
 
-  int greedy_runs{1};
+    int greedy_runs{1};
 
-  unsigned long search_limit{std::numeric_limits<unsigned long>::max()};
-  //    double time_limit;
+    unsigned long search_limit{std::numeric_limits<unsigned long>::max()};
+    //    double time_limit;
 
-  enum class LiteralScore {
-    Size = 0,
-    Looseness,
-    Activity,
-    LoosenessOverActivity
-  };
+    enum class LiteralScore {
+      Size = 0,
+      Looseness,
+      Activity,
+      LoosenessOverActivity
+    };
 
-  LiteralScore forget_strategy{3};
+    LiteralScore forget_strategy{3};
 
-  double restart_factor{1.2};
-  int restart_base{128};
-  std::string restart_policy{"geom"};
-  std::string input_format{"osp"};
+    double restart_factor{1.2};
+    int restart_base{128};
+    std::string restart_policy{"geom"};
+    std::string input_format{"osp"};
 };
 
 Options parse(int argc, char *argv[]);
