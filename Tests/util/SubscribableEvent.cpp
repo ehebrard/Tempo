@@ -4,50 +4,25 @@
  */
 
 #include <gtest/gtest.h>
-#include <optional>
 
 #include "util/SubscribableEvent.hpp"
 
-class TestHandle : public tempo::SubscriberHandle {
-public:
-    template<typename Fun>
-    TestHandle(Fun &&deregister, tempo::impl::cEventStatusPtr status, Id id, bool disposed):
-            SubscriberHandle(std::forward<Fun>(deregister), std::move(status), id, disposed) {}
+struct TestHandle : public tempo::SubscriberHandle {
+    TestHandle() = default;
+    explicit TestHandle(int): tempo::SubscriberHandle(Subscribe) {}
 };
 
-TEST(util, EventStatus_basic) {
-    using namespace tempo;
-    impl::EventStatus status;
-    EXPECT_TRUE(status.isAlive());
-    status.invalidate();
-    EXPECT_FALSE(status.isAlive());
-}
-
 TEST(util, SubscriberHandle_basic) {
-    TestHandle handle([](auto) {}, {}, 3, false);
-    EXPECT_FALSE(handle.isDisposed());
-    handle = TestHandle([](auto) {}, {}, 3, true);
-    EXPECT_TRUE(handle.isDisposed());
+    TestHandle handle;
+    EXPECT_FALSE(handle.isSubscribed());
+    TestHandle handle1(5);
+    EXPECT_TRUE(handle1.isSubscribed());
 }
 
 TEST(util, SubscriberHandle_dispose) {
-    TestHandle handle([](auto) {}, {}, 3, false);
-    handle.dispose();
-    EXPECT_TRUE(handle.isDisposed());
-}
-
-TEST(util, SubscriberHandle_move) {
-    TestHandle handle([](auto) {}, {}, 3, false);
-    TestHandle handle1 = std::move(handle);
-    EXPECT_FALSE(handle1.isDisposed());
-    EXPECT_TRUE(handle.isDisposed());
-    handle = std::move(handle1);
-    EXPECT_FALSE(handle.isDisposed());
-    EXPECT_TRUE(handle1.isDisposed());
-    TestHandle handle2([](auto) {}, {}, 4, false);
-    handle = std::move(handle2);
-    EXPECT_TRUE(handle2.isDisposed());
-    EXPECT_FALSE(handle.isDisposed());
+    TestHandle handle(1);
+    handle.unregister();
+    EXPECT_FALSE(handle.isSubscribed());
 }
 
 TEST(util, SubscribableEvent_basic) {
@@ -66,7 +41,6 @@ TEST(util, SubscribableEvent_basic) {
     EXPECT_TRUE(success2);
 }
 
-
 TEST(util, SubscribableEvent_unsubscribe) {
     using namespace tempo;
     int variable = 0;
@@ -74,11 +48,11 @@ TEST(util, SubscribableEvent_unsubscribe) {
     SubscribableEvent<int> event;
     auto handle = event.subscribe_handled([&variable](int val) { variable = val; });
     event.subscribe_unhandled([&variable1](int val) { variable1 = val; });
-    EXPECT_FALSE(handle.isDisposed());
+    EXPECT_TRUE(handle.isSubscribed());
     event.trigger(1);
     EXPECT_EQ(variable, 1);
     EXPECT_EQ(variable1, 1);
-    EXPECT_FALSE(handle.isDisposed());
+    EXPECT_TRUE(handle.isSubscribed());
     event.trigger(17);
     EXPECT_EQ(variable, 17);
     EXPECT_EQ(variable1, 17);
@@ -102,25 +76,84 @@ TEST(util, SubscribableEvent_auto_unsubscribe) {
     EXPECT_EQ(variable, 3);
 }
 
-TEST(util, SubscribableEvent_unsubscribe_disposed) {
+struct TestSubscriber {
+    tempo::SubscriberHandle handle;
+    int value = 0;
+
+    explicit TestSubscriber(tempo::SubscribableEvent<int> &event) : handle(
+            event.subscribe_handled([this](int val) { value = val; })) {}
+};
+
+TEST(util, SubscribableEvent_auto_unsubscribe1) {
     using namespace tempo;
-    int variable = 0;
     SubscribableEvent<int> event;
-    auto handle = event.subscribe_handled([&variable](int val) { variable = val; });
-    handle.dispose();
-    EXPECT_TRUE(handle.isDisposed());
-    handle.unregister();
-    event.trigger(11);
-    EXPECT_EQ(variable, 11);
+    {
+        TestSubscriber subscriber(event);
+        event.trigger(17);
+        EXPECT_EQ(subscriber.value, 17);
+    }
+
+    event.trigger(12);
 }
 
 TEST(util, SubscribableEvent_unsubscribe_ub_safety) {
     using namespace tempo;
-    std::optional<SubscriberHandle> handle;
+    SubscriberHandle handle;
     {
         SubscribableEvent<> event;
         handle = event.subscribe_handled([]() {});
     }
 
-    handle->unregister();
+    EXPECT_FALSE(handle.isSubscribed());
+}
+
+TEST(util, SubscribableEvent_move) {
+    using namespace tempo;
+    SubscribableEvent<int> event;
+    int val1 = 0;
+    int val2 = 0;
+    event.subscribe_unhandled([&val1](int v) { val1 = v; });
+    auto handle = event.subscribe_handled([&val2](int v) { val2 = v; });
+    event.trigger(14);
+    EXPECT_EQ(val1, 14);
+    EXPECT_EQ(val2, 14);
+    auto event1 = std::move(event);
+    event.trigger(17);
+    EXPECT_EQ(val1, 14);
+    EXPECT_EQ(val2, 14);
+    EXPECT_TRUE(handle.isSubscribed());
+    event1.trigger(17);
+    EXPECT_EQ(val1, 17);
+    EXPECT_EQ(val2, 17);
+    handle.unregister();
+    handle = event1.subscribe_handled([&val2](int v) {val2 = v * 2;});
+    EXPECT_TRUE(handle.isSubscribed());
+    event1.trigger(4);
+    EXPECT_EQ(val1, 4);
+    EXPECT_EQ(val2, 8);
+    event = std::move(event1);
+    EXPECT_TRUE(handle.isSubscribed());
+    event1.trigger(9);
+    EXPECT_EQ(val1, 4);
+    EXPECT_EQ(val2, 8);
+    event.trigger(6);
+    EXPECT_EQ(val1, 6);
+    EXPECT_EQ(val2, 12);
+}
+TEST(util, SubscribableEvent_move1) {
+    using namespace tempo;
+    SubscribableEvent<int> event;
+    int val1 = 0;
+    int val2 = 0;
+    auto handle = event.subscribe_handled([&val1](int v) { val1 = v; });
+    SubscribableEvent<int> event1;
+    auto handle1 = event1.subscribe_handled([&val2](int v) { val2 = v; });
+    event = std::move(event1);
+    EXPECT_FALSE(handle.isSubscribed());
+    event1.trigger(17);
+    EXPECT_EQ(val1, 0);
+    EXPECT_EQ(val2, 0);
+    event.trigger(4);
+    EXPECT_EQ(val1, 0);
+    EXPECT_EQ(val2, 4);
 }
