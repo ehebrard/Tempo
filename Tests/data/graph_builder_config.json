@@ -14,7 +14,9 @@
     "extractorName": "TaskTimingFeatureExtractor"
   },
   "topologyExtractor": {
-    "arguments": null,
+    "arguments": {
+      "bidirectionalPrecedences": false
+    },
     "extractorName": "MinimalTopologyBuilder"
   }
 }

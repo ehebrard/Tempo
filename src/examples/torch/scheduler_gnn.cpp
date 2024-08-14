@@ -10,6 +10,8 @@
 #include "util/Profiler.hpp"
 #include "../helpers/cli.hpp"
 #include "../helpers/scheduling_helpers.hpp"
+#include "../helpers/shell.hpp"
+#include "../helpers/git_sha.hpp"
 
 
 int main(int argc, char **argv) {
@@ -32,9 +34,11 @@ int main(int argc, char **argv) {
     solver->setBranchingHeuristic(make_compound_heuristic(std::move(varBranching), std::move(valBranching)));
     solver->minimize(schedule.duration);
     if (solver->numeric.hasSolution()) {
-        std::cout << "makespan " << solver->numeric.lower(schedule.duration);
+        std::cout << "-- makespan " << solver->numeric.lower(schedule.duration) << std::endl;
     }
 
     profiler.printAll<std::chrono::milliseconds>(std::cout);
+    std::cout << "-- date: " << shell::getTimeStamp() << std::endl;
+    std::cout << "-- commit: " << GitSha << std::endl;
     return 0;
 }

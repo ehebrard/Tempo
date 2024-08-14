@@ -29,8 +29,9 @@ namespace tempo::nn {
                          ResourceEnergyExtractor)
 
     MAKE_POLYMORPHIC_TYPE(TopologyBuilder, MinimalTopologyBuilder)
-    MAKE_T_FACTORY_PATTERN(TopologyBuilder, template<ESCAPE(typename T, typename R)>,
-                           ESCAPE(const SchedulingProblemHelper<T, R>&), MinimalTopologyBuilder)
+    MAKE_T_FACTORY_PATTERN_RAW(TopologyBuilder, ESCAPE(template<typename T, typename R>),
+                               ESCAPE(const SchedulingProblemHelper<T, R> &p, const nlohmann::json &params),
+                               ESCAPE(p, params), MinimalTopologyBuilder)
 
     /**
      * Serializable type that holds the configuration of a feature extractor type
@@ -68,7 +69,8 @@ namespace tempo::nn {
                 : problemDefinition(std::move(problemInstance)) {
             auto data = serialization::deserializeFromFile<GraphBuilderConfig>(configPath);
             topologyExtractor = TopologyBuilderFactory::getInstance().create(data.topologyExtractor.extractorName,
-                                                                             problemDefinition);
+                                                                             problemDefinition,
+                                                                             data.topologyExtractor.arguments);
             taskFeatureExtractor = FeatureExtractorFactory::getInstance().create(
                     data.taskFeatureExtractor.extractorName, data.taskFeatureExtractor.arguments);
             resourceFeatureExtractor = FeatureExtractorFactory::getInstance().create(

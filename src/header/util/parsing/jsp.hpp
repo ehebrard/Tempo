@@ -6,13 +6,17 @@
 #include <sstream>
 #include <vector>
 
+#include "DistanceConstraint.hpp"
+#include "util/traits.hpp"
+
 //#include "format.hpp"
 
 namespace jsp {
 
-template <typename M, typename J, typename R>
+template <typename M, typename J, typename R,
+          tempo::concepts::same_template<tempo::DistanceConstraint> D = tempo::DistanceConstraint<int>>
 void parse(const std::string &fn, M &solver, J &schedule,
-           std::vector<J> &intervals, std::vector<R> &resources) {
+           std::vector<J> &intervals, std::vector<R> &resources, std::vector<D> *precedences = nullptr) {
   using std::cerr;
   try {
       
@@ -73,10 +77,19 @@ void parse(const std::string &fn, M &solver, J &schedule,
             
           if (m == 0) {
             solver.set(j.start.after(schedule.start));
+            if (nullptr != precedences) {
+                precedences->emplace_back(j.start.id(), schedule.start.id(), 0);
+            }
           } else {
             solver.set(intervals.back().end.before(j.start));
+            if (nullptr != precedences) {
+                precedences->emplace_back(j.start.id(), intervals.back().end.id(), 0);
+            }
             if (m == nm - 1) {
               solver.set(j.end.before(schedule.end));
+              if (nullptr != precedences) {
+                  precedences->emplace_back(schedule.end.id(), j.end.id(), 0);
+              }
             }
           }
 

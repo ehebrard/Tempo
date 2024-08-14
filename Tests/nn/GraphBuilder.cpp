@@ -12,7 +12,7 @@
 
 auto getGtTopology(const tempo::testing::ProblemInstance &problemInstance) -> tempo::nn::Topology {
     using namespace tempo::nn;
-    MinimalTopologyBuilder builder(problemInstance);
+    MinimalTopologyBuilder builder(problemInstance, false);
     return builder.getTopology();
 }
 
