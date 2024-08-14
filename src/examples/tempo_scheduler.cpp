@@ -38,7 +38,8 @@ using namespace tempo;
 template <typename T>
 void warmstart(Solver<T> &S, Interval<T> &schedule,
                std::vector<Interval<T>> intervals,
-               //               std::vector<NoOverlapExpression<>> &resources,
+               //                              std::vector<NoOverlapExpression<>>
+               //                              &resources,
                T &ub) {
   // try to get a better ub with an initial upper bound insertion heuristic
   Greedy greedy_insertion(S);
@@ -47,13 +48,6 @@ void warmstart(Solver<T> &S, Interval<T> &schedule,
   //    greedy_insertion.addResource(R.begDisjunct(), R.endDisjunct());
   //  }
   for (auto x : S.boolean_search_vars) {
-
-    //      auto l{solver.boolean.getLiteral(true, x)};
-    //      auto pc{solver.boolean.getEdge(l)};
-    //        auto nc{solver.boolean.getEdge(~l)};
-    //
-    //      std::cout <<
-
     greedy_insertion.addVar(x);
   }
 
@@ -63,7 +57,7 @@ void warmstart(Solver<T> &S, Interval<T> &schedule,
   for (auto i{0}; i < S.getOptions().greedy_runs; ++i) {
     auto st{S.saveState()};
     auto sat{greedy_insertion.runEarliestStart()};
-    //    auto sat{greedy_insertion.runLex()};
+    //        auto sat{greedy_insertion.runLex()};
     if (sat) {
       if (schedule.getEarliestEnd(S) <= ub) {
         S.set(schedule.end.before(schedule.getEarliestEnd(S)));
@@ -234,23 +228,30 @@ int main(int argc, char *argv[]) {
     //        std::endl;
   }
 
-      bool relaxed{false};
+  // HACK!!: add an edge from origin to end to allow propagation of
+  // shortest path
+  S.set({0, 1, S.numeric.upper(1)});
+
+  bool relaxed{false};
+  int num_restart{0};
   std::unique_ptr<SubscriberHandle> handlerToken;
     FullTransitivity<int>* primal{NULL};
   if (opt.full_transitivity or opt.primal_boost) {
     primal = S.postFullTransitivity(resources.begin(), resources.end());
     if (opt.primal_boost)
-      handlerToken = std::unique_ptr<SubscriberHandle>(
-          new SubscriberHandle(S.SearchRestarted.subscribe_handled([&relaxed
-                                                                   ,&S
-                                                                   ,primal]() {
-              if(not relaxed and S.boolean.hasSolution() and S.num_fails >= 250) {
-                  
-//                  handlerToken->unregister();
-                  
-                  S.relax(primal);
-                  relaxed = true;
-              }
+      handlerToken = std::unique_ptr<SubscriberHandle>(new SubscriberHandle(
+          S.SearchRestarted.subscribe_handled([&relaxed, &S, primal, &num_restart]() {
+            ++num_restart;
+
+            if (not relaxed and
+                ((S.boolean.hasSolution() and num_restart > 2) or
+                 S.num_fails >= 250)) {
+
+              //                  handlerToken->unregister();
+
+              S.relax(primal);
+              relaxed = true;
+            }
           })));
   }
 
@@ -267,14 +268,26 @@ int main(int argc, char *argv[]) {
   }
 
   auto optimal{false};
-  if (opt.greedy_runs > 0)
+  if (opt.greedy_runs > 0) {
+
+    //        std::vector<Interval<int>> by_resource;
+    //        for(auto &tasks : resource_tasks) {
+    //            for(auto j : tasks) {
+    //                by_resource.push_back(intervals[j]);
+    //            }
+    //        }
+
     try {
-        auto ub{Constant::Infinity<int>};
-      warmstart(S, schedule, intervals /*, resources*/, ub);
+      auto ub{Constant::Infinity<int>};
+      warmstart(S, schedule, intervals, ub);
+      //            warmstart(S, schedule, by_resource, ub);
     } catch (Failure<int> &f) {
       //            std::cout << " optimal solution found in a greedy run\n";
       optimal = true;
     }
+  }
+
+  //    exit(1);
 
   // search
   if (not optimal) {

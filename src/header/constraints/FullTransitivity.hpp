@@ -139,6 +139,8 @@ T FullTransitivity<T>::distance(const int x, const int y) const {
 template <typename T>
 bool FullTransitivity<T>::addEdge(const int x, const int y, const T d, const PathExplanation<T> r) {
 
+  //    std::cout << "distance(x, y) = " << distance(x, y) << std::endl;
+
   if (distance(x, y) <= d)
     return false;
 
@@ -161,10 +163,9 @@ bool FullTransitivity<T>::addEdge(const int x, const int y, const T d, const Pat
   edges.emplace_back(x, y, d);
   reason.push_back(r);
 
-  if (literal[y][x] != Solver<T>::Contradiction and
-      m_solver.boolean.getEdge(literal[y][x]).distance + distance_from[x][y] <
-          0) {
-
+  if (literal[x][y] != Solver<T>::Contradiction) {
+    auto ne{m_solver.boolean.getEdge(~literal[x][y])};
+    if (ne.distance + distance_from[x][y] < 0) {
 #ifdef DBG_FTRANS
     if (DBG_FTRANS) {
       std::cout << "  --> infer literal " << m_solver.pretty(literal[x][y])
@@ -178,7 +179,28 @@ bool FullTransitivity<T>::addEdge(const int x, const int y, const T d, const Pat
       clear();
       throw f;
     }
+    }
   }
+
+  //  if (literal[y][x] != Solver<T>::Contradiction and
+  //      m_solver.boolean.getEdge(literal[y][x]).distance + distance_from[x][y]
+  //      <
+  //          0) {
+  //
+  //#ifdef DBG_FTRANS
+  //    if (DBG_FTRANS) {
+  //      std::cout << "  --> infer literal " << m_solver.pretty(literal[x][y])
+  //                << "\n";
+  //    }
+  //#endif
+  //
+  //    try {
+  //      m_solver.set(literal[x][y], {this, static_cast<hint>(i)});
+  //    } catch (Failure<T> &f) {
+  //      clear();
+  //      throw f;
+  //    }
+  //  }
 
   return true;
 }
@@ -241,9 +263,9 @@ FullTransitivity<T>::FullTransitivity(Solver<T> &solver)
     distance_to[x][x] = 0;
   }
 
-  // HACK!!: add an edge from origin to end to allow propagation of
-  // shirtest path
-  m_solver.set({0, 1, m_solver.numeric.upper(1)});
+  //  // HACK!!: add an edge from origin to end to allow propagation of
+  //  // shirtest path
+  //  m_solver.set({0, 1, m_solver.numeric.upper(1)});
 
 #ifdef DBG_FTRANS
   if (DBG_FTRANS) {
@@ -363,6 +385,12 @@ void FullTransitivity<T>::addResource(const Iter beg_disjunct, const Iter end_di
     auto l{m_solver.boolean.getLiteral(true, disjunct->id())};
     auto prec_true{m_solver.boolean.getEdge(l)};
     auto prec_false{m_solver.boolean.getEdge(~l)};
+
+    //      assert(literal[prec_true.from][prec_true.to] ==
+    //      Solver<T>::Contradiction);
+    //      assert(literal[prec_false.from][prec_false.to] ==
+    //      Solver<T>::Contradiction);
+
     literal[prec_true.from][prec_true.to] = l;
     literal[prec_false.from][prec_false.to] = ~l;
   }

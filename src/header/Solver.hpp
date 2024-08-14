@@ -2315,18 +2315,19 @@ void Solver<T>::optimize(S &objective) {
         displayProgress(std::cout);
       }
 
-      try {
-        objective.apply(best, *this);
-      } catch (Failure<T> &f) {
-        std::cout << "applying " << best << " should not fail! ("
-                  << num_choicepoints << ")\n";
-
-        display(std::cout, true, true, false, true, false, false, false, false,
-                false);
-        std::cout << std::endl;
-
-        exit(1);
-      }
+      //      try {
+      objective.apply(best, *this);
+      //      } catch (Failure<T> &f) {
+      //        std::cout << "applying " << best << " should not fail! ("
+      //                  << num_choicepoints << ")\n";
+      //
+      //        display(std::cout, true, true, false, true, false, false, false,
+      //        false,
+      //                false);
+      //        std::cout << std::endl;
+      //
+      //        exit(1);
+      //      }
 
       //        objective.apply(best, *this);
       boolean.saveSolution();
@@ -2442,16 +2443,24 @@ template <typename T> boolean_state Solver<T>::search() {
                 
         avg_fail_level = (avg_fail_level * num_fails + env.level()) / (num_fails + 1);
         ++num_fails;
-        
-      try {
-        backtrack(f.reason);
-        BackTrackCompleted.trigger();
-        if (restartPolicy.limit()) {
-          restart();
+
+#ifdef DBG_FAIL
+        f.reason.explain(Solver<T>::Contradiction, conflict);
+        for (auto l : conflict) {
+          std::cout << pretty(l) << std::endl;
         }
-      } catch (const SearchExhausted &f) {
-        satisfiability = FalseState;
-      }
+        conflict.clear();
+#endif
+
+        try {
+          backtrack(f.reason);
+          BackTrackCompleted.trigger();
+          if (restartPolicy.limit()) {
+            restart();
+          }
+        } catch (const SearchExhausted &f) {
+          satisfiability = FalseState;
+        }
     }
   }
 
@@ -2655,6 +2664,14 @@ void Solver<T>::update(const bool bounds, const int s, const G &neighbors) {
 #ifdef DBG_FAIL
           if (DBG_FAIL) {
             std::cout << " negative cyle\n";
+
+            Explanation exp{&graph_exp,
+                            static_cast<hint>(Literal<T>::index(bounds, s))};
+            exp.explain(Solver<T>::Contradiction, conflict);
+            for (auto l : conflict) {
+              std::cout << pretty(l) << std::endl;
+            }
+            conflict.clear();
           }
 #endif
 

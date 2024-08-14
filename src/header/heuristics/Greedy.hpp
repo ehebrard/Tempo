@@ -125,42 +125,31 @@ template <typename T>
 bool Greedy<T>::runLex() {
  
     solver.propagate();
-    
-    std::cout << solver << std::endl;
+
+    //    std::cout << solver << std::endl;
 
     while (not unscheduled_Intervals.empty()) {
       ++solver.num_choicepoints;
 
-      int next{-1};
-      for (auto j : unscheduled_Intervals) {
-        if (next == -1) {
-          next = j;
-        } else if (Intervals[next].getEarliestStart(solver) >
-                   Intervals[j].getEarliestStart(solver)) {
-          next = j;
-        } else if (Intervals[next].getEarliestStart(solver) ==
-                       Intervals[j].getEarliestStart(solver) and
-                   Intervals[next].id() >
-                       Intervals[j].id()) {
-          next = j;
-        }
-      }
+      int next = unscheduled_Intervals.front();
+      unscheduled_Intervals.pop_front();
 
       try {
 
-                    std::cout << std::endl << "next="<< Intervals[next] <<
-                    std::endl;
+        //          std::cout << std::endl << "next="<< Intervals[next] <<
+        //          std::endl;
 
         unscheduled_Intervals.remove_back(next);
         for (auto p : precedences[Intervals[next].start.id()]) {
           if (solver.boolean.isUndefined(p.variable())) {
-            std::cout << " -> " << solver.pretty(p) << std::endl;
+            //            std::cout << " -> " << solver.pretty(p) << std::endl;
             solver.set(p);
           }
         }
           for (auto p : precedences[Intervals[next].end.id()]) {
             if (solver.boolean.isUndefined(p.variable())) {
-              std::cout << " -> " << solver.pretty(p) << std::endl;
+              //              std::cout << " -> " << solver.pretty(p) <<
+              //              std::endl;
               solver.set(p);
             }
           }
@@ -170,11 +159,11 @@ bool Greedy<T>::runLex() {
 
         solver.propagate();
 
-                    std::cout << solver << std::endl;
+        //                    std::cout << solver << std::endl;
 
       } catch (Failure<T> &f) {
-                    std::cout << "FAILED!\n";
-          exit(1);
+        //                    std::cout << "FAILED!\n";
+        //          exit(1);
         break;
       }
     }
@@ -219,8 +208,8 @@ bool Greedy<T>::runEarliestStart() {
 
       try {
 
-        //            std::cout << std::endl << "next="<< Intervals[next] <<
-        //            std::endl;
+        //                    std::cout << std::endl << "next="<<
+        //                    Intervals[next] << std::endl;
 
         unscheduled_Intervals.remove_back(next);
 //        for (auto p : precedences[next]) {
@@ -230,11 +219,19 @@ bool Greedy<T>::runEarliestStart() {
 //        }
           for (auto p : precedences[Intervals[next].start.id()]) {
             if (solver.boolean.isUndefined(p.variable())) {
+
+              //                std::cout << " -> " << solver.pretty(p) <<
+              //                std::endl;
+
               solver.set(p);
             }
           }
           for (auto p : precedences[Intervals[next].end.id()]) {
             if (solver.boolean.isUndefined(p.variable())) {
+
+              //                std::cout << " -> " << solver.pretty(p) <<
+              //                std::endl;
+
               solver.set(p);
             }
           }
