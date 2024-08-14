@@ -144,3 +144,34 @@ TEST(value_heuristics, oracle) {
         EXPECT_EQ(oracle.choose(var, provider), (val ? lit : ~lit));
     }
 }
+
+TEST(value_heuristics, oracle_determinism) {
+    using namespace tempo;
+    using namespace tempo::heuristics;
+    const serialization::Solution solution(0, 0, {{0, true}, {1, true}, {2, false}, {3, true}, {4, false}});
+    const auto lit = makeBooleanLiteral<int>(true, 0, 0);
+    LitProvider provider(lit);
+    std::vector<bool> deviations(solution.decisions.size());
+    for (int c = 0; c < 100; c++) {
+        PerfectValueHeuristic oracle(0.5, solution);
+        for (auto [decision, deviation] : iterators::zip(solution.decisions, deviations)) {
+            deviation = (decision.second ? lit : ~lit) == oracle.choose(decision.first, provider);
+        }
+
+        for (int i = 0; i < 100; ++i) {
+            for (auto [decision, deviation] : iterators::const_zip(solution.decisions, deviations)) {
+                EXPECT_EQ(deviation, (decision.second ? lit : ~lit) == oracle.choose(decision.first, provider));
+            }
+        }
+    }
+}
+
+TEST(value_heuristics, oracle_polarity_oob) {
+    using namespace tempo;
+    using namespace tempo::heuristics;
+    const serialization::Solution solution(0, 0, {{0, true}});
+    PerfectValueHeuristic oracle(0, solution);
+    const auto lit = makeBooleanLiteral<int>(true, 0, 0);
+    LitProvider provider(lit);
+    EXPECT_EQ(oracle.choose(0, provider), lit);
+}
