@@ -21,6 +21,7 @@ namespace tempo::heuristics {
      */
     class PerfectValueHeuristic: public BaseBooleanHeuristic<PerfectValueHeuristic> {
         std::vector<bool> polarities;
+        static constexpr auto EpsScale = 10000ul;
     public:
         /**
          * Ctor
@@ -29,11 +30,15 @@ namespace tempo::heuristics {
          * @param solution solution to follow
          */
         template<concepts::scalar T>
-        PerfectValueHeuristic(double epsilon, const serialization::Solution <T> &solution)
-                : BaseBooleanHeuristic<PerfectValueHeuristic>(epsilon), polarities(
+        PerfectValueHeuristic(double epsilon, const serialization::Solution<T> &solution)
+                : BaseBooleanHeuristic<PerfectValueHeuristic>(0), polarities(
                 std::ranges::max(solution.decisions | std::views::elements<0>)) {
+            if (epsilon < 0 or epsilon > 1) {
+                throw std::runtime_error("epsilon must be between 0 and one");
+            }
+
             for (auto [var, val] : solution.decisions) {
-                polarities[var] = val;
+                polarities[var] = (random() % EpsScale >= static_cast<unsigned long>(epsilon * EpsScale)) == val;
             }
         }
 
