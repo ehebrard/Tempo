@@ -232,24 +232,20 @@ int main(int argc, char *argv[]) {
   // shortest path
   S.set({0, 1, S.numeric.upper(1)});
 
-  //  bool relaxed{false};
   int num_restart{0};
-  std::unique_ptr<SubscriberHandle> handlerToken;
-    FullTransitivity<int>* primal{NULL};
+  SubscriberHandle handlerToken;
+  FullTransitivity<int>* primal{NULL};
   if (opt.full_transitivity or opt.primal_boost) {
     primal = S.postFullTransitivity(resources.begin(), resources.end());
     if (opt.primal_boost)
-      handlerToken = std::unique_ptr<SubscriberHandle>(
-          new SubscriberHandle(S.SearchRestarted.subscribe_handled([&](const bool) {
+      handlerToken = S.SearchRestarted.subscribe_handled([&](bool) {
             ++num_restart;
 
             if (S.num_solutions > 2 or S.num_fails >= 250) {
-
               S.relax(primal);
-
-              handlerToken->unregister();
+              handlerToken.unregister();
             }
-          })));
+          });
   }
 
   if (opt.print_mod) {

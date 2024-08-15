@@ -116,15 +116,13 @@ namespace tempo {
         template<typename ...InvokeArgs>
         void trigger(InvokeArgs&&... args) const {
             auto it = handlers.begin();
-            auto end = handlers.end();
-            while (not handlers.empty() and it != end) {
+            while (not handlers.empty() and it != handlers.end()) {
                 if (it->second.isSubscribed()) {
                     it->first(std::forward<InvokeArgs>(args)...);
                     ++it;
                 } else {
                     std::swap(*it, handlers.back());
                     handlers.pop_back();
-                    end = handlers.end();
                 }
             }
         }
