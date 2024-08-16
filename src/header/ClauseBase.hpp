@@ -237,7 +237,7 @@ public:
 template <typename T>
 ClauseBase<T>::ClauseBase(Solver<T> &c)
     : solver(c), handlerToken(solver.SearchRestarted.subscribe_handled(
-                     [this]() { this->forget(); })) {
+                     [this](const bool) { this->forget(); })) {
 
   Constraint<T>::priority = Priority::Low;
     }

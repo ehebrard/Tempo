@@ -42,7 +42,7 @@ namespace tempo {
     virtual ~RestartPolicy() {}
 
     virtual void reset(unsigned int& limit) = 0;
-    virtual void initialize(unsigned int& limit) = 0;
+    virtual void initialize(unsigned int& limit, const unsigned int val) = 0;
     
   };
 
@@ -55,7 +55,7 @@ namespace tempo {
      virtual ~NoRestart() {}
     
     void reset(unsigned int& limit) override ;
-    void initialize(unsigned int& limit) override ;
+    void initialize(unsigned int& limit, const unsigned int val) override ;
     
   };
 
@@ -71,7 +71,7 @@ namespace tempo {
     virtual ~Geometric() {}
     
     void reset(unsigned int& limit) override ;
-    void initialize(unsigned int& limit) override ;
+    void initialize(unsigned int& limit, const unsigned int val) override ;
     
   };
 
@@ -93,7 +93,7 @@ namespace tempo {
     virtual ~Luby() {}
     
     void reset(unsigned int& limit) override ;
-    void initialize(unsigned int& limit) override ;
+    void initialize(unsigned int& limit, const unsigned int val) override ;
     
   };
 
@@ -121,8 +121,8 @@ public:
     }
     
     void initialize() {
-        impl->initialize(restart_limit);
-        restart_limit += caller.num_fails;
+        impl->initialize(restart_limit, caller.num_fails);
+//        restart_limit += caller.num_fails;
     }
 
     bool limit() { return caller.num_fails > restart_limit; }

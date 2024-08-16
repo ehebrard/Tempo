@@ -49,10 +49,31 @@
 #include "util/Options.hpp"
 #include "util/SubscribableEvent.hpp"
 
+
 namespace tempo {
 
 //! T is the numeric variable domain type
 template<typename T> class Solver;
+
+template <typename T> class Solution {
+
+public:
+  Solution(const Solver<T> &);
+
+  bool value(const BooleanVar<T> x) const;
+  bool value(const var_t x) const;
+
+  T lower_bound(const NumericVar<T> x) const;
+  T lower_bound(const var_t x) const;
+
+  T upper_bound(const NumericVar<T> x) const;
+  T upper_bound(const var_t x) const;
+
+private:
+  std::vector<bool> boolean_variable;
+  std::vector<T> numeric_lower_bound;
+  std::vector<T> numeric_upper_bound;
+};
 
 //! Boolean variables and literals manager
 /*!
@@ -250,6 +271,7 @@ public:
     best_solution[bound::upper] = bound[bound::upper];
   }
   bool hasSolution() const { return not best_solution[bound::lower].empty(); }
+  std::vector<T> &bestSolution(const int b) const { return best_solution[b]; }
   //@}
 
 private:
@@ -319,6 +341,8 @@ public:
     size_t numConstraint() const;
     /// Number of  changes
     size_t numLiteral() const;
+    /// Number of  decisions
+    size_t numDecision() const;
     /// Decision level
     int level() const {return env.level();}
     //@}
@@ -333,7 +357,7 @@ public:
     mutable SubscribableEvent<Explanation<T> &>
     ConflictEncountered; ///< triggered when a conflict is encountered
     mutable SubscribableEvent<> BackTrackCompleted; ///< triggered after a successful backtrack
-    mutable SubscribableEvent<> SearchRestarted; ///< triggered on restart
+    mutable SubscribableEvent<bool> SearchRestarted; ///< triggered on restart
     //    mutable SubscribableEvent<> FailureDetected; ///< triggered on failure
     mutable SubscribableEvent<Solver<T> &> SolutionFound; ///< triggered when a solution is found
     mutable SubscribableEvent<const Solver<T> &> PropagationCompleted; ///< triggered after a successful propagation
@@ -582,7 +606,7 @@ public:
     std::ostream &displayPrecedences(std::ostream &os) const;
 
     std::ostream &displayProgress(std::ostream &os) const;
-    std::ostream &displayHeader(std::ostream &os, const int width = 69) const;
+    std::ostream &displayHeader(std::ostream &os, const int width = 62) const;
     std::ostream &displaySummary(std::ostream &os, std::string msg) const;
     
     void check_clauses(const char* msg);
@@ -620,6 +644,8 @@ public:
     SparseSet<var_t, Reversible<size_t>> boolean_search_vars;
     SparseSet<var_t, Reversible<size_t>> numeric_search_vars;
     //@}
+    
+    const std::vector<Literal<T>>& getDecisions() const {return decisions;}
 
   private:
     // solver options
@@ -630,7 +656,8 @@ public:
 
     // decision stack
     std::vector<Literal<T>> decisions;
-    
+
+
     // the stack of Literals reprensenting all the changes so far
     std::vector<Literal<T>> trail;
 
@@ -662,8 +689,8 @@ public:
     heuristics::PolymorphicHeuristic<T> heuristic;
     RestartManager<Solver<T>> restartPolicy;
     // @}
-
-  private:
+    
+//  private:
     // explanation for bounds from difference logic
     GraphExplainer<T> graph_exp;
 
@@ -672,6 +699,10 @@ public:
 
     // helper for Bellman-Ford
     SparseSet<> changed;
+    
+    
+    // helper for search methods
+    var_t objective_var{Constant::NoVar};
 
     // helper for 'initializeSearch()' (since it need to be called only once)
     bool initialized{false};
@@ -721,16 +752,19 @@ public:
     double start_time;
     // total number of failures
     long unsigned int num_fails{0};
+    // total number of restarts
+    long unsigned int num_restarts{0};
+    // total number of solutions
+    long unsigned int num_solutions{0};
     // total number of branches in the search tree
     long unsigned int num_choicepoints{0};
     // total number of literal generated (i.e., pruning)
     long unsigned int num_literals{0};
-    // number of calls to Bellman-Ford
-    long unsigned int num_updates{0};
     // number of calls to a queued propagator
     long unsigned int num_cons_propagations{0};
     // average depth of the search tree
     double avg_fail_level{0};
+
     //@}
 
     // Global constant for failures
@@ -757,8 +791,39 @@ public:
     
     void writeLiteral(const Literal<T> l) const;
 #endif
+    
     //@}
 };
+
+template <typename T> Solution<T>::Solution(const Solver<T> &solver) {
+  boolean_variable = solver.boolean.bestSolution();
+  numeric_lower_bound = solver.numeric.bestSolution(bound::lower);
+  numeric_upper_bound = solver.numeric.bestSolution(bound::upper);
+}
+
+template <typename T> bool Solution<T>::value(const BooleanVar<T> x) const {
+  return boolean_variable[x.id()];
+}
+
+template <typename T> bool Solution<T>::value(const var_t x) const {
+  return boolean_variable[x];
+}
+
+template <typename T> T Solution<T>::lower_bound(const NumericVar<T> x) const {
+  return numeric_lower_bound[x.id()];
+}
+
+template <typename T> T Solution<T>::lower_bound(const var_t x) const {
+  return numeric_lower_bound[x];
+}
+
+template <typename T> T Solution<T>::upper_bound(const NumericVar<T> x) const {
+  return numeric_upper_bound[x.id()];
+}
+
+template <typename T> T Solution<T>::upper_bound(const var_t x) const {
+  return numeric_upper_bound[x];
+}
 
 /*!
  GraphExplainer implementation
@@ -1261,7 +1326,8 @@ Solver<T>::Solver(Options opt)
       options(std::move(opt)), propag_pointer(1, &env),
       propagation_queue(constraints), boolean_constraints(&env),
       numeric_constraints(&env), restartPolicy(*this), graph_exp(*this),
-      bound_exp(*this) {
+      bound_exp(*this)
+{
   trail.emplace_back(Constant::NoVar, Constant::Infinity<T>, detail::Numeric{});
   reason.push_back(Constant::Decision<T>);
   core.newVertex(0);
@@ -1433,6 +1499,11 @@ size_t Solver<T>::numLiteral() const {
 }
 
 template <typename T>
+size_t Solver<T>::numDecision() const {
+    return decisions.size();
+}
+
+template <typename T>
 Explanation<T> Solver<T>::getReason(const index_t i) const {
     return reason[i];
 }
@@ -1599,23 +1670,27 @@ void Solver<T>::boundClosure(const var_t x, const var_t y, const T d,
 }
 
 template <typename T> void Solver<T>::restart(const bool on_solution) {
-    env.restore(init_level);
-    decisions.clear();
 
-    undo();
+  ++num_restarts;
+
+  env.restore(init_level);
+  decisions.clear();
+
+  undo();
+
+  if (on_solution) {
+    restartPolicy.initialize();
+  } else {
+    restartPolicy.reset();
+  }
+
+  SearchRestarted.trigger(on_solution);
+
+  if (options.verbosity > Options::NORMAL) {
+    std::cout << std::setw(10) << "restart ";
+    displayProgress(std::cout);
+  }
     
-    if (on_solution) {
-        restartPolicy.initialize();
-    } else {
-        restartPolicy.reset();
-    }
-    
-    SearchRestarted.trigger();
-    
-    if (options.verbosity > Options::NORMAL) {
-        std::cout << std::setw(10) << "restart ";
-        displayProgress(std::cout);
-    }
 }
 
 template <typename T> void Solver<T>::backtrack(Explanation<T> &e) {
@@ -2107,7 +2182,7 @@ template <typename T> void Solver<T>::learnConflict(Explanation<T> &e) {
 
     analyze(e);
     
-    ClauseAdded.trigger(conflict);
+    //ClauseAdded.trigger(conflict);
 
     int jump{1};
     
@@ -2123,7 +2198,13 @@ template <typename T> void Solver<T>::learnConflict(Explanation<T> &e) {
     
     restoreState(env.level() - jump);
 
+
     decisions.resize(decisions.size() - jump);
+    
+
+//    ClauseAdded.trigger(conflict);
+    ClauseAdded.trigger(learnt_clause);
+
 
 #ifdef DBG_TRACE
     if (DBG_BOUND and (DBG_TRACE & SEARCH)) {
@@ -2161,6 +2242,8 @@ template <typename T> void Solver<T>::learnConflict(Explanation<T> &e) {
 template <typename T> void Solver<T>::branchRight() {
 
     auto deduction{~decisions.back()};
+
+
     restoreState(env.level() - 1);
     decisions.pop_back();
     
@@ -2301,6 +2384,7 @@ template <typename T>
 template <typename S>
 void Solver<T>::optimize(S &objective) {
     objective.X.extract(*this);
+    objective_var = objective.X.id();
   initializeSearch();
 //    if(options.verbosity >= Options::QUIET)
 //    displayHeader(std::cout);
@@ -2411,7 +2495,10 @@ template <typename T> boolean_state Solver<T>::search() {
       // all resource constraints are accounted for => a solution has been found
       if (boolean_search_vars.empty() /* and numeric_search_vars.empty()*/) {
         satisfiability = TrueState;
+
+        ++num_solutions;
         SolutionFound.trigger(*this);
+
 
 #ifdef DBG_TRACE
         if (DBG_BOUND) {
@@ -2863,8 +2950,8 @@ template <typename T>
 std::ostream &Solver<T>::displayHeader(std::ostream &os,
                                           const int width) const {
   os << std::right << std::setw(width)
-     << " objective   failures   branches    nds/s    lvl   clauses  size   cpu"
-     << std::endl;
+     << " objective   failures   branches    nds/s    lvl   clauses  size";
+  os << "   cpu\n";
   return os;
 }
 
@@ -2892,6 +2979,8 @@ std::ostream &Solver<T>::displayProgress(std::ostream &os) const {
     os << "  " << std::setw(4)
        << static_cast<unsigned>(static_cast<double>(clauses.volume()) /
                                 static_cast<double>(clauses.size()));
+
+
   os << "   " << std::left << cpu << std::right << std::endl;
 
   return os;

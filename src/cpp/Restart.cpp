@@ -10,13 +10,13 @@ using namespace tempo;
     RestartPolicy::RestartPolicy(const unsigned int b) : base(b) {}
 
 
-    NoRestart::NoRestart() : RestartPolicy(-1) {}
+    NoRestart::NoRestart() : RestartPolicy(std::numeric_limits<unsigned int>::max()) {}
     
     void NoRestart::reset(unsigned int& limit) {
       limit = base;
     }
 
-    void NoRestart::initialize(unsigned int& limit) {
+    void NoRestart::initialize(unsigned int& limit, const unsigned int) {
       limit = base;
     }
   
@@ -28,10 +28,11 @@ using namespace tempo;
       increment = (unsigned int)((double)increment * factor);
     }
 
-    void Geometric::initialize(unsigned int& limit) {
+    void Geometric::initialize(unsigned int& limit, const unsigned int val) {
       limit = 0;
       increment = base;
       reset(limit);
+        limit += val;
     }
 
 
@@ -57,8 +58,9 @@ using namespace tempo;
       limit += (base * luby_seq(++iteration));
     }
 
-    void Luby::initialize(unsigned int& limit) {
+    void Luby::initialize(unsigned int& limit, const unsigned int val) {
       iteration = 0;
       reset(limit);
+        limit += val;
     }
  
