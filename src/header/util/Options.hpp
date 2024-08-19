@@ -96,6 +96,7 @@ public:
   int seed{1};
 
   int ub{std::numeric_limits<int>::max()};
+  int lb{std::numeric_limits<int>::min()};
 
   bool print_sol{false};
   bool print_par{false};

@@ -40,6 +40,9 @@ auto tempo::getBaseParser() -> Parser {
     cmd.add<ValueArg<int>>(opt.ub, "", "ub", "initial ub", false,
                            std::numeric_limits<int>::max(), "int");
 
+    cmd.add<ValueArg<int>>(opt.lb, "", "lb", "initial lb", false,
+                           std::numeric_limits<int>::min(), "int");
+
     cmd.add<SwitchArg>(opt.print_sol, "", "print-sol",
                        "print the best found schedule", false);
 
