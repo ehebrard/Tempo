@@ -68,6 +68,104 @@ namespace tempo {
     };
 
 
+    namespace detail {
+        template<typename T>
+        class ActiveList {
+            std::vector<T> data;
+            std::size_t endIdx;
+        public:
+            ActiveList() = default;
+
+            ActiveList(std::initializer_list<T> elems) : data(elems), endIdx(data.size()) {}
+
+            template<typename ...Args>
+            explicit ActiveList(Args &&... args) : data(std::forward<Args>(args)...), endIdx(data.size()) {}
+
+            ActiveList(const ActiveList &) = default;
+            ActiveList(ActiveList &&other) noexcept : ActiveList() {
+                swap(other);
+            }
+            ActiveList &operator=(ActiveList other) noexcept {
+                swap(other);
+                return *this;
+            }
+
+            ~ActiveList() = default;
+
+            void swap(ActiveList &other) {
+                using std::swap;
+                swap(data, other.data);
+                swap(endIdx, other.endIdx);
+            }
+
+            void markInactive(std::vector<T>::iterator elem) {
+                if (empty()) {
+                    return;
+                }
+
+                const auto pos = elem - data.begin();
+                if (pos < 0 or static_cast<std::size_t>(pos) >= endIdx) {
+                    return;
+                }
+
+                --endIdx;
+                if (endIdx != static_cast<std::size_t>(pos)) {
+                    std::swap(data[pos], data[endIdx]);
+                }
+            }
+
+            auto begin() const {
+                return data.begin();
+            }
+
+            auto begin() {
+                return data.begin();
+            }
+
+            auto end() const noexcept {
+                return data.begin() + endIdx;
+            }
+
+            auto end() noexcept {
+                return data.begin() + endIdx;
+            }
+
+            void cleanUp() {
+                data.erase(end(), data.end());
+            }
+
+            [[nodiscard]] std::size_t size() const noexcept {
+                return endIdx;
+            }
+
+            [[nodiscard]] bool empty() const noexcept {
+                return size() == 0;
+            }
+
+            template<typename ...Args>
+            void add(Args &&...args) {
+                if (endIdx == data.size()) {
+                    data.emplace_back(std::forward<Args>(args)...);
+                } else {
+                    data.pop_back();
+                    data.emplace_back(std::forward<Args>(args)...);
+                    std::swap(data.back(), data[endIdx]);
+                }
+
+                ++endIdx;
+            }
+
+            auto &back() const noexcept {
+                return data[endIdx - 1];
+            }
+        };
+
+        template<typename T>
+        void swap(ActiveList<T> &a, ActiveList<T> &b) noexcept {
+            a.swap(b);
+        }
+    }
+
     /**
      * @brief C# inspired event class that manages a list of event handlers that can be invoked together
      * @tparam Args Arguments types of the event handler functions
@@ -116,15 +214,12 @@ namespace tempo {
         template<typename ...InvokeArgs>
         void trigger(InvokeArgs&&... args) const {
             auto it = handlers.begin();
-            auto end = handlers.end();
-            while (not handlers.empty() and it != end) {
+            while (not handlers.empty() and it < handlers.end()) {
                 if (it->second.isSubscribed()) {
                     it->first(std::forward<InvokeArgs>(args)...);
                     ++it;
                 } else {
-                    std::swap(*it, handlers.back());
-                    handlers.pop_back();
-                    end = handlers.end();
+                    handlers.markInactive(it);
                 }
             }
         }
@@ -133,11 +228,11 @@ namespace tempo {
         template<typename Handler>
         SubscriberHandle subscribe(Handler &&handlerFunction, bool discardHandler) {
             static_assert(std::is_invocable_r_v<void, Handler, Args...>, "invalid event handler signature");
-            handlers.emplace_back(std::forward<Handler>(handlerFunction), SubscriberHandle(SubscriberHandle::Subscribe));
+            handlers.add(std::forward<Handler>(handlerFunction), SubscriberHandle(SubscriberHandle::Subscribe));
             return discardHandler ? SubscriberHandle() : handlers.back().second;
         }
 
-        mutable std::vector<std::pair<handler, SubscriberHandle>> handlers{};
+        mutable detail::ActiveList<std::pair<handler, SubscriberHandle>> handlers{};
     };
 }
 
