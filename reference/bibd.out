@@ -1,5 +1,5 @@
  objective   failures   branches    nds/s    lvl   clauses  size   cpu
-      sat           0         12   279069      0       441     2   4.3e-05
+      sat           0         12   342857      0       441     2   3.5e-05
 1001100
 0110100
 0101010
@@ -32,7 +32,7 @@
 
 result = 1 #fails = 0
  objective   failures   branches    nds/s    lvl   clauses  size   cpu
-      sat           0         28   482758      0       882     2   5.8e-05
+      sat           0         28   583333      0       882     2   4.8e-05
 10100011001100
 11001100101000
 01010110010100
@@ -65,7 +65,7 @@ result = 1 #fails = 0
 
 result = 1 #fails = 0
  objective   failures   branches    nds/s    lvl   clauses  size   cpu
-      sat           1         22   407407     13       451     2   5.4e-05
+      sat           1         22   448979     13       451     2   4.9e-05
 1100101010
 1011001100
 0110110100

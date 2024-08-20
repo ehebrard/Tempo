@@ -193,7 +193,8 @@ int main(int argc, char *argv[]) {
   
     for(size_t k{0}; k<resource_capacities.size(); ++k) {
         NumericVar<int> capacity{S.newConstant(resource_capacities[k])};
-        resources.push_back(Cumulative<int>(capacity, resource_tasks[k], resource_demands[k]));
+        resources.push_back(Cumulative<int>(
+            schedule, capacity, resource_tasks[k], resource_demands[k]));
         S.post(resources.back());
     }
  

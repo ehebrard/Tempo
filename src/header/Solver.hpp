@@ -37,6 +37,7 @@
 #include "Restart.hpp"
 #include "constraints/Cardinality.hpp"
 #include "constraints/CumulativeCheck.hpp"
+#include "constraints/CumulativeEdgeFinding.hpp"
 #include "constraints/DisjunctiveEdgeFinding.hpp"
 #include "constraints/EdgeConstraint.hpp"
 //#include "constraints/OptionalEdgeConstraint.hpp"
@@ -492,8 +493,8 @@ public:
     void relax(Constraint<T> *);
 
     // notify the solver that propagator of given id should be called when a
-    // literal becomes true
-    void wake_me_on(const Literal<T>, const int id);
+    // literal becomes true. returns the rank of the trigger for the constraint's viewpoint. beware, triggers are not repeated, hence more than one can have the same rank
+    size_t wake_me_on(const Literal<T>, const int id);
 
     // create and post a new cardinality propagator
     template <typename ItVar>
@@ -527,6 +528,10 @@ public:
     void postCumulative(const NumericVar<T> c, const ItTask beg_task,
                         const ItTask end_task, const ItNVar beg_dem,
                         const ItBVar beg_disj);
+    template <typename ItTask, typename ItNVar, typename ItBVar>
+    void postStrongEdgeFinding(const Interval<T> s, const NumericVar<T> c,
+                               const ItTask beg_task, const ItTask end_task,
+                               const ItNVar beg_dem, const ItBVar beg_disj);
     //@}
 
     /**
@@ -2845,16 +2850,18 @@ template <typename T> void Solver<T>::addToSearch(const BooleanVar<T> &x) {
 }
 
 template <typename T>
-void Solver<T>::wake_me_on(const Literal<T> l, const int c) {
+size_t Solver<T>::wake_me_on(const Literal<T> l, const int c) {
   if (l.isNumeric()) {
       if(numeric_constraints[l].empty() or numeric_constraints[l].back() != c)
         numeric_constraints.add(l, c);
+//      return numeric_constraints.indegree(c)-1;
+      return numeric_constraints.rank(l).back();
   } else {
       if(boolean_constraints[l].empty() or boolean_constraints[l].back() != c)
         boolean_constraints.add(l, c);
+//      return boolean_constraints.indegree(c)-1;
+      return boolean_constraints.rank(l).back();
   }
-
-//    std::cout <<
 }
 
 template <typename T>
@@ -2914,6 +2921,15 @@ void Solver<T>::postCumulative(const NumericVar<T> c, const ItTask beg_task,
                                const ItTask end_task, const ItNVar beg_dem,
                                const ItBVar beg_disj) {
   post(new CumulativeCheck<T>(*this, c, beg_task, end_task, beg_dem, beg_disj));
+}
+
+template <typename T>
+template <typename ItTask, typename ItNVar, typename ItBVar>
+void Solver<T>::postStrongEdgeFinding(
+    const Interval<T> s, const NumericVar<T> c, const ItTask beg_task,
+    const ItTask end_task, const ItNVar beg_dem, const ItBVar beg_disj) {
+  post(new CumulativeEdgeFinding<T>(*this, s, c, beg_task, end_task, beg_dem,
+                                    beg_disj));
 }
 
 template <typename T> double Solver<T>::looseness(const Literal<T> &l) const {

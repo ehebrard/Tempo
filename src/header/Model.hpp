@@ -1547,7 +1547,8 @@ template <typename T = int>
 class CumulativeExpressionImpl : public BooleanExpressionImpl<T>,
                                  public std::vector<Interval<T>> {
 public:
-  CumulativeExpressionImpl(const NumericVar<T> c) : capacity(c) {}
+  CumulativeExpressionImpl(const Interval<T> s, const NumericVar<T> c)
+      : schedule(s), capacity(c) {}
 
   virtual ~CumulativeExpressionImpl() {
 #ifdef DBG_EXTRACT
@@ -1587,6 +1588,16 @@ public:
     if (std::distance(this->begin(), this->end()) > 1) {
       solver.postCumulative(capacity, this->begin(), this->end(),
                             this->begDemand(), this->begDisjunct());
+
+//      if (solver.getOptions().edge_finding) {
+//        //            std::cout
+//        //            << "edge-finding for cumulative resources is not
+//        //            implemented, " "please use '--no-edge-finding'.
+//        //            Aborthing\n"; exit(0);
+//        solver.postStrongEdgeFinding(schedule, capacity, this->begin(),
+//                                     this->end(), this->begDemand(),
+//                                     this->begDisjunct());
+//      }
     }
   }
 
@@ -1599,7 +1610,9 @@ public:
   std::vector<NumericVar<T>>::iterator endDemand() { return demand.end(); }
 
 private:
+  Interval<T> schedule;
   NumericVar<T> capacity;
+
   std::vector<BooleanVar<T>> disjunct;
   std::vector<NumericVar<T>> demand;
 };
@@ -1642,11 +1655,11 @@ public:
   //    }
 };
 
-template <typename T=int>
-CumulativeExpression<T> Cumulative(const NumericVar<T> c,
+template <typename T = int>
+CumulativeExpression<T> Cumulative(Interval<T> &s, const NumericVar<T> c,
                                    const std::vector<Interval<T>> &I,
                                    const std::vector<NumericVar<T>> &D) {
-  auto impl{new CumulativeExpressionImpl<T>(c)};
+  auto impl{new CumulativeExpressionImpl<T>(s, c)};
 
   auto i{I.begin()};
   auto d{D.begin()};
