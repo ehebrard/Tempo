@@ -4,6 +4,9 @@
  */
 
 #include <gtest/gtest.h>
+#include <Iterators.hpp>
+#include <functional>
+#include <concepts>
 
 #include "util/SubscribableEvent.hpp"
 
@@ -11,6 +14,133 @@ struct TestHandle : public tempo::SubscriberHandle {
     TestHandle() = default;
     explicit TestHandle(int): tempo::SubscriberHandle(Subscribe) {}
 };
+
+TEST(util, ActiveList_basic) {
+    using namespace tempo;
+    detail::ActiveList<int> list;
+    EXPECT_TRUE(list.empty());
+    EXPECT_EQ(list.begin(), list.end());
+    EXPECT_EQ(list.size(), 0);
+}
+
+TEST(util, ActiveList_basic1) {
+    using namespace tempo;
+    detail::ActiveList<int> list{1, 2, 3};
+    EXPECT_EQ(list.size(), 3);
+    for (auto [gt, i] : iterators::enumerate(list, 1)) {
+        EXPECT_EQ(gt, i);
+    }
+}
+
+TEST(util, ActiveList_inactive) {
+    using namespace tempo;
+    detail::ActiveList<int> list{1, 2, 3};
+    list.markInactive(list.begin() + 1);
+    EXPECT_EQ(list.size(), 2);
+    EXPECT_EQ(*list.begin(), 1);
+    EXPECT_EQ(list.back(), 3);
+    list.markInactive(list.end());
+    EXPECT_EQ(list.size(), 2);
+    EXPECT_EQ(*list.begin(), 1);
+    EXPECT_EQ(list.back(), 3);
+    list.markInactive(list.begin() - 1);
+    EXPECT_EQ(list.size(), 2);
+    EXPECT_EQ(*list.begin(), 1);
+    EXPECT_EQ(list.back(), 3);
+}
+
+enum class Action {
+    Nothing,
+    Dtor,
+    MoveAssign,
+    MoveCtor,
+    CopyAssign,
+    CopyCtor
+};
+
+class Data {
+    std::function<void(Action)> fun;
+public:
+    int val;
+    template<std::invocable<Action> Fun>
+    explicit Data(Fun &&f, int i) : fun(std::forward<Fun>(f)), val(i) {}
+
+    Data(const Data &data): fun(data.fun), val(data.val) {
+        fun(Action::CopyCtor);
+    }
+
+    Data(Data &&data) noexcept: fun(std::move(data.fun)), val(data.val) {
+        fun(Action::MoveCtor);
+    }
+
+    Data &operator=(const Data &data) {
+        if (&data != this) {
+            fun = data.fun;
+            val = data.val;
+            fun(Action::CopyAssign);
+        }
+
+        return *this;
+    }
+
+    Data &operator=(Data &&data) noexcept {
+        if(&data != this) {
+            fun = std::move(data.fun);
+            val = data.val;
+            fun(Action::MoveAssign);
+        }
+
+        return *this;
+    }
+
+    ~Data() {
+        if (fun) {
+            fun(Action::Dtor);
+        }
+    }
+
+};
+
+TEST(util, ActiveList_inactive_overwrite) {
+    using namespace tempo;
+    using enum Action;
+    Action obj1 = Nothing;
+    Action obj2 = Nothing;
+    detail::ActiveList<Data> list;
+    list.add([&obj1](auto action) { obj1 = action; }, 1);
+    EXPECT_EQ(obj1, Nothing);
+    list.add([&obj2](auto action) { obj2 = action; }, 2);
+    EXPECT_NE(obj1, Dtor);
+    list.markInactive(list.begin());
+    EXPECT_NE(obj1, Dtor);
+    EXPECT_NE(obj2, Dtor);
+    EXPECT_EQ(list.size(), 1);
+    obj2 = Nothing;
+    list.add([](auto){}, 3);
+    EXPECT_EQ(obj1, Dtor);
+    EXPECT_EQ(obj2, Nothing);
+}
+
+TEST(util, ActiveList_move) {
+    using namespace tempo;
+    using enum Action;
+    Action obj1, obj2, obj3;
+    detail::ActiveList<Data> list;
+    list.add([&obj1](auto a) { obj1 = a; }, 1);
+    list.add([&obj2](auto a) { obj2 = a; }, 2);
+    list.markInactive(list.begin());
+    obj1 = Nothing; obj2 = Nothing; obj3 = Nothing;
+    auto moved = std::move(list);
+    EXPECT_EQ(obj1, Nothing);
+    EXPECT_EQ(obj2, Nothing);
+    EXPECT_TRUE(list.empty());
+    EXPECT_EQ(moved.size(), 1);
+    EXPECT_EQ(moved.back().val, 2);
+    moved.add([&obj3](auto a) { obj3 = a; }, 3);
+    EXPECT_EQ(obj1, Dtor);
+    EXPECT_EQ(obj2, Nothing);
+    EXPECT_EQ(moved.back().val, 3);
+}
 
 TEST(util, SubscriberHandle_basic) {
     TestHandle handle;
@@ -60,6 +190,64 @@ TEST(util, SubscribableEvent_unsubscribe) {
     event.trigger(29);
     EXPECT_EQ(variable, 17);
     EXPECT_EQ(variable1, 29);
+}
+
+TEST(util, SubscribableEvent_unsubscribe1) {
+    using namespace tempo;
+    int variable = 0;
+    int variable1 = 0;
+    int variable2 = 0;
+    SubscribableEvent<int> event;
+    event.subscribe_unhandled([&variable](int val) { variable = val; });
+    auto handle1 = event.subscribe_handled([&variable1](int val) { variable1 = val; });
+    event.trigger(14);
+    EXPECT_EQ(variable, 14);
+    EXPECT_EQ(variable1, 14);
+    EXPECT_EQ(variable2, 0);
+    handle1.unregister();
+    event.trigger(8);
+    EXPECT_EQ(variable, 8);
+    EXPECT_EQ(variable1, 14);
+    EXPECT_EQ(variable2, 0);
+    auto handle2 = event.subscribe_handled([&variable2](int val) { variable2 = val; });
+    event.trigger(17);
+    EXPECT_EQ(variable, 17);
+    EXPECT_EQ(variable1, 14);
+    EXPECT_EQ(variable2, 17);
+    handle1 = event.subscribe_handled([&variable1](int val) { variable1 = val; });
+    event.trigger(3);
+    EXPECT_EQ(variable, 3);
+    EXPECT_EQ(variable1, 3);
+    EXPECT_EQ(variable2, 3);
+    handle1.unregister();
+    handle2.unregister();
+    event.trigger(6);
+    EXPECT_EQ(variable, 6);
+    EXPECT_EQ(variable1, 3);
+    EXPECT_EQ(variable2, 3);
+    event.subscribe_unhandled([](auto){});
+    event.subscribe_unhandled([&variable1](int val) { variable1 = val; });
+    event.subscribe_unhandled([&variable2](int val) { variable2 = val; });
+    event.trigger(16);
+    EXPECT_EQ(variable, 16);
+    EXPECT_EQ(variable1, 16);
+    EXPECT_EQ(variable2, 16);
+}
+
+TEST(util, SubscribableEvent_call_cycle) {
+    using namespace tempo;
+    SubscribableEvent<> event;
+    SubscriberHandle handle;
+    int counter = 0;
+    handle = event.subscribe_handled([&] {
+        ++counter;
+        handle.unregister();
+        event.trigger();
+    });
+
+    event.subscribe_unhandled([]{});
+    event.trigger();
+    EXPECT_EQ(counter, 1);
 }
 
 TEST(util, SubscribableEvent_auto_unsubscribe) {
