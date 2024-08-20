@@ -43,6 +43,10 @@ def test(cmd, filename):
     ln = 0
     for lr,lo in zip(ref_out, prc_out):
         ln += 1
+
+        if (lr.find('-- date:') >= 0 and lo.find('-- date:') >= 0) or (lr.find('-- commit:') >= 0 and lo.find('-- commit:') >= 0):
+            continue
+
         ref = [x.strip() for x in lr[:-1].split()]
         res = [x.strip() for x in lo.split()]
         index = 0
