@@ -6,7 +6,7 @@
 
 namespace tempo {
 
-    void SubscriberHandle::unregister() {
+    void SubscriberHandle::unregister() noexcept {
         if (nullptr != alive) {
             *alive = 0;
         }
