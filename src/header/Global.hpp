@@ -78,6 +78,7 @@ using hint = int;
 //#define DBG_BELLMAN_FT true
 //#define DBG_EXPL_FTRANS true
 #define DBG_SEF true
+//#define DBG_EXTRACT true
 
 // priority values for constraint propagation
 enum class Priority {

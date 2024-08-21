@@ -600,7 +600,7 @@ public:
     //@{
     std::ostream &display(std::ostream &os, const bool dom = true,
                           const bool bra = true, const bool sva = false,
-                          const bool pre = true, const bool cla = false,
+                          const bool pre = true, const bool cla = true,
                           const bool bgr = false, const bool ngr = false,
                           const bool con = true, const bool trl = false) const;
     std::ostream &displayTrail(std::ostream &os) const;
@@ -2954,6 +2954,7 @@ template <typename T> double Solver<T>::looseness(const Literal<T> &l) const {
     }
   } else if (l.hasSemantic()) {
     auto c{boolean.getEdge(l)};
+      if(c != Constant::NoEdge<T>)
     return static_cast<double>(numeric.upper(c.from) - numeric.lower(c.to) +
                                c.distance) /
            static_cast<double>(numeric.upper(c.to) - numeric.lower(c.from) -

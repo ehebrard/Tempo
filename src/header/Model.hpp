@@ -185,6 +185,7 @@ public:
         else
           std::cout << " expr already extracted" << std::endl;
 #endif
+          
         data = NumInfo<T>(implem->id(), implem->offset());
         ExpressionFlag::_is_expression = false;
       }
@@ -976,9 +977,9 @@ public:
     auto conj = (sup and inf);
 
     conj.extract(solver);
-    self = conj;
+      BooleanExpressionImpl<T>::self = conj;
 
-    return self.id();
+    return BooleanExpressionImpl<T>::self.id();
   }
 
   void post(Solver<T> &solver) override {
@@ -999,7 +1000,7 @@ public:
   }
 
 private:
-  BooleanVar<T> self;
+//  BooleanVar<T> self;
   NumericVar<T> x;
   NumericVar<T> y;
   T k;
@@ -1039,11 +1040,26 @@ public:
   virtual std::string name() const override { return "leq"; }
 
   var_t extract(Solver<T> &solver, const var_t = Constant::NoVar) override {
+      
+//      std::cout << "extract x <= y expression\n - extract x\n";
+      
     x.extract(solver);
+      
+//      std::cout << " -> " << x << "\n - extract y\n";
+      
     y.extract(solver);
+      
+//      std::cout << " -> " << y << "\n create precedence constraint\n";
+      
     auto prec{x.before(y, -k)};
-    self = solver.newDisjunct(~prec, prec);
-    return self.id();
+      
+//      std::cout << " -> " << prec << "\n create disjunct\n";
+      
+      BooleanExpressionImpl<T>::self = solver.newDisjunct(~prec, prec);
+      
+//      std::cout << " -> " << solver.pretty(BooleanExpressionImpl<T>::self == true) << " <> " << solver.pretty(BooleanExpressionImpl<T>::self == false) << " (" << BooleanExpressionImpl<T>::self.id() << ")\n";
+      
+    return BooleanExpressionImpl<T>::self.id();
   }
 
   void post(Solver<T> &solver) override {
@@ -1055,7 +1071,7 @@ public:
   }
 
 private:
-  BooleanVar<T> self;
+//  BooleanVar<T> self;
   NumericVar<T> x;
   NumericVar<T> y;
   T k;
@@ -1260,17 +1276,17 @@ template <typename T = int>
 class LogicalImplicationExpression : public BooleanExpressionImpl<T> {
 public:
   LogicalImplicationExpression(BooleanVar<T> x, BooleanVar<T> y)
-      : implicant(x), implied(y) {}
+      : implicant(x), implicate(y) {}
 
   virtual std::string name() const override { return "implication"; }
 
   var_t extract(Solver<T> &solver, const var_t = Constant::NoVar) override {
     implicant.extract(solver);
-    implied.extract(solver);
+    implicate.extract(solver);
       BooleanExpressionImpl<T>::self = solver.newBoolean();
 
     std::vector<Literal<T>> cl{solver.boolean.getLiteral(false, implicant),
-                               solver.boolean.getLiteral(true, implied),
+                               solver.boolean.getLiteral(true, implicate),
                                solver.boolean.getLiteral(false, BooleanExpressionImpl<T>::self)};
     solver.clauses.add(cl.begin(), cl.end());
 
@@ -1278,23 +1294,37 @@ public:
     cl = {x == true, implicant == true};
     solver.clauses.add(cl.begin(), cl.end());
 
-    cl = {x == true, implied == false};
+    cl = {x == true, implicate == false};
     solver.clauses.add(cl.begin(), cl.end());
 
     return BooleanExpressionImpl<T>::self.id();
   }
 
   void post(Solver<T> &solver) override {
+      
+//      std::cout << "post implication\n - extract implicant\n";
+      
     implicant.extract(solver);
-    implied.extract(solver);
+      
+//      std::cout << " -> " << implicant << "\n - extract implicate\n";
+      
+    implicate.extract(solver);
+      
+//      std::cout << " -> " << implicate << std::endl;
+      
     std::vector<Literal<T>> cl{solver.boolean.getLiteral(false, implicant),
-                               solver.boolean.getLiteral(true, implied)};
+                               solver.boolean.getLiteral(true, implicate)};
+      
+//      std::cout << "add clause\n";
+      
     solver.clauses.add(cl.begin(), cl.end());
+      
+//      std::cout << "done\n";
   }
 
 private:
   BooleanVar<T> implicant;
-  BooleanVar<T> implied;
+  BooleanVar<T> implicate;
 };
 
 template <typename T>
@@ -1361,6 +1391,47 @@ private:
 template <typename T>
 NumericVar<T> Cardinality(const std::vector<BooleanVar<T>> &X) {
   NumericVar<T> exp(new CardinalityExpressionImpl(X.begin(), X.end()));
+  return exp;
+}
+
+
+template <typename T = int>
+class AtMostExpressionImpl : public BooleanExpressionImpl<T> {
+public:
+  template <typename Iter>
+    AtMostExpressionImpl(Iter beg_var, Iter end_var, const T k, const bool sign)
+      : k(k), sign(sign) {
+    for (auto x{beg_var}; x != end_var; ++x) {
+        boolean_arguments.emplace_back(*x);
+    }
+  }
+
+  virtual std::string name() const override { return "at-most"; }
+    
+    var_t extract(Solver<T> &, const var_t) override {
+      throw ModelingException("AtMost is not a predicate");
+      return Constant::NoVar;
+    }
+
+  void post(Solver<T> &solver) override {
+      solver.postCardinality(boolean_arguments.begin(), boolean_arguments.end(), sign, k);
+  }
+
+private:
+  T k;
+  bool sign;
+  std::vector<BooleanVar<T>> boolean_arguments;
+};
+
+template <typename T>
+BooleanVar<T> AtMost(const T k, const std::vector<BooleanVar<T>> &X) {
+  BooleanVar<T> exp(new AtMostExpressionImpl<T>(X.begin(), X.end(), k, true));
+  return exp;
+}
+
+template <typename T>
+BooleanVar<T> AtLeast(const T k, const std::vector<BooleanVar<T>> &X) {
+  BooleanVar<T> exp(new AtMostExpressionImpl<T>(X.begin(), X.end(), X.size()-k, false));
   return exp;
 }
 
@@ -1488,6 +1559,11 @@ template <typename T = int> class NoOverlapExpression : public BooleanVar<T> {
 public:
   NoOverlapExpression(NoOverlapExpressionImpl<T> *i) : BooleanVar<T>(i) {}
 
+    size_t size() {
+      return static_cast<NoOverlapExpressionImpl<T> *>(BooleanVar<T>::implem)
+          ->size();
+    }
+    
   std::vector<Interval<T>>::iterator begin() {
     return static_cast<NoOverlapExpressionImpl<T> *>(BooleanVar<T>::implem)
         ->begin();
