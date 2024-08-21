@@ -52,7 +52,7 @@ def test(cmd, filename):
         index = 0
         for x,y in zip(res, ref):
             if x != y and index != 7 and index != 3:
-                print('Discrepancy in {2} at line {3}:\nref:{0}\ncur:{1}'.format(lr[:-1],lo,cmd,ln))
+                print('Discrepancy for CMD {2} at line {3}:\nref:{0}\ncur:{1}'.format(lr[:-1],lo,' '.join(cmd),ln))
                 # exit(1)
             index += 1
 
@@ -76,6 +76,9 @@ if __name__ == '__main__':
     # record(['build/tempo_sat', 'data/sample/uf250-01.cnf', '--verbosity', '3'], 'reference/sat.out')
     # record(['build/tempo_rcpsp', 'data/sample/j309_5.sm'], 'reference/rcpsp.out')
     # record(['build/tempo_scheduler', 'data/sample/j6-per0-0.txt'], 'reference/osp.out')
+    # record(['build/tempo_fjssp','data/sample/mt10c1.fjs', '--no-edge-finding', '--no-transitivity'], 'reference/fjssp.out')
+
+
 
     test(['build/bibd'], 'reference/bibd.out')
     test(['build/tempo_scheduler', 'data/sample/tsptw_145.txt', '--input-format tsptw'], 'reference/tsptw.out')
@@ -86,5 +89,4 @@ if __name__ == '__main__':
     test(['build/tempo_sat', 'data/sample/uf250-01.cnf', '--verbosity', '3'], 'reference/sat.out')
     test(['build/tempo_rcpsp', 'data/sample/j309_5.sm'], 'reference/rcpsp.out')
     test(['build/tempo_scheduler', 'data/sample/j6-per0-0.txt'], 'reference/osp.out')
-    
-
+    test(['build/tempo_fjssp','data/sample/mt10c1.fjs', '--no-edge-finding', '--no-transitivity'], 'reference/fjssp.out')    
