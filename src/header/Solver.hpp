@@ -422,8 +422,18 @@ public:
                                      const BooleanVar<T> opt = Constant::True
                             );
 
-    Interval<T> between(const NumericVar<T> s, const NumericVar<T> e, const bool opt=false);
-    Interval<T> continuefor(const NumericVar<T> s, const NumericVar<T> d, const bool opt=false);
+//    Interval<T> between(const NumericVar<T> s, const NumericVar<T> e, const bool opt=false);
+//    Interval<T> continuefor(const NumericVar<T> s, const NumericVar<T> d, const bool opt=false);
+//    
+    
+    Interval<T> maybe_between(const NumericVar<T> s, const NumericVar<T> e);
+    Interval<T> maybe_continuefor(const NumericVar<T> s, const NumericVar<T> d);
+    
+    Interval<T> between(const NumericVar<T> s, const NumericVar<T> e);
+    Interval<T> continuefor(const NumericVar<T> s, const NumericVar<T> d);
+    
+    Interval<T> between(const NumericVar<T> s, const NumericVar<T> e, const BooleanVar<T> opt);
+    Interval<T> continuefor(const NumericVar<T> s, const NumericVar<T> d, const BooleanVar<T> opt);
     //@}
 
     /**
@@ -1478,18 +1488,49 @@ Interval<T> Solver<T>::newInterval(const T mindur, const T maxdur,
   return Interval<T>(*this, mindur, maxdur, earliest_start, latest_start, earliest_end, latest_end, opt);
 }
 
+
 template <typename T>
-Interval<T> Solver<T>::between(const NumericVar<T> s, const NumericVar<T> e, const bool optional) {
-  Interval<T> i(*this, s, e, e - s, (optional ? newBoolean() : BooleanVar<T>(Constant::True)));
+Interval<T> Solver<T>::between(const NumericVar<T> s, const NumericVar<T> e) {
+  Interval<T> i(*this, s, e, e - s, BooleanVar<T>(Constant::True));
   post(i.duration >= 0);
   return i;
 }
 
 template <typename T>
-Interval<T> Solver<T>::continuefor(const NumericVar<T> s, const NumericVar<T> d, const bool optional) {
+Interval<T> Solver<T>::continuefor(const NumericVar<T> s, const NumericVar<T> d) {
 
 //    BooleanVar<T> o{};
-  Interval<T> i(*this, s, s+d, d, (optional ? newBoolean() : BooleanVar<T>(Constant::True)));
+  Interval<T> i(*this, s, s+d, d, BooleanVar<T>(Constant::True));
+  return i;
+}
+
+template <typename T>
+Interval<T> Solver<T>::maybe_between(const NumericVar<T> s, const NumericVar<T> e) {
+  Interval<T> i(*this, s, e, e - s, newBoolean());
+  post(i.duration >= 0);
+  return i;
+}
+
+template <typename T>
+Interval<T> Solver<T>::maybe_continuefor(const NumericVar<T> s, const NumericVar<T> d) {
+
+//    BooleanVar<T> o{};
+  Interval<T> i(*this, s, s+d, d, newBoolean());
+  return i;
+}
+
+template <typename T>
+Interval<T> Solver<T>::between(const NumericVar<T> s, const NumericVar<T> e, const BooleanVar<T> optional) {
+  Interval<T> i(*this, s, e, e - s, optional);
+  post(i.duration >= 0);
+  return i;
+}
+
+template <typename T>
+Interval<T> Solver<T>::continuefor(const NumericVar<T> s, const NumericVar<T> d, const BooleanVar<T> optional) {
+
+//    BooleanVar<T> o{};
+  Interval<T> i(*this, s, s+d, d, optional);
   return i;
 }
 

@@ -1267,7 +1267,7 @@ BooleanVar<T> operator||(BooleanVar<T> &x, BooleanVar<T> &y) {
   return exp;
 }
 
-template <typename T, typename Iterable> BooleanVar<T> BigOr(Iterable &X) {
+template <typename T> BooleanVar<T> BigOr(const std::vector<BooleanVar<T>> &X) {
   BooleanVar<T> exp(new LogicalOrExpressionImpl(X.begin(), X.end()));
   return exp;
 }
@@ -1459,6 +1459,10 @@ public:
 
     bool opt_flag{false};
     for (auto a{this->begin()}; a != this->end(); ++a) {
+        
+//      if(a->isOptional(solver))
+//          std::cout << " ===> " << a->id() << ": " << a->exist << std::endl;
+        
       for (auto b{a + 1}; b != this->end(); ++b) {
         auto t_ab{0};
         auto t_ba{0};
@@ -2023,6 +2027,8 @@ template <typename T> std::ostream &Interval<T>::display(std::ostream &os) const
 
   os << ": from " << start << " to " << end << " for "
      << duration; //<< "/" << exist;
+    
+    os << " if " << exist;
   return os;
 }
 

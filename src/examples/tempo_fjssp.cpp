@@ -29,6 +29,53 @@
 using namespace tempo;
 
 
+template <typename T>
+std::string prettyJob(const Interval<T> &task, const Solver<T> &S,
+                      const bool dur_flag) {
+  std::stringstream ss;
+    
+    if(S.boolean.value(task.exist)) {
+        
+        auto est{S.numeric.lower(task.start)};
+        auto lst{S.numeric.upper(task.start)};
+        auto ect{S.numeric.lower(task.end)};
+        auto lct{S.numeric.upper(task.end)};
+        
+        ss << "[";
+        
+        if (est == lst)
+            ss << est;
+        else
+            ss << est << "-" << lst;
+        ss << "..";
+        if (ect == lct)
+            ss << ect;
+        else
+            ss << ect << "-" << lct;
+        ss << "]";
+        
+        if (dur_flag) {
+            auto pmin{S.numeric.lower(task.duration)};
+            auto pmax{S.numeric.upper(task.duration)};
+            ss << " (" << pmin << "-" << pmax << ")";
+        }
+    } else {
+        ss << "not present (" << task.exist << "=false)";
+    }
+
+  return ss.str();
+}
+
+template<typename T>
+void printJobs(const Solver<T>& S, const std::vector<Interval<T>>& intervals) {
+  int i{0};
+  for (auto task : intervals) {
+    std::cout << "job" << ++i << " (" << task
+              << "): " << prettyJob(task, S, true) << std::endl;
+  }
+}
+
+
 // implementation of a scheduling solver
 int main(int argc, char *argv[]) {
 
@@ -55,7 +102,7 @@ int main(int argc, char *argv[]) {
         resources.push_back(NoOverlap(schedule));
     }
     
-    std::vector<BooleanVar<int>> allocation;
+    std::vector<std::vector<BooleanVar<int>>> allocation_vars;
     
     std::vector<Interval<int>> intervals;
     std::vector<Interval<int>> previous_jobs;
@@ -88,6 +135,8 @@ int main(int argc, char *argv[]) {
 //            std::cout << S << std::endl;
             
             previous_jobs.clear();
+            std::vector<BooleanVar<int>> allocation;
+            
             if(resource_alloc[i].size() == 1) {
                 // non-flexible task
                 auto dur{duration_mode[i][0]};
@@ -99,8 +148,7 @@ int main(int argc, char *argv[]) {
                 previous_jobs.push_back(t);
                 
             } else {
-                allocation.clear();
-                
+//                allocation.clear();
                 for(unsigned k{0}; k<resource_alloc[i].size(); ++k) {
                     allocation.push_back(S.newBoolean());
                     S.addToSearch(allocation.back());
@@ -110,15 +158,23 @@ int main(int argc, char *argv[]) {
                     
                     auto t{S.between(s, s+dur, allocation.back())};
                     
+                    
+//                    std::cout << " ---> " << t.id() << ": " << allocation.back() << " / " << t.exist << std::endl;
+                    
                     intervals.push_back(t);
                     resources[mach].push_back(t);
                     previous_jobs.push_back(t);
                 }
                 
-                S.post(AtMost(1,allocation));
+                
+//                S.post(BigOr(allocation));
+                S.post(AtMost(static_cast<int>(allocation.size()-1),allocation));
                 S.post(AtLeast(1,allocation));
+                
+                
             }
             
+            allocation_vars.push_back(allocation);
             
             if(j == nj-1) {
                 if(previous_jobs.size() == 1) {
@@ -161,8 +217,8 @@ int main(int argc, char *argv[]) {
   // search
   S.minimize(schedule.duration);
 
-//  if (opt.print_sol) {
-//    printJobs(S, intervals);
-//    printResources(S, intervals, resource_tasks, resource_transitions);
-//  }
+  if (opt.print_sol) {
+    printJobs(S, intervals);
+//    printResources(S, intervals, resource_alloc);
+  }
 }
