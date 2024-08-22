@@ -30,6 +30,7 @@ constexpr auto OutputsName = "outputs";
 constexpr auto LabelFileName = "task_network";
 constexpr auto LabelName = "label";
 constexpr auto InfoFileName = "info.json";
+constexpr auto GraphReferenceFile = "ref.json";
 
 template<tempo::concepts::scalar T>
 bool distanceSanityCheck(const tempo::Matrix<T> &distances) {
@@ -69,7 +70,6 @@ int main(int argc, char **argv) {
 
 
     const auto mainDir = fs::path(options.instance_file);
-    const auto problemsDir = mainDir / Serializer<>::SubProblemDir;
     options.instance_file = getInstance(options.instance_file);
     const auto inputsDir = fs::path(saveTo) / InputsName;
     const auto labelDir = fs::path(saveTo) / OutputsName;
@@ -89,14 +89,14 @@ int main(int argc, char **argv) {
     // Serialize solutions
     auto solutions = getSolutions(mainDir);
     std::vector<nlohmann::json> solutionsPayloads;
-    for (const auto &sol: solutions) {
+    for (const auto &[id, sol]: solutions) {
         auto [s, p, _] = loadSchedulingProblem(options);
         s->set(leq(p.schedule().duration.id(), sol.objective));
         loadBranch(*s, sol.decisions);
         auto taskDistances = p.getTaskDistances(*s);
         Matrix<int> network(p.tasks().size(), p.tasks().size(), taskDistances);
         if (not distanceSanityCheck(network)) {
-            std::cerr << "solution " << sol.id << " of problem '" << mainDir << "' has negative cycle" << std::endl;
+            std::cerr << "solution " << id << " of problem '" << mainDir << "' has negative cycle" << std::endl;
             std::exit(-1);
         }
 
@@ -108,19 +108,14 @@ int main(int argc, char **argv) {
     }
 
     // create input features
-    std::vector<std::tuple<nn::InputGraph, unsigned>> problemGraphs;
+    std::vector<std::tuple<nn::InputGraph, unsigned, unsigned>> problemGraphs;
     unsigned numDuplicates = 0;
-    for (const auto &file: fs::directory_iterator(problemsDir)) {
+    for (const auto &[subId, subProblem] : getProblems(mainDir)) {
         using std::views::elements;
-        if (not file.is_regular_file()) {
-            continue;
-        }
-
-        auto partial = serialization::deserializeFromFile<serialization::PartialProblem>(file);
         auto [s, p, _] = loadSchedulingProblem(options);
-        const auto &sol = solutions.at(partial.associatedSolution);
+        const auto &sol = solutions.at(subProblem.associatedSolution);
         s->set(leq(p.schedule().duration.id(), sol.objective));
-        loadBranch(*s, partial.decisions);
+        loadBranch(*s, subProblem.decisions);
         auto newGraph = builder.getGraph(nn::makeSolverState(p.getTaskDistances(*s), *s));
         bool equal = false;
         if (filterDuplicates) {
@@ -138,16 +133,20 @@ int main(int argc, char **argv) {
 
         numDuplicates += equal;
         if (not equal) {
-            problemGraphs.emplace_back(std::move(newGraph), partial.associatedSolution);
+            problemGraphs.emplace_back(std::move(newGraph), subProblem.associatedSolution, subId);
         }
     }
 
     std::cout << "filtered out " << numDuplicates << " duplicates" << std::endl;
     for (auto [id, g]: iterators::const_enumerate(problemGraphs)) {
-        const auto &[graph, solId] = g;
+        const auto &[graph, solId, subId] = g;
         const auto destination = inputsDir / (GraphName + std::to_string(id));
         fs::create_directories(destination);
+        nlohmann::json ref;
+        ref["subId"] = subId;
+        ref["solutionId"] = solId;
         nn::util::saveGraph(graph, destination);
+        serialization::serializeToFile(ref, destination / GraphReferenceFile);
         const auto &solPayload = solutionsPayloads.at(solId);
         if (solPayload.at("id").get<unsigned>() != solId) {
             std::cerr << "this should not happen. Maybe there are solution files missing?" << std::endl;
@@ -165,7 +164,7 @@ int main(int argc, char **argv) {
         serialization::serializeToFile(solPayload, destination / LabelFileName);
     }
 
-    auto bestSolution = opt.value_or(solutions.back().objective);
+    auto bestSolution = opt.value_or(solutions.rbegin()->second.objective);
     nlohmann::json meta;
     meta["bestSolutionKnown"] = bestSolution;
     meta["numSubProblems"] = problemGraphs.size();

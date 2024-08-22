@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <vector>
 #include <Iterators.hpp>
+#include <map>
 
 #include "util/traits.hpp"
 #include "util/SubscribableEvent.hpp"
@@ -271,18 +272,18 @@ namespace tempo {
     /**
      * Loads all solutions under problem directory
      * @param problemDir path to directory with data points
-     * @return vector with deserialized solutions sorted by their id
+     * @return map with deserialized solutions indexed by their ids
      * @throws std::runtime_error if solutions directory could not be found under given path
      */
-    auto getSolutions(const fs::path &problemDir) -> std::vector<serialization::Solution<int>>;
+    auto getSolutions(const fs::path &problemDir) -> std::map<unsigned int, serialization::Solution<int>>;
 
     /**
      * Loads all sub problems under problem directory
      * @param problemDir path to directory with data points
-     * @return vector with deserialized partial problems sorted by their id indicated in the file name
+     * @return map with deserialized problems indexed by their ids
      * @throws std::runtime_error if sub_problems directory could not be found under given path
      */
-    auto getProblems(const fs::path &problemDir) -> std::vector<serialization::PartialProblem>;
+    auto getProblems(const fs::path &problemDir) -> std::map<unsigned int, serialization::PartialProblem>;
 
     /**
      * @brief Datapoint load status
