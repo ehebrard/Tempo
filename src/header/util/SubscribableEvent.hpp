@@ -71,8 +71,8 @@ namespace tempo {
     namespace detail {
         template<typename T>
         class ActiveList {
-            std::vector<T> data;
-            std::size_t endIdx;
+            std::vector<T> data{};
+            std::size_t endIdx{0};
         public:
             ActiveList() = default;
 
