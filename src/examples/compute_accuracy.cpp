@@ -75,6 +75,185 @@ void build_model(Solver<> &S, Interval<> &schedule) {
   }
 }
 
+void read_branch(std::istream &in, 
+                 unsigned& branch_length,
+                 unsigned& num_wrong,
+                 std::vector<bool> &dsigns,
+                 std::vector<var_t> &dvars,
+                 std::vector<std::vector<bool>> &rsigns,
+                 std::vector<std::vector<var_t>> &rvars) {
+
+  dsigns.clear();
+  dvars.clear();
+  rsigns.clear();
+  rvars.clear();
+    bool end_on_righ_flag;
+
+    in >> end_on_righ_flag;
+  in >> branch_length;
+  unsigned wrongcount;
+  in >> wrongcount;
+    
+    num_wrong = wrongcount;
+
+//  std::cout << "branch_length = " << branch_length << std::endl;
+
+  int s;
+  int v;
+
+  for (auto i{0}; i < branch_length + end_on_righ_flag; ++i) {
+    rsigns.resize(rsigns.size() + 1);
+    rvars.resize(rvars.size() + 1);
+      
+//      std::cout << rsigns.size() << " " << rsigns.back().size() << std::endl;
+
+    int nwrong;
+    in >> nwrong;
+      wrongcount -= nwrong;
+    for (auto j{0}; j < nwrong; ++j) {
+      in >> s;
+      in >> v;
+      rsigns.back().push_back(s);
+      rvars.back().push_back(v);
+    }
+
+      if(i<branch_length) {
+          in >> s;
+          in >> v;
+          dsigns.push_back(s);
+          dvars.push_back(v);
+      }
+  }
+
+    if(wrongcount != 0) {
+        std::cout << "bug read branch\n";
+        exit(1);
+    }
+}
+
+//#define VERBOSE true
+
+bool satisfiable(Solver<>& S, Literal<int> constraint) {
+    try {
+        
+#ifdef VERBOSE
+        std::cout << " + " << constraint << std::endl;
+#endif
+        
+      S.post(constraint);
+    } catch (Failure<int> &f) {
+        
+#ifdef VERBOSE
+        std::cout << "direct failure\n" ;
+#endif
+        
+      return false;
+    }
+    
+    return (S.satisfiable() == TrueState);
+}
+
+
+
+
+
+int test_branches(Options &opt, const int makespan, std::vector<bool> &dsigns,
+                  std::vector<var_t> &dvars,
+                  std::vector<std::vector<bool>> &rsigns,
+                  std::vector<std::vector<var_t>> &rvars,
+                  const bool side) {
+
+  int num_irrelevant{0};
+    
+    bool end_on_right_branch{rsigns.size() > dsigns.size()};
+    
+    if(rsigns.size() < dsigns.size()) {
+        std::cout << "BUG!!\n";
+        exit(1);
+    }
+
+#ifdef VERBOSE
+  std::cout << "\ntest branch\n";
+#endif
+    
+  for (size_t i{0}; i < rsigns.size(); ++i) {
+    Solver<> S(opt);
+    
+      auto schedule{S.newInterval(0, makespan, 0, 0, 0, makespan)};
+      build_model(S, schedule);
+     
+#ifdef VERBOSE
+    std::cout << "up to level " << (i + 1) << std::endl;
+#endif
+      
+    for (size_t j{0}; j < i; ++j) {
+      // add the right branches
+        
+      for (size_t k{0}; k < rsigns[j].size(); ++k) {
+        auto constraint{S.boolean.getLiteral(rsigns[j][k], rvars[j][k])};
+
+#ifdef VERBOSE
+        std::cout << " - deduction " << constraint << std::endl;
+#endif
+          
+        S.set(constraint);
+      }
+
+      // add the left branch
+      auto constraint{S.boolean.getLiteral(dsigns[j], dvars[j])};
+
+#ifdef VERBOSE
+      std::cout << " - branch " << constraint << std::endl;
+#endif
+        
+      S.set(constraint);
+    }
+      
+    
+      auto n{rsigns[i].size()};
+      if(i == dsigns.size())
+          --n;
+      
+      // add the right branches
+      for (size_t k{0}; k < n; ++k) {
+        auto constraint{S.boolean.getLiteral(rsigns[i][k], rvars[i][k])};
+
+#ifdef VERBOSE
+        std::cout << " - deduction " << constraint << std::endl;
+#endif
+          
+        S.set(constraint);
+      }
+      
+      Literal<int> constraint;
+      
+      if(i == dsigns.size())
+          constraint = S.boolean.getLiteral(rsigns[i].back(), rvars[i].back());
+      else
+          constraint = S.boolean.getLiteral(dsigns[i], dvars[i]);
+
+      if(side == true) {
+          if(not satisfiable(S, constraint)) {
+              std::cout << "bug branch!!\n";
+              exit(1);
+          } 
+#ifdef VERBOSE
+          else {
+              std::cout << "OK\n";
+          }
+#endif
+      } else {
+          if(satisfiable(S, ~constraint)) {
+//              std::cout << "irrelevant\n";
+              ++num_irrelevant;
+          }
+      }
+      
+  }
+
+  return num_irrelevant;
+}
+
 boolean_state test_branch(Options &opt, const int makespan,
                           std::vector<bool> &signs, std::vector<var_t> &vars) {
 
@@ -112,12 +291,15 @@ int solve(Options& gopt, std::string& record_file) {
   opt.greedy_runs = 0;
   //    opt.instance_file = ifilename;
 
-  long unsigned int num_right_decisions{0};
+  long unsigned int num_correct_decisions{0};
   long unsigned int num_wrong_decisions{0};
   long unsigned int cp_in_wasted_restarts{0};
-  long unsigned int previous_num_cp{0};
+  long unsigned int previous_total_cp{0};
 
   std::vector<std::vector<Literal<int>>> right_branches;
+
+  std::stringstream buffer;
+
   std::ofstream outfile(record_file);
 
   Solver<> S(opt);
@@ -127,31 +309,61 @@ int solve(Options& gopt, std::string& record_file) {
 
   SubscriberHandle solutionHandler(
       S.SolutionFound.subscribe_handled([&](const auto &) {
-        num_right_decisions += S.numDecision();
+        num_correct_decisions += S.numDecision();
         unsigned long num_wrong{0};
         for (auto &branches : right_branches)
           num_wrong += branches.size();
         num_wrong_decisions += num_wrong;
-        outfile << S.numeric.lower(schedule.duration.id()) << " "
-                << S.num_choicepoints - cp_in_wasted_restarts << " "
-                << S.numDecision() << " " << num_wrong;
-        for (auto decision : S.getDecisions())
-          outfile << " " << decision.sign() << " " << decision.variable();
-        outfile << std::endl;
+        buffer << S.numeric.lower(schedule.duration) << " "
+               << S.num_choicepoints - cp_in_wasted_restarts << " "
+               << (right_branches.size() > S.numDecision()) << " "
+          << S.numDecision() << " "
+          << num_wrong;
+        for (unsigned i{0}; i < S.numDecision(); ++i) {
+          if (right_branches.size() > i) {
+            buffer << " " << right_branches[i].size();
+            for (auto l : right_branches[i]) {
+              buffer << " " << l.sign() << " " << l.variable();
+            }
+          } else {
+            buffer << " 0";
+          }
+          buffer << " " << S.getDecisions()[i].sign() << " "
+                 << S.getDecisions()[i].variable();
+        }
+          if(right_branches.size() > S.numDecision()) {
+//              
+//          std::cout << "HERE\n";
+//              exit(1);
+              
+              buffer << " " << right_branches.back().size();
+              for (auto l : right_branches.back()) {
+                buffer << " " << l.sign() << " " << l.variable();
+              }
+          }
+          
+        buffer << std::endl;
+        right_branches.clear();
       }));
 
-  SubscriberHandle failHandler(
+  SubscriberHandle failCLHandler(
       S.ClauseAdded.subscribe_handled([&](const auto &learnt_clause) {
         right_branches.resize(S.numDecision() + 1);
         right_branches.back().push_back(learnt_clause[0]);
       }));
 
+  SubscriberHandle failNOCLHandler(
+      S.DeductionMade.subscribe_handled([&](const auto &lit) {
+        right_branches.resize(S.numDecision());
+        right_branches.back().push_back(lit);
+      }));
+
   SubscriberHandle restartHandler(
       S.SearchRestarted.subscribe_handled([&](const auto on_solution) {
         if (on_solution) {
-          previous_num_cp = S.num_choicepoints;
+          previous_total_cp = S.num_choicepoints;
         } else {
-          cp_in_wasted_restarts += (S.num_choicepoints - previous_num_cp);
+          cp_in_wasted_restarts += (S.num_choicepoints - previous_total_cp);
         }
       }));
 
@@ -164,7 +376,11 @@ int solve(Options& gopt, std::string& record_file) {
 
   S.minimize(schedule.duration);
 
-  return S.numeric.lower(schedule.duration);
+  auto obj{S.numeric.lower(schedule.duration)};
+
+  outfile << obj << std::endl << buffer.str();
+
+  return obj;
 }
 
 void crunch_numbers(Options& opt, std::string& analyse_file) {
@@ -173,79 +389,204 @@ void crunch_numbers(Options& opt, std::string& analyse_file) {
 
   std::ifstream infile(analyse_file);
 
-  int makespan;
-  unsigned long num_cp;
+  int obj;
+  infile >> obj;
+
+  //    std::cout << "obj = " << obj << std::endl;
+
+  int prev_makespan;
+  int makespan{Constant::Infinity<int>};
+
   unsigned branch_length;
+
   unsigned num_wrong;
+  unsigned num_correct;
+  unsigned long num_cp;
+  unsigned irrelevant_correct;
+
+  unsigned total_correct{0};
+  unsigned total_wrong{0};
+  unsigned long total_cp{0};
+  unsigned total_irrelevant_correct{0};
+
   bool sign;
   var_t var;
-
-  unsigned total_right{0};
-  unsigned total_wrong{0};
-  unsigned total_irrelevant_sat{0};
 
   std::vector<var_t> vars;
   std::vector<bool> signs;
 
+  std::vector<bool> dsigns;
+  std::vector<var_t> dvars;
+  std::vector<std::vector<bool>> rsigns;
+  std::vector<std::vector<var_t>> rvars;
+
+  std::cout << "  obj."
+            << "      gap |"
+            << " branches"
+            << "  rel."
+            << "   #U"
+            << "  size"
+            << "   acc. |"
+            << " branches(c)"
+            << "  rel.(c)"
+            << "   #U(c)"
+            << "  size(c)"
+            << "   acc.(c)\n";
+
+    int branch_i{0};
   while (true) {
 
-    unsigned irrelevant{0};
+    num_cp = total_cp;
+    prev_makespan = makespan;
 
     infile >> makespan;
-    infile >> num_cp;
+    infile >> total_cp;
+
+    num_cp = total_cp - num_cp;
 
     if (not infile.good())
       break;
+      
+    read_branch(infile, branch_length, num_wrong, dsigns, dvars, rsigns, rvars);
+      
+    irrelevant_correct =
+        test_branches(opt, prev_makespan - 1, dsigns, dvars, rsigns, rvars, false);
 
-    infile >> branch_length;
-    infile >> num_wrong;
+      num_correct = (branch_length - irrelevant_correct);
+      total_correct += num_correct;
+      total_wrong += num_wrong;
+      
+    
+          total_irrelevant_correct += irrelevant_correct;
+      
+          std::cout << std::setw(6) << makespan << std::setw(9)
+                    << std::setprecision(3)
+                    << (static_cast<double>(makespan - obj) /
+                        static_cast<double>(obj))
+                    << "  " << std::setw(9) << num_cp << std::setw(6)
+                    << (num_correct + num_wrong) << std::setw(5) << num_wrong;
+          if (num_wrong == 0)
+            std::cout << "   n/a";
+          else
+            std::cout << std::setw(6)
+                      << ((num_cp - num_correct - irrelevant_correct) / num_wrong);
+      
+          if ((num_correct + num_wrong) == 0)
+            std::cout << "    n/a";
+          else
+            std::cout << std::setw(7) << std::setprecision(4)
+                      << static_cast<double>(num_correct) /
+                             static_cast<double>(num_correct + num_wrong);
+      
+          std::cout << "  " << std::setw(12) << total_cp << std::setw(9)
+                    << total_correct + total_wrong << std::setw(8) << total_wrong;
+      
+          if (total_wrong == 0)
+            std::cout << "      n/a";
+          else
+            std::cout << std::setw(9)
+                      << ((total_cp - total_correct - total_irrelevant_correct) /
+                          total_wrong);
+          if ((total_correct + total_wrong) == 0)
+            std::cout << "       n/a";
+          else
+            std::cout << std::setw(10) << std::setprecision(7)
+                      << static_cast<double>(total_correct) /
+                             static_cast<double>(total_correct + total_wrong);
+          std::cout << std::endl;
+      
 
-    if (v >= tempo::Options::YACKING) {
-      std::cout << branch_length;
-      std::cout.flush();
-    }
+//     std::cout << makespan << " " << num_correct << "/" << (num_correct + num_wrong)
+//      << " | " << total_correct << "/" << (total_correct + total_wrong);
+//      if(total_correct + total_wrong > 0) {
+//          std::cout << " " << static_cast<double>(total_correct)/static_cast<double>(total_correct + total_wrong);
+//      } else {
+//          std::cout << "n/a";
+//      }
+//      std::cout << std::endl;
+      
+      
+      
+//
+//    exit(1);
+//
 
-    for (unsigned i{0}; i < branch_length; ++i) {
-      infile >> sign;
-      infile >> var;
-
-      signs.push_back(sign);
-      vars.push_back(var);
-
-      auto sat{test_branch(opt, makespan, signs, vars)};
-
-      if (v >= tempo::Options::YACKING) {
-        std::cout << ".";
-        std::cout.flush();
-      }
-
-      if (sat == TrueState) {
-        ++irrelevant;
-      }
-    }
-
-    if (v >= tempo::Options::YACKING) {
-      std::cout << std::endl;
-    }
-
-    total_wrong += num_wrong;
-    total_right += (branch_length - irrelevant);
-    total_irrelevant_sat += irrelevant;
-
-    std::cout << "obj = " << makespan
-              << " relevant = " << total_right + total_wrong << "/" << num_cp
-              << " " << total_wrong << " unsat trees of avg size "
-              << (num_cp - total_right - total_irrelevant_sat) / total_wrong
-              << " accuracy = ";
-    if (total_right + total_wrong == 0)
-      std::cout << "n/a";
-    else
-      std::cout << static_cast<double>(total_right) /
-                       static_cast<double>(total_right + total_wrong);
-    std::cout << std::endl;
-
-    vars.clear();
-    signs.clear();
+//
+//    if (v >= tempo::Options::YACKING) {
+//      std::cout << branch_length;
+//      std::cout.flush();
+//    }
+//
+//    irrelevant_correct = 0;
+//    for (unsigned i{0}; i < branch_length; ++i) {
+//
+//      infile >> sign;
+//      infile >> var;
+//
+//      signs.push_back(sign);
+//      vars.push_back(var);
+//
+//      auto sat{test_branch(opt, prev_makespan - 1, signs, vars)};
+//      //        auto sat{test_branch(opt, makespan, signs, vars)};
+//
+//      if (v >= tempo::Options::YACKING) {
+//        std::cout << ".";
+//        std::cout.flush();
+//      }
+//
+//      if (sat == TrueState) {
+//        ++irrelevant_correct;
+//      }
+//    }
+//
+//    if (v >= tempo::Options::YACKING) {
+//      std::cout << std::endl;
+//    }
+//
+//    num_correct = (branch_length - irrelevant_correct);
+//
+//    total_wrong += num_wrong;
+//    total_correct += num_correct;
+//    total_irrelevant_correct += irrelevant_correct;
+//
+//    std::cout << std::setw(6) << makespan << std::setw(9)
+//              << std::setprecision(3)
+//              << (static_cast<double>(makespan - obj) /
+//                  static_cast<double>(obj))
+//              << "  " << std::setw(9) << num_cp << std::setw(6)
+//              << (num_correct + num_wrong) << std::setw(5) << num_wrong;
+//    if (num_wrong == 0)
+//      std::cout << "   n/a";
+//    else
+//      std::cout << std::setw(6)
+//                << ((num_cp - num_correct - irrelevant_correct) / num_wrong);
+//
+//    if ((num_correct + num_wrong) == 0)
+//      std::cout << "    n/a";
+//    else
+//      std::cout << std::setw(7) << std::setprecision(4)
+//                << static_cast<double>(num_correct) /
+//                       static_cast<double>(num_correct + num_wrong);
+//
+//    std::cout << "  " << std::setw(12) << total_cp << std::setw(9)
+//              << total_correct + total_wrong << std::setw(8) << total_wrong;
+//
+//    if (total_wrong == 0)
+//      std::cout << "      n/a";
+//    else
+//      std::cout << std::setw(9)
+//                << ((total_cp - total_correct - total_irrelevant_correct) /
+//                    total_wrong);
+//    if ((total_correct + total_wrong) == 0)
+//      std::cout << "       n/a";
+//    else
+//      std::cout << std::setw(10) << std::setprecision(7)
+//                << static_cast<double>(total_correct) /
+//                       static_cast<double>(total_correct + total_wrong);
+//    std::cout << std::endl;
+//
+//    vars.clear();
+//    signs.clear();
   }
 
   opt.verbosity = v;

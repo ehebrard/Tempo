@@ -355,6 +355,8 @@ public:
     mutable SubscribableEvent<Literal<T>> ChoicePoint; ///< triggered on choicepoints
     mutable SubscribableEvent<const std::vector<Literal<T>> &>
     ClauseAdded; ///< triggered when a new clause is learned
+    mutable SubscribableEvent<Literal<T>>
+        DeductionMade; ///< triggered when branching right
     mutable SubscribableEvent<Explanation<T> &>
     ConflictEncountered; ///< triggered when a conflict is encountered
     mutable SubscribableEvent<> BackTrackCompleted; ///< triggered after a successful backtrack
@@ -2289,6 +2291,7 @@ template <typename T> void Solver<T>::branchRight() {
 
     auto deduction{~decisions.back()};
 
+    DeductionMade.trigger(deduction);
 
     restoreState(env.level() - 1);
     decisions.pop_back();
@@ -2331,6 +2334,9 @@ template <typename T> boolean_state Solver<T>::satisfiable() {
     if (satisfiability == TrueState) {
       boolean.saveSolution();
       numeric.saveSolution();
+        
+        ++num_solutions;
+        SolutionFound.trigger(*this);
     }
     if(options.verbosity >= Options::QUIET)
       displaySummary(
@@ -2462,6 +2468,8 @@ void Solver<T>::optimize(S &objective) {
       //        objective.apply(best, *this);
       boolean.saveSolution();
       numeric.saveSolution();
+        ++num_solutions;
+        SolutionFound.trigger(*this);
       restart(true);
       try {
         objective.setPrimal(best, *this);
@@ -2541,10 +2549,6 @@ template <typename T> boolean_state Solver<T>::search() {
       // all resource constraints are accounted for => a solution has been found
       if (boolean_search_vars.empty() /* and numeric_search_vars.empty()*/) {
         satisfiability = TrueState;
-
-        ++num_solutions;
-        SolutionFound.trigger(*this);
-
 
 #ifdef DBG_TRACE
         if (DBG_BOUND) {
