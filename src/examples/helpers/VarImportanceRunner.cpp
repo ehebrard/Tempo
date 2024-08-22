@@ -33,7 +33,7 @@ VarImportanceRunner::VarImportanceRunner(ser::PartialProblem partialProblem, tem
         }
     }
 
-    literalCache = decltype(literalCache)(maxVar * 2 + 2, false);
+    literalCache.resize(maxVar * 2 + 2, false);
     for (const auto &[var, val] : optSol.decisions) {
         if (val and var <= maxVar) {
             auto lit = s->boolean.getLiteral(val, var);
@@ -47,10 +47,18 @@ auto VarImportanceRunner::getLiterals() const noexcept -> const std::vector<temp
 }
 
 double VarImportanceRunner::averageSearchEffort() const noexcept {
+    if (searchLiterals.empty()) {
+        return 0;
+    }
+
     return averageNumberOfDecisions() / static_cast<double>(searchLiterals.size());
 }
 
 double VarImportanceRunner::averageNumberOfDecisions() const noexcept {
+    if (totalNumDecisions == 0 and numSearches == 0) {
+        return 0;
+    }
+
     return static_cast<double>(totalNumDecisions) / numSearches;
 }
 

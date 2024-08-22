@@ -33,7 +33,7 @@ namespace tempo {
         /**
          * Manually unregister the associated event handler
          */
-        void unregister();
+        void unregister() noexcept;
 
         /**
          * DTor. Automatically unregisters the associated event handler if not already disposed.
@@ -92,13 +92,13 @@ namespace tempo {
 
             ~ActiveList() = default;
 
-            void swap(ActiveList &other) {
+            void swap(ActiveList &other) noexcept {
                 using std::swap;
                 swap(data, other.data);
                 swap(endIdx, other.endIdx);
             }
 
-            void markInactive(std::vector<T>::iterator elem) {
+            void markInactive(std::vector<T>::iterator elem) noexcept(std::is_nothrow_swappable_v<T>) {
                 if (empty()) {
                     return;
                 }
@@ -114,11 +114,11 @@ namespace tempo {
                 }
             }
 
-            auto begin() const {
+            auto begin() const noexcept {
                 return data.begin();
             }
 
-            auto begin() {
+            auto begin() noexcept {
                 return data.begin();
             }
 

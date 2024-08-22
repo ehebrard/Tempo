@@ -137,11 +137,15 @@ int main(int argc, char **argv) {
                 std::to_string(f) + " <-> " + std::to_string(t) + "=" + std::to_string(quality));
     }
 
+    auto unimportant = static_cast<double>(numIndifferent) / numDecisions;
+    auto decided = static_cast<double>(numDecided) / numEdges;
+    if (std::isnan(unimportant)) { unimportant = 0; }
+    if (std::isnan(decided)) { decided = 1; }
     nlohmann::json json;
     JSONIFY(json, varImportance);
     JSONIFY(json, taskEdgeImportance);
-    json["unimportant"] = static_cast<double>(numIndifferent) / numDecisions;
-    json["decided"] = static_cast<double>(numDecided) / numEdges;
+    JSONIFY(json, unimportant);
+    JSONIFY(json, decided);
     json["searchEffort"] = runner.averageSearchEffort();
     json["avgDecisions"] = runner.averageNumberOfDecisions();
     json["date"] = shell::getTimeStamp();
