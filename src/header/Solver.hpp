@@ -1322,14 +1322,14 @@ Solver<T>::Solver()
   seed(options.seed);
 }
 
-template <typename T>
-Solver<T>::~Solver() {
-//  std::cout << "delete solver (" << trash_bin.size() << ")\n";
+template <typename T> Solver<T>::~Solver() {
   for (auto exp : trash_bin) {
-//      std::cout << exp << std::endl;
-//      std::cout << "here\n";
-//    std::cout << "delete " << exp->name() << std::endl;
-            delete exp;
+    delete exp;
+  }
+
+  for (auto c : constraints) {
+    if (c != &clauses)
+      delete c;
   }
 }
 

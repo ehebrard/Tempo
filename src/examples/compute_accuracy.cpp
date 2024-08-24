@@ -101,7 +101,7 @@ void read_branch(std::istream &in,
   int s;
   int v;
 
-  for (auto i{0}; i < branch_length + end_on_righ_flag; ++i) {
+  for (unsigned i{0}; i < branch_length + end_on_righ_flag; ++i) {
     rsigns.resize(rsigns.size() + 1);
     rvars.resize(rvars.size() + 1);
       
@@ -164,12 +164,12 @@ int test_branches(Options &opt, const int makespan, std::vector<bool> &dsigns,
                   const bool side) {
 
   int num_irrelevant{0};
-    
-    bool end_on_right_branch{rsigns.size() > dsigns.size()};
-    
-    if(rsigns.size() < dsigns.size()) {
-        std::cout << "BUG!!\n";
-        exit(1);
+
+  //    bool end_on_right_branch{rsigns.size() > dsigns.size()};
+
+  if (rsigns.size() < dsigns.size()) {
+    std::cout << "BUG!!\n";
+    exit(1);
     }
 
 #ifdef VERBOSE
@@ -394,6 +394,7 @@ void crunch_numbers(Options& opt, std::string& analyse_file) {
 
   //    std::cout << "obj = " << obj << std::endl;
 
+  unsigned long prev_cp;
   int prev_makespan;
   int makespan{Constant::Infinity<int>};
 
@@ -407,10 +408,12 @@ void crunch_numbers(Options& opt, std::string& analyse_file) {
   unsigned total_correct{0};
   unsigned total_wrong{0};
   unsigned long total_cp{0};
-  unsigned total_irrelevant_correct{0};
+  //    unsigned total_irrelevant_correct{0};
 
-  bool sign;
-  var_t var;
+  unsigned total_branches{0};
+
+  //  bool sign;
+  //  var_t var;
 
   std::vector<var_t> vars;
   std::vector<bool> signs;
@@ -433,160 +436,65 @@ void crunch_numbers(Options& opt, std::string& analyse_file) {
             << "  size(c)"
             << "   acc.(c)\n";
 
-    int branch_i{0};
+  //    int branch_i{0};
   while (true) {
 
-    num_cp = total_cp;
+    prev_cp = total_cp;
     prev_makespan = makespan;
 
     infile >> makespan;
     infile >> total_cp;
 
-    num_cp = total_cp - num_cp;
+    num_cp = total_cp - prev_cp;
 
     if (not infile.good())
       break;
-      
+
     read_branch(infile, branch_length, num_wrong, dsigns, dvars, rsigns, rvars);
-      
-    irrelevant_correct =
-        test_branches(opt, prev_makespan - 1, dsigns, dvars, rsigns, rvars, false);
 
-      num_correct = (branch_length - irrelevant_correct);
-      total_correct += num_correct;
-      total_wrong += num_wrong;
-      
-    
-          total_irrelevant_correct += irrelevant_correct;
-      
-          std::cout << std::setw(6) << makespan << std::setw(9)
-                    << std::setprecision(3)
-                    << (static_cast<double>(makespan - obj) /
-                        static_cast<double>(obj))
-                    << "  " << std::setw(9) << num_cp << std::setw(6)
-                    << (num_correct + num_wrong) << std::setw(5) << num_wrong;
-          if (num_wrong == 0)
-            std::cout << "   n/a";
-          else
-            std::cout << std::setw(6)
-                      << ((num_cp - num_correct - irrelevant_correct) / num_wrong);
-      
-          if ((num_correct + num_wrong) == 0)
-            std::cout << "    n/a";
-          else
-            std::cout << std::setw(7) << std::setprecision(4)
-                      << static_cast<double>(num_correct) /
-                             static_cast<double>(num_correct + num_wrong);
-      
-          std::cout << "  " << std::setw(12) << total_cp << std::setw(9)
-                    << total_correct + total_wrong << std::setw(8) << total_wrong;
-      
-          if (total_wrong == 0)
-            std::cout << "      n/a";
-          else
-            std::cout << std::setw(9)
-                      << ((total_cp - total_correct - total_irrelevant_correct) /
-                          total_wrong);
-          if ((total_correct + total_wrong) == 0)
-            std::cout << "       n/a";
-          else
-            std::cout << std::setw(10) << std::setprecision(7)
-                      << static_cast<double>(total_correct) /
-                             static_cast<double>(total_correct + total_wrong);
-          std::cout << std::endl;
-      
+    irrelevant_correct = test_branches(opt, prev_makespan - 1, dsigns, dvars,
+                                       rsigns, rvars, false);
 
-//     std::cout << makespan << " " << num_correct << "/" << (num_correct + num_wrong)
-//      << " | " << total_correct << "/" << (total_correct + total_wrong);
-//      if(total_correct + total_wrong > 0) {
-//          std::cout << " " << static_cast<double>(total_correct)/static_cast<double>(total_correct + total_wrong);
-//      } else {
-//          std::cout << "n/a";
-//      }
-//      std::cout << std::endl;
-      
-      
-      
-//
-//    exit(1);
-//
+    num_correct = (branch_length - irrelevant_correct);
+    total_correct += num_correct;
+    total_wrong += num_wrong;
 
-//
-//    if (v >= tempo::Options::YACKING) {
-//      std::cout << branch_length;
-//      std::cout.flush();
-//    }
-//
-//    irrelevant_correct = 0;
-//    for (unsigned i{0}; i < branch_length; ++i) {
-//
-//      infile >> sign;
-//      infile >> var;
-//
-//      signs.push_back(sign);
-//      vars.push_back(var);
-//
-//      auto sat{test_branch(opt, prev_makespan - 1, signs, vars)};
-//      //        auto sat{test_branch(opt, makespan, signs, vars)};
-//
-//      if (v >= tempo::Options::YACKING) {
-//        std::cout << ".";
-//        std::cout.flush();
-//      }
-//
-//      if (sat == TrueState) {
-//        ++irrelevant_correct;
-//      }
-//    }
-//
-//    if (v >= tempo::Options::YACKING) {
-//      std::cout << std::endl;
-//    }
-//
-//    num_correct = (branch_length - irrelevant_correct);
-//
-//    total_wrong += num_wrong;
-//    total_correct += num_correct;
-//    total_irrelevant_correct += irrelevant_correct;
-//
-//    std::cout << std::setw(6) << makespan << std::setw(9)
-//              << std::setprecision(3)
-//              << (static_cast<double>(makespan - obj) /
-//                  static_cast<double>(obj))
-//              << "  " << std::setw(9) << num_cp << std::setw(6)
-//              << (num_correct + num_wrong) << std::setw(5) << num_wrong;
-//    if (num_wrong == 0)
-//      std::cout << "   n/a";
-//    else
-//      std::cout << std::setw(6)
-//                << ((num_cp - num_correct - irrelevant_correct) / num_wrong);
-//
-//    if ((num_correct + num_wrong) == 0)
-//      std::cout << "    n/a";
-//    else
-//      std::cout << std::setw(7) << std::setprecision(4)
-//                << static_cast<double>(num_correct) /
-//                       static_cast<double>(num_correct + num_wrong);
-//
-//    std::cout << "  " << std::setw(12) << total_cp << std::setw(9)
-//              << total_correct + total_wrong << std::setw(8) << total_wrong;
-//
-//    if (total_wrong == 0)
-//      std::cout << "      n/a";
-//    else
-//      std::cout << std::setw(9)
-//                << ((total_cp - total_correct - total_irrelevant_correct) /
-//                    total_wrong);
-//    if ((total_correct + total_wrong) == 0)
-//      std::cout << "       n/a";
-//    else
-//      std::cout << std::setw(10) << std::setprecision(7)
-//                << static_cast<double>(total_correct) /
-//                       static_cast<double>(total_correct + total_wrong);
-//    std::cout << std::endl;
-//
-//    vars.clear();
-//    signs.clear();
+    total_branches += branch_length;
+
+    //        total_irrelevant_correct += irrelevant_correct;
+
+    std::cout << std::setw(6) << makespan << std::setw(9)
+              << std::setprecision(3)
+              << (static_cast<double>(makespan - obj) /
+                  static_cast<double>(obj))
+              << "  " << std::setw(9) << num_cp << std::setw(6)
+              << (num_correct + num_wrong) << std::setw(5) << num_wrong;
+    if (num_wrong == 0)
+      std::cout << "   n/a";
+    else
+      std::cout << std::setw(6) << ((num_cp - branch_length) / num_wrong);
+
+    if ((num_correct + num_wrong) == 0)
+      std::cout << "    n/a";
+    else
+      std::cout << std::setw(7) << std::setprecision(4)
+                << static_cast<double>(num_correct) /
+                       static_cast<double>(num_correct + num_wrong);
+
+    std::cout << "  " << std::setw(12) << total_cp << std::setw(9)
+              << total_correct + total_wrong << std::setw(8) << total_wrong;
+
+    if (total_wrong == 0)
+      std::cout << "      n/a";
+    else
+      std::cout << std::setw(9) << ((total_cp - total_branches) / total_wrong);
+    if ((total_correct + total_wrong) == 0)
+      std::cout << "       n/a";
+    else
+      std::cout << std::setw(10) << std::setprecision(7)
+                << static_cast<double>(total_correct) /
+                       static_cast<double>(total_correct + total_wrong);
+    std::cout << std::endl;
   }
 
   opt.verbosity = v;
