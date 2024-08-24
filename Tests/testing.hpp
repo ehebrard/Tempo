@@ -11,12 +11,15 @@
 #include <concepts>
 #include <utility>
 #include <tuple>
+#include <vector>
 
 #include "util/Matrix.hpp"
 #include "util/serialization.hpp"
 #include "Global.hpp"
 #include "util/SchedulingProblemHelper.hpp"
 #include "Model.hpp"
+#include "Literal.hpp"
+#include "DistanceConstraint.hpp"
 
 namespace tempo::testing {
     struct TestData {
@@ -97,6 +100,32 @@ namespace tempo::testing {
         static std::default_random_engine el(rd());
         std::uniform_real_distribution<T> dist(min, max);
         return dist(el);
+    }
+
+    namespace heuristics {
+        struct LitProvider {
+            struct Storage {
+                explicit Storage(Literal<int> lit);
+
+                Literal<int> lit;
+                std::vector<bool> solution{};
+
+                [[nodiscard]] auto getLiteral(bool sign, var_t) const -> Literal<int>;
+
+                [[nodiscard]] auto getEdge(bool sign, tempo::var_t x) const -> DistanceConstraint<int>;
+
+                [[nodiscard]] bool hasSemantic(tempo::var_t) const;
+
+                [[nodiscard]] bool hasSolution() const;
+
+                [[nodiscard]] auto bestSolution() const -> const std::vector<bool> &;
+            };
+
+            Storage boolean;
+            BoundProvider numeric;
+
+            explicit LitProvider(Literal<int> lit, std::vector<int> upper = {}, std::vector<int> lower = {});
+        };
     }
 }
 

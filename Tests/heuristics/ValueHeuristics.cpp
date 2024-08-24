@@ -13,6 +13,7 @@
 #include "util/serialization.hpp"
 #include "util/traits.hpp"
 #include "Solver.hpp"
+#include "testing.hpp"
 
 struct TestValueHeuristic
         : public tempo::heuristics::BaseBooleanHeuristic<TestValueHeuristic> {
@@ -41,51 +42,9 @@ struct TestBaseHeuristic {
     }
 };
 
-struct LitProvider {
-    struct Storage {
-        explicit Storage(tempo::Literal<int> lit) : lit(lit) {}
-
-        tempo::Literal<int> lit;
-        std::vector<bool> solution{};
-
-        auto getLiteral(bool sign, tempo::var_t) const { return sign ? lit : ~lit; }
-
-        auto getEdge(bool sign, tempo::var_t x) const -> tempo::DistanceConstraint<int> {
-            return sign ? tempo::DistanceConstraint{x, lit.semantic(), 0} :
-                   tempo::DistanceConstraint{lit.semantic(), x, 0};
-        }
-
-        bool hasSemantic(tempo::var_t) const {
-            return lit.hasSemantic();
-        }
-
-        bool hasSolution() const {
-            return not solution.empty();
-        }
-
-        const auto &bestSolution() const {
-            return solution;
-        }
-    };
-
-    struct Numeric {
-        int upper(tempo::var_t x) const {
-            return static_cast<int>(x);
-        }
-
-        int lower(tempo::var_t x) const {
-            return -static_cast<int>(x / 2);
-        }
-    };
-
-    Storage boolean;
-    Numeric numeric{};
-
-    explicit LitProvider(tempo::Literal<int> lit) : boolean(lit) {}
-};
-
 TEST(value_heuristics, base_value_heuristic) {
     using namespace tempo;
+    using tempo::testing::heuristics::LitProvider;
     using enum tempo::heuristics::VariableType;
     TestValueHeuristic h(0);
     auto lit = makeBooleanLiteral<int>(true, 0, 0);
@@ -101,19 +60,20 @@ TEST(value_heuristics, base_value_heuristic) {
 TEST(value_heuristics, TightestValue) {
     using namespace tempo;
     using namespace tempo::heuristics;
+    using tempo::testing::heuristics::LitProvider;
     EXPECT_TRUE((value_heuristic<TightestValue, Solver<int>>));
-    auto lit = makeBooleanLiteral<int>(true, 0, 4);
-    LitProvider provider(lit);
-    EXPECT_EQ(TightestValue::choose(5, provider), lit);
-    lit = makeBooleanLiteral<int>(true, 0, 4);
-    provider = LitProvider{lit};
-    EXPECT_EQ(TightestValue::choose(2, provider), ~lit);
+    auto lit = makeBooleanLiteral<int>(true, 0, 1);
+    LitProvider provider(lit, {7, 5}, {3, 4});
+    EXPECT_EQ(TightestValue::choose(0, provider), lit);
+    provider = LitProvider(lit, {7, 8}, {3, 4});
+    EXPECT_EQ(TightestValue::choose(0, provider), ~lit);
 }
 
 
 TEST(value_heuristics, SolutionGuided) {
     using namespace tempo;
     using namespace tempo::heuristics;
+    using tempo::testing::heuristics::LitProvider;
     bool called = false;
     const auto baseResponse = makeBooleanLiteral<int>(true, 24, 19);
     SolutionGuided<TestBaseHeuristic> h(0, called, baseResponse);
@@ -136,6 +96,7 @@ TEST(value_heuristics, SolutionGuided) {
 TEST(value_heuristics, oracle) {
     using namespace tempo;
     using namespace tempo::heuristics;
+    using tempo::testing::heuristics::LitProvider;
     const serialization::Solution solution(0, 0, {{0, true}, {1, true}, {2, false}, {3, true}, {4, false}});
     PerfectValueHeuristic oracle(0, solution);
     const auto lit = makeBooleanLiteral<int>(true, 0, 0);
@@ -148,6 +109,7 @@ TEST(value_heuristics, oracle) {
 TEST(value_heuristics, oracle_determinism) {
     using namespace tempo;
     using namespace tempo::heuristics;
+    using tempo::testing::heuristics::LitProvider;
     const serialization::Solution solution(0, 0, {{0, true}, {1, true}, {2, false}, {3, true}, {4, false}});
     const auto lit = makeBooleanLiteral<int>(true, 0, 0);
     LitProvider provider(lit);
@@ -169,6 +131,7 @@ TEST(value_heuristics, oracle_determinism) {
 TEST(value_heuristics, oracle_polarity_oob) {
     using namespace tempo;
     using namespace tempo::heuristics;
+    using tempo::testing::heuristics::LitProvider;
     const serialization::Solution solution(0, 0, {{0, true}});
     PerfectValueHeuristic oracle(0, solution);
     const auto lit = makeBooleanLiteral<int>(true, 0, 0);
