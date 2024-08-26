@@ -77,7 +77,7 @@ using hint = int;
 //#define DBG_FTRANS true //m_solver.num_choicepoints >= 900
 //#define DBG_BELLMAN_FT true
 //#define DBG_EXPL_FTRANS true
-#define DBG_SEF (this->id() == 369)
+//#define DBG_SEF false //(this->id() == 321)
 //#define DBG_EXTRACT true
 
 // priority values for constraint propagation

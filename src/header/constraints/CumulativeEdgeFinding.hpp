@@ -88,8 +88,11 @@ private:
     std::vector<std::vector<int>> triggers;
 
     int level;
-    //    SubscriberHandle backtrackToken;
-    //    SubscriberHandle restartToken;
+    SubscriberHandle restartToken;
+    SubscriberHandle backtrackToken;
+    
+    
+    void initialiseProfile();
 
   public:
     static int est_flag;
@@ -192,16 +195,31 @@ CumulativeEdgeFinding<T>::CumulativeEdgeFinding(
     const ItTask beg_task, const ItTask end_task, const ItNVar beg_dem,
     const ItBVar beg_disj)
     : m_solver(solver)
-//, restartToken(solver.SearchRestarted.subscribe_handled(
-//                                                                              [this](const bool) {
-//                                                                                  //this->initialiseProfile();
-//                                                                                  std::cout << "restart\n";
-//                                                                              })),
-//      backtrackToken(solver.SearchRestarted.subscribe_handled([this]() {
-//        if (level > m_solver.level())
-//          //this->initialiseProfile();
-//            std::cout << "backtrack\n";
-//      }))
+ , restartToken(m_solver.SearchRestarted.subscribe_handled(
+                            [this](const bool) {
+#ifdef DBG_SEF
+                                if (DBG_SEF) {
+                                    std::cout << "signal restart, re-init profile\n";
+                                }
+#endif
+                                initialiseProfile(); }))
+      , backtrackToken(m_solver.BackTrackCompleted.subscribe_handled([this]() {
+#ifdef DBG_SEF
+          if (DBG_SEF) {
+              std::cout << "signal backtrack " << m_solver.level() << "/" << level << "\n";
+          }
+#endif
+          if (level >= m_solver.level()) {
+#ifdef DBG_SEF
+              if (DBG_SEF) {
+                  std::cout << "backtrack over level " << level << ", re-init profile\n";
+                  //              level = m_solver.level();
+              }
+#endif
+              initialiseProfile();
+          }
+      })) 
+
 {
 
   level = -1;
@@ -276,10 +294,25 @@ CumulativeEdgeFinding<T>::CumulativeEdgeFinding(
 
   profile.add_after(*event_ordering.rbegin(), sentinel);
 
-  std::cout << profile << std::endl;
+//  std::cout << profile << std::endl;
 }
 
 template <typename T> CumulativeEdgeFinding<T>::~CumulativeEdgeFinding() {}
+
+template <typename T> void CumulativeEdgeFinding<T>::initialiseProfile() {
+    
+#ifdef DBG_SEF
+    if (DBG_SEF) {
+        std::cout << "re-init profile @lvl=" << m_solver.level() << std::endl;
+    }
+#endif
+    
+    for (unsigned i{0}; i < the_tasks.size(); ++i) {
+      profile[est_[i]].time = est(i);
+      profile[ect_[i]].time = ect(i);
+      profile[lct_[i]].time = lct(i);
+    }
+}
 
 template <typename T> void CumulativeEdgeFinding<T>::post(const int idx) {
 
@@ -324,32 +357,21 @@ bool CumulativeEdgeFinding<T>::notify(const Literal<T> l, const int r) {
 
 #ifdef DBG_SEF
 if (DBG_SEF) {
-  std::cout << "\nnotify (" << this->id() << ") " << m_solver.pretty(l) << " "
-            << level << "/" << m_solver.level() << std::endl;
-
-  std::cout << "hello " << prettyTask(1) << " " << profile[est_[1]].time << ".."
-            << profile[lct_[1]].time << std::endl;
+  std::cout << "\nnotify (" << this->id() << ") " << m_solver.pretty(l) << " @lvl="
+            << m_solver.level() << "/" << level << std::endl;
 }
 #endif
 
-if (level > m_solver.level()) {
-
-  for (unsigned i{0}; i < the_tasks.size(); ++i) {
-    profile[est_[i]].time = est(i);
-    profile[ect_[i]].time = ect(i);
-    profile[lct_[i]].time = lct(i);
-  }
-
-#ifdef DBG_SEF
-  if (DBG_SEF) {
-    std::cout << "backtrack, re-initializing\n";
-  }
-#endif
-
-  return true;
-}
-
-level = m_solver.level();
+//if (level > m_solver.level()) {
+//
+//#ifdef DBG_SEF
+//  if (DBG_SEF) {
+//    std::cout << "backtrack, re-initializing\n";
+//  }
+//#endif
+//
+//  return true;
+//}
 
 #ifdef DBG_SEF
 
@@ -375,6 +397,8 @@ for (unsigned i{0}; i < the_tasks.size(); ++i) {
 }
 
 #endif
+    
+    level = m_solver.level();
     
     for(auto t : triggers[r]) {
         auto flag{t%4};
@@ -529,8 +553,6 @@ for (unsigned i{0}; i < the_tasks.size(); ++i) {
         std::cout << " " << e.index << ":" << e->time;
       }
       std::cout << std::endl;
-      std::cout << "hello " << prettyTask(1) << " " << profile[est_[1]].time
-                << ".." << profile[lct_[1]].time << std::endl;
     }
 
     for (unsigned i{0}; i < the_tasks.size(); ++i) {
@@ -558,6 +580,8 @@ for (unsigned i{0}; i < the_tasks.size(); ++i) {
 
 
 template <typename T> void CumulativeEdgeFinding<T>::propagate() {
+    
+//    level = m_solver.level();
 
 #ifdef DBG_SEF
   if (DBG_SEF) {

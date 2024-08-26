@@ -1328,8 +1328,10 @@ template <typename T> Solver<T>::~Solver() {
   }
 
   for (auto c : constraints) {
-    if (c != &clauses)
+    if (c != &clauses) {
+      //          std::cout << "delete " << *c << std::endl;
       delete c;
+    }
   }
 }
 
@@ -1412,12 +1414,10 @@ BooleanVar<T> Solver<T>::newDisjunct(const DistanceConstraint<T> &d1,
   clauses.newBooleanVar(x.id());
   boolean_constraints.resize(std::max(numConstraint(), 2 * boolean.size()));
 
-//  if (d1 != DistanceConstraint<T>::none)
-    if (d1 != Constant::NoEdge<T>)
+  if (d1 != Constant::NoEdge<T>)
     post(new EdgeConstraint<T>(*this, boolean.getLiteral(true, x.id())));
 
-//  if (d2 != DistanceConstraint<T>::none)
-    if (d2 != Constant::NoEdge<T>)
+  if (d2 != Constant::NoEdge<T>)
     post(new EdgeConstraint<T>(*this, boolean.getLiteral(false, x.id())));
 
   return x;
