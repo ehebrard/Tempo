@@ -20,23 +20,11 @@
 #include "Model.hpp"
 #include "util/Matrix.hpp"
 #include "util/traits.hpp"
+#include "util/distance.hpp"
 
 namespace tempo {
 
     namespace detail {
-        template<concepts::scalar T>
-        struct NoValue {
-            static constexpr auto value() {
-                if constexpr (std::floating_point<T>) {
-                    return std::numeric_limits<T>::infinity();
-                } else {
-                    return std::numeric_limits<T>::max();
-                }
-            }
-        };
-
-        template<concepts::scalar T>
-        inline constexpr auto NoDistance = detail::NoValue<T>::value();
 
         template<typename T, typename Arc>
         void getDistances(Matrix<T> &matrix, const std::vector<std::vector<Arc>> &adjacency, bool incoming) noexcept {

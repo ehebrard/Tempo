@@ -13,15 +13,12 @@
 #include "Global.hpp"
 #include "Literal.hpp"
 #include "util/traits.hpp"
+#include "util/distance.hpp"
 
 
 namespace tempo::heuristics {
 
 namespace detail {
-template <typename Solver>
-concept edge_distance_provider = concepts::distance_provider<Solver> and requires(const Solver s, var_t x) {
-  { s.boolean.getEdge(true, x) } -> concepts::same_template<DistanceConstraint>;
-};
 }
 
 /**
@@ -46,7 +43,7 @@ public:
    * @param solver scheduler instance
    * @return either POS(cp) or NEG(cp)
    */
-  template <detail::edge_distance_provider Solver>
+  template <edge_distance_provider Solver>
   requires(boolean_info_provider<Solver>) static auto choose(
       var_t x, const Solver &solver) {
     // @TODO no gap info available -> what should I return?
@@ -56,12 +53,8 @@ public:
 
     auto edgePos = solver.boolean.getEdge(true, x);
     auto edgeNeg = solver.boolean.getEdge(false, x);
-      
-    auto gapPos = (edgePos.isNull() ? 1000000 :
-        solver.numeric.upper(edgePos.from) - solver.numeric.lower(edgePos.to));
-    auto gapNeg = (edgeNeg.isNull() ? 1000000 :
-        solver.numeric.upper(edgeNeg.from) - solver.numeric.lower(edgeNeg.to));
-      
+    auto gapPos = boundEstimation(edgePos, solver);
+    auto gapNeg = boundEstimation(edgeNeg, solver);
     return solver.boolean.getLiteral(gapPos >= gapNeg, x);
   }
 };
