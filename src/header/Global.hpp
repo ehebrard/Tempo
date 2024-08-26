@@ -47,7 +47,7 @@ using hint = int;
 //#define DBG_BOUND num_choicepoints >= 0
 //#define DBG_CBOUND solver.num_choicepoints >= 0
 //#define DBG_BBOUND num_choicepoints >= 0 //(sched.num_fails >= 236)
-//#define DBG_TRACE 1                       // 183 //1+2+4+32+128
+//#define DBG_TRACE 1                      // 183 //1+2+4+32+128
 #define SEARCH 1
 #define DOMAINS 2
 #define BRANCH 4
@@ -77,7 +77,7 @@ using hint = int;
 //#define DBG_FTRANS true //m_solver.num_choicepoints >= 900
 //#define DBG_BELLMAN_FT true
 //#define DBG_EXPL_FTRANS true
-#define DBG_SEF true
+#define DBG_SEF (this->id() == 369)
 //#define DBG_EXTRACT true
 
 // priority values for constraint propagation

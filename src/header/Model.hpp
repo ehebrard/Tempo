@@ -1669,15 +1669,15 @@ public:
       solver.postCumulative(capacity, this->begin(), this->end(),
                             this->begDemand(), this->begDisjunct());
 
-//      if (solver.getOptions().edge_finding) {
-//        //            std::cout
-//        //            << "edge-finding for cumulative resources is not
-//        //            implemented, " "please use '--no-edge-finding'.
-//        //            Aborthing\n"; exit(0);
-//        solver.postStrongEdgeFinding(schedule, capacity, this->begin(),
-//                                     this->end(), this->begDemand(),
-//                                     this->begDisjunct());
-//      }
+      if (solver.getOptions().edge_finding) {
+        //            std::cout
+        //            << "edge-finding for cumulative resources is not
+        //            implemented, " "please use '--no-edge-finding'.
+        //            Aborthing\n"; exit(0);
+        solver.postStrongEdgeFinding(schedule, capacity, this->begin(),
+                                     this->end(), this->begDemand(),
+                                     this->begDisjunct());
+      }
     }
   }
 

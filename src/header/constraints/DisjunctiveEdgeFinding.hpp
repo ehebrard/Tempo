@@ -63,6 +63,8 @@ private:
   std::vector<T> relevant_starts;
   std::vector<T> bound_omegas;
 
+  int level;
+
   template <typename Iter>
   hint lowerBoundExplanation(Iter b, Iter e, const T lb);
   template <typename Iter>
@@ -244,8 +246,9 @@ DisjunctiveEdgeFinding<T>::DisjunctiveEdgeFinding(Solver<T> &solver,
                                                   ItTask end_task,
                                                   ItVar beg_var)
     : m_solver(solver), TT(std::distance(beg_task, end_task)),
-      num_explanations(0, &(m_solver.getEnv())) {
-
+      num_explanations(0, &(m_solver.getEnv()))
+//, level(m_solver.level(), &(m_solver.getEnv()))
+{
   schedule = sched,
 
   Constraint<T>::priority = Priority::Medium;
