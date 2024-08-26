@@ -352,7 +352,11 @@ template <typename T> void CumulativeEdgeFinding<T>::post(const int idx) {
 }
 
 template <typename T>
-bool CumulativeEdgeFinding<T>::notify(const Literal<T> l, const int r) {
+bool CumulativeEdgeFinding<T>::notify(const Literal<T> 
+#ifdef DBG_SEF
+                                      l
+#endif
+                                      , const int r) {
 //    int n{static_cast<int>(the_tasks.size())};
 
 #ifdef DBG_SEF
