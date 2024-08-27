@@ -33,6 +33,8 @@
 #include "helpers/shell.hpp"
 #include "helpers/git_sha.hpp"
 
+//#define VERBOSE true
+
 using namespace tempo;
 
 void build_model(Solver<> &S, Interval<> &schedule) {
@@ -46,6 +48,8 @@ void build_model(Solver<> &S, Interval<> &schedule) {
   std::vector<Interval<>> intervals;
   std::vector<int> weights;
   std::vector<std::vector<std::vector<int>>> resource_transitions;
+    
+//    std::cout << "parsing\n";
 
   if (opt.input_format == "osp") {
     osp::parse(opt.instance_file, S, schedule, intervals, resource_tasks);
@@ -59,6 +63,8 @@ void build_model(Solver<> &S, Interval<> &schedule) {
   } else if (opt.input_format == "jstl") {
     jstl::parse(opt.instance_file, S, schedule, intervals, resource_tasks);
   }
+    
+//    std::cout << "parse ok\n";
 
   resource_transitions.resize(resource_tasks.size());
 
@@ -73,6 +79,8 @@ void build_model(Solver<> &S, Interval<> &schedule) {
     S.post(no_overlap);
     scope.clear();
   }
+    
+//    std::cout << "resources ok\n";
 }
 
 void read_branch(std::istream &in, 
@@ -96,7 +104,9 @@ void read_branch(std::istream &in,
     
     num_wrong = wrongcount;
 
+//    std::cout << "end_on_righ_flag = " << end_on_righ_flag << std::endl;
 //  std::cout << "branch_length = " << branch_length << std::endl;
+//    std::cout << "wrongcount = " << wrongcount << std::endl;
 
   int s;
   int v;
@@ -107,28 +117,40 @@ void read_branch(std::istream &in,
       
 //      std::cout << rsigns.size() << " " << rsigns.back().size() << std::endl;
 
+//      std::cout << "level " << i << std::endl;
+      
     int nwrong;
     in >> nwrong;
+      
+//      std::cout << "w:" << nwrong << " ";
+      
       wrongcount -= nwrong;
     for (auto j{0}; j < nwrong; ++j) {
       in >> s;
       in >> v;
       rsigns.back().push_back(s);
       rvars.back().push_back(v);
+        
+//        std::cout << s << ":" << v << " ";
     }
 
       if(i<branch_length) {
           in >> s;
           in >> v;
+          
+//          std::cout << s << ":" << v << " ";
           dsigns.push_back(s);
           dvars.push_back(v);
       }
+//      std::cout << std::endl;
   }
 
     if(wrongcount != 0) {
         std::cout << "bug read branch\n";
         exit(1);
     }
+    
+    
 }
 
 //#define VERBOSE true
@@ -176,10 +198,30 @@ int test_branches(Options &opt, const int makespan, std::vector<bool> &dsigns,
   std::cout << "\ntest branch\n";
 #endif
     
+//    std::cerr << "testing " << rsigns.size() << " decisions\n";
+    
+//   size_t prev_prog{0};
   for (size_t i{0}; i < rsigns.size(); ++i) {
     Solver<> S(opt);
+      
+      
+//      size_t prog = 100 * i / rsigns.size();
+//      if(prog > prev_prog) {
+//          std::cerr << "=";
+//          std::cerr.flush();
+//          prev_prog = prog;
+//      }
+      
+//      std::cout << "makespan = " << makespan << std::endl;
+      
     
-      auto schedule{S.newInterval(0, makespan, 0, 0, 0, makespan)};
+      auto end_sched{S.newNumeric(0,makespan)};
+//      S.set(end_sched.before(makespan));
+      auto schedule{S.between(S.zero(), end_sched)};
+      
+//      auto schedule{S.newInterval(0, makespan, 0, 0, 0, makespan)};
+ 
+       
       build_model(S, schedule);
      
 #ifdef VERBOSE
@@ -267,7 +309,13 @@ boolean_state test_branch(Options &opt, const int makespan,
   auto s{signs.begin()};
   while (x + 1 < vars.end()) {
     auto constraint{S.boolean.getLiteral(*s, *x)};
-    S.set(constraint);
+    try {
+      S.set(constraint);
+    } catch (Failure<int> &f) {
+      std::cout << "BUG: Failure when branchong on " << constraint << " b/c "
+                << f.reason << std::endl;
+      exit(1);
+    }
     ++x;
     ++s;
   }
@@ -286,9 +334,10 @@ boolean_state test_branch(Options &opt, const int makespan,
 
 int solve(Options& gopt, std::string& record_file) {
   Options opt{gopt};
-//  opt.restart_policy = "no";
+  opt.restart_policy = "no";
   opt.primal_boost = false;
   opt.greedy_runs = 0;
+  opt.learning = 0;
   //    opt.instance_file = ifilename;
 
   long unsigned int num_correct_decisions{0};
@@ -392,7 +441,7 @@ void crunch_numbers(Options& opt, std::string& analyse_file) {
   int obj;
   infile >> obj;
 
-  //    std::cout << "obj = " << obj << std::endl;
+//      std::cout << "obj = " << obj << std::endl;
 
   unsigned long prev_cp;
   int prev_makespan;
@@ -444,6 +493,9 @@ void crunch_numbers(Options& opt, std::string& analyse_file) {
 
     infile >> makespan;
     infile >> total_cp;
+      
+      
+//      std::cout << "makespan " << makespan << " total_cp " << total_cp << std::endl;
 
     num_cp = total_cp - prev_cp;
 
@@ -452,7 +504,7 @@ void crunch_numbers(Options& opt, std::string& analyse_file) {
 
     read_branch(infile, branch_length, num_wrong, dsigns, dvars, rsigns, rvars);
 
-    irrelevant_correct = test_branches(opt, prev_makespan - 1, dsigns, dvars,
+    irrelevant_correct = test_branches(opt, (prev_makespan == Constant::Infinity<int> ? Constant::Infinity<int> : prev_makespan - 1), dsigns, dvars,
                                        rsigns, rvars, false);
 
     num_correct = (branch_length - irrelevant_correct);

@@ -400,7 +400,7 @@ public:
 //    BooleanVar<T> newDisjunct(const DistanceConstraint<T> &d1,
 //                              const DistanceConstraint<T> &d2, const var_t opt);
     // returns the constant 0
-    NumericVar<T> zero() { return NumericVar<T>(0); }
+    NumericVar<T> zero() { return NumericVar<T>(Constant::K,0); }
     // returns the constant true
     BooleanVar<T> truism() { return BooleanVar<T>(0); }
     // create an internal numeric variable and return a model object pointing to it

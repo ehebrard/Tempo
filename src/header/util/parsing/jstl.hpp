@@ -65,7 +65,7 @@ void parse(const std::string &fn, M &solver, J &schedule,
 
         gotheader = true;
 
-        //                std::cout << nj << " " << nm << std::endl;
+//                        std::cout << nj << " " << nm << std::endl;
 
       } else if (Intervals.size() < nj * nm) {
 
@@ -113,21 +113,21 @@ void parse(const std::string &fn, M &solver, J &schedule,
 
           if (m == 0) {
             auto l{Intervals[k].start.after(schedule.start)};
-            //                        std::cout << l << std::endl;
+//                                    std::cout << l << std::endl;
             solver.set(l);
           } else {
             auto l{Intervals[k - 1].end.before(Intervals[k].start, min_tl)};
-            //                        std::cout << l << std::endl;
+//                                    std::cout << l << std::endl;
             solver.set(l);
             if (m == nm - 1) {
               l = Intervals[k].end.before(schedule.end);
-              //                            std::cout << l << std::endl;
+//                                          std::cout << l << std::endl;
               solver.set(l);
             }
           }
           if (m < (nm - 1)) {
             auto l{Intervals[k + 1].start.before(Intervals[k].end, -max_tl)};
-            //                        std::cout << l << std::endl;
+//                                    std::cout << l << std::endl;
             solver.set(l);
           }
           ++k;

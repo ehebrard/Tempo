@@ -93,8 +93,12 @@ public:
     List() {nodes.resize(1);}
     
     bool empty() const {return nodes[tail].next == tail;}
-    
-    
+
+    void pop_back() {
+      remove(nodes.size() - 1);
+      nodes.pop_back();
+    }
+
     template <typename... T>
     int create_element(T ...args) {
         int tindex{static_cast<int>(nodes.size())};

@@ -584,8 +584,8 @@ for (unsigned i{0}; i < the_tasks.size(); ++i) {
 
 
 template <typename T> void CumulativeEdgeFinding<T>::propagate() {
-    
-//    level = m_solver.level();
+
+  //    level = m_solver.level();
 
 #ifdef DBG_SEF
   if (DBG_SEF) {
@@ -716,7 +716,56 @@ template <typename T> void CumulativeEdgeFinding<T>::propagate() {
   }
 #endif
 
-  //    std::cout << "ok\n";
+  auto saved_size{profile.size()};
+
+  auto sentinel{profile.end()};
+  --sentinel;
+
+  auto C{m_solver.numeric.upper(capacity)};
+
+  auto next{profile.begin()};
+  T overflow{0};
+  T ect{-Constant::Infinity<T>};
+  T S{0};
+  T h_req{0};
+  while (next != sentinel) {
+    auto t{next};
+    ++next;
+
+    t->overflow = overflow;
+    auto l = next->time - t->time;
+
+    // S is the sum of demands of the tasks that could be processed at time
+    S += t->incrementMax;
+    // h_max is the min between the resource's capacity and the total of the
+    // demands
+    auto h_max{std::min(S, C)};
+    // h_req is the total demand counting tasks processed at their earliest
+    h_req += t->increment;
+    // h_cons is the amount of resource actually used in the optimistic scenario
+    // (min between what is required + due from earlier, and what is available)
+    auto h_cons{std::min(h_req + overflow, h_max)};
+    // there is some overflow, and it will be resorbed by the next time point
+    if (overflow > 0 and overflow < ((h_cons - h_req) * l)) {
+      // then we create a new time point for the moment it will be resorbed
+      l = std::max(Gap<T>::epsilon(), overflow / (h_cons - h_req));
+      auto new_event{
+          profile.create_element(t->time + l, t->capacity, 0, 0, 0, 0, 0, 0)};
+      profile.add_after(t.index, new_event);
+    }
+    // overflow is the deficit on resource for that period (because tasks are
+    // set to their earliest)
+    overflow += (h_req - h_cons) * l;
+    // once there
+    t->capacity = C - h_cons;
+    if (t->capacity < C)
+      ect = profile[profile.next(t.index)].time;
+  }
+
+  while (profile.size() > saved_size) {
+    profile.pop_back();
+    //        profile.remove(profile.size());
+  }
 }
 
 
