@@ -79,6 +79,7 @@ using hint = int;
 //#define DBG_EXPL_FTRANS true
 //#define DBG_SEF false //(this->id() == 321)
 //#define DBG_EXTRACT true
+#define DBG_SPANNING true
 
 // priority values for constraint propagation
 enum class Priority {

@@ -201,7 +201,16 @@ T Transitivity<T>::transition_time(const int i, const int j) const {
 
 template <typename T>
 T Transitivity<T>::setup_time(const int i, const int j) const {
+    
+//    std::cout << "trans from " << prettyTask(i) << " to " << prettyTask(j) << std::endl;
+    
     auto eij{m_solver.boolean.getEdge(disjunct[i][j])};
+    
+//    std::cout << eij << std::endl;
+    
+    
+//    std::cout <<
+    
     if(eij.from == the_tasks[j].start.id())
         return -eij.distance - the_tasks[i].minDuration(m_solver);
     else
@@ -669,6 +678,19 @@ template <typename T> void Transitivity<T>::propagate() {
   }
 
   if (transition_flag) {
+      
+      for(size_t i{0}; i<the_tasks.size(); ++i) {
+          for(size_t j{0}; j<the_tasks.size(); ++j) {
+              if(i != j) {
+                  std::cout << " " << setup_time(i,j);
+              } else {
+                  std::cout << " 0" ;
+              }
+          }
+          std::cout << std::endl;
+      }
+      exit(1);
+      
       
     assert(false);
     min_spanning_tree();

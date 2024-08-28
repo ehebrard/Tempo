@@ -28,6 +28,7 @@ void parse(const std::string &fn, M &model, J &schedule,
       int n{0};
 
     int job{0};
+      int row{0};
     int dur;
       int mach;
       int fam;
@@ -37,95 +38,101 @@ void parse(const std::string &fn, M &model, J &schedule,
 
 //          std::cout << "hello\n";
 
-    for (std::string line; getline(ifs, line); ++ln) {
-      if (line[0] == '#')
-        continue;
-
-      std::istringstream iss(line);
-
-      if (!gotheader) {
-        iss >> nm;
-          iss >> nj;
-          iss >> nf;
-
-        if (!iss) {
-          cerr << "ERROR: could not parse header at line " << ln << "\n";
-          exit(1);
-        }
-
-//                  std::cout << nj << " jobs " << nm << " machines " << nf << " families \n";
-
-        resources.resize(nm);
-        distances.resize(nm);
+      for (std::string line; getline(ifs, line); ++ln) {
+          if (line[0] == '#')
+              continue;
           
-//          family.resize(nm*nj);
-          distance_matrix.resize(nf);
-          for (auto & row : distance_matrix)
-              row.resize(nf, 0);
+          std::istringstream iss(line);
           
-
-          for(auto& matrix : distances) {
-              matrix.resize(nj);
-              for (auto & row : matrix)
-                  row.resize(nj, 0);
-          }
-
-        gotheader = true;
-      } else if (job < nj) {
-        // job
-          
-          iss >> n;
-          
-//          std::cout << "job " << job << ": length=" << n << std::endl;
-          
-          for(int i{0}; i<n; ++i) {
-              
-              iss >> dur;
-              iss >> mach;
-              iss >> fam;
-              
-//              std::cout << " (" << dur << "|" << mach << "|" << fam << ")";
+          if (!gotheader) {
+              iss >> nm;
+              iss >> nj;
+              iss >> nf;
               
               if (!iss) {
-                  cerr << "ERROR: line count at line " << ln << "\n";
+                  cerr << "ERROR: could not parse header at line " << ln << "\n";
                   exit(1);
               }
               
-              int task{static_cast<int>(intervals.size())};
-              resources[mach-1].push_back(task);
-              family.push_back(fam-1);
+              //                  std::cout << nj << " jobs " << nm << " machines " << nf << " families \n";
               
-              auto s{model.newNumeric()};
-              auto j{model.between(s, s + dur)};
+              resources.resize(nm);
+              distances.resize(nm);
               
-              if (i == 0) {
-                  model.set(j.start.after(schedule.start));
-                  //                if (nullptr != precedences) {
-                  //                    precedences->emplace_back(j.start.id(), schedule.start.id(), 0);
-                  //                }
-              } else {
-                  model.set(intervals.back().end.before(j.start));
-                  //                if (nullptr != precedences) {
-                  //                    precedences->emplace_back(j.start.id(), intervals.back().end.id(), 0);
-                  //                }
-                  if (i == nm - 1) {
-                      model.set(j.end.before(schedule.end));
-                      //                  if (nullptr != precedences) {
-                      //                      precedences->emplace_back(schedule.end.id(), j.end.id(), 0);
-                      //                  }
+              //          family.resize(nm*nj);
+              distance_matrix.resize(nf);
+              for (auto & row : distance_matrix)
+                  row.resize(nf, 0);
+              
+              
+              for(auto& matrix : distances) {
+                  matrix.resize(nj);
+                  for (auto & row : matrix)
+                      row.resize(nj, 0);
+              }
+              
+              gotheader = true;
+          } else if (job < nj) {
+              // job
+              
+              iss >> n;
+              
+              //          std::cout << "job " << job << ": length=" << n << std::endl;
+              
+              for(int i{0}; i<n; ++i) {
+                  
+                  iss >> dur;
+                  iss >> mach;
+                  iss >> fam;
+                  
+                  //              std::cout << " (" << dur << "|" << mach << "|" << fam << ")";
+                  
+                  if (!iss) {
+                      cerr << "ERROR: line count at line " << ln << "\n";
+                      exit(1);
                   }
+                  
+                  int task{static_cast<int>(intervals.size())};
+                  resources[mach-1].push_back(task);
+                  family.push_back(fam-1);
+                  
+                  auto s{model.newNumeric()};
+                  auto j{model.between(s, s + dur)};
+                  
+                  if (i == 0) {
+                      model.set(j.start.after(schedule.start));
+                      //                if (nullptr != precedences) {
+                      //                    precedences->emplace_back(j.start.id(), schedule.start.id(), 0);
+                      //                }
+                  } else {
+                      model.set(intervals.back().end.before(j.start));
+                      //                if (nullptr != precedences) {
+                      //                    precedences->emplace_back(j.start.id(), intervals.back().end.id(), 0);
+                      //                }
+                      if (i == nm - 1) {
+                          model.set(j.end.before(schedule.end));
+                          //                  if (nullptr != precedences) {
+                          //                      precedences->emplace_back(schedule.end.id(), j.end.id(), 0);
+                          //                  }
+                      }
+                  }
+                  
+                  intervals.push_back(j);
               }
+              ++job;
+          } else if(row < nf) {
               
-              intervals.push_back(j);
-          }
-        ++job;
-      } else {
-
-          for (auto i{0}; i < nf; ++i) {
+              //          for (auto i{0}; i < nf; ++i) {
               for (auto j{0}; j < nf; ++j) {
-                  iss >> distance_matrix[i][j];
+                  iss >> distance_matrix[row][j];
+//                  std::cout << " " << distance_matrix[row][j] ;
               }
+//              std::cout << std::endl;
+              ++row;
+              //          }
+              //          std::cout << std::endl;
           }
+      }
           
           int k{0};
           for(auto & tasks : resources) {
@@ -136,19 +143,27 @@ void parse(const std::string &fn, M &model, J &schedule,
               
               assert(static_cast<int>(tasks.size()) == nj);
               
+//              for(size_t i{0}; i<tasks.size(); ++i) {
+//                  std::cout << tasks[i] << ": " << family[tasks[i]] << std::endl;
+//              }
+              
               for(size_t i{0}; i<tasks.size(); ++i) {
                   for(size_t j{0}; j<tasks.size(); ++j) {
                       if(i != j) {
                           distances[k][i][j] = distance_matrix[family[tasks[i]]][family[tasks[j]]];
                       }
+                      std::cout << " " << distances[k][i][j] ;
                   }
+                  std::cout << std::endl;
               }
+              std::cout << std::endl;
               
               ++k;
           }
 
-      }
-    }
+//          exit(1);
+//      }
+//    }
 
 //        std::cout << model << std::endl;
 //      exit(1);
