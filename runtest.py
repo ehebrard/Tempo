@@ -90,4 +90,4 @@ if __name__ == '__main__':
     test(['build/tempo_rcpsp', 'data/sample/j309_5.sm'], 'reference/rcpsp.out')
     test(['build/tempo_scheduler', 'data/sample/j6-per0-0.txt'], 'reference/osp.out')
     test(['build/tempo_fjssp','data/sample/mt10c1.fjs', '--no-edge-finding', '--no-transitivity'], 'reference/fjssp.out')    
-    test(['build/tempo_scheduler','data/sample//t2-pss07.dat', '--no-transitivity'], 'reference/t2-pss07.out')
+    test(['build/tempo_scheduler','data/sample/t2-pss07.dat', '--input-format', 'jssdst', '--no-transitivity'], 'reference/t2-pss07.out')
