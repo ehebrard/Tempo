@@ -381,10 +381,6 @@ int solve(Options& gopt, std::string& record_file) {
                  << S.getDecisions()[i].variable();
         }
           if(right_branches.size() > S.numDecision()) {
-//              
-//          std::cout << "HERE\n";
-//              exit(1);
-              
               buffer << " " << right_branches.back().size();
               for (auto l : right_branches.back()) {
                 buffer << " " << l.sign() << " " << l.variable();

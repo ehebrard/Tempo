@@ -669,7 +669,7 @@ template <typename T> void Transitivity<T>::propagate() {
   }
 
   if (transition_flag) {
-
+      
     assert(false);
     min_spanning_tree();
   }

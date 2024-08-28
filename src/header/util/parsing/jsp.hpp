@@ -68,12 +68,12 @@ void parse(const std::string &fn, M &solver, J &schedule,
             exit(1);
           }
 
-          auto j{solver.newInterval(dur, dur)};
+//          auto j{solver.newInterval(dur, dur)};
 //            auto s{solver.newNumeric()};
 //            auto j{solver.continuefor(solver.newNumeric(), dur)};
             
-//            auto s{solver.newNumeric()};
-//            auto j{solver.between(s, s+dur)};
+            auto s{solver.newNumeric()};
+            auto j{solver.between(s, s+dur)};
             
           if (m == 0) {
             solver.set(j.start.after(schedule.start));

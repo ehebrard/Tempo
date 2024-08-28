@@ -28,6 +28,7 @@
 #include "util/parsing/osp.hpp"
 #include "util/parsing/path.hpp"
 #include "util/parsing/tsptw.hpp"
+#include "util/parsing/jssdst.hpp"
 #include "helpers/cli.hpp"
 #include "util/Profiler.hpp"
 #include "helpers/shell.hpp"
@@ -181,7 +182,9 @@ int main(int argc, char *argv[]) {
                  resource_tasks, resource_transitions);
   } else if (opt.input_format == "jstl") {
     jstl::parse(opt.instance_file, S, schedule, intervals, resource_tasks);
-  }
+  } else if (opt.input_format == "jssdst") {
+      jssdst::parse(opt.instance_file, S, schedule, intervals, resource_tasks, resource_transitions);
+    }
 
   //    for(auto i : intervals) {
   //        std::cout << i.id() << ": " << i << std::endl;
