@@ -12,7 +12,7 @@ namespace tempo {
 
     auto getInstance(const fs::path &problemDir) -> fs::path {
         for (const auto &file : fs::directory_iterator(problemDir)) {
-            if (file.is_regular_file() and file.path().extension() == ".txt") {
+            if (file.is_regular_file() and file.path().filename() == ProblemFileName) {
                 return file.path();
             }
         }

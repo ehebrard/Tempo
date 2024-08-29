@@ -7,6 +7,7 @@
 
 #include <gtest/gtest.h>
 #include <algorithm>
+#include <vector>
 
 #include "util/TraceWatcher.hpp"
 
@@ -36,6 +37,11 @@ TEST(util, TraceWatcher_ctor) {
     TraceWatcher traceWatcher(std::views::iota(0, 5));
     EXPECT_EQ(traceWatcher.getOffset(), 0);
     EXPECT_FALSE(traceWatcher.isOnTrack());
+}
+
+TEST(util, TraceWatcher_ctor_empty) {
+    using namespace tempo;
+    EXPECT_THROW(TraceWatcher traceWatcher(std::vector<var_t>{}), std::runtime_error);
 }
 
 TEST(util, TraceWatcher_ctor_non_continuous) {
