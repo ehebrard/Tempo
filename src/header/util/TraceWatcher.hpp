@@ -48,9 +48,14 @@ namespace tempo {
          */
         template<concepts::ctyped_range<var_t> Vars>
         requires(std::ranges::sized_range<Vars>)
-        explicit TraceWatcher(const Vars &vars): varPolarity(std::ranges::size(vars), false), onTrack(false),
-                                                 offset(std::ranges::min(vars)) {
-            if (std::ranges::max(vars) - offset + 1 != varPolarity.size()) {
+        explicit TraceWatcher(const Vars &vars): varPolarity(std::ranges::size(vars), false), onTrack(false), offset() {
+            if (std::ranges::empty(vars)) {
+                throw std::runtime_error("empty variable range");
+            }
+
+            auto [min, max] = std::ranges::minmax(vars);
+            offset = min;
+            if (max - offset + 1 != varPolarity.size()) {
                 throw std::runtime_error("expected continuous range of search variables");
             }
 
