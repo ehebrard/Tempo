@@ -43,7 +43,7 @@ int main(int argc, char **argv) {
         makespan = solver->numeric.lower(schedule.duration);
     }
 
-    fs::copy(options.instance_file, destinationFolder, fs::copy_options::overwrite_existing);
+    fs::copy(options.instance_file, destinationFolder / ProblemFileName, fs::copy_options::overwrite_existing);
     nlohmann::json meta;
     meta["date"] = shell::getTimeStamp();
     meta["commit"] = GitSha;
