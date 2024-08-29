@@ -49,7 +49,7 @@ private:
 
   // encoding: (y \in front(DAG[x]) && x \in back(y)) <=> edge (x,y)
   std::vector<SparseSet<int, Reversible<size_t>>> DAG;
-  // encoding: y \in transitive_reduction[x] <=> edge (x,y)
+    // encoding: edge(i,j) \in transitive_reduction <=> (x,y) is in the transitive reduction;
   SparseSet<int, Reversible<size_t>> transitive_reduction;
   DisjointSet<> forest;
   std::vector<std::vector<T>> distance_matrix;
@@ -424,7 +424,7 @@ bool Transitivity<T>::notify(const Literal<T> l, const int r) {
       }
     }
 
-#ifdef DBG_SPANNING
+#ifdef DBG_TRANSRED
     std::cout << "\nTRANS:\n";
     for (size_t i{0}; i < the_tasks.size(); ++i) {
       std::cout << "t" << the_tasks[i].id() << ":";
@@ -454,6 +454,28 @@ bool Transitivity<T>::notify(const Literal<T> l, const int r) {
 template <typename T> void Transitivity<T>::min_spanning_tree() {
 
 #ifdef DBG_SPANNING
+    
+#ifndef DBG_TRANSRED
+        std::cout << "\nTRANS:\n";
+    for (size_t i{0}; i < the_tasks.size(); ++i) {
+      std::cout << i << ":";
+      for (auto j{DAG[i].fbegin()}; j != DAG[i].fend(); ++j) {
+        std::cout << " -" << setup_time(i,*j) << "-> " << *j;
+      }
+      std::cout << std::endl;
+    }
+
+    std::cout << "TRED:\n";
+    for (size_t i{0}; i < the_tasks.size(); ++i) {
+        std::cout << i << ":";
+      for (size_t j{0}; j < the_tasks.size(); ++j) {
+        if (transitive_reduction.has(edge(i, j)))
+            std::cout << " -" << setup_time(i,j) << "-> " << j;
+      }
+      std::cout << std::endl;
+    }
+//    std::cout << std::endl;
+#endif
   std::cout << "\nmin spanning tree\n";
 #endif
     
@@ -679,17 +701,17 @@ template <typename T> void Transitivity<T>::propagate() {
 
   if (transition_flag) {
       
-      for(size_t i{0}; i<the_tasks.size(); ++i) {
-          for(size_t j{0}; j<the_tasks.size(); ++j) {
-              if(i != j) {
-                  std::cout << " " << setup_time(i,j);
-              } else {
-                  std::cout << " 0" ;
-              }
-          }
-          std::cout << std::endl;
-      }
-      exit(1);
+//      for(size_t i{0}; i<the_tasks.size(); ++i) {
+//          for(size_t j{0}; j<the_tasks.size(); ++j) {
+//              if(i != j) {
+//                  std::cout << " " << setup_time(i,j);
+//              } else {
+//                  std::cout << " 0" ;
+//              }
+//          }
+//          std::cout << std::endl;
+//      }
+//      exit(1);
       
       
     assert(false);

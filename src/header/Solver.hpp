@@ -2097,6 +2097,8 @@ template <typename T> void Solver<T>::analyze(Explanation<T> &e) {
         --num_lit;
 
     } while (num_lit > 0); // or l.isNumeric());
+    
+    std::cout << "conflict.size() = " << conflict.size() << " numlit = " << num_lit << std::endl;
 
 
     if(num_lit >= 0) {
@@ -2128,6 +2130,8 @@ template <typename T> void Solver<T>::analyze(Explanation<T> &e) {
             }
 #endif
         }
+    } else {
+        std::cout << "conflict.size() = " << conflict.size() << std::endl;
     }
     
     assert(conflict.size() == literal_lvl.size());
@@ -2320,6 +2324,7 @@ template <typename T> void Solver<T>::initializeSearch() {
     if (not heuristic.isValid()) {
         heuristic = heuristics::make_heuristic(*this);
     }
+    propag_pointer = 1;
 }
 
 template<typename T>

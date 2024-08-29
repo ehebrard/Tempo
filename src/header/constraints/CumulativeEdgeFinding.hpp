@@ -128,6 +128,7 @@ private:
   std::ostream &print_reason(std::ostream &os, const hint h) const override;
 
   std::string prettyTask(const int i) const;
+    std::string asciiArt(const int i) const;
 };
 
 template <typename T>
@@ -147,6 +148,24 @@ std::string CumulativeEdgeFinding<T>::prettyTask(const int i) const {
   std::stringstream ss;
   ss << the_tasks[i] << ": [" << est(i) << ".." << lct(i) << "] ("
      << mindemand(i) << "x" << minduration(i) << ")";
+  return ss.str();
+}
+
+template <typename T>
+std::string CumulativeEdgeFinding<T>::asciiArt(const int i) const {
+  std::stringstream ss;
+    ss << std::setw(3) << std::right << mindemand(i) << "x" << std::setw(3) << std::left << minduration(i) << " " << std::right;
+    for(auto k{0}; k<est(i); ++k) {
+        ss << " ";
+    }
+    ss << "[";
+    for(auto k{est(i)+1}; k<ect(i); ++k) {
+        ss << "=";
+    }
+    for(auto k{ect(i)}; k<lct(i)-1; ++k) {
+        ss << ".";
+    }
+    ss << "] " << lct(i);
   return ss.str();
 }
 
@@ -595,8 +614,6 @@ template <typename T> void CumulativeEdgeFinding<T>::propagate() {
       std::cout << " " << e.index << ":" << e->time;
     }
     std::cout << std::endl;
-    std::cout << "hello " << prettyTask(1) << " " << profile[est_[1]].time
-              << ".." << profile[lct_[1]].time << std::endl;
   }
   for (unsigned i{0}; i < the_tasks.size(); ++i) {
     if (profile[est_[i]].time > est(i)) {
@@ -684,8 +701,6 @@ template <typename T> void CumulativeEdgeFinding<T>::propagate() {
       std::cout << " " << e.index << ":" << e->time;
     }
     std::cout << std::endl;
-    std::cout << "hello " << prettyTask(1) << " " << profile[est_[1]].time
-              << ".." << profile[lct_[1]].time << std::endl;
   }
   T previous{-Constant::Infinity<T>};
   for (auto e{profile.begin()}; e != profile.end(); ++e) {
@@ -714,23 +729,41 @@ template <typename T> void CumulativeEdgeFinding<T>::propagate() {
       exit(1);
     }
   }
+    
+    std::vector<int> lct_order(the_tasks.size());
+    std::iota(lct_order.begin(), lct_order.end(), 0);
+    std::sort(lct_order.begin(), lct_order.end(), [&](const int x, const int y) {return lct(x) < lct(y);});
+    for(auto i : lct_order) {
+        std::cout << asciiArt(i) << std::endl;
+    }
+    
+    
 #endif
-
+    
+    
   auto saved_size{profile.size()};
-
   auto sentinel{profile.end()};
   --sentinel;
-
-  auto C{m_solver.numeric.upper(capacity)};
-
+    
+  auto C{capacity.max(m_solver)};
   auto next{profile.begin()};
   T overflow{0};
-  T ect{-Constant::Infinity<T>};
+  T omega_ect{-Constant::Infinity<T>};
   T S{0};
   T h_req{0};
+    
+
+    
   while (next != sentinel) {
     auto t{next};
     ++next;
+      
+#ifdef DBG_SEF
+      if (DBG_SEF) {
+          std::cout << "jump to t_" << t->time << ": ov=" << overflow ;
+      }
+#endif
+      
 
     t->overflow = overflow;
     auto l = next->time - t->time;
@@ -745,6 +778,14 @@ template <typename T> void CumulativeEdgeFinding<T>::propagate() {
     // h_cons is the amount of resource actually used in the optimistic scenario
     // (min between what is required + due from earlier, and what is available)
     auto h_cons{std::min(h_req + overflow, h_max)};
+      
+#ifdef DBG_SEF
+      if (DBG_SEF) {
+          std::cout << ", h_max=" << h_max << ", h_req=" << h_req << ", h_cons=" << h_cons ;
+      }
+#endif
+      
+      
     // there is some overflow, and it will be resorbed by the next time point
     if (overflow > 0 and overflow < ((h_cons - h_req) * l)) {
       // then we create a new time point for the moment it will be resorbed
@@ -759,7 +800,15 @@ template <typename T> void CumulativeEdgeFinding<T>::propagate() {
     // once there
     t->capacity = C - h_cons;
     if (t->capacity < C)
-      ect = profile[profile.next(t.index)].time;
+        omega_ect = profile[profile.next(t.index)].time;
+      
+#ifdef DBG_SEF
+      if (DBG_SEF) {
+          if(omega_ect != -Constant::Infinity<T>)
+              std::cout << ", ect=" << omega_ect ;
+          std::cout << std::endl ;
+      }
+#endif
   }
 
   while (profile.size() > saved_size) {
