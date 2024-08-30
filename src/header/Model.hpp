@@ -1613,6 +1613,21 @@ NoOverlapExpression<T> NoOverlap(Interval<T> &schedule, const Iterable &X,
   return exp;
 }
 
+template <typename T, typename Iterable>
+NoOverlapExpression<T> NoOverlap(Interval<T> &schedule, const Iterable &X) {
+  auto impl{new NoOverlapExpressionImpl<T>(schedule)};
+  //  for (auto x : X)
+  //    impl->push_back(x);
+  NoOverlapExpression<T> exp(impl);
+
+  for (auto x : X)
+    exp.push_back(x);
+
+//  exp.setTransisions(D);
+
+  return exp;
+}
+
 template <typename T> NoOverlapExpression<T> NoOverlap(Interval<T> &schedule) {
   auto impl{new NoOverlapExpressionImpl<T>(schedule)};
   NoOverlapExpression<T> exp(impl);

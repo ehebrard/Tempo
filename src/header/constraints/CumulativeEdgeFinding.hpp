@@ -165,7 +165,7 @@ std::string CumulativeEdgeFinding<T>::asciiArt(const int i) const {
     for(auto k{ect(i)}; k<lct(i)-1; ++k) {
         ss << ".";
     }
-    ss << "] " << lct(i);
+    ss << "] " << est(i) << ".." << lct(i);
   return ss.str();
 }
 
