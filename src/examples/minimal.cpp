@@ -48,11 +48,9 @@ int main() {
     solver.post(t5.end <= schedule.end);
     
     
-    std::vector<Interval<>> scope{t1,t2,t3};
-    solver.post(NoOverlap(schedule, scope));
-    
-    scope = {t4, t5};
-    solver.post(NoOverlap(schedule, scope));
+    solver.post(NoOverlap<int>(schedule, {t1,t2,t3}));
+
+    solver.post(NoOverlap<int>(schedule, {t4, t5}));
     
     std::cout << solver << std::endl;
     

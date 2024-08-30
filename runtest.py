@@ -74,10 +74,10 @@ if __name__ == '__main__':
     # record(['build/tempo_scheduler', 'data/sample/cr_16_1.txt', '--input-format', 'path'], 'reference/path.out')
     # record(['build/tempo_team_orienteering', 'data/sample/tsptw_2.txt', '--no-transitivity', '--no-edge-finding'], 'reference/tsptwopt.out')
     # record(['build/tempo_sat', 'data/sample/uf250-01.cnf', '--verbosity', '3'], 'reference/sat.out')
-    # record(['build/tempo_rcpsp', 'data/sample/j309_5.sm'], 'reference/rcpsp.out')
+    # record(['build/tempo_rcpsp', 'data/sample/j309_5.sm', '--no-edge-finding'], 'reference/rcpsp.out')
     # record(['build/tempo_scheduler', 'data/sample/j6-per0-0.txt'], 'reference/osp.out')
     # record(['build/tempo_fjssp','data/sample/mt10c1.fjs', '--no-edge-finding', '--no-transitivity'], 'reference/fjssp.out')
-    # record(['build/tempo_scheduler','data/sample/t2-pss07.dat', '--input-format', 'jssdst', '--no-transitivity'], 'reference/t2-pss07.out')    
+    # record(['build/tempo_scheduler','data/sample/t2-ps05.dat', '--input-format', 'jssdst', '--no-transitivity'], 'reference/t2-pss07.out')    
 
 
     test(['build/bibd'], 'reference/bibd.out')
@@ -87,7 +87,7 @@ if __name__ == '__main__':
     test(['build/tempo_scheduler', 'data/sample/cr_16_1.txt', '--input-format', 'path'], 'reference/path.out')
     test(['build/tempo_team_orienteering', 'data/sample/tsptw_2.txt', '--no-transitivity', '--no-edge-finding'], 'reference/tsptwopt.out')
     test(['build/tempo_sat', 'data/sample/uf250-01.cnf', '--verbosity', '3'], 'reference/sat.out')
-    test(['build/tempo_rcpsp', 'data/sample/j309_5.sm'], 'reference/rcpsp.out')
+    test(['build/tempo_rcpsp', 'data/sample/j309_5.sm', '--no-edge-finding'], 'reference/rcpsp.out')
     test(['build/tempo_scheduler', 'data/sample/j6-per0-0.txt'], 'reference/osp.out')
     test(['build/tempo_fjssp','data/sample/mt10c1.fjs', '--no-edge-finding', '--no-transitivity'], 'reference/fjssp.out')    
-    test(['build/tempo_scheduler','data/sample/t2-pss07.dat', '--input-format', 'jssdst', '--no-transitivity'], 'reference/t2-pss07.out')
+    test(['build/tempo_scheduler','data/sample/t2-ps05.dat', '--input-format', 'jssdst', '--no-transitivity'], 'reference/t2-pss07.out')

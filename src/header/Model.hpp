@@ -332,6 +332,8 @@ Stores
  - the id of a  Boolean variable standing whether the interval actually is in
 the schedule
  */
+template <typename T = int> class CumulativeExpression;
+template <typename T = int> class NoOverlapExpression;
 template <typename T = int> class Interval {
 protected:
   Interval(NumericVar<T> start, NumericVar<T> end, NumericVar<T> duration) :
@@ -384,6 +386,11 @@ public:
   NumericVar<T> start;
   NumericVar<T> end;
   NumericVar<T> duration;
+    
+    
+    void require(NoOverlapExpression<T>& R);
+//    void require(const T d, CumulativeExpression<T>& R);
+    void require(const NumericVar<T> d, CumulativeExpression<T>& R);
 
   //  bool isOptional() const { return exist.id() != Constant::NoVar; }
   bool isOptional(Solver<T> &s) const { return not exist.isTrue(s); }
@@ -1558,7 +1565,7 @@ private:
   std::vector<std::vector<T>> transitions;
 };
 
-template <typename T = int> class NoOverlapExpression : public BooleanVar<T> {
+template <typename T> class NoOverlapExpression : public BooleanVar<T> {
 
 public:
   NoOverlapExpression(NoOverlapExpressionImpl<T> *i) : BooleanVar<T>(i) {}
@@ -1586,7 +1593,7 @@ public:
         ->endDisjunct();
   }
 
-  void push_back(const Interval<T> &i) {
+  void provide(const Interval<T> &i) {
     static_cast<NoOverlapExpressionImpl<T> *>(BooleanVar<T>::implem)
         ->push_back(i);
   }
@@ -1606,22 +1613,22 @@ NoOverlapExpression<T> NoOverlap(Interval<T> &schedule, const Iterable &X,
   NoOverlapExpression<T> exp(impl);
 
   for (auto x : X)
-    exp.push_back(x);
+    exp.provide(x);
 
   exp.setTransisions(D);
 
   return exp;
 }
 
-template <typename T, typename Iterable>
-NoOverlapExpression<T> NoOverlap(Interval<T> &schedule, const Iterable &X) {
+template <typename T>
+NoOverlapExpression<T> NoOverlap(Interval<T> &schedule, const std::vector<Interval<T>> &X) {
   auto impl{new NoOverlapExpressionImpl<T>(schedule)};
   //  for (auto x : X)
   //    impl->push_back(x);
   NoOverlapExpression<T> exp(impl);
 
   for (auto x : X)
-    exp.push_back(x);
+    exp.provide(x);
 
 //  exp.setTransisions(D);
 
@@ -1712,7 +1719,7 @@ private:
   std::vector<NumericVar<T>> demand;
 };
 
-template <typename T = int> class CumulativeExpression : public BooleanVar<T> {
+template <typename T> class CumulativeExpression : public BooleanVar<T> {
 
 public:
   CumulativeExpression(CumulativeExpressionImpl<T> *i) : BooleanVar<T>(i) {}
@@ -1744,10 +1751,10 @@ public:
         ->endDemand();
   }
 
-  //    void provide(const NumericVar<T> d, const Interval<T> i) {
-  //        static_cast<CumulativeExpressionImpl<T> *>(BooleanVar<T>::implem)
-  //            ->provide(d,i);
-  //    }
+      void provide(const NumericVar<T> d, const Interval<T> i) {
+          static_cast<CumulativeExpressionImpl<T> *>(BooleanVar<T>::implem)
+              ->provide(d,i);
+      }
 };
 
 template <typename T = int>
@@ -2025,6 +2032,21 @@ T Interval<T>::maxDuration(const S &solver) const {
 template <typename T> var_t Interval<T>::getStart() const { return start.id(); }
 
 template <typename T> var_t Interval<T>::getEnd() const { return end.id(); }
+
+template <typename T>
+void Interval<T>::require(NoOverlapExpression<T>& R) {
+    R.provide(*this);
+}
+
+//template <typename T>
+//void Interval<T>::require(const T d, CumulativeExpression<T>& R) {
+//    R.provide(d, *this);
+//}
+
+template <typename T>
+void Interval<T>::require(const NumericVar<T> d, CumulativeExpression<T>& R) {
+    R.provide(d, *this);
+}
 
 template <typename T> std::ostream &Interval<T>::display(std::ostream &os) const {
   os << "t" << id(); //<< ": [" << start.earliest(solver) << ".." <<

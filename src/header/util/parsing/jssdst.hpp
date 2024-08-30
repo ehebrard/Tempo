@@ -152,11 +152,11 @@ void parse(const std::string &fn, M &model, J &schedule,
                       if(i != j) {
                           distances[k][i][j] = distance_matrix[family[tasks[i]]][family[tasks[j]]];
                       }
-                      std::cout << " " << distances[k][i][j] ;
+//                      std::cout << " " << distances[k][i][j] ;
                   }
-                  std::cout << std::endl;
+//                  std::cout << std::endl;
               }
-              std::cout << std::endl;
+//              std::cout << std::endl;
               
               ++k;
           }

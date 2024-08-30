@@ -2098,7 +2098,7 @@ template <typename T> void Solver<T>::analyze(Explanation<T> &e) {
 
     } while (num_lit > 0); // or l.isNumeric());
     
-    std::cout << "conflict.size() = " << conflict.size() << " numlit = " << num_lit << std::endl;
+//    std::cout << "conflict.size() = " << conflict.size() << " numlit = " << num_lit << std::endl;
 
 
     if(num_lit >= 0) {
@@ -2130,9 +2130,11 @@ template <typename T> void Solver<T>::analyze(Explanation<T> &e) {
             }
 #endif
         }
-    } else {
-        std::cout << "conflict.size() = " << conflict.size() << std::endl;
-    }
+    } 
+    
+//    else {
+//        std::cout << "conflict.size() = " << conflict.size() << std::endl;
+//    }
     
     assert(conflict.size() == literal_lvl.size());
     

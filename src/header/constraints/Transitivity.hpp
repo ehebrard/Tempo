@@ -699,6 +699,7 @@ template <typename T> void Transitivity<T>::propagate() {
     }
   }
 
+#ifdef DBG_SPANNING
   if (transition_flag) {
       
 //      for(size_t i{0}; i<the_tasks.size(); ++i) {
@@ -717,6 +718,7 @@ template <typename T> void Transitivity<T>::propagate() {
     assert(false);
     min_spanning_tree();
   }
+#endif
 
 #ifdef DBG_LTRANS
   if (pruning)

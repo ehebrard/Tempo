@@ -144,7 +144,7 @@ int main(int argc, char *argv[]) {
                 
                 auto t{S.between(s, s+dur)};
                 intervals.push_back(t);
-                resources[mach].push_back(t);
+                resources[mach].provide(t);
                 previous_jobs.push_back(t);
                 
             } else {
@@ -162,7 +162,7 @@ int main(int argc, char *argv[]) {
 //                    std::cout << " ---> " << t.id() << ": " << allocation.back() << " / " << t.exist << std::endl;
                     
                     intervals.push_back(t);
-                    resources[mach].push_back(t);
+                    resources[mach].provide(t);
                     previous_jobs.push_back(t);
                 }
                 
