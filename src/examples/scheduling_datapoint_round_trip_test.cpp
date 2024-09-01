@@ -32,7 +32,7 @@ auto findMatchingSolution(const tempo::serialization::PartialProblem &p,
         return {solutions.at(p.associatedSolution), std::move(diff)};
     }
 
-    for (const auto &sol : solutions) {
+    for (const auto &[_, sol] : solutions) {
         if (setDifference(decisions, sol.decisions).empty()) {
             return {sol, std::move(diff)};
         }
