@@ -391,7 +391,7 @@ namespace std {
             return 0;
         }
 
-        static constexpr intfinity<T, B> denorm_in() noexcept {
+        static constexpr intfinity<T, B> denorm_min() noexcept {
             return 0;
         }
 
