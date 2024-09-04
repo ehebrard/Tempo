@@ -102,9 +102,19 @@ public:
         return value == other.value;
     }
 
+    template<std::floating_point F>
+    constexpr bool operator==(F other) const noexcept {
+        return static_cast<F>(*this) == other;
+    }
+
     constexpr std::partial_ordering operator<=>(intfinity other) const noexcept {
         if (isNan() or other.isNan()) { return std::partial_ordering::unordered; }
         return value <=> other.value;
+    }
+
+    template<std::floating_point F>
+    constexpr auto operator<=>(F other) const noexcept {
+        return static_cast<F>(*this) <=> other;
     }
 
     constexpr intfinity &operator+=(intfinity other) noexcept {
