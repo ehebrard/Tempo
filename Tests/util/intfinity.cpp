@@ -399,6 +399,9 @@ TEST(util, intfinity_arithmetics_signed_plus_overflow) {
     testPlusOverflow<int>();
     auto nInf = -intfinity<int>::Inf();
     EXPECT_TRUE((nInf + intfinity<int>::Inf()).isNan());
+    auto low = std::numeric_limits<intfinity<int>>::min();
+    EXPECT_EQ(low + (-3), -intfinity<int>::Inf());
+    EXPECT_EQ(low += (-3), -intfinity<int>::Inf());
 }
 
 
