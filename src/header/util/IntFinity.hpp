@@ -62,14 +62,15 @@ public:
 
     template<std::floating_point F>
     constexpr intfinity(F value) noexcept: value(value) {
+        constexpr auto FInf = static_cast<F>(Infinity);
         if (std::isnan(value)) {
             this->value = NotANumber;
             return;
         }
 
         if constexpr(std::is_signed_v<T>) {
-            if (std::abs(value) > Infinity) {
-                this->value = detail::sgn(value) * Infinity;
+            if (std::abs(value) > FInf) {
+                this->value = detail::sgn<T>(value) * FInf;
             }
         } else {
             if (value < 0) {
@@ -78,7 +79,7 @@ public:
                 } else {
                     this->value = 0;
                 }
-            } else if (value > Infinity) {
+            } else if (value > FInf) {
                 this->value = Infinity;
             }
         }

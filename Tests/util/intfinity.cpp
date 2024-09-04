@@ -112,9 +112,51 @@ TEST(util, intfinity_ctor) {
     EXPECT_EQ(number, 5);
     EXPECT_FALSE(number.isInf());
     EXPECT_FALSE(number.isNan());
-    intfinity<unsigned> inf = std::numeric_limits<double>::quiet_NaN();
-    int infi = std::numeric_limits<double>::infinity();
-    std::cout << inf;
+}
+
+TEST(util, intfinity_float_conversion) {
+    intfinity<int> number = 1.5;
+    intfinity<unsigned> uNumber = 1.5;
+    intfinity<unsigned, true> uONumber = 1.5;
+    EXPECT_EQ(number, 1);
+    EXPECT_EQ(uNumber, 1);
+    number = -14.2f;
+    uNumber = -14.2f;
+    uONumber = -14.2f;
+    EXPECT_EQ(number, -14);
+    EXPECT_EQ(uNumber, 0);
+    EXPECT_TRUE(uONumber.isInf());
+}
+
+TEST(util, intfinity_float_conversion_special) {
+    intfinity<int> number = std::numeric_limits<double>::infinity();
+    intfinity<unsigned> uNumber = std::numeric_limits<float>::infinity();
+    intfinity<unsigned, true> uONumber = -std::numeric_limits<double>::infinity();
+    EXPECT_TRUE(number.isInf());
+    EXPECT_TRUE(uNumber.isInf());
+    EXPECT_TRUE(uONumber.isInf());
+    number = -1 / 0.0;
+    EXPECT_EQ(number, -intfinity<int>::Inf());
+    uNumber = -1 / 0.0;
+    EXPECT_EQ(uNumber, 0);
+    number = std::numeric_limits<float>::quiet_NaN();
+    uNumber = std::numeric_limits<double>::quiet_NaN();
+    uONumber = std::numeric_limits<double>::quiet_NaN();
+    EXPECT_TRUE(number.isNan());
+    EXPECT_TRUE(uNumber.isNan());
+    EXPECT_TRUE(uONumber.isNan());
+    number = std::numeric_limits<float>::signaling_NaN();
+    uNumber = std::numeric_limits<double>::signaling_NaN();
+    uONumber = std::numeric_limits<double>::signaling_NaN();
+    EXPECT_TRUE(number.isNan());
+    EXPECT_TRUE(uNumber.isNan());
+    EXPECT_TRUE(uONumber.isNan());
+    number = static_cast<double>(intfinity<int>::Inf().get());
+    uNumber = static_cast<double>(intfinity<unsigned>::Inf().get());
+    uONumber = static_cast<double>(intfinity<unsigned, true>::Inf().get());
+    EXPECT_EQ(number, intfinity<int>::Inf());
+    EXPECT_EQ(uNumber, intfinity<unsigned>::Inf());
+    EXPECT_EQ(uONumber, (intfinity<unsigned, true>::Inf()));
 }
 
 TEST(util, intfinity_comparisons_normal) {
