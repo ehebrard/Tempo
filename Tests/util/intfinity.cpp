@@ -8,6 +8,8 @@
 
 #include "util/IntFinity.hpp"
 
+using namespace tempo;
+
 template<typename T>
 void testRelationsNan() {
     auto nan = intfinity<T>::Nan();

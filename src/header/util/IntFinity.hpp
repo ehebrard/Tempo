@@ -13,410 +13,415 @@
 #include <ostream>
 #include <cmath>
 
-namespace detail {
-    template<typename T, bool B, T TVal, T FVal>
-    struct conditional {};
+namespace tempo {
+    namespace detail {
+        template<typename T, bool B, T TVal, T FVal>
+        struct conditional {
+        };
 
-    template<typename T, T TVal, T FVal>
-    struct conditional<T, true, TVal, FVal> {
-        static constexpr T value = TVal;
-    };
+        template<typename T, T TVal, T FVal>
+        struct conditional<T, true, TVal, FVal> {
+            static constexpr T value = TVal;
+        };
 
-    template<typename T, T TVal, T FVal>
-    struct conditional<T, false, TVal, FVal> {
-        static constexpr T value = FVal;
-    };
+        template<typename T, T TVal, T FVal>
+        struct conditional<T, false, TVal, FVal> {
+            static constexpr T value = FVal;
+        };
 
-    template<typename T, bool B, T TVal, T FVal>
-    inline constexpr auto conditional_v = conditional<T, B, TVal, FVal>::value;
+        template<typename T, bool B, T TVal, T FVal>
+        inline constexpr auto conditional_v = conditional<T, B, TVal, FVal>::value;
 
-    template<typename T>
-    constexpr T sgn(T x) noexcept {
-        if (x < 0) {
-            return -1;
-        }
-
-        if (x > 0) {
-            return 1;
-        }
-
-        return 0;
-    }
-}
-
-template<std::integral T, bool UnsignedUnderflow = false>
-class intfinity {
-    T value{};
-    static constexpr bool TwoCompl = not std::is_signed_v<T> or T(-1) == compl T(0);
-    static_assert(TwoCompl, "This implementation only works on machines that use the 2's complement for signed"
-                            "integers. I suggest using a machine from past WW2 :D");
-    static constexpr T NotANumber = detail::conditional_v<T, std::is_signed_v<T>,
-            std::numeric_limits<T>::min(), std::numeric_limits<T>::max()>;
-    static constexpr T Infinity = std::numeric_limits<T>::max() - detail::conditional_v<T, std::is_signed_v<T>, 0, 1>;
-public:
-    static constexpr intfinity Inf(){ return Infinity; }
-    static constexpr intfinity Nan() {return NotANumber; }
-
-    constexpr intfinity() noexcept = default;
-    constexpr intfinity(T value) noexcept : value(value) {}
-
-    template<std::floating_point F>
-    constexpr intfinity(F value) noexcept: value(value) {
-        constexpr auto FInf = static_cast<F>(Infinity);
-        if (std::isnan(value)) {
-            this->value = NotANumber;
-            return;
-        }
-
-        if constexpr(std::is_signed_v<T>) {
-            if (std::abs(value) > FInf) {
-                this->value = static_cast<T>(detail::sgn(value)) * FInf;
+        template<typename T>
+        constexpr T sgn(T x) noexcept {
+            if (x < 0) {
+                return -1;
             }
-        } else {
-            if (value < 0) {
-                if constexpr(UnsignedUnderflow) {
+
+            if (x > 0) {
+                return 1;
+            }
+
+            return 0;
+        }
+    }
+
+    template<std::integral T, bool UnsignedUnderflow = false>
+    class intfinity {
+        T value{};
+        static constexpr bool TwoCompl = not std::is_signed_v<T> or T(-1) == compl T(0);
+        static_assert(TwoCompl, "This implementation only works on machines that use the 2's complement for signed"
+                                "integers. I suggest using a machine from past WW2 :D");
+        static constexpr T NotANumber = detail::conditional_v<T, std::is_signed_v<T>,
+                std::numeric_limits<T>::min(), std::numeric_limits<T>::max()>;
+        static constexpr T Infinity =
+                std::numeric_limits<T>::max() - detail::conditional_v<T, std::is_signed_v<T>, 0, 1>;
+    public:
+        static constexpr intfinity Inf() { return Infinity; }
+
+        static constexpr intfinity Nan() { return NotANumber; }
+
+        constexpr intfinity() noexcept = default;
+
+        constexpr intfinity(T value) noexcept: value(value) {}
+
+        template<std::floating_point F>
+        constexpr intfinity(F value) noexcept: value(value) {
+            constexpr auto FInf = static_cast<F>(Infinity);
+            if (std::isnan(value)) {
+                this->value = NotANumber;
+                return;
+            }
+
+            if constexpr (std::is_signed_v<T>) {
+                if (std::abs(value) > FInf) {
+                    this->value = static_cast<T>(detail::sgn(value)) * FInf;
+                }
+            } else {
+                if (value < 0) {
+                    if constexpr (UnsignedUnderflow) {
+                        this->value = Infinity;
+                    } else {
+                        this->value = 0;
+                    }
+                } else if (value > FInf) {
                     this->value = Infinity;
-                } else {
-                    this->value = 0;
                 }
-            } else if (value > FInf) {
-                this->value = Infinity;
             }
         }
-    }
 
-    [[nodiscard]] constexpr bool isInf() const noexcept {
-        if constexpr (std::is_signed_v<T>) {
-            return std::abs(value) == Infinity;
-        } else {
-            return value == Infinity;
-        }
-    }
-
-    [[nodiscard]] constexpr bool isNan() const noexcept {
-        return value == NotANumber;
-    }
-
-    constexpr bool operator==(intfinity other) const noexcept {
-        if (isNan() or other.isNan()) { return false; }
-        return value == other.value;
-    }
-
-    template<std::floating_point F>
-    constexpr bool operator==(F other) const noexcept {
-        return static_cast<F>(*this) == other;
-    }
-
-    constexpr std::partial_ordering operator<=>(intfinity other) const noexcept {
-        if (isNan() or other.isNan()) { return std::partial_ordering::unordered; }
-        return value <=> other.value;
-    }
-
-    template<std::floating_point F>
-    constexpr auto operator<=>(F other) const noexcept {
-        return static_cast<F>(*this) <=> other;
-    }
-
-    constexpr intfinity &operator+=(intfinity other) noexcept {
-        if (isNan() or other.isNan()) {
-            value = NotANumber;
-            return *this;
+        [[nodiscard]] constexpr bool isInf() const noexcept {
+            if constexpr (std::is_signed_v<T>) {
+                return std::abs(value) == Infinity;
+            } else {
+                return value == Infinity;
+            }
         }
 
-        if constexpr (std::is_signed_v<T>) {
-            if (isInf() and other.isInf() and detail::sgn(value) != detail::sgn(other.value)) {
+        [[nodiscard]] constexpr bool isNan() const noexcept {
+            return value == NotANumber;
+        }
+
+        constexpr bool operator==(intfinity other) const noexcept {
+            if (isNan() or other.isNan()) { return false; }
+            return value == other.value;
+        }
+
+        template<std::floating_point F>
+        constexpr bool operator==(F other) const noexcept {
+            return static_cast<F>(*this) == other;
+        }
+
+        constexpr std::partial_ordering operator<=>(intfinity other) const noexcept {
+            if (isNan() or other.isNan()) { return std::partial_ordering::unordered; }
+            return value <=> other.value;
+        }
+
+        template<std::floating_point F>
+        constexpr auto operator<=>(F other) const noexcept {
+            return static_cast<F>(*this) <=> other;
+        }
+
+        constexpr intfinity &operator+=(intfinity other) noexcept {
+            if (isNan() or other.isNan()) {
                 value = NotANumber;
                 return *this;
             }
-        }
 
-        if(isInf()) {
-            return *this;
-        }
+            if constexpr (std::is_signed_v<T>) {
+                if (isInf() and other.isInf() and detail::sgn(value) != detail::sgn(other.value)) {
+                    value = NotANumber;
+                    return *this;
+                }
+            }
 
-        if constexpr (std::is_signed_v<T>) {
-            if (other.value > 0 and Infinity - other.value < value) {
-                value = Infinity;
-                return *this;
-            } else if (other.value < 0 and -Infinity - other.value > value) {
-                value = -Infinity;
+            if (isInf()) {
                 return *this;
             }
-        } else {
-            if (Infinity - other.value < value) {
-                value = Infinity;
-                return *this;
-            }
-        }
 
-        value += other.value;
-        return *this;
-    }
-
-    template<std::floating_point F>
-    constexpr intfinity &operator+=(F other) noexcept {
-        *this = static_cast<F>(*this) + other;
-        return *this;
-    }
-
-    constexpr intfinity &operator-=(intfinity other) noexcept {
-        if (isNan() or other.isNan()) {
-            value = NotANumber;
-            return *this;
-        }
-
-        if constexpr (std::is_signed_v<T>) {
-            if (isInf() and other.isInf() and detail::sgn(value) == detail::sgn(other.value)) {
-                value = NotANumber;
-                return *this;
-            }
-        } else {
-            if (isInf() and other.isInf()) {
-                value = NotANumber;
-                return *this;
-            }
-        }
-
-        if (isInf()) {
-            return *this;
-        }
-
-        if constexpr (std::is_signed_v<T>) {
-            if (other.value < 0 and Infinity + other.value < value) {
-                value = Infinity;
-                return *this;
-            } else if (other.value > 0 and -Infinity + other.value > value) {
-                value = -Infinity;
-                return *this;
-            }
-        } else {
-            if (value < other.value) {
-                if constexpr (UnsignedUnderflow) {
+            if constexpr (std::is_signed_v<T>) {
+                if (other.value > 0 and Infinity - other.value < value) {
                     value = Infinity;
-                } else {
-                    value = 0;
+                    return *this;
+                } else if (other.value < 0 and -Infinity - other.value > value) {
+                    value = -Infinity;
+                    return *this;
+                }
+            } else {
+                if (Infinity - other.value < value) {
+                    value = Infinity;
+                    return *this;
+                }
+            }
+
+            value += other.value;
+            return *this;
+        }
+
+        template<std::floating_point F>
+        constexpr intfinity &operator+=(F other) noexcept {
+            *this = static_cast<F>(*this) + other;
+            return *this;
+        }
+
+        constexpr intfinity &operator-=(intfinity other) noexcept {
+            if (isNan() or other.isNan()) {
+                value = NotANumber;
+                return *this;
+            }
+
+            if constexpr (std::is_signed_v<T>) {
+                if (isInf() and other.isInf() and detail::sgn(value) == detail::sgn(other.value)) {
+                    value = NotANumber;
+                    return *this;
+                }
+            } else {
+                if (isInf() and other.isInf()) {
+                    value = NotANumber;
+                    return *this;
+                }
+            }
+
+            if (isInf()) {
+                return *this;
+            }
+
+            if constexpr (std::is_signed_v<T>) {
+                if (other.value < 0 and Infinity + other.value < value) {
+                    value = Infinity;
+                    return *this;
+                } else if (other.value > 0 and -Infinity + other.value > value) {
+                    value = -Infinity;
+                    return *this;
+                }
+            } else {
+                if (value < other.value) {
+                    if constexpr (UnsignedUnderflow) {
+                        value = Infinity;
+                    } else {
+                        value = 0;
+                    }
+
+                    return *this;
+                }
+            }
+
+            value -= other.value;
+            return *this;
+        }
+
+        template<std::floating_point F>
+        constexpr intfinity &operator-=(F other) {
+            *this = static_cast<F>(*this) - other;
+            return *this;
+        }
+
+        constexpr friend intfinity operator+(intfinity lhs, intfinity rhs) noexcept {
+            lhs += rhs;
+            return lhs;
+        }
+
+        template<std::floating_point F>
+        friend constexpr F operator+(intfinity lhs, F rhs) noexcept {
+            return static_cast<F>(lhs) + rhs;
+        }
+
+        template<std::floating_point F>
+        friend constexpr F operator+(F lhs, intfinity rhs) noexcept {
+            return lhs + static_cast<F>(rhs);
+        }
+
+        constexpr friend intfinity operator-(intfinity lhs, intfinity rhs) noexcept {
+            lhs -= rhs;
+            return lhs;
+        }
+
+        template<std::floating_point F>
+        friend constexpr F operator-(intfinity lhs, F rhs) noexcept {
+            return static_cast<F>(lhs) - rhs;
+        }
+
+        template<std::floating_point F>
+        friend constexpr F operator-(F lhs, intfinity rhs) noexcept {
+            return lhs - static_cast<F>(rhs);
+        }
+
+        constexpr intfinity &operator++() noexcept {
+            return operator+=(1);
+        }
+
+        constexpr intfinity operator++(int) noexcept {
+            auto old = *this;
+            operator++();
+            return old;
+        }
+
+        constexpr intfinity &operator--() noexcept {
+            return operator-=(1);
+        }
+
+        constexpr intfinity operator--(int) noexcept {
+            auto old = *this;
+            operator--();
+            return old;
+        }
+
+        constexpr intfinity &operator*=(intfinity other) noexcept {
+            if (isNan() or other.isNan()) {
+                value = NotANumber;
+                return *this;
+            }
+
+            if ((isInf() and other.value == 0) or (value == 0 and other.isInf())) {
+                value = NotANumber;
+                return *this;
+            }
+
+            T lhs;
+            T rhs;
+            if constexpr (std::is_signed_v<T>) {
+                lhs = std::abs(value);
+                rhs = std::abs(other.value);
+            } else {
+                lhs = value;
+                rhs = other.value;
+            }
+
+            if (rhs != 0 and Infinity / rhs < lhs) {
+                value = Infinity;
+                if constexpr (std::is_signed_v<T>) {
+                    value *= detail::sgn(value) * detail::sgn(other.value);
                 }
 
                 return *this;
             }
-        }
 
-        value -= other.value;
-        return *this;
-    }
-
-    template<std::floating_point F>
-    constexpr intfinity &operator-=(F other) {
-        *this = static_cast<F>(*this) - other;
-        return *this;
-    }
-
-    constexpr friend intfinity operator+(intfinity lhs, intfinity rhs) noexcept {
-        lhs += rhs;
-        return lhs;
-    }
-
-    template<std::floating_point F>
-    friend constexpr F operator+(intfinity lhs, F rhs) noexcept {
-        return static_cast<F>(lhs) + rhs;
-    }
-
-    template<std::floating_point F>
-    friend constexpr F operator+(F lhs, intfinity rhs) noexcept {
-        return lhs + static_cast<F>(rhs);
-    }
-
-    constexpr friend intfinity operator-(intfinity lhs, intfinity rhs) noexcept {
-        lhs -= rhs;
-        return lhs;
-    }
-
-    template<std::floating_point F>
-    friend constexpr F operator-(intfinity lhs, F rhs) noexcept {
-        return static_cast<F>(lhs) - rhs;
-    }
-
-    template<std::floating_point F>
-    friend constexpr F operator-(F lhs, intfinity rhs) noexcept {
-        return lhs - static_cast<F>(rhs);
-    }
-
-    constexpr intfinity &operator++() noexcept {
-        return operator+=(1);
-    }
-
-    constexpr intfinity operator++(int) noexcept {
-        auto old = *this;
-        operator++();
-        return old;
-    }
-
-    constexpr intfinity &operator--() noexcept {
-        return operator-=(1);
-    }
-
-    constexpr intfinity operator--(int) noexcept {
-        auto old = *this;
-        operator--();
-        return old;
-    }
-
-    constexpr intfinity &operator*=(intfinity other) noexcept {
-        if (isNan() or other.isNan()) {
-            value = NotANumber;
+            value *= other.value;
             return *this;
         }
 
-        if ((isInf() and other.value == 0) or (value == 0 and other.isInf())) {
-            value = NotANumber;
+        template<std::floating_point F>
+        constexpr intfinity &operator*=(F other) noexcept {
+            *this = static_cast<F>(*this) * other;
             return *this;
         }
 
-        T lhs;
-        T rhs;
-        if constexpr (std::is_signed_v<T>) {
-            lhs = std::abs(value);
-            rhs = std::abs(other.value);
-        } else {
-            lhs = value;
-            rhs = other.value;
-        }
-
-        if (rhs != 0 and Infinity / rhs < lhs) {
-            value = Infinity;
-            if constexpr(std::is_signed_v<T>) {
-                value *= detail::sgn(value) * detail::sgn(other.value);
-            }
-
-            return *this;
-        }
-
-        value *= other.value;
-        return *this;
-    }
-
-    template<std::floating_point F>
-    constexpr intfinity &operator*=(F other) noexcept {
-        *this = static_cast<F>(*this) * other;
-        return *this;
-    }
-
-    constexpr intfinity &operator/=(intfinity other) noexcept {
-        if (isNan() or other.isNan()) {
-            value = NotANumber;
-            return *this;
-        }
-
-        if ((isInf() and other.isInf()) or (value == 0 and other.value == 0)) {
-            value = NotANumber;
-            return *this;
-        }
-
-        if (isInf()) {
-            return *this;
-        }
-
-        if (other.value == 0) {
-            if constexpr (std::is_signed_v<T>) {
-                value = detail::sgn(value) * Infinity;
-                return *this;
-            } else {
-                value = Infinity;
+        constexpr intfinity &operator/=(intfinity other) noexcept {
+            if (isNan() or other.isNan()) {
+                value = NotANumber;
                 return *this;
             }
-        }
 
-        value /= other.value;
-        return *this;
-    }
-
-    template<std::floating_point F>
-    constexpr intfinity &operator/=(F other) noexcept {
-        *this = static_cast<F>(*this) / other;
-        return *this;
-    }
-
-    constexpr friend intfinity operator*(intfinity lhs, intfinity rhs) noexcept {
-        lhs *= rhs;
-        return lhs;
-    }
-
-    template<std::floating_point F>
-    friend constexpr F operator*(intfinity lhs, F rhs) noexcept {
-        return static_cast<F>(lhs) * rhs;
-    }
-
-    template<std::floating_point F>
-    friend constexpr F operator*(F lhs, intfinity rhs) noexcept {
-        return lhs * static_cast<F>(rhs);
-    }
-
-
-    constexpr friend intfinity operator/(intfinity lhs, intfinity rhs) noexcept {
-        lhs /= rhs;
-        return lhs;
-    }
-
-    template<std::floating_point F>
-    friend constexpr F operator/(intfinity lhs, F rhs) noexcept {
-        return static_cast<F>(lhs) / rhs;
-    }
-
-    template<std::floating_point F>
-    friend constexpr F operator/(F lhs, intfinity rhs) noexcept {
-        return lhs / static_cast<F>(rhs);
-    }
-
-    constexpr intfinity operator+() const noexcept {
-        return value;
-    }
-
-    template<std::signed_integral = T>
-    constexpr intfinity operator-() const noexcept {
-        if (not isNan()) {
-            return -value;
-        }
-
-        return value;
-    }
-
-    template<std::floating_point F>
-    explicit constexpr operator F() const noexcept {
-        if (isNan()) {
-            return std::numeric_limits<F>::quiet_NaN();
-        }
-
-        if (isInf()) {
-            if constexpr (std::is_signed_v<T>) {
-                return static_cast<F>(detail::sgn(value)) * std::numeric_limits<F>::infinity();
-            } else {
-                return std::numeric_limits<F>::infinity();
+            if ((isInf() and other.isInf()) or (value == 0 and other.value == 0)) {
+                value = NotANumber;
+                return *this;
             }
+
+            if (isInf()) {
+                return *this;
+            }
+
+            if (other.value == 0) {
+                if constexpr (std::is_signed_v<T>) {
+                    value = detail::sgn(value) * Infinity;
+                    return *this;
+                } else {
+                    value = Infinity;
+                    return *this;
+                }
+            }
+
+            value /= other.value;
+            return *this;
         }
 
-        return static_cast<F>(value);
-    }
-
-    friend std::ostream &operator<<(std::ostream &os, intfinity val) {
-        if (val.isNan()) {
-            os <<"NaN";
-        } else if (val.isInf()) {
-            os << (val.get() < 0 ? "-" : "") << "Infinity";
-        } else {
-            os << val.get();
+        template<std::floating_point F>
+        constexpr intfinity &operator/=(F other) noexcept {
+            *this = static_cast<F>(*this) / other;
+            return *this;
         }
 
-        return os;
-    }
+        constexpr friend intfinity operator*(intfinity lhs, intfinity rhs) noexcept {
+            lhs *= rhs;
+            return lhs;
+        }
 
-    constexpr T get() const noexcept {
-        return value;
-    }
-};
+        template<std::floating_point F>
+        friend constexpr F operator*(intfinity lhs, F rhs) noexcept {
+            return static_cast<F>(lhs) * rhs;
+        }
 
+        template<std::floating_point F>
+        friend constexpr F operator*(F lhs, intfinity rhs) noexcept {
+            return lhs * static_cast<F>(rhs);
+        }
+
+
+        constexpr friend intfinity operator/(intfinity lhs, intfinity rhs) noexcept {
+            lhs /= rhs;
+            return lhs;
+        }
+
+        template<std::floating_point F>
+        friend constexpr F operator/(intfinity lhs, F rhs) noexcept {
+            return static_cast<F>(lhs) / rhs;
+        }
+
+        template<std::floating_point F>
+        friend constexpr F operator/(F lhs, intfinity rhs) noexcept {
+            return lhs / static_cast<F>(rhs);
+        }
+
+        constexpr intfinity operator+() const noexcept {
+            return value;
+        }
+
+        template<std::signed_integral = T>
+        constexpr intfinity operator-() const noexcept {
+            if (not isNan()) {
+                return -value;
+            }
+
+            return value;
+        }
+
+        template<std::floating_point F>
+        explicit constexpr operator F() const noexcept {
+            if (isNan()) {
+                return std::numeric_limits<F>::quiet_NaN();
+            }
+
+            if (isInf()) {
+                if constexpr (std::is_signed_v<T>) {
+                    return static_cast<F>(detail::sgn(value)) * std::numeric_limits<F>::infinity();
+                } else {
+                    return std::numeric_limits<F>::infinity();
+                }
+            }
+
+            return static_cast<F>(value);
+        }
+
+        friend std::ostream &operator<<(std::ostream &os, intfinity val) {
+            if (val.isNan()) {
+                os << "NaN";
+            } else if (val.isInf()) {
+                os << (val.get() < 0 ? "-" : "") << "Infinity";
+            } else {
+                os << val.get();
+            }
+
+            return os;
+        }
+
+        constexpr T get() const noexcept {
+            return value;
+        }
+    };
+}
 namespace std {
     template<typename T, bool B>
-    class numeric_limits<intfinity<T, B>> {
+    class numeric_limits<tempo::intfinity<T, B>> {
     public:
         static constexpr bool is_specialist = true;
         static constexpr bool is_signed = std::numeric_limits<T>::is_signed;
@@ -442,7 +447,7 @@ namespace std {
         static constexpr auto traps = false;
         static constexpr auto tinyness_before = false;
 
-        static constexpr intfinity<T, B> min() noexcept {
+        static constexpr tempo::intfinity<T, B> min() noexcept {
             if constexpr (std::is_signed_v<T>) {
                 return std::numeric_limits<T>::min() + 2;
             } else {
@@ -450,47 +455,47 @@ namespace std {
             }
         }
 
-        static constexpr intfinity<T, B> max() noexcept {
-            return std::numeric_limits<T>::max() - detail::conditional_v<T, std::is_signed_v<T>, 1, 2>;
+        static constexpr tempo::intfinity<T, B> max() noexcept {
+            return std::numeric_limits<T>::max() - tempo::detail::conditional_v<T, std::is_signed_v<T>, 1, 2>;
         }
 
-        static constexpr intfinity<T, B> lowest() noexcept {
+        static constexpr tempo::intfinity<T, B> lowest() noexcept {
             return min();
         }
 
-        static constexpr intfinity<T, B> epsilon() noexcept {
+        static constexpr tempo::intfinity<T, B> epsilon() noexcept {
             return 0;
         }
 
-        static constexpr intfinity<T, B> round_error() noexcept {
+        static constexpr tempo::intfinity<T, B> round_error() noexcept {
             return 0;
         }
 
-        static constexpr intfinity<T, B> denorm_min() noexcept {
+        static constexpr tempo::intfinity<T, B> denorm_min() noexcept {
             return 0;
         }
 
         static constexpr auto infinity() noexcept {
-            return intfinity<T, B>::Inf();
+            return tempo::intfinity<T, B>::Inf();
         }
 
         static constexpr auto quiet_NaN() noexcept {
-            return intfinity<T, B>::Nan();
+            return tempo::intfinity<T, B>::Nan();
         }
     };
 
     template<typename T, bool B>
-    constexpr bool isinf(intfinity<T, B> val) noexcept {
+    constexpr bool isinf(tempo::intfinity<T, B> val) noexcept {
         return val.isInf();
     }
 
     template<typename T, bool B>
-    constexpr bool isfinite(intfinity<T, B> val) noexcept {
+    constexpr bool isfinite(tempo::intfinity<T, B> val) noexcept {
         return not val.isInf() and not val.isNan();
     }
 
     template<typename T, bool B>
-    constexpr bool isnan(intfinity<T, B> val) noexcept {
+    constexpr bool isnan(tempo::intfinity<T, B> val) noexcept {
         return val.isNan();
     }
 }
