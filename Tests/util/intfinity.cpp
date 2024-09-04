@@ -356,3 +356,19 @@ TEST(util, intfinity_arithmetics_signed_mult_overflow) {
     EXPECT_TRUE((number * (-3)).isInf());
     EXPECT_EQ(number * (-3), -intfinity<int>::Inf());
 }
+
+TEST(util, intfinity_arithmetics_unsigned_div) {
+    intfinity number = 18u;
+    EXPECT_EQ(number /= 4, 4);
+    EXPECT_EQ(number / 2, 2);
+    EXPECT_EQ(number / 0, intfinity<unsigned>::Inf());
+}
+
+TEST(util, intfinity_arithmetics_signed_div) {
+    intfinity number = 18;
+    EXPECT_EQ(number /= 4, 4);
+    EXPECT_EQ(number / -2, -2);
+    EXPECT_EQ(-number / 0, -intfinity<int>::Inf());
+    EXPECT_EQ(number / 0, intfinity<int>::Inf());
+}
+
