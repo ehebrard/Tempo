@@ -486,7 +486,7 @@ namespace std {
 
     template<typename T, bool B>
     constexpr bool isfinite(intfinity<T, B> val) noexcept {
-        return not val.isInf();
+        return not val.isInf() and not val.isNan();
     }
 
     template<typename T, bool B>

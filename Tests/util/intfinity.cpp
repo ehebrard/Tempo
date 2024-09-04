@@ -583,3 +583,17 @@ TEST(util, intfinity_numeric_limits) {
     testNumericLimits<unsigned, true>();
 }
 
+TEST(util, intfinity_std) {
+    auto nan = intfinity<int>::Nan();
+    auto inf = intfinity<int>::Inf();
+    intfinity number = 4;
+    EXPECT_TRUE(std::isnan(nan));
+    EXPECT_FALSE(std::isinf(nan));
+    EXPECT_FALSE(std::isfinite(nan));
+    EXPECT_FALSE(std::isnan(inf));
+    EXPECT_TRUE(std::isinf(inf));
+    EXPECT_FALSE(std::isfinite(inf));
+    EXPECT_FALSE(std::isnan(number));
+    EXPECT_FALSE(std::isinf(number));
+    EXPECT_TRUE(std::isfinite(number));
+}
