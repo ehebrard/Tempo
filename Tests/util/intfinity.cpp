@@ -541,3 +541,45 @@ TEST(util, intfinity_arithmetics_signed_div_float_special) {
     EXPECT_TRUE(std::isnan(number / 2.0));
 }
 
+template<typename T, bool B>
+void testNumericLimits() {
+    using L = std::numeric_limits<intfinity<T, B>>;
+    EXPECT_TRUE(L::is_specialist);
+    EXPECT_EQ(L::is_signed, std::is_signed_v<T>);
+    EXPECT_TRUE(L::is_integer);
+    EXPECT_TRUE(L::is_exact);
+    EXPECT_TRUE(L::has_infinity);
+    EXPECT_TRUE(L::has_quiet_NaN);
+    EXPECT_FALSE(L::has_signaling_NaN);
+    EXPECT_EQ(L::has_denorm, std::denorm_absent);
+    EXPECT_FALSE(L::has_denorm_loss);
+    EXPECT_EQ(L::round_style, std::round_toward_zero);
+    EXPECT_FALSE(L::is_iec559);
+    EXPECT_TRUE(L::is_bounded);
+    EXPECT_FALSE(L::is_modulo);
+    EXPECT_FALSE(L::traps);
+    EXPECT_FALSE(L::tinyness_before);
+    EXPECT_EQ(L::infinity(), (intfinity<T, B>::Inf()));
+    EXPECT_TRUE(L::quiet_NaN().isNan());
+    EXPECT_EQ(L::epsilon(), 0);
+    EXPECT_EQ(L::denorm_min(), 0);
+    EXPECT_EQ(L::round_error(), 0);
+    auto max = std::numeric_limits<intfinity<T, B>>::max();
+    EXPECT_FALSE(max.isInf());
+    EXPECT_EQ(max + 1, (intfinity<T, B>::Inf()));
+    EXPECT_EQ(L::lowest(), L::min());
+    auto min = std::numeric_limits<intfinity<T, B>>::min();
+    EXPECT_FALSE(min.isInf());
+    if constexpr (std::is_signed_v<T>) {
+        EXPECT_EQ(min - 1, (-intfinity<T, B>::Inf()));
+    } else {
+        EXPECT_EQ(min, 0);
+    }
+}
+
+TEST(util, intfinity_numeric_limits) {
+    testNumericLimits<int, false>();
+    testNumericLimits<unsigned, false>();
+    testNumericLimits<unsigned, true>();
+}
+

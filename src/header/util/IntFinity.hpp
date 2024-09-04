@@ -430,7 +430,7 @@ namespace std {
         static constexpr auto round_style = std::round_toward_zero;
         static constexpr bool is_iec559 = false;
         static constexpr bool is_bounded = true;
-        static constexpr bool is_modulo = true;
+        static constexpr bool is_modulo = false;
         static constexpr auto digits = std::numeric_limits<T>::digits;
         static constexpr auto digits10 = std::numeric_limits<T>::digits10;
         static constexpr auto max_digits10 = std::numeric_limits<T>::max_digits10;
@@ -444,7 +444,7 @@ namespace std {
 
         static constexpr intfinity<T, B> min() noexcept {
             if constexpr (std::is_signed_v<T>) {
-                return std::numeric_limits<T>::min() + 1;
+                return std::numeric_limits<T>::min() + 2;
             } else {
                 return 0;
             }
@@ -477,9 +477,6 @@ namespace std {
         static constexpr auto quiet_NaN() noexcept {
             return intfinity<T, B>::Nan();
         }
-
-
-
     };
 
     template<typename T, bool B>
