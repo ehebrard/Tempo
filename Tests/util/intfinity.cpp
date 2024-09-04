@@ -52,6 +52,45 @@ void testRelationsInf() {
     EXPECT_TRUE(inf <= inf);
 }
 
+template<typename T>
+void testRelationsNanFloat() {
+    auto nan = intfinity<T>::Nan();
+    auto nanf = std::numeric_limits<float>::quiet_NaN();
+    intfinity<T> number = 5;
+    EXPECT_FALSE(nan == 3.3);
+    EXPECT_TRUE(nan != 3.f);
+    EXPECT_FALSE(nan <= 3.f);
+    EXPECT_FALSE(nan >= 3.5);
+    EXPECT_FALSE(nan < 3.f);
+    EXPECT_FALSE(nan > 3.f);
+    EXPECT_TRUE(number != nanf);
+    EXPECT_FALSE(number == nanf);
+    EXPECT_FALSE(number <= nanf);
+    EXPECT_FALSE(number >= nanf);
+    EXPECT_FALSE(number < nanf);
+    EXPECT_FALSE(number > nanf);
+}
+
+template<typename T>
+void testRelationsInfFloat() {
+    auto inf = intfinity<T>::Inf();
+    auto inff = -std::numeric_limits<double>::infinity();
+    intfinity<T> number = 4;
+    EXPECT_TRUE(inf > 1000.f);
+    EXPECT_TRUE(inf >= 1000.f);
+    EXPECT_TRUE(inf != 1000.4);
+    EXPECT_FALSE(inf == 1000.);
+    EXPECT_FALSE(inf <= 1000.f);
+    EXPECT_FALSE(inf < 1000.);
+
+    EXPECT_FALSE(number == inff);
+    EXPECT_FALSE(number <= inff);
+    EXPECT_FALSE(number < inff);
+    EXPECT_TRUE(number != inff);
+    EXPECT_TRUE(number >= inff);
+    EXPECT_TRUE(number > inff);
+}
+
 template<typename T, bool Sign>
 void testArithmeticsInf() {
     auto inf = intfinity<T>::Inf();
@@ -245,6 +284,20 @@ TEST(util, intfinity_comparisons_nan) {
 TEST(util, intfinity_comparisons_inf) {
     testRelationsInf<int>();
     testRelationsInf<unsigned>();
+}
+
+TEST(util, intfinity_comparisons_float) {
+    intfinity number = 5;
+    EXPECT_TRUE(number < 5.3f);
+    EXPECT_TRUE(number <= 5.3);
+    EXPECT_TRUE(number == 5.0);
+    EXPECT_TRUE(number >= 5.f);
+    EXPECT_TRUE(number > 4.45f);
+    EXPECT_TRUE(number != 5.00001);
+    testRelationsNanFloat<int>();
+    testRelationsNanFloat<unsigned>();
+    testRelationsInfFloat<int>();
+    testRelationsInfFloat<unsigned>();
 }
 
 TEST(util, intfinity_arithmetics_unsigned_inf) {
