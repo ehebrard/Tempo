@@ -186,6 +186,7 @@ void testAddFloat() {
     intfinity<T> number = 5;
     EXPECT_EQ(number += 0.3, 5);
     EXPECT_EQ(number + 0.3f, 5.3f);
+    EXPECT_EQ(0.3f + number, 5.3f);
     EXPECT_TRUE((std::same_as<float, decltype(number + 0.1f)>));
 }
 
@@ -213,6 +214,7 @@ void testSubFloat() {
     intfinity<T> number = 5;
     EXPECT_EQ(number -= 0.3, 4);
     EXPECT_EQ(number - 0.3f, 3.7f);
+    EXPECT_EQ(0.3f - number, -3.7f);
     EXPECT_TRUE((std::same_as<float, decltype(number - 0.1f)>));
 }
 
@@ -430,6 +432,8 @@ TEST(util, intfinity_arithmetics_signed_minus_underflow) {
     EXPECT_EQ(low - 1, -intfinity<int>::Inf());
     EXPECT_TRUE((low -= 1000).isInf());
     EXPECT_EQ(-low, intfinity<int>::Inf());
+    auto high = std::numeric_limits<intfinity<int>>::max();
+    EXPECT_EQ(high - (-5), intfinity<int>::Inf());
 }
 
 TEST(util, intfinity_arithmetics_minus_float_normal) {
@@ -448,6 +452,7 @@ TEST(util, intfinity_arithmetics_minus_float_special) {
     intfinity<unsigned, true> uONumber = 4;
     EXPECT_EQ(uONumber -= 4.6, (intfinity<unsigned, true>::Inf()));
     EXPECT_TRUE(std::isnan(intfinity<int>::Inf() - std::numeric_limits<float>::infinity()));
+    EXPECT_TRUE(std::isnan(std::numeric_limits<float>::signaling_NaN() - uONumber));
 }
 
 TEST(util, intfinity_arithmetics_unsigned_mult_normal) {
