@@ -153,6 +153,12 @@ public:
         return *this;
     }
 
+    template<std::floating_point F>
+    constexpr intfinity &operator+=(F other) noexcept {
+        *this = static_cast<F>(*this) + other;
+        return *this;
+    }
+
     constexpr intfinity &operator-=(intfinity other) noexcept {
         if (isNan() or other.isNan()) {
             value = NotANumber;
@@ -202,6 +208,16 @@ public:
     constexpr friend intfinity operator+(intfinity lhs, intfinity rhs) noexcept {
         lhs += rhs;
         return lhs;
+    }
+
+    template<std::floating_point F>
+    friend constexpr F operator+(intfinity lhs, F rhs) noexcept {
+        return static_cast<F>(lhs) + rhs;
+    }
+
+    template<std::floating_point F>
+    friend constexpr F operator+(F lhs, intfinity rhs) noexcept {
+        return lhs + static_cast<F>(rhs);
     }
 
     constexpr friend intfinity operator-(intfinity lhs, intfinity rhs) noexcept {
