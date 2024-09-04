@@ -205,6 +205,12 @@ public:
         return *this;
     }
 
+    template<std::floating_point F>
+    constexpr intfinity &operator-=(F other) {
+        *this = static_cast<F>(*this) - other;
+        return *this;
+    }
+
     constexpr friend intfinity operator+(intfinity lhs, intfinity rhs) noexcept {
         lhs += rhs;
         return lhs;
@@ -223,6 +229,16 @@ public:
     constexpr friend intfinity operator-(intfinity lhs, intfinity rhs) noexcept {
         lhs -= rhs;
         return lhs;
+    }
+
+    template<std::floating_point F>
+    friend constexpr F operator-(intfinity lhs, F rhs) noexcept {
+        return static_cast<F>(lhs) - rhs;
+    }
+
+    template<std::floating_point F>
+    friend constexpr F operator-(F lhs, intfinity rhs) noexcept {
+        return lhs - static_cast<F>(rhs);
     }
 
     constexpr intfinity &operator++() noexcept {
