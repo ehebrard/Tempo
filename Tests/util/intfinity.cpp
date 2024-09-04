@@ -160,6 +160,21 @@ TEST(util, intfinity_float_conversion_special) {
     EXPECT_EQ(uONumber, (intfinity<unsigned, true>::Inf()));
 }
 
+TEST(util, intfinity_to_float) {
+    constexpr auto FInf = std::numeric_limits<float>::infinity();
+    constexpr auto DInf = std::numeric_limits<double>::infinity();
+    intfinity number = -4;
+    EXPECT_EQ(static_cast<double>(number), -4.0);
+    number = 4;
+    EXPECT_EQ(static_cast<float>(number), 4.0f);
+    number = intfinity<int>::Inf();
+    EXPECT_EQ(static_cast<float>(number), FInf);
+    EXPECT_EQ(static_cast<double>(-number), -DInf);
+    number = intfinity<int>::Nan();
+    EXPECT_TRUE(std::isnan(static_cast<double>(number)));
+    EXPECT_TRUE(std::isnan(static_cast<float>(-number)));
+}
+
 TEST(util, intfinity_comparisons_normal) {
     intfinity five = 5;
     intfinity minusTwo = -2;

@@ -305,6 +305,23 @@ public:
         return value;
     }
 
+    template<std::floating_point F>
+    explicit constexpr operator F() const noexcept {
+        if (isNan()) {
+            return std::numeric_limits<F>::quiet_NaN();
+        }
+
+        if (isInf()) {
+            if constexpr (std::is_signed_v<T>) {
+                return static_cast<F>(detail::sgn(value)) * std::numeric_limits<F>::infinity();
+            } else {
+                return std::numeric_limits<F>::infinity();
+            }
+        }
+
+        return static_cast<F>(value);
+    }
+
     friend std::ostream &operator<<(std::ostream &os, intfinity val) {
         if (val.isNan()) {
             os <<"NaN";
