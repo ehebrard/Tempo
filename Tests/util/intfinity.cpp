@@ -181,6 +181,34 @@ void testMultNormal() {
     EXPECT_EQ(number * number, 0);
 }
 
+template<typename T>
+void testAddFloat() {
+    intfinity<T> number = 5;
+    EXPECT_EQ(number += 0.3, 5);
+    EXPECT_EQ(number + 0.3f, 5.3f);
+    EXPECT_TRUE((std::same_as<float, decltype(number + 0.1f)>));
+}
+
+template<typename T>
+void testAddFloatSpecial() {
+    constexpr auto Inff = std::numeric_limits<double>::infinity();
+    auto large = std::numeric_limits<intfinity<T>>::max();
+    large += 0.7;
+    EXPECT_FALSE(large.isInf());
+    large += 1.03;
+    EXPECT_EQ(large, intfinity<T>::Inf());
+    EXPECT_EQ(large + 1000.f, intfinity<T>::Inf());
+    EXPECT_TRUE(std::isinf(large + 1000.f));
+    if constexpr (std::is_signed_v<T>) {
+        EXPECT_TRUE(std::isnan(-intfinity<T>::Inf() + std::numeric_limits<double>::infinity()));
+    }
+
+    intfinity<T> number = 5;
+    EXPECT_EQ(number + Inff, Inff);
+    EXPECT_TRUE(std::isnan(number + std::numeric_limits<float>::signaling_NaN()));
+}
+
+
 TEST(util, intfinity_default) {
     intfinity<int> zero;
     EXPECT_EQ(zero.get(), 0);
@@ -344,6 +372,17 @@ TEST(util, intfinity_arithmetics_signed_plus_overflow) {
     testPlusOverflow<int>();
     auto nInf = -intfinity<int>::Inf();
     EXPECT_TRUE((nInf + intfinity<int>::Inf()).isNan());
+}
+
+
+TEST(util, intfinity_arithmetics_plus_float_normal) {
+    testAddFloat<int>();
+    testAddFloat<unsigned>();
+}
+
+TEST(util, intfinity_arithmetics_plus_float_special) {
+    testAddFloatSpecial<int>();
+    testAddFloatSpecial<unsigned>();
 }
 
 TEST(util, intfinity_arithmetics_unsigned_minus_normal) {
