@@ -8,6 +8,50 @@
 
 #include "util/IntFinity.hpp"
 
+template<typename T>
+void testRelationsNan() {
+    auto nan = intfinity<T>::Nan();
+    auto inf = intfinity<T>::Inf();
+    EXPECT_FALSE(nan == 3);
+    EXPECT_TRUE(nan != 3);
+    EXPECT_FALSE(nan <= 3);
+    EXPECT_FALSE(nan >= 3);
+    EXPECT_FALSE(nan < 3);
+    EXPECT_FALSE(nan > 3);
+
+    EXPECT_FALSE(nan == inf);
+    EXPECT_TRUE(nan != inf);
+    EXPECT_FALSE(nan <= inf);
+    EXPECT_FALSE(nan >= inf);
+    EXPECT_FALSE(nan < inf);
+    EXPECT_FALSE(nan > inf);
+
+    EXPECT_FALSE(nan == nan);
+    EXPECT_TRUE(nan != nan);
+    EXPECT_FALSE(nan <= nan);
+    EXPECT_FALSE(nan >= nan);
+    EXPECT_FALSE(nan < nan);
+    EXPECT_FALSE(nan > nan);
+}
+
+template<typename T>
+void testRelationsInf() {
+    auto inf = intfinity<T>::Inf();
+    EXPECT_TRUE(inf > 1000);
+    EXPECT_TRUE(inf >= 1000);
+    EXPECT_TRUE(inf != 1000);
+    EXPECT_FALSE(inf == 1000);
+    EXPECT_FALSE(inf <= 1000);
+    EXPECT_FALSE(inf < 1000);
+
+    EXPECT_FALSE(inf > inf);
+    EXPECT_FALSE(inf != inf);
+    EXPECT_FALSE(inf < inf);
+    EXPECT_TRUE(inf == inf);
+    EXPECT_TRUE(inf >= inf);
+    EXPECT_TRUE(inf <= inf);
+}
+
 template<typename T, bool Sign>
 void testArithmeticsInf() {
     auto inf = intfinity<T>::Inf();
@@ -194,45 +238,13 @@ TEST(util, intfinity_comparisons_normal) {
 }
 
 TEST(util, intfinity_comparisons_nan) {
-    auto nan = intfinity<int>::Nan();
-    auto inf = intfinity<int>::Inf();
-    EXPECT_FALSE(nan == 3);
-    EXPECT_TRUE(nan != 3);
-    EXPECT_FALSE(nan <= 3);
-    EXPECT_FALSE(nan >= 3);
-    EXPECT_FALSE(nan < 3);
-    EXPECT_FALSE(nan > 3);
-
-    EXPECT_FALSE(nan == inf);
-    EXPECT_TRUE(nan != inf);
-    EXPECT_FALSE(nan <= inf);
-    EXPECT_FALSE(nan >= inf);
-    EXPECT_FALSE(nan < inf);
-    EXPECT_FALSE(nan > inf);
-
-    EXPECT_FALSE(nan == nan);
-    EXPECT_TRUE(nan != nan);
-    EXPECT_FALSE(nan <= nan);
-    EXPECT_FALSE(nan >= nan);
-    EXPECT_FALSE(nan < nan);
-    EXPECT_FALSE(nan > nan);
+    testRelationsNan<int>();
+    testRelationsNan<unsigned>();
 }
 
 TEST(util, intfinity_comparisons_inf) {
-    auto inf = intfinity<int>::Inf();
-    EXPECT_TRUE(inf > 1000);
-    EXPECT_TRUE(inf >= 1000);
-    EXPECT_TRUE(inf != 1000);
-    EXPECT_FALSE(inf == 1000);
-    EXPECT_FALSE(inf <= 1000);
-    EXPECT_FALSE(inf < 1000);
-
-    EXPECT_FALSE(inf > inf);
-    EXPECT_FALSE(inf != inf);
-    EXPECT_FALSE(inf < inf);
-    EXPECT_TRUE(inf == inf);
-    EXPECT_TRUE(inf >= inf);
-    EXPECT_TRUE(inf <= inf);
+    testRelationsInf<int>();
+    testRelationsInf<unsigned>();
 }
 
 TEST(util, intfinity_arithmetics_unsigned_inf) {
