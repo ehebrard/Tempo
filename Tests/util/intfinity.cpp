@@ -218,6 +218,24 @@ void testSubFloat() {
     EXPECT_TRUE((std::same_as<float, decltype(number - 0.1f)>));
 }
 
+template<typename T>
+void testMultFloat() {
+    intfinity<T> number = 5;
+    EXPECT_EQ(number *= 0.3, 1);
+    EXPECT_EQ(number * 0.3f, 0.3f);
+    EXPECT_EQ(0.3f * number, 0.3f);
+    EXPECT_TRUE((std::same_as<float, decltype(number * 0.1f)>));
+}
+
+template<typename T>
+void testDivFloat() {
+    intfinity<T> number = 5;
+    EXPECT_EQ(number /= 2.5, 2);
+    EXPECT_EQ(number / 0.5f, 4.f);
+    EXPECT_EQ(0.5f / number, 0.25f);
+    EXPECT_TRUE((std::same_as<float, decltype(number / 0.1f)>));
+}
+
 TEST(util, intfinity_default) {
     intfinity<int> zero;
     EXPECT_EQ(zero.get(), 0);
@@ -479,6 +497,21 @@ TEST(util, intfinity_arithmetics_signed_mult_overflow) {
     EXPECT_EQ(number * (-3), -intfinity<int>::Inf());
 }
 
+TEST(util, intfinity_arithmetics_signed_mult_float_normal) {
+    testMultFloat<int>();
+    testMultFloat<unsigned>();
+}
+
+TEST(util, intfinity_arithmetics_signed_mult_float_special) {
+    intfinity number = 1000;
+    EXPECT_EQ(number *= -1e10, -intfinity<int>::Inf());
+    EXPECT_EQ(0.3 * number * -0.4, std::numeric_limits<double>::infinity());
+    intfinity uNumber = 1000u;
+    EXPECT_EQ(uNumber *= -1e10, 0);
+    EXPECT_TRUE(std::isnan(uNumber * 0.3 * number));
+}
+
+
 TEST(util, intfinity_arithmetics_unsigned_div) {
     intfinity number = 18u;
     EXPECT_EQ(number /= 4, 4);
@@ -492,5 +525,19 @@ TEST(util, intfinity_arithmetics_signed_div) {
     EXPECT_EQ(number / -2, -2);
     EXPECT_EQ(-number / 0, -intfinity<int>::Inf());
     EXPECT_EQ(number / 0, intfinity<int>::Inf());
+}
+
+TEST(util, intfinity_arithmetics_signed_div_float_normal) {
+    testDivFloat<int>();
+    testDivFloat<unsigned>();
+}
+
+TEST(util, intfinity_arithmetics_signed_div_float_special) {
+    intfinity number = 5;
+    EXPECT_EQ(number / 0.0, std::numeric_limits<double>::infinity());
+    number /= 1000;
+    EXPECT_EQ(0.4f / number, std::numeric_limits<float>::infinity());
+    EXPECT_TRUE((number /= 0.0).isNan());
+    EXPECT_TRUE(std::isnan(number / 2.0));
 }
 
