@@ -133,6 +133,7 @@ TEST(util, intfinity_float_conversion_special) {
     intfinity<unsigned> uNumber = std::numeric_limits<float>::infinity();
     intfinity<unsigned, true> uONumber = -std::numeric_limits<double>::infinity();
     EXPECT_TRUE(number.isInf());
+    EXPECT_EQ(number, intfinity<int>::Inf());
     EXPECT_TRUE(uNumber.isInf());
     EXPECT_TRUE(uONumber.isInf());
     number = -1 / 0.0;

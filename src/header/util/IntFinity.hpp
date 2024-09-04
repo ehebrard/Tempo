@@ -70,7 +70,7 @@ public:
 
         if constexpr(std::is_signed_v<T>) {
             if (std::abs(value) > FInf) {
-                this->value = detail::sgn<T>(value) * FInf;
+                this->value = static_cast<T>(detail::sgn(value)) * FInf;
             }
         } else {
             if (value < 0) {
