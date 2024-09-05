@@ -33,6 +33,7 @@
 #include "util/Profiler.hpp"
 #include "helpers/shell.hpp"
 #include "helpers/git_sha.hpp"
+#include "util/IntFinity.hpp"
 
 using namespace tempo;
 
@@ -156,7 +157,7 @@ int main(int argc, char *argv[]) {
                                                        profileHeuristic, false));
   parser.parse(argc, argv);
   Options opt = parser.getOptions();
-  Solver<> S(opt);
+  Solver<intfinity<int>> S(opt);
   seed(opt.seed);
 
   // an interval standing for the makespan of schedule
@@ -165,9 +166,9 @@ int main(int argc, char *argv[]) {
 
   // depending on the option "input-format", parse a disjunctive scheduling
   // instance, and collect resources and interval objects
-  std::vector<NoOverlapExpression<>> resources;
+  std::vector<NoOverlapExpression<intfinity<int>>> resources;
   std::vector<std::vector<size_t>> resource_tasks;
-  std::vector<Interval<>> intervals;
+  std::vector<Interval<intfinity<int>>> intervals;
   std::vector<int> weights;
   std::vector<std::vector<std::vector<int>>> resource_transitions;
 
@@ -194,7 +195,7 @@ int main(int argc, char *argv[]) {
   resource_transitions.resize(resource_tasks.size());
 
   index_t i{0};
-  std::vector<Interval<int>> scope;
+  std::vector<Interval<intfinity<int>>> scope;
   for (auto &tasks : resource_tasks) {
     for (auto j : tasks) {
       scope.push_back(intervals[j]);
@@ -223,7 +224,7 @@ int main(int argc, char *argv[]) {
 //  //    S.post(schedule.end <= ub);
 
   if (opt.ub != Constant::Infinity<int>) {
-    S.post(schedule.end.before(opt.ub));
+    S.post(schedule.end.before(intfinity<int>(opt.ub)));
     //        S.set(schedule.end.before(schedule.start, -opt.ub));
     //        S.propagate();
 
@@ -237,7 +238,7 @@ int main(int argc, char *argv[]) {
 
   int num_restart{0};
   SubscriberHandle handlerToken;
-  FullTransitivity<int>* primal{NULL};
+  FullTransitivity<intfinity<int>>* primal{NULL};
   if (opt.full_transitivity or opt.primal_boost) {
     primal = S.postFullTransitivity(resources.begin(), resources.end());
     if (opt.primal_boost)
