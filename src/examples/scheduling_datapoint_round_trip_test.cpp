@@ -78,7 +78,7 @@ int main(int argc, char **argv) {
     }
 
     options.instance_file = getInstance(options.instance_file);
-    auto [solver, problem, _] = loadSchedulingProblem(options);
+    auto [solver, problem, _, _1] = loadSchedulingProblem(options);
     try {
         loadBranch(*solver, partialProblem.decisions);
     } catch(const Failure<int> &f) {
