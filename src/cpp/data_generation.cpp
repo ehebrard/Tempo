@@ -5,6 +5,7 @@
 */
 
 #include <regex>
+#include <fstream>
 
 #include "data_generation.hpp"
 
@@ -18,6 +19,15 @@ namespace tempo {
         }
 
         throw std::runtime_error("no problem definition file found in '" + problemDir.string() + "'");
+    }
+
+    auto getInfo(const fs::path &problemDir) -> nlohmann::json {
+        const auto file = problemDir / InfoFileName;
+        if (not fs::exists(file)) {
+            throw std::runtime_error("no info file found in '" + file.string() + "'");
+        }
+
+        return serialization::deserializeFromFile<nlohmann::json>(file);
     }
 
     auto getProblems(const fs::path &problemDir) -> std::map<unsigned int, serialization::PartialProblem> {

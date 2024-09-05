@@ -13,8 +13,6 @@
 #include "data_generation.hpp"
 #include "helpers/git_sha.hpp"
 
-constexpr auto InfoFileName = "info.json";
-
 template<typename T>
 auto optMin(const std::optional<T> &lhs, const std::optional<T> &rhs) -> std::optional<T> {
     if (not lhs.has_value() and not rhs.has_value()) { return lhs; }
