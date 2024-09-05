@@ -77,7 +77,7 @@ int main(int argc, char **argv) {
     fs::create_directories(rootInputDir);
     fs::create_directory(labelDir);
 
-    auto [solver, problem, opt] = loadSchedulingProblem(options);
+    auto [solver, problem, opt, _] = loadSchedulingProblem(options);
     nn::GraphBuilder builder(featConfig, problem);
     fs::copy(featConfig, saveTo, fs::copy_options::overwrite_existing);
 
@@ -90,7 +90,7 @@ int main(int argc, char **argv) {
     auto solutions = getSolutions(mainDir);
     std::vector<nlohmann::json> solutionsPayloads;
     for (const auto &[id, sol]: solutions) {
-        auto [s, p, _] = loadSchedulingProblem(options);
+        auto [s, p, _, _1] = loadSchedulingProblem(options);
         s->set(leq(p.schedule().duration.id(), sol.objective));
         loadBranch(*s, sol.decisions);
         auto taskDistances = p.getTaskDistances(*s);
@@ -112,7 +112,7 @@ int main(int argc, char **argv) {
     unsigned numDuplicates = 0;
     for (const auto &[subId, subProblem] : getProblems(mainDir)) {
         using std::views::elements;
-        auto [s, p, _] = loadSchedulingProblem(options);
+        auto [s, p, _, _1] = loadSchedulingProblem(options);
         const auto &sol = solutions.at(subProblem.associatedSolution);
         s->set(leq(p.schedule().duration.id(), sol.objective));
         loadBranch(*s, subProblem.decisions);

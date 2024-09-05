@@ -14,7 +14,7 @@ VarImportanceRunner::VarImportanceRunner(ser::PartialProblem partialProblem, tem
                                          const ser::Solution<Time> &optSol) : problem(std::move(partialProblem)),
                                                                                  options(std::move(options)),
                                                                                  optimum(optSol.objective) {
-    auto [s, p, _] = loadSchedulingProblem(this->options);
+    auto [s, p, _, _1] = loadSchedulingProblem(this->options);
     try {
         loadBranch(*s, problem.decisions);
     } catch (const tempo::Failure<Time> &) {
@@ -68,7 +68,7 @@ auto VarImportanceRunner::run(tempo::Literal<Time> lit) -> Result {
         throw std::runtime_error("inconsistent sub problem");
     }
 
-    auto [s, p, _] = loadSchedulingProblem(options);
+    auto [s, p, _, _1] = loadSchedulingProblem(options);
     loadBranch(*s, problem.decisions);
     if (s->boolean.satisfied(lit) or s->boolean.falsified(lit)) {
         return {AlreadyDecided, {}};

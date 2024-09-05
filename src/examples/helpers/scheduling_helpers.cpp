@@ -13,7 +13,7 @@
 
 
 auto loadSchedulingProblem(const tempo::Options &options)
--> std::tuple<SolverPtr, ProblemInstance, std::optional<int>> {
+-> std::tuple<SolverPtr, ProblemInstance, std::optional<int>, unsigned> {
     using Time = int;
     using namespace tempo;
     using namespace std::views;
@@ -33,6 +33,7 @@ auto loadSchedulingProblem(const tempo::Options &options)
         std::exit(1);
     }
 
+    const auto numberOfTasks = static_cast<unsigned>(tasks.size());
 
     for (const auto &consumingTasks: resources) {
         auto constraint = NoOverlap(schedule,
@@ -49,7 +50,7 @@ auto loadSchedulingProblem(const tempo::Options &options)
 
     trivialUb = std::min(trivialUb, options.ub);
     solver->set(schedule.end.before(trivialUb));
-    return {std::move(solver), std::move(problem), optSol};
+    return {std::move(solver), std::move(problem), optSol, numberOfTasks};
 }
 
 void loadBranch(tempo::Solver<int> &solver, const tempo::serialization::Branch &branch) {
