@@ -239,7 +239,7 @@ void testDivFloat() {
 }
 
 TEST(util, intfinity_default) {
-    intfinity<int> zero;
+    intfinity<int> zero{};
     EXPECT_EQ(zero.get(), 0);
     EXPECT_EQ(zero, 0);
     EXPECT_FALSE(zero.isInf());

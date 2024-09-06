@@ -48,7 +48,7 @@ namespace tempo {
 
     template<std::integral T, bool UnsignedUnderflow = false>
     class intfinity {
-        T value{};
+        T value;
         static constexpr bool TwoCompl = not std::is_signed_v<T> or T(-1) == compl T(0);
         static_assert(TwoCompl, "This implementation only works on machines that use the 2's complement for signed"
                                 "integers. I suggest using a machine from past WW2 :D");
