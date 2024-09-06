@@ -76,19 +76,22 @@ void parse(const std::string &fn, M &solver, J &schedule,
             auto j{solver.between(s, s+dur)};
             
           if (m == 0) {
-            solver.set(j.start.after(schedule.start));
+            auto d = j.start.after(schedule.start);
+            solver.set(d);
             if (nullptr != precedences) {
-                precedences->emplace_back(j.start.id(), schedule.start.id(), 0);
+                precedences->emplace_back(d);
             }
           } else {
-            solver.set(intervals.back().end.before(j.start));
+            auto d = intervals.back().end.before(j.start);
+            solver.set(d);
             if (nullptr != precedences) {
-                precedences->emplace_back(j.start.id(), intervals.back().end.id(), 0);
+                precedences->emplace_back(d);
             }
             if (m == nm - 1) {
-              solver.set(j.end.before(schedule.end));
+              auto d = j.end.before(schedule.end);
+              solver.set(d);
               if (nullptr != precedences) {
-                  precedences->emplace_back(schedule.end.id(), j.end.id(), 0);
+                  precedences->emplace_back(d);
               }
             }
           }
