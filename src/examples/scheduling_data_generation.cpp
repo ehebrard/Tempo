@@ -13,8 +13,6 @@
 #include "data_generation.hpp"
 #include "helpers/git_sha.hpp"
 
-constexpr auto InfoFileName = "info.json";
-
 template<typename T>
 auto optMin(const std::optional<T> &lhs, const std::optional<T> &rhs) -> std::optional<T> {
     if (not lhs.has_value() and not rhs.has_value()) { return lhs; }
@@ -30,7 +28,7 @@ int main(int argc, char **argv) {
     std::string saveTo;
     auto options = cli::parseOptions(argc, argv,
                                      cli::ArgSpec("save-to", "Where to save the data points", true, saveTo));
-    auto [solver, problem, opt] = loadSchedulingProblem(options);
+    auto [solver, problem, opt, nTasks] = loadSchedulingProblem(options);
     auto schedule = problem.schedule();
     auto heuristic = make_compound_heuristic(make_variable_heuristic(*solver), TightestSolutionGuided(0, 0));
     solver->setBranchingHeuristic(std::move(heuristic));
@@ -50,6 +48,7 @@ int main(int argc, char **argv) {
     meta["numSubProblems"] = dataGenerator.problemCount();
     meta["numSolutions"] = dataGenerator.solutionCount();
     meta["bestSolutionKnown"] = optMin(opt, makespan);
+    meta["numberOfTasks"] = nTasks;
     serialization::serializeToFile(meta, destinationFolder / InfoFileName);
     return 0;
 }

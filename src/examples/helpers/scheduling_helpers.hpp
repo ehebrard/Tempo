@@ -38,10 +38,11 @@ using ProblemInstance = tempo::SchedulingProblemHelper<int, DisjunctiveResource<
 /**
  * loads a problem instance and instantiates the solver using the given options
  * @param options options for the solver
- * @return ready to run scheduler (with default heuristics) and problem scheduling problem instance struct
- * and optionally the optimal solution
+ * @return ready to run scheduler (with default heuristics) and problem scheduling problem instance struct,
+ * optionally the optimal solution and the number of tasks
  */
-auto loadSchedulingProblem(const tempo::Options &options) -> std::tuple<SolverPtr, ProblemInstance, std::optional<int>>;
+auto loadSchedulingProblem(
+        const tempo::Options &options) -> std::tuple<SolverPtr, ProblemInstance, std::optional<int>, unsigned>;
 
 
 /**

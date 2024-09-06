@@ -29,7 +29,8 @@ class EdgeMapper {
 public:
     explicit EdgeMapper(const tempo::Options &options) {
         std::optional<Time> _;
-        std::tie(solver, problem, _) = loadSchedulingProblem(options);
+        unsigned _1;
+        std::tie(solver, problem, _, _1) = loadSchedulingProblem(options);
     }
 
     [[nodiscard]] auto getTaskEdge(tempo::Literal<Time> lit) const {
@@ -84,7 +85,6 @@ int main(int argc, char **argv) {
     const auto optimum = dataPoint.solution.objective;
     std::unordered_map<var_t, double> varImportance;
     const EdgeMapper mapper(opt);
-    //Matrix<double> taskEdgeImportance(mapper.numTasks(), mapper.numTasks(), 0);
     std::vector<std::string> taskEdgeImportance;
     for (auto lit : runner.getLiterals()) {
         if (varImportance.contains(lit.variable())) {

@@ -15,6 +15,7 @@
 #include <vector>
 #include <Iterators.hpp>
 #include <map>
+#include <nlohmann/json.hpp>
 
 #include "util/traits.hpp"
 #include "util/SubscribableEvent.hpp"
@@ -24,6 +25,7 @@
 namespace tempo {
     namespace fs = std::filesystem;
     constexpr auto ProblemFileName = "problem_definition.txt";
+    constexpr auto InfoFileName = "info.json";
 
     /**
      * @brief Class that can be used to serialize solutions and partial problems to a files.
@@ -269,6 +271,13 @@ namespace tempo {
      * @throws std::runtime_error if instance file could not be found under given path
      */
     auto getInstance(const fs::path &problemDir) -> fs::path;
+
+    /**
+     * Loads the problem info file
+     * @param problemDir directory to the problem folder
+     * @return deserialized problem info as json
+     */
+    auto getInfo(const fs::path &problemDir) -> nlohmann::json;
 
     /**
      * Loads all solutions under problem directory

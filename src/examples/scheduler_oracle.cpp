@@ -30,7 +30,7 @@ int main(int argc, char **argv) {
         std::exit(1);
     }
 
-    auto [solver, problem, _1] = loadSchedulingProblem(options);
+    auto [solver, problem, _1, _2] = loadSchedulingProblem(options);
     using Oracle = util::ProfiledHeuristic<PerfectValueHeuristic>;
     util::Profiler profiler;
     Oracle valueOracle(profiler, options.polarity_epsilon, solution);
