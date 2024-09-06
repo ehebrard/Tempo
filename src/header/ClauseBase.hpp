@@ -155,6 +155,8 @@ public:
   void forget();
   // forgets all learnt clauses
   void forgetAll();
+    // literal activity score
+    double activity(const Literal<T> l);
   // literal score based on its semantic
   double looseness(const Literal<T> l);
   // literal score based on its activity
@@ -1140,13 +1142,19 @@ template <typename T> void ClauseBase<T>::forget_worst() {
 }
 
 template <typename T>
+double ClauseBase<T>::activity(const Literal<T> l) {
+    return (solver.getActivityMap() != nullptr ? solver.getActivityMap()->get(l, solver) : 1);
+}
+
+template <typename T>
 double ClauseBase<T>::loosenessOverActivity(const Literal<T> l) {
-  return solver.looseness(l) / solver.getActivityMap()->get(l, solver);
+    
+  return solver.looseness(l) / activity(l);
 }
 
 template <typename T>
 double ClauseBase<T>::inverseActivity(const Literal<T> l) {
-  return 1.0 / solver.getActivityMap()->get(l, solver);
+    return 1.0 / activity(l); //solver.getActivityMap()->get(l, solver);
 }
 
 template <typename T> double ClauseBase<T>::looseness(const Literal<T> l) {

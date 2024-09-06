@@ -11,6 +11,7 @@
 #include <string>
 
 #include "heuristic_interface.hpp"
+#include "Static.hpp"
 #include "Tightest.hpp"
 #include "VSIDS.hpp"
 #include "WeightedDegree.hpp"

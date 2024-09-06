@@ -563,6 +563,7 @@ public:
 
     // must be called before the first call to 'search()'
     void initializeSearch();
+    void setHeuristic(heuristics::MovableHeuristic<heuristics::PolymorphicHeuristic<T>> h);
 
     template<heuristics::heuristic<T> H>
     void setBranchingHeuristic(H &&h);
@@ -2313,6 +2314,10 @@ template <typename T> void Solver<T>::branchRight() {
     
     set(deduction);
 }
+
+//template <typename T> void Solver<T>::setHeuristic(heuristics::MovableHeuristic<heuristics::PolymorphicHeuristic<T>> h) {
+//    heuristic = h;
+//}
 
 template <typename T> void Solver<T>::initializeSearch() {
     if(not initialized) {
