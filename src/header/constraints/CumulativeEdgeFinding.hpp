@@ -964,7 +964,7 @@ template <typename T> T CumulativeEdgeFinding<T>::scheduleOmega() {
 
 #ifdef DBG_SEF
     if (DBG_SEF) {
-      std::cout << "jump to t_" << t->time << ": ov=" << overflow;
+        std::cout << "jump to t_" << t->time << ":";
     }
 #endif
 
@@ -984,15 +984,23 @@ template <typename T> T CumulativeEdgeFinding<T>::scheduleOmega() {
 
 #ifdef DBG_SEF
     if (DBG_SEF) {
-      std::cout << ", h_max=" << h_max << ", h_req=" << h_req
-                << ", h_cons=" << h_cons;
+      std::cout << " h_max=" << h_max << ", h_req=" << h_req
+                << ", h_cons=" << h_cons
+         << ", ov=" << overflow ;
+        if(overflow > 0)
+        {
+            std::cout << "->" << overflow - ((h_cons - h_req) * l) << " @t=" << next->time;
+        }
     }
 #endif
+      
+      
 
     // there is some overflow, and it will be resorbed by the next time point
     if (overflow > 0 and overflow < ((h_cons - h_req) * l)) {
       // then we create a new time point for the moment it will be resorbed
-      l = std::max(Gap<T>::epsilon(), overflow / (h_cons - h_req));
+//      l = std::max(Gap<T>::epsilon(), overflow / (h_cons - h_req));
+        l = std::max(Gap<T>::epsilon(), ceil_division<T>(overflow, (h_cons - h_req)));
       auto new_event{
           profile.create_element(t->time + l, t->capacity, 0, 0, 0, 0, 0, 0)};
       profile.add_after(t.index, new_event);
