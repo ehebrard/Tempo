@@ -155,6 +155,13 @@ int main(int argc, char *argv[]) {
   bool profileHeuristic;
   cli::detail::configureParser(parser, cli::SwitchSpec("heuristic-profiling", "activate heuristic profiling",
                                                        profileHeuristic, false));
+    
+    
+    std::string ordering_file{""};
+    parser.getCmdLine().add<TCLAP::ValueArg<std::string>>(ordering_file, "", "static-ordering",
+                                   "use static ordering heuristic", false, "",
+                                   "string");
+    
   parser.parse(argc, argv);
   Options opt = parser.getOptions();
   Solver<intfinity<int>> S(opt);
@@ -288,6 +295,28 @@ int main(int argc, char *argv[]) {
 
   // search
   if (not optimal) {
+      
+      if(ordering_file != "") {
+          std::vector<var_t> ordering;
+          std::ifstream infile(ordering_file.c_str(), std::ios_base::in);
+          int length;
+          var_t x;
+          infile >> length;
+          for(int i{0}; i<length; ++i) {
+              infile >> x;
+              ordering.push_back(x);
+              
+//              std::cout << " " << x;
+          }
+//          std::cout << std::endl;
+          
+          std::cout << "setting static ordering\n";
+          
+          S.setBranchingHeuristic(heuristics::make_compound_heuristic(heuristics::Static(S,ordering), heuristics::make_value_heuristic(S)));
+      }
+      
+//      std::cout << "ok\n";
+      
     S.minimize(schedule.duration);
   }
 

@@ -105,6 +105,7 @@ public:
   bool print_sta{false};
   bool print_cmd{false};
   std::string dbg_file{""};
+//  std::string order_file{""};
 
   bool learning{true};
   bool edge_finding{true};

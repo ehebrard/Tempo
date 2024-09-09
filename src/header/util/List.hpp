@@ -29,19 +29,18 @@
 
 namespace tempo {
 
-
-
 template<typename E>
 struct Node {
-    
-    Node() {}
-    
-    template <typename... T>
-    Node(const int n, const int p, T ...args) : next(n), prev(p), content(args...) {}
-    
-    int next{0};
-    int prev{0};
-    E content;
+
+  Node();
+
+  template <typename... T>
+  Node(const int n, const int p, T... args)
+      : next(n), prev(p), content(args...) {}
+
+  int next{0};
+  int prev{0};
+  E content;
 };
 
 
@@ -82,16 +81,58 @@ class List {
         E* operator->() {
                return &(l->nodes[index].content);
            }
-        
+
+        int next() { return l->nodes[index].next; }
+
         List<E>* l;
         int index;
  
     };
+    
+    
+    class reverse_iterator
+   {
+       friend class List<E>;
+       
+   public:
+       reverse_iterator(List<E>* _l_, const int _i_) : l(_l_), index(_i_) {}
+       
+       const E& operator*() const {
+           return l->nodes[index].content;
+       }
+       
+       void operator++() {
+           index = l->nodes[index].prev;
+       }
+       
+       void operator--() {
+           index = l->nodes[index].next;
+       }
+       
+       bool operator==(const List<E>::reverse_iterator li) {
+           return li.l == l and li.index == index;
+       }
+       
+       bool operator!=(const List<E>::reverse_iterator li) {
+           return not this->operator==(li);
+       }
+       
+       E* operator->() {
+              return &(l->nodes[index].content);
+          }
+
+       int next() { return l->nodes[index].prev; }
+
+       List<E>* l;
+       int index;
+
+   };
 
 public:
-    
-    List() {nodes.resize(1);}
-    
+  List() {
+    nodes.resize(1); // dummy element to represent head/tail
+  }
+
     bool empty() const {return nodes[tail].next == tail;}
 
     void pop_back() {
@@ -105,17 +146,16 @@ public:
         nodes.emplace_back(-1,-1,args...);
         return tindex;
     }
-    
-    int next(const int i) const {return nodes[i].next;}
-    
-    void add_front(const int tindex) {
-//        nodes[tindex].prev = tail;
-//        nodes[tindex].next = nodes[tail].next;
-//        nodes[nodes[tail].next].prev = tindex;
-//        nodes[tail].next = tindex;
-        add_after(tail, tindex);
-    }
-    
+
+    int first() const { return nodes[tail].next; }
+    int last() const { return nodes[tail].prev; }
+
+    //    int tail() const {return nodes[tail].prev;}
+
+    int next(const int i) const { return nodes[i].next; }
+
+    void add_front(const int tindex) { add_after(tail, tindex); }
+
     void add_after(const int rid, const int tindex) {
         nodes[tindex].prev = rid;
         int nid = nodes[rid].next;
@@ -123,20 +163,37 @@ public:
         nodes[nid].prev = tindex;
         nodes[tindex].next = nid;
     }
-    
-    void remove(const int tindex) {
-//        
-//        std::cout << "rm " << tindex << std::endl;
-//        std::cout << "next = " << nodes[tindex].next << std::endl;
-//        std::cout << "prev = " << nodes[tindex].prev << std::endl;
-//        
-//        
-        nodes[nodes[tindex].prev].next = nodes[tindex].next;
-        nodes[nodes[tindex].next].prev = nodes[tindex].prev;
+
+    void add_before(const int rid, const int tindex) {
+      nodes[tindex].next = rid;
+      int pid = nodes[rid].prev;
+      nodes[rid].prev = tindex;
+      nodes[pid].next = tindex;
+      nodes[tindex].prev = pid;
     }
-    
-    List<E>::iterator begin() { return iterator(this, nodes[tail].next); }
+
+    template <typename Func> void add_when(Func test, const int tindex) {
+      for (auto i{begin()}; i != end(); ++i) {
+        if (test(i))
+          add_after(i.index, tindex);
+      }
+    }
+
+    void remove(const int tindex) {
+      nodes[nodes[tindex].prev].next = nodes[tindex].next;
+      nodes[nodes[tindex].next].prev = nodes[tindex].prev;
+    }
+
+    void clear() {
+      nodes[tail].next = tail;
+      nodes[tail].prev = tail;
+    }
+
+    List<E>::iterator begin() { return iterator(this, first()); }
     List<E>::iterator end() { return iterator(this, tail); }
+    
+    List<E>::reverse_iterator rbegin() { return reverse_iterator(this, last()); }
+    List<E>::reverse_iterator rend() { return reverse_iterator(this, tail); }
     
     
 //    List<E>::const_iterator begin() const { return const_iterator(this, nodes[tail].next); }
@@ -148,169 +205,30 @@ public:
     E& operator[](const int i) {return nodes[i].content;}
 
     std::ostream &display(std::ostream &os) {
-        
-
-        
-//        os << "head = " << next[tail];
-//        os << "\nnext:";
-//                for(auto n : next) {
-//                    os << " " << n;
-//                }
-//                os << std::endl << "prev:";
-//                for(auto p : prev) {
-//                    os << " " << p;
-//                }
-//        os << std::endl;
-        
-        for(auto tp{begin()}; tp!=end(); ++tp) {
-            os << tp.index << ": " << *tp << std::endl;
-        }
-        return os;
+      for (auto tp{begin()}; tp != end(); ++tp) {
+        os << tp.index << ": " << *tp << std::endl;
+      }
+      return os;
     }
-    
-protected:
-    
-    std::vector<Node<E>> nodes;
-    
+
     static int tail;
+
+  protected:
+    std::vector<Node<E>> nodes;
 };
-
-
 
 template<typename E>
 int List<E>::tail = 0;
 
+template <typename E> Node<E>::Node() {
+  next = List<E>::tail;
+  prev = List<E>::tail;
+}
 
 template<typename E>
 std::ostream &operator<<(std::ostream &os, List<E> &x) {
     return x.display(os);
 }
-
-
-
-//
-//template<typename E>
-//class Machin {
-//    
-//    
-//     class iterator
-//    {
-//        friend class Machin<E>;
-//        
-//    public:
-//        iterator(const Machin<E>* _l_, const int _i_) : l(_l_), index(_i_) {}
-//        
-//        const E& operator*() const {
-//            return l->elements[index];
-//        }
-//        
-//        void operator++() {
-//            index = l->next[index];
-//        }
-//        
-//        void operator--() {
-//            index = l->prev[index];
-//        }
-//        
-//        bool operator==(const Machin<E>::iterator li) {
-//            return li.l == l and li.index == index;
-//        }
-//        
-//        bool operator!=(const Machin<E>::iterator li) {
-//            return not this->operator==(li);
-//        }
-//        
-//        const Machin<E>* l;
-//        int index;
-// 
-//    };
-//
-//public:
-//    
-//    Machin() {next.resize(1,0); prev.resize(1,0); elements.resize(1);}
-//    
-//    bool empty() const {return next[tail] == tail;}
-//    
-//    
-//    template <typename... T>
-//    int create_element(T ...args) {
-//        int tindex{static_cast<int>(elements.size())};
-//        elements.emplace_back(args...);
-//        
-//        prev.resize(elements.size(), -1);
-//        next.resize(elements.size(), -1);
-//        
-//        return tindex;
-//    }
-//    
-//    void add_front(const int tindex) {
-//        next[tindex] = next[tail];
-//        prev[next[tail]] = tindex;
-//        next[tail] = tindex;
-//    }
-//    
-//    void add_after(const int rid, const int tindex) {
-//        prev[tindex] = rid;
-//        int nid = next[rid];
-//        next[rid] = tindex;
-//        
-//        prev[nid] = tindex;
-//        next[tindex] = nid;
-//    }
-//    
-//    void remove(const int tindex) {
-//        next[prev[tindex]] = next[tindex];
-//        prev[next[tindex]] = prev[tindex];
-//    }
-//    
-//    Machin<E>::iterator begin() const { return iterator(this, next[tail]); }
-//    Machin<E>::iterator end() const { return iterator(this, tail); }
-//    
-//    Machin<E>::iterator at(const int i) const { return iterator(this, i); }
-//    
-//    size_t size() const {return elements.size()-1;}
-//    E& operator[](const int i) {return elements[i];}
-//
-//    std::ostream &display(std::ostream &os) const {
-//        
-//
-//        
-////        os << "head = " << next[tail];
-////        os << "\nnext:";
-////                for(auto n : next) {
-////                    os << " " << n;
-////                }
-////                os << std::endl << "prev:";
-////                for(auto p : prev) {
-////                    os << " " << p;
-////                }
-////        os << std::endl;
-//        
-//        for(auto tp{begin()}; tp!=end(); ++tp) {
-//            os << tp.index << ": " << *tp << std::endl;
-//        }
-//        return os;
-//    }
-//    
-//protected:
-//    
-//    std::vector<E> elements;
-//    std::vector<int> next;
-//    std::vector<int> prev;
-//    
-//    static int tail;
-// 
-////    int head{0};
-//};
-//
-//template<typename E>
-//int Machin<E>::tail = 0;
-//
-//
-//template<typename E>
-//std::ostream &operator<<(std::ostream &os, const Machin<E> &x) {
-//    return x.display(os);
-//}
 
 } // namespace tempo
 

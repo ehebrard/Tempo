@@ -15,9 +15,10 @@ namespace jstl {
 //  return ub;
 //}
 
-template <typename M, typename J, typename R>
+template <typename M, typename J, typename R,
+        tempo::concepts::same_template<tempo::DistanceConstraint> D = tempo::DistanceConstraint<int>>
 void parse(const std::string &fn, M &solver, J &schedule,
-           std::vector<J> &Intervals, std::vector<R> &resources) {
+           std::vector<J> &Intervals, std::vector<R> &resources, std::vector<D> *precedences = nullptr) {
   using std::cerr;
   try {
     std::ifstream ifs(fn);
@@ -115,20 +116,32 @@ void parse(const std::string &fn, M &solver, J &schedule,
             auto l{Intervals[k].start.after(schedule.start)};
 //                                    std::cout << l << std::endl;
             solver.set(l);
+            if (nullptr != precedences) {
+                precedences->emplace_back(l);
+            }
           } else {
             auto l{Intervals[k - 1].end.before(Intervals[k].start, min_tl)};
 //                                    std::cout << l << std::endl;
             solver.set(l);
+            if (nullptr != precedences) {
+                precedences->emplace_back(l);
+            }
             if (m == nm - 1) {
               l = Intervals[k].end.before(schedule.end);
 //                                          std::cout << l << std::endl;
               solver.set(l);
+              if (nullptr != precedences) {
+                  precedences->emplace_back(l);
+              }
             }
           }
           if (m < (nm - 1)) {
             auto l{Intervals[k + 1].start.before(Intervals[k].end, -max_tl)};
 //                                    std::cout << l << std::endl;
             solver.set(l);
+            if (nullptr != precedences) {
+                precedences->emplace_back(l);
+            }
           }
           ++k;
         }

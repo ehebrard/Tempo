@@ -145,12 +145,15 @@ void read_branch(std::istream &in,
 //      std::cout << std::endl;
   }
 
-    if(wrongcount != 0) {
-        std::cout << "bug read branch\n";
-        exit(1);
-    }
-    
-    
+  unsigned total{0};
+  for (auto &r : rvars) {
+    total += r.size();
+  }
+
+  if (wrongcount != 0 or total != num_wrong) {
+    std::cout << "bug read branch (" << total << "/" << num_wrong << ")\n";
+    exit(1);
+  }
 }
 
 //#define VERBOSE true
@@ -175,19 +178,14 @@ bool satisfiable(Solver<>& S, Literal<int> constraint) {
     return (S.satisfiable() == TrueState);
 }
 
-
-
-
-
 int test_branches(Options &opt, const int makespan, std::vector<bool> &dsigns,
                   std::vector<var_t> &dvars,
                   std::vector<std::vector<bool>> &rsigns,
                   std::vector<std::vector<var_t>> &rvars,
+                  std::vector<int> &dec_level, std::vector<int> &num_mistakes,
                   const bool side) {
 
   int num_irrelevant{0};
-
-  //    bool end_on_right_branch{rsigns.size() > dsigns.size()};
 
   if (rsigns.size() < dsigns.size()) {
     std::cout << "BUG!!\n";
@@ -197,33 +195,18 @@ int test_branches(Options &opt, const int makespan, std::vector<bool> &dsigns,
 #ifdef VERBOSE
   std::cout << "\ntest branch\n";
 #endif
-    
-//    std::cerr << "testing " << rsigns.size() << " decisions\n";
-    
-//   size_t prev_prog{0};
+
   for (size_t i{0}; i < rsigns.size(); ++i) {
     Solver<> S(opt);
-      
-      
-//      size_t prog = 100 * i / rsigns.size();
-//      if(prog > prev_prog) {
-//          std::cerr << "=";
-//          std::cerr.flush();
-//          prev_prog = prog;
-//      }
-      
-//      std::cout << "makespan = " << makespan << std::endl;
-      
-    
-      auto end_sched{S.newNumeric(0,makespan)};
-//      S.set(end_sched.before(makespan));
-      auto schedule{S.between(S.zero(), end_sched)};
-      
-//      auto schedule{S.newInterval(0, makespan, 0, 0, 0, makespan)};
- 
-       
-      build_model(S, schedule);
-     
+
+    auto end_sched{S.newNumeric(0, makespan)};
+    auto schedule{S.between(S.zero(), end_sched)};
+
+    build_model(S, schedule);
+
+    if (num_mistakes.size() < S.boolean.size())
+      num_mistakes.resize(S.boolean.size(), 0);
+
 #ifdef VERBOSE
     std::cout << "up to level " << (i + 1) << std::endl;
 #endif
@@ -250,8 +233,7 @@ int test_branches(Options &opt, const int makespan, std::vector<bool> &dsigns,
         
       S.set(constraint);
     }
-      
-    
+
       auto n{rsigns[i].size()};
       if(i == dsigns.size())
           --n;
@@ -285,10 +267,11 @@ int test_branches(Options &opt, const int makespan, std::vector<bool> &dsigns,
           }
 #endif
       } else {
-          if(satisfiable(S, ~constraint)) {
-//              std::cout << "irrelevant\n";
-              ++num_irrelevant;
-          }
+        if (satisfiable(S, ~constraint)) {
+          ++num_irrelevant;
+        } else {
+          ++dec_level[i];
+        }
       }
       
   }
@@ -437,6 +420,8 @@ void crunch_numbers(Options& opt, std::string& analyse_file) {
   int obj;
   infile >> obj;
 
+    
+    int bias{2};
 //      std::cout << "obj = " << obj << std::endl;
 
   unsigned long prev_cp;
@@ -456,6 +441,13 @@ void crunch_numbers(Options& opt, std::string& analyse_file) {
   //    unsigned total_irrelevant_correct{0};
 
   unsigned total_branches{0};
+    
+    double biased_avg_correct{0};
+    double biased_avg_wrong{0};
+    
+
+  std::vector<int> dec_level;
+  std::vector<int> num_mistakes;
 
   //  bool sign;
   //  var_t var;
@@ -467,6 +459,11 @@ void crunch_numbers(Options& opt, std::string& analyse_file) {
   std::vector<var_t> dvars;
   std::vector<std::vector<bool>> rsigns;
   std::vector<std::vector<var_t>> rvars;
+
+  std::vector<double> var_ratio;
+  int num_steps{5};
+  var_ratio.resize(num_steps);
+  std::iota(var_ratio.begin(), var_ratio.end(), 0);
 
   std::cout << "  obj."
             << "      gap |"
@@ -489,9 +486,9 @@ void crunch_numbers(Options& opt, std::string& analyse_file) {
 
     infile >> makespan;
     infile >> total_cp;
-      
-      
-//      std::cout << "makespan " << makespan << " total_cp " << total_cp << std::endl;
+
+    //      std::cout << "makespan " << makespan << " total_cp " << total_cp <<
+    //      std::endl;
 
     num_cp = total_cp - prev_cp;
 
@@ -500,16 +497,87 @@ void crunch_numbers(Options& opt, std::string& analyse_file) {
 
     read_branch(infile, branch_length, num_wrong, dsigns, dvars, rsigns, rvars);
 
-    irrelevant_correct = test_branches(opt, (prev_makespan == Constant::Infinity<int> ? Constant::Infinity<int> : prev_makespan - 1), dsigns, dvars,
-                                       rsigns, rvars, false);
+    if (dec_level.size() < rsigns.size())
+      dec_level.resize(rsigns.size(), 0);
+
+    irrelevant_correct = test_branches(
+        opt,
+        (prev_makespan == Constant::Infinity<int> ? Constant::Infinity<int>
+                                                  : prev_makespan - 1),
+        dsigns, dvars, rsigns, rvars, dec_level, num_mistakes, false);
+
+    //      unsigned ttotal{0};
+    for (size_t l{0}; l < rvars.size(); ++l) {
+      if (not rvars[l].empty()) {
+        for (auto x : rvars[l]) {
+
+          //                  std::cout << "hello " << x << "/" <<
+          //                  num_mistakes.size() << "\n";
+
+          ++num_mistakes[x];
+          ++dec_level[l];
+        }
+      }
+      //          ttotal += rvars[l].size();
+    }
+      
+      
+      auto prev_total{static_cast<double>(total_correct + total_wrong)};
+      
 
     num_correct = (branch_length - irrelevant_correct);
     total_correct += num_correct;
     total_wrong += num_wrong;
+      
+      
+      if(biased_avg_correct == 0)
+          biased_avg_correct = static_cast<double>(num_correct);
+      else {
+          biased_avg_correct = prev_total * biased_avg_correct + static_cast<double>((num_wrong + num_correct) * bias * num_correct);
+          biased_avg_correct /= static_cast<double>(total_wrong + total_correct + (num_wrong + num_correct) * (bias-1));
+      }
+      
+      if(biased_avg_wrong == 0)
+          biased_avg_wrong = static_cast<double>(num_wrong);
+      else {
+          biased_avg_wrong = prev_total * biased_avg_wrong + static_cast<double>((num_wrong + num_correct) * bias * num_wrong);
+          biased_avg_wrong /= static_cast<double>(total_wrong + total_correct + (num_wrong + num_correct) * (bias-1));
+      }
+      
+
 
     total_branches += branch_length;
 
-    //        total_irrelevant_correct += irrelevant_correct;
+    for (auto t{0}; t < num_steps; ++t) {
+      unsigned nvars{0};
+      for (auto n : num_mistakes) {
+        if (n > t)
+          ++nvars;
+      }
+
+      var_ratio[t] =
+          static_cast<double>(nvars) / static_cast<double>(num_mistakes.size());
+    }
+
+    size_t avg_dec_level{0};
+    for (size_t i{0}; i < dec_level.size(); ++i) {
+      avg_dec_level += i * dec_level[i];
+    }
+    avg_dec_level /= (total_correct + total_wrong);
+
+    //      if(ttotal != num_wrong) {
+    //          std::cout << "bug (1)!\n" << ttotal << " " << num_wrong <<
+    //          std::endl; exit(1);
+    //      }
+    //
+    //      unsigned total{0};
+    //      for(auto n : num_mistakes) {
+    //          total += n;
+    //      }
+    //      if(total != total_wrong) {
+    //          std::cout << "bug (2)!\n" << total << " " << total_wrong <<
+    //          std::endl; exit(1);
+    //      }
 
     std::cout << std::setw(6) << makespan << std::setw(9)
               << std::setprecision(3)
@@ -542,8 +610,36 @@ void crunch_numbers(Options& opt, std::string& analyse_file) {
       std::cout << std::setw(10) << std::setprecision(7)
                 << static_cast<double>(total_correct) /
                        static_cast<double>(total_correct + total_wrong);
+      
+      
+
+      if ((biased_avg_correct + biased_avg_wrong) == 0)
+        std::cout << "       n/a";
+      else
+        std::cout << std::setw(10) << std::setprecision(7)
+                  << static_cast<double>(biased_avg_correct) /
+                         static_cast<double>(biased_avg_correct + biased_avg_wrong);
+
+      std::cout << " " << std::setw(5) << avg_dec_level;
+      for(int t{0}; t<num_steps; ++t)
+          std::cout << " " << std::setw(7) << std::setprecision(4) << var_ratio[t];
+    
+
     std::cout << std::endl;
   }
+
+  //    std::cout << "\nlevels:\n";
+  //    for(size_t i{0}; i<dec_level.size(); ++i) {
+  //        if(dec_level[i] != 0)
+  //            std::cout << "level_" << std::setw(3) << std::left << i << " "
+  //            << dec_level[i] << std::endl;
+  //    }
+  //    std::cout << "\nmistakes:\n";
+  //    for(size_t i{0}; i<num_mistakes.size(); ++i) {
+  //        if(num_mistakes[i] != 0)
+  //            std::cout << "b" << std::setw(3) << std::left << i << " " <<
+  //            num_mistakes[i] << std::endl;
+  //    }
 
   opt.verbosity = v;
 }

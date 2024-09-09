@@ -563,6 +563,7 @@ public:
 
     // must be called before the first call to 'search()'
     void initializeSearch();
+    void setHeuristic(heuristics::MovableHeuristic<heuristics::PolymorphicHeuristic<T>> h);
 
     template<heuristics::heuristic<T> H>
     void setBranchingHeuristic(H &&h);
@@ -2314,19 +2315,25 @@ template <typename T> void Solver<T>::branchRight() {
     set(deduction);
 }
 
+//template <typename T> void Solver<T>::setHeuristic(heuristics::MovableHeuristic<heuristics::PolymorphicHeuristic<T>> h) {
+//    heuristic = h;
+//}
+
 template <typename T> void Solver<T>::initializeSearch() {
     if(not initialized) {
         start_time = cpu_time();
         post(&clauses);
-        initialized = true;
-        if(options.verbosity >= Options::QUIET)
-            displayHeader(std::cout);
     }
     restartPolicy.initialize();
     if (not heuristic.isValid()) {
         heuristic = heuristics::make_heuristic(*this);
     }
+
+    if(not initialized and options.verbosity >= Options::QUIET) {
+        displayHeader(std::cout);
+    }
     propag_pointer = 1;
+    initialized = true;
 }
 
 template<typename T>
