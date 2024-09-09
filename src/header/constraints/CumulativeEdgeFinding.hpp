@@ -756,12 +756,12 @@ void CumulativeEdgeFinding<T>::addPrime(const int i) {
     profile[est_[ip]].increment = profile[est_[ip]].incrementMax = mindemand(i);
     profile[ect_[ip]].increment = profile[lct_[ip]].incrementMax = -mindemand(i);
     
-    std::cout << "create " << est_.back() << "|" << ect_.back() << "|" << lct_.back() << std::endl;
+//    std::cout << "create " << est_.back() << "|" << ect_.back() << "|" << lct_.back() << std::endl;
     
     auto p{profile.rbegin()};
     while(p!=profile.rend()) {
         
-        std::cout << " -- " << p->time << "/" << _lct << std::endl;
+//        std::cout << " -- " << p->time << "/" << _lct << std::endl;
         
         if(p->time <= _lct) {
             profile.add_after(p.index, lct_[ip]);
@@ -770,7 +770,7 @@ void CumulativeEdgeFinding<T>::addPrime(const int i) {
         }
         ++p;
         
-        std::cout << " next=" << p.index << ":" << p->time << std::endl;
+//        std::cout << " next=" << p.index << ":" << p->time << std::endl;
     }
     while(p!=profile.rend()) {
         if(p->time <= _est) {
@@ -813,40 +813,89 @@ void CumulativeEdgeFinding<T>::horizontallyElasticEdgeFinder() {
     auto stop{lct_order.rend()};
     --stop;
     
-    for(auto ii{lct_order.rbegin()}; ii!=stop; ++ii) {
-        auto i{*ii};
+    // explore the tasks by decreasing lct
+    for(auto ii{lct_order.rbegin()}; ii!=stop;) {
+        auto is{ii};
+        
         
 #ifdef DBG_SEF
         if (DBG_SEF) {
-            std::cout << profile << "\n - analyse task " << i << " (remove and add the 'prime'):\n";
+            std::cout << std::endl << profile << " - analyse tasks whose lct is " << lct(*ii) << std::endl; //<< " (remove and add the 'prime'):\n";
         }
 #endif
         
-        profile.remove(lct_[i]);
-        profile.remove(ect_[i]);
-        profile.remove(est_[i]);
-        
-        addPrime(i);
-        
+        // remove all tasks whose lct is equal the current max
+        do {
+            
 #ifdef DBG_SEF
         if (DBG_SEF) {
-            std::cout << profile ; //<< std::endl;
+            std::cout << "  * rm " << (*ii) << std::endl;
         }
 #endif
+            
+            profile.remove(lct_[*ii]);
+            profile.remove(ect_[*ii]);
+            profile.remove(est_[*ii]);
+            ++ii;
+
+        } while(ii != lct_order.rend() and lct(*is) == lct(*ii));
+
+        // if there are no more tasks, all those in the current level have the same lct and we can stop
+        if(ii == lct_order.rend())
+            break;
         
-        if(ect(i) < lct(i)) {
-//            auto omega_ect{scheduleOmega()};
-            scheduleOmega();
+        // lct of the task that precedes all the task whose lct is lct(i)
+        auto lct_j{lct(*ii)};
+        
+        // otherwise, add their "prime" versions one by one and run scheduleOmega
+        while(is != ii) {
             
+            auto i{*is};
             
-            for(auto p{profile.begin()}; p!=profile.end(); ++p) {
-                p->capacity = cap;
+#ifdef DBG_SEF
+        if (DBG_SEF) {
+            std::cout << "  * add " << i << "'\n";
+        }
+#endif
+            
+            addPrime(i);
+            
+#ifdef DBG_SEF
+            if (DBG_SEF) {
+                std::cout << profile ; //<< std::endl;
+            }
+#endif
+            
+            if(ect(i) < lct(i)) {
+                auto omega_ect{scheduleOmega()};
+
+                
+#ifdef DBG_SEF
+            if (DBG_SEF) {
+                std::cout << " ect^H = " << omega_ect << " / lct(S) = " << lct_j << std::endl;
+            }
+#endif
+                
+                
+                
+                
+                for(auto p{profile.begin()}; p!=profile.end(); ++p) {
+                    p->capacity = cap;
+                }
+                
+                //            std::cout << omega_ect << std::endl;
             }
             
-//            std::cout << omega_ect << std::endl;
+#ifdef DBG_SEF
+        if (DBG_SEF) {
+            std::cout << "  * rm " << i << "'\n";
         }
-        
-        rmPrime();
+#endif
+            
+            rmPrime();
+            
+            ++is;
+        }
     }
 //    
 //    
