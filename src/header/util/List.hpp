@@ -192,8 +192,8 @@ public:
     List<E>::iterator begin() { return iterator(this, first()); }
     List<E>::iterator end() { return iterator(this, tail); }
     
-    List<E>::iterator rbegin() { return iterator(this, last()); }
-    List<E>::iterator rend() { return iterator(this, tail); }
+    List<E>::reverse_iterator rbegin() { return reverse_iterator(this, last()); }
+    List<E>::reverse_iterator rend() { return reverse_iterator(this, tail); }
     
     
 //    List<E>::const_iterator begin() const { return const_iterator(this, nodes[tail].next); }
