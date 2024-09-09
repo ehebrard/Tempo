@@ -59,7 +59,7 @@ template <typename T = int> struct Timepoint {
   T hreal{0};
 
   std::ostream &display(std::ostream &os) const {
-    os << "(" << time << "|" << capacity << "|" << increment << "...)";
+    os << "(" << time << "|" << capacity << "|" << increment << "|" << incrementMax << "...)";
     return os;
   }
 };
@@ -294,13 +294,16 @@ CumulativeEdgeFinding<T>::CumulativeEdgeFinding(
     ++dp;
   }
 
-  precedence.resize(the_tasks.size());
-  est_.resize(the_tasks.size()+1);
-  ect_.resize(the_tasks.size()+1);
-  lct_.resize(the_tasks.size()+1);
+    auto ip{the_tasks.size()};
+    
+  precedence.resize(ip);
+  est_.resize(ip+1);
+  ect_.resize(ip+1);
+  lct_.resize(ip+1);
 
   auto maxcap{capacity.max(m_solver)};
-  for (unsigned i = 0; i < the_tasks.size(); ++i) {
+    
+  for (unsigned i = 0; i < ip; ++i) {
     precedence[i].resize(the_tasks.size());
     est_[i] = profile.create_element(est(i), maxcap, mindemand(i), mindemand(i),
                                      0, 0, 0, 0);
@@ -338,6 +341,9 @@ CumulativeEdgeFinding<T>::CumulativeEdgeFinding(
 //  std::vector<int> event_ordering(profile.size());
   event_ordering.resize(profile.size());
   std::iota(event_ordering.begin(), event_ordering.end(), 1);
+    est_[ip] = profile.create_element(0, 0, 0, 0, 0, 0, 0, 0);
+    ect_[ip] = profile.create_element(0, 0, 0, 0, 0, 0, 0, 0);
+    lct_[ip] = profile.create_element(0, 0, 0, 0, 0, 0, 0, 0);
 //  std::sort(event_ordering.begin(), event_ordering.end(),
 //            [this](const int i, const int j) {
 //              return this->profile[i].time < this->profile[j].time;
@@ -649,10 +655,14 @@ template <typename T> void CumulativeEdgeFinding<T>::buildFullProfile() {
                   return this->profile[i].time < this->profile[j].time;
                 });
     
+//    std::cout << profile << std::endl;
+    
     auto prev{List<Timepoint<T>>::tail};
     for(auto e : event_ordering) {
         profile.add_after(prev, e);
         prev = e;
+        
+//        std::cout << " add (" << e << ") " << profile[e] << std::endl;
     }
     profile.add_after(prev, sentinel);
 //    
@@ -667,26 +677,24 @@ template <typename T> void CumulativeEdgeFinding<T>::propagate() {
             [this](const int i, const int j) { return lct(i) < lct(j); });
 
 //  profile.add_front(sentinel);
-
-  int k{0};
-    for (auto i : lct_order) {
-        
+    
+    
 #ifdef DBG_SEF
         if (DBG_SEF) {
-            if (k > 0) {
+            std::cout << "\n\nstart propagation\n";
                 for (auto j : lct_order) {
-                    std::cout << asciiArt(j) << std::endl;
-                    if (i == j)
-                        break;
+                    std::cout << "task " << j << ": " << asciiArt(j) << std::endl;
                 }
-            }
         }
 #endif
-        
+    
+
+//  int k{0};
+    for (auto i : lct_order) {
         profile[est_[i]].time = est(i);
         profile[ect_[i]].time = ect(i);
         profile[lct_[i]].time = lct(i);
-        ++k;
+//        ++k;
     }
     
     horizontallyElasticEdgeFinder();
@@ -738,9 +746,15 @@ void CumulativeEdgeFinding<T>::addPrime(const int i) {
     auto maxcap{capacity.max(m_solver)};
     auto ip{the_tasks.size()};
     
-      est_[ip] = profile.create_element(_est, maxcap, mindemand(i), mindemand(i), 0, 0, 0, 0);
-      ect_[ip] = profile.create_element(_lct, maxcap, -mindemand(i), 0, 0, 0, 0, 0);
-      lct_[ip] = profile.create_element(_lct, maxcap, 0, -mindemand(i), 0, 0, 0, 0);
+//      est_[ip] = profile.create_element(_est, maxcap, mindemand(i), mindemand(i), 0, 0, 0, 0);
+//      ect_[ip] = profile.create_element(_lct, maxcap, -mindemand(i), 0, 0, 0, 0, 0);
+//      lct_[ip] = profile.create_element(_lct, maxcap, 0, -mindemand(i), 0, 0, 0, 0);
+    
+    profile[est_[ip]].capacity = profile[ect_[ip]].capacity = profile[lct_[ip]].capacity = maxcap;
+    profile[est_[ip]].time = _est;
+    profile[ect_[ip]].time = profile[lct_[ip]].time = _lct;
+    profile[est_[ip]].increment = profile[est_[ip]].incrementMax = mindemand(i);
+    profile[ect_[ip]].increment = profile[lct_[ip]].incrementMax = -mindemand(i);
     
     std::cout << "create " << est_.back() << "|" << ect_.back() << "|" << lct_.back() << std::endl;
     
@@ -769,7 +783,7 @@ void CumulativeEdgeFinding<T>::addPrime(const int i) {
         profile.add_front(est_[ip]);
     }
     
-    std::cout << profile << std::endl;
+//    std::cout << profile << std::endl;
 //    exit(1);
 }
 
@@ -777,8 +791,8 @@ template <typename T>
 void CumulativeEdgeFinding<T>::rmPrime() {
 //    auto ip{the_tasks.size()};
     
-    std::cout << "rm " << est_.back() << "|" << ect_.back() << "|" << lct_.back() << std::endl;
-    std::cout << profile << std::endl;
+//    std::cout << "rm " << est_.back() << "|" << ect_.back() << "|" << lct_.back() << std::endl;
+//    std::cout << profile << std::endl;
     
     profile.remove(est_.back());
     profile.remove(ect_.back());
@@ -796,8 +810,17 @@ void CumulativeEdgeFinding<T>::horizontallyElasticEdgeFinder() {
     
     auto cap{capacity.max(m_solver)};
     
-    for(auto ii{lct_order.rbegin()}; ii!=lct_order.rend(); ++ii) {
+    auto stop{lct_order.rend()};
+    --stop;
+    
+    for(auto ii{lct_order.rbegin()}; ii!=stop; ++ii) {
         auto i{*ii};
+        
+#ifdef DBG_SEF
+        if (DBG_SEF) {
+            std::cout << profile << "\n - analyse task " << i << " (remove and add the 'prime'):\n";
+        }
+#endif
         
         profile.remove(lct_[i]);
         profile.remove(ect_[i]);
@@ -805,16 +828,22 @@ void CumulativeEdgeFinding<T>::horizontallyElasticEdgeFinder() {
         
         addPrime(i);
         
-        std::cout << std::endl << profile << std::endl;
+#ifdef DBG_SEF
+        if (DBG_SEF) {
+            std::cout << profile ; //<< std::endl;
+        }
+#endif
         
         if(ect(i) < lct(i)) {
-            auto omega_ect{scheduleOmega()};
+//            auto omega_ect{scheduleOmega()};
+            scheduleOmega();
+            
             
             for(auto p{profile.begin()}; p!=profile.end(); ++p) {
                 p->capacity = cap;
             }
             
-            std::cout << omega_ect << std::endl;
+//            std::cout << omega_ect << std::endl;
         }
         
         rmPrime();
@@ -860,6 +889,14 @@ void CumulativeEdgeFinding<T>::computeBound(const int i) {
 }
 
 template <typename T> T CumulativeEdgeFinding<T>::scheduleOmega() {
+    
+    
+#ifdef DBG_SEF
+        if (DBG_SEF) {
+            std::cout << "[schedule tasks]" << std::endl;
+        }
+#endif
+    
 
   auto saved_size{profile.size()};
   auto sentinel{profile.end()};
@@ -912,7 +949,7 @@ template <typename T> T CumulativeEdgeFinding<T>::scheduleOmega() {
       profile.add_after(t.index, new_event);
     }
     // overflow is the deficit on resource for that period (because tasks are
-    // set to their earliest)
+    // set to their earliest)profile[est_[ip]].time = _est;
     overflow += (h_req - h_cons) * l;
     // once there
     t->capacity = C - h_cons;
@@ -932,6 +969,12 @@ template <typename T> T CumulativeEdgeFinding<T>::scheduleOmega() {
     profile.pop_back();
     //        profile.remove(profile.size());
   }
+    
+#ifdef DBG_SEF
+    if (DBG_SEF) {
+      std::cout << "return ect^H = " << omega_ect << std::endl;
+    }
+#endif
 
   return omega_ect;
 }
