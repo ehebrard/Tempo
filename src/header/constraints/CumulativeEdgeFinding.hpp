@@ -840,17 +840,17 @@ void CumulativeEdgeFinding<T>::computeBound(const int i) {
     beta = -1;
     T minSlack[2] = {Constant::Infinity<T>, Constant::Infinity<T>};
     for(auto j : lct_order) {
-        if(j == i)
+        if(lct(j) == lct(i))
             break;
         E += energy(j);
         if(lct(j) <= ect(i) and est(i) < lct(j)) {
-            auto slack{(capacity.max(m_solver) - demand(i)) * (lct(j) - E)};
+            auto slack{(capacity.max(m_solver) - demand(i)) * lct(j) - E};
             if(slack < minSlack[0] and profile[lct_[j]].overflow > 0) {
                 minSlack[0] = slack;
                 alpha = j;
             }
         } else if(lct(j) > ect(i)) {
-            auto slack{capacity.max(m_solver) * (lct(j) - E)};
+            auto slack{capacity.max(m_solver) * lct(j) - E};
             if(slack < minSlack[1] and profile[lct_[j]].overflow > 0) {
                 minSlack[1] = slack;
                 beta = j;
