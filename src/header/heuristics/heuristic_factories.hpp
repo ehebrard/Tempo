@@ -9,6 +9,7 @@
 
 #include <nlohmann/json.hpp>
 #include <string>
+#include <iostream>
 
 #include "heuristic_interface.hpp"
 #include "Static.hpp"
@@ -123,8 +124,12 @@ namespace tempo::heuristics {
     template<concepts::scalar T>
     auto make_variable_heuristic(Solver<T> &solver) {
         const auto &options = solver.getOptions();
-        return VariableHeuristicFactory::getInstance().create(detail::getVarHName(options.choice_point_heuristics),
-                                                              solver);
+        const auto name = detail::getVarHName(options.choice_point_heuristics);
+        if (options.verbosity >= Options::QUIET) {
+            std::cout << "-- using variable selection strategy '" << name << "'" << std::endl;
+        }
+
+        return VariableHeuristicFactory::getInstance().create(name, solver);
     }
 
     /**
@@ -136,7 +141,12 @@ namespace tempo::heuristics {
     template<concepts::scalar T>
     auto make_value_heuristic(Solver<T> &solver) {
         const auto &options = solver.getOptions();
-        return ValueHeuristicFactory::getInstance().create(detail::getValHName(options.polarity_heuristic), options);
+        const auto name = detail::getValHName(options.polarity_heuristic);
+        if (options.verbosity >= Options::QUIET) {
+            std::cout << "-- using value selection strategy '" << name << "'" << std::endl;
+        }
+
+        return ValueHeuristicFactory::getInstance().create(name, options);
     }
 
     /**
