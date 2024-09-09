@@ -2329,10 +2329,6 @@ template <typename T> void Solver<T>::initializeSearch() {
     }
     restartPolicy.initialize();
     if (not heuristic.isValid()) {
-        
-        std::cout << "hello\n";
-        exit(1);
-        
         heuristic = heuristics::make_heuristic(*this);
     }
     propag_pointer = 1;
