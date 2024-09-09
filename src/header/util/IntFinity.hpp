@@ -469,6 +469,11 @@ namespace tempo {
         constexpr T get() const noexcept {
             return value;
         }
+
+        template<std::integral I, UnsignedUnderflow UMode = UnsignedUnderflow::ToNan>
+        constexpr auto cast() const noexcept {
+            return intfinity<I, UMode>(value);
+        }
     };
 }
 namespace std {

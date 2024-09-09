@@ -631,3 +631,21 @@ TEST(util, intfinity_std) {
     EXPECT_FALSE(std::isinf(number));
     EXPECT_TRUE(std::isfinite(number));
 }
+
+TEST(util, intfinity_cast) {
+    intfinity number = 17;
+    auto sNumber = number.cast<short>();
+    EXPECT_EQ(number.get(), sNumber.get());
+    number = std::numeric_limits<short>::min();
+    sNumber = number.cast<short>();
+    EXPECT_EQ(sNumber, -intfinity<short>::Inf());
+    number = std::numeric_limits<int>::max() - 2;
+    auto lNumber = number.cast<long>();
+    EXPECT_EQ(number, lNumber.cast<int>());
+    EXPECT_EQ(number.get(), lNumber.get());
+    number = -17;
+    auto uNumber = number.cast<unsigned>();
+    EXPECT_TRUE(uNumber.isNan());
+    auto uzNumber = number.cast<unsigned, UnsignedUnderflow::ToZero>();
+    EXPECT_EQ(uzNumber, 0);
+}
