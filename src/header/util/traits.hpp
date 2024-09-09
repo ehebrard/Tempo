@@ -71,8 +71,8 @@ namespace tempo::traits {
         static constexpr bool value = std::is_integral_v<T> or std::is_floating_point_v<T>;
     };
 
-    template<typename T, bool B>
-    struct is_scalar<intfinity<T, B>> : std::true_type {};
+    template<typename T, UnsignedUnderflow U>
+    struct is_scalar<intfinity<T, U>> : std::true_type {};
 
     template<typename T>
     inline constexpr bool is_scalar_v = is_scalar<T>::value;

@@ -254,10 +254,15 @@ TEST(util, intfinity_ctor) {
     EXPECT_FALSE(number.isNan());
 }
 
+TEST(util, intfinity_ctor_overflow) {
+    intfinity<int> inf = std::numeric_limits<int>::min();
+    EXPECT_EQ(inf, -intfinity<int>::Inf());
+}
+
 TEST(util, intfinity_float_conversion) {
     intfinity<int> number = 1.5;
-    intfinity<unsigned> uNumber = 1.5;
-    intfinity<unsigned, true> uONumber = 1.5;
+    intfinity<unsigned, tempo::UnsignedUnderflow::ToZero> uNumber = 1.5;
+    intfinity<unsigned, tempo::UnsignedUnderflow::ToInfinity> uONumber = 1.5;
     EXPECT_EQ(number, 1);
     EXPECT_EQ(uNumber, 1);
     number = -14.2f;
@@ -270,8 +275,8 @@ TEST(util, intfinity_float_conversion) {
 
 TEST(util, intfinity_float_conversion_special) {
     intfinity<int> number = std::numeric_limits<double>::infinity();
-    intfinity<unsigned> uNumber = std::numeric_limits<float>::infinity();
-    intfinity<unsigned, true> uONumber = -std::numeric_limits<double>::infinity();
+    intfinity<unsigned, tempo::UnsignedUnderflow::ToZero> uNumber = std::numeric_limits<float>::infinity();
+    intfinity<unsigned, tempo::UnsignedUnderflow::ToInfinity> uONumber = -std::numeric_limits<double>::infinity();
     EXPECT_TRUE(number.isInf());
     EXPECT_EQ(number, intfinity<int>::Inf());
     EXPECT_TRUE(uNumber.isInf());
@@ -294,10 +299,19 @@ TEST(util, intfinity_float_conversion_special) {
     EXPECT_TRUE(uONumber.isNan());
     number = static_cast<double>(intfinity<int>::Inf().get());
     uNumber = static_cast<double>(intfinity<unsigned>::Inf().get());
-    uONumber = static_cast<double>(intfinity<unsigned, true>::Inf().get());
+    uONumber = static_cast<double>(intfinity<unsigned, tempo::UnsignedUnderflow::ToInfinity>::Inf().get());
     EXPECT_EQ(number, intfinity<int>::Inf());
-    EXPECT_EQ(uNumber, intfinity<unsigned>::Inf());
-    EXPECT_EQ(uONumber, (intfinity<unsigned, true>::Inf()));
+    EXPECT_EQ(uNumber, (intfinity<unsigned, tempo::UnsignedUnderflow::ToZero>::Inf()));
+    EXPECT_EQ(uONumber, (intfinity<unsigned, tempo::UnsignedUnderflow::ToInfinity>::Inf()));
+}
+
+TEST(util, float_conversion_underflow_mode) {
+    intfinity<unsigned> uNan = -1.4;
+    intfinity<unsigned, tempo::UnsignedUnderflow::ToZero> uZero = -4.3;
+    intfinity<unsigned, tempo::UnsignedUnderflow::ToInfinity> uInf = -1.3;
+    EXPECT_TRUE(uNan.isNan());
+    EXPECT_EQ(uZero, 0);
+    EXPECT_TRUE(uInf.isInf());
 }
 
 TEST(util, intfinity_to_float) {
@@ -428,12 +442,12 @@ TEST(util, intfinity_arithmetics_unsigned_minus_normal) {
 }
 
 TEST(util, intfinity_arithmetics_unsigned_minus_underflow) {
-    intfinity number = 5u;
+    intfinity<unsigned, tempo::UnsignedUnderflow::ToZero> number = 5u;
     EXPECT_EQ(number -8, 0);
     EXPECT_EQ(number -= 7, 0);
     EXPECT_EQ(number + 5, 5);
 
-    intfinity<unsigned, true> uFlowNumber(5);
+    intfinity<unsigned, tempo::UnsignedUnderflow::ToInfinity> uFlowNumber(5);
     EXPECT_TRUE((uFlowNumber - 8).isInf());
     EXPECT_TRUE((uFlowNumber -= 8).isInf());
 }
@@ -469,11 +483,11 @@ TEST(util, intfinity_arithmetics_minus_float_special) {
     EXPECT_EQ(number -= 0.7, number);
     EXPECT_EQ(number -= 1.4, -intfinity<int>::Inf());
     EXPECT_TRUE(std::isinf(number - 10));
-    intfinity uNumber = 4u;
+    intfinity<unsigned, tempo::UnsignedUnderflow::ToZero> uNumber = 4u;
     EXPECT_DOUBLE_EQ(uNumber - 5.6, -1.6);
     EXPECT_EQ(uNumber -= 5.6, 0);
-    intfinity<unsigned, true> uONumber = 4;
-    EXPECT_EQ(uONumber -= 4.6, (intfinity<unsigned, true>::Inf()));
+    intfinity<unsigned, tempo::UnsignedUnderflow::ToInfinity> uONumber = 4;
+    EXPECT_EQ(uONumber -= 4.6, (intfinity<unsigned, tempo::UnsignedUnderflow::ToInfinity>::Inf()));
     EXPECT_TRUE(std::isnan(intfinity<int>::Inf() - std::numeric_limits<float>::infinity()));
     EXPECT_TRUE(std::isnan(std::numeric_limits<float>::signaling_NaN() - uONumber));
 }
@@ -511,7 +525,7 @@ TEST(util, intfinity_arithmetics_signed_mult_float_special) {
     intfinity number = 1000;
     EXPECT_EQ(number *= -1e10, -intfinity<int>::Inf());
     EXPECT_EQ(0.3 * number * -0.4, std::numeric_limits<double>::infinity());
-    intfinity uNumber = 1000u;
+    intfinity<unsigned, tempo::UnsignedUnderflow::ToZero> uNumber = 1000u;
     EXPECT_EQ(uNumber *= -1e10, 0);
     EXPECT_TRUE(std::isnan(uNumber * 0.3 * number));
 }
@@ -546,7 +560,7 @@ TEST(util, intfinity_arithmetics_signed_div_float_special) {
     EXPECT_TRUE(std::isnan(number / 2.0));
 }
 
-template<typename T, bool B>
+template<typename T, UnsignedUnderflow B>
 void testNumericLimits() {
     using L = std::numeric_limits<intfinity<T, B>>;
     EXPECT_TRUE(L::is_specialist);
@@ -583,9 +597,11 @@ void testNumericLimits() {
 }
 
 TEST(util, intfinity_numeric_limits) {
-    testNumericLimits<int, false>();
-    testNumericLimits<unsigned, false>();
-    testNumericLimits<unsigned, true>();
+    using enum tempo::UnsignedUnderflow;
+    testNumericLimits<int, ToNan>();
+    testNumericLimits<unsigned, ToNan>();
+    testNumericLimits<unsigned, ToInfinity>();
+    testNumericLimits<unsigned, ToZero>();
 }
 
 TEST(util, intfinity_std) {

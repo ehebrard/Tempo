@@ -46,7 +46,11 @@ namespace tempo {
         }
     }
 
-    template<std::integral T, bool UnsignedUnderflow = false>
+    enum class UnsignedUnderflow {
+        ToNan, ToZero, ToInfinity
+    };
+
+    template<std::integral T, UnsignedUnderflow UnderflowMode = UnsignedUnderflow::ToNan>
     class intfinity {
         T value;
         static constexpr bool TwoCompl = not std::is_signed_v<T> or T(-1) == compl T(0);
@@ -56,14 +60,37 @@ namespace tempo {
                 std::numeric_limits<T>::min(), std::numeric_limits<T>::max()>;
         static constexpr T Infinity =
                 std::numeric_limits<T>::max() - detail::conditional_v<T, std::is_signed_v<T>, 0, 1>;
-    public:
-        static constexpr intfinity Inf() { return Infinity; }
 
-        static constexpr intfinity Nan() { return NotANumber; }
+        constexpr intfinity(T value, int) noexcept: value(value) {}
+
+        static constexpr T underflow() noexcept {
+            static_assert(not std::is_signed_v<T>);
+            using enum UnsignedUnderflow;
+            if constexpr (UnderflowMode == ToNan) {
+                return NotANumber;
+            } else if (UnderflowMode == ToInfinity) {
+                return Infinity;
+            } else {
+                return 0;
+            }
+        }
+
+    public:
+        static constexpr intfinity Inf() { return {Infinity, 0}; }
+
+        static constexpr intfinity Nan() { return {NotANumber, 0}; }
 
         constexpr intfinity() noexcept = default;
 
-        constexpr intfinity(T value) noexcept: value(value) {}
+        constexpr intfinity(T value) noexcept: value(value) {
+            if (value == NotANumber) {
+                if constexpr (std::is_signed_v<T>) {
+                    this->value = detail::sgn(value) * Infinity;
+                } else {
+                    this->value = Infinity;
+                }
+            }
+        }
 
         template<std::floating_point F>
         constexpr intfinity(F value) noexcept: value(value) {
@@ -79,11 +106,7 @@ namespace tempo {
                 }
             } else {
                 if (value < 0) {
-                    if constexpr (UnsignedUnderflow) {
-                        this->value = Infinity;
-                    } else {
-                        this->value = 0;
-                    }
+                    this->value = underflow();
                 } else if (value > FInf) {
                     this->value = Infinity;
                 }
@@ -196,12 +219,7 @@ namespace tempo {
                 }
             } else {
                 if (value < other.value) {
-                    if constexpr (UnsignedUnderflow) {
-                        value = Infinity;
-                    } else {
-                        value = 0;
-                    }
-
+                    value = underflow();
                     return *this;
                 }
             }
@@ -373,7 +391,7 @@ namespace tempo {
         }
 
         constexpr intfinity operator+() const noexcept {
-            return value;
+            return {value, 0};
         }
 
         template<std::signed_integral = T>
@@ -382,7 +400,7 @@ namespace tempo {
                 return -value;
             }
 
-            return value;
+            return {value, 0};
         }
 
         template<std::floating_point F>
@@ -414,14 +432,21 @@ namespace tempo {
             return os;
         }
 
+        friend std::istream &operator>>(std::istream &is, intfinity &val) {
+            T data;
+            is >> data;
+            val = data;
+            return is;
+        }
+
         constexpr T get() const noexcept {
             return value;
         }
     };
 }
 namespace std {
-    template<typename T, bool B>
-    class numeric_limits<tempo::intfinity<T, B>> {
+    template<typename T, tempo::UnsignedUnderflow U>
+    class numeric_limits<tempo::intfinity<T, U>> {
     public:
         static constexpr bool is_specialist = true;
         static constexpr bool is_signed = std::numeric_limits<T>::is_signed;
@@ -447,7 +472,7 @@ namespace std {
         static constexpr auto traps = false;
         static constexpr auto tinyness_before = false;
 
-        static constexpr tempo::intfinity<T, B> min() noexcept {
+        static constexpr tempo::intfinity<T, U> min() noexcept {
             if constexpr (std::is_signed_v<T>) {
                 return std::numeric_limits<T>::min() + 2;
             } else {
@@ -455,47 +480,47 @@ namespace std {
             }
         }
 
-        static constexpr tempo::intfinity<T, B> max() noexcept {
+        static constexpr tempo::intfinity<T, U> max() noexcept {
             return std::numeric_limits<T>::max() - tempo::detail::conditional_v<T, std::is_signed_v<T>, 1, 2>;
         }
 
-        static constexpr tempo::intfinity<T, B> lowest() noexcept {
+        static constexpr tempo::intfinity<T, U> lowest() noexcept {
             return min();
         }
 
-        static constexpr tempo::intfinity<T, B> epsilon() noexcept {
+        static constexpr tempo::intfinity<T, U> epsilon() noexcept {
             return 0;
         }
 
-        static constexpr tempo::intfinity<T, B> round_error() noexcept {
+        static constexpr tempo::intfinity<T, U> round_error() noexcept {
             return 0;
         }
 
-        static constexpr tempo::intfinity<T, B> denorm_min() noexcept {
+        static constexpr tempo::intfinity<T, U> denorm_min() noexcept {
             return 0;
         }
 
         static constexpr auto infinity() noexcept {
-            return tempo::intfinity<T, B>::Inf();
+            return tempo::intfinity<T, U>::Inf();
         }
 
         static constexpr auto quiet_NaN() noexcept {
-            return tempo::intfinity<T, B>::Nan();
+            return tempo::intfinity<T, U>::Nan();
         }
     };
 
-    template<typename T, bool B>
-    constexpr bool isinf(tempo::intfinity<T, B> val) noexcept {
+    template<typename T, tempo::UnsignedUnderflow U>
+    constexpr bool isinf(tempo::intfinity<T, U> val) noexcept {
         return val.isInf();
     }
 
-    template<typename T, bool B>
-    constexpr bool isfinite(tempo::intfinity<T, B> val) noexcept {
+    template<typename T, tempo::UnsignedUnderflow U>
+    constexpr bool isfinite(tempo::intfinity<T, U> val) noexcept {
         return not val.isInf() and not val.isNan();
     }
 
-    template<typename T, bool B>
-    constexpr bool isnan(tempo::intfinity<T, B> val) noexcept {
+    template<typename T, tempo::UnsignedUnderflow U>
+    constexpr bool isnan(tempo::intfinity<T, U> val) noexcept {
         return val.isNan();
     }
 }
