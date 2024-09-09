@@ -259,6 +259,19 @@ TEST(util, intfinity_ctor_overflow) {
     EXPECT_EQ(inf, -intfinity<int>::Inf());
 }
 
+TEST(util, intfinity_ctor_conversion) {
+    intfinity<int> inf = std::numeric_limits<long>::max();
+    EXPECT_TRUE(inf.isInf());
+    intfinity<unsigned> nan = -4;
+    EXPECT_TRUE(nan.isNan());
+    intfinity<unsigned, UnsignedUnderflow::ToZero> zero = -3;
+    EXPECT_EQ(zero, 0);
+    intfinity<unsigned, UnsignedUnderflow::ToInfinity> uinf = -1;
+    EXPECT_TRUE(uinf.isInf());
+    intfinity<short> sInf = std::numeric_limits<std::int32_t>::min();
+    EXPECT_EQ(sInf, -intfinity<short>::Inf());
+}
+
 TEST(util, intfinity_float_conversion) {
     intfinity<int> number = 1.5;
     intfinity<unsigned, tempo::UnsignedUnderflow::ToZero> uNumber = 1.5;

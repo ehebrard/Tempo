@@ -12,6 +12,7 @@
 #include <compare>
 #include <ostream>
 #include <cmath>
+#include <utility>
 
 namespace tempo {
     namespace detail {
@@ -75,6 +76,29 @@ namespace tempo {
             }
         }
 
+        template<std::integral I>
+        static constexpr T convert(I i) noexcept {
+            if constexpr (std::is_signed_v<T> == std::is_signed_v<I> and sizeof(T) >= sizeof(I)) {
+                return static_cast<T>(i);
+            } else {
+                if (std::cmp_greater(i, Infinity)) {
+                    return Infinity;
+                }
+
+                if constexpr (std::is_signed_v<T>) {
+                    if (std::cmp_less(i, -Infinity)) {
+                        return -Infinity;
+                    }
+                } else {
+                    if (std::cmp_less(i, 0)) {
+                        return underflow();
+                    }
+                }
+
+                return static_cast<T>(i);
+            }
+        }
+
     public:
         static constexpr intfinity Inf() { return {Infinity, 0}; }
 
@@ -91,6 +115,9 @@ namespace tempo {
                 }
             }
         }
+
+        template<std::integral I>
+        constexpr intfinity(I value) noexcept: value(convert(value)) {}
 
         template<std::floating_point F>
         constexpr intfinity(F value) noexcept: value(value) {
