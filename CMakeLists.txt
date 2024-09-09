@@ -142,4 +142,8 @@ foreach(EXEC ${EXECUTABLES})
     target_link_libraries(${NAME} PRIVATE nlohmann_json::nlohmann_json)
 endforeach()
 
+add_library(tempo STATIC ${SOURCES})
+target_link_libraries(tempo PRIVATE nlohmann_json::nlohmann_json)
+
+
 add_subdirectory(Tests)
