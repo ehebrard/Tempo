@@ -33,7 +33,6 @@
 #include "util/Profiler.hpp"
 #include "helpers/shell.hpp"
 #include "helpers/git_sha.hpp"
-#include "util/IntFinity.hpp"
 
 using namespace tempo;
 
@@ -155,16 +154,9 @@ int main(int argc, char *argv[]) {
   bool profileHeuristic;
   cli::detail::configureParser(parser, cli::SwitchSpec("heuristic-profiling", "activate heuristic profiling",
                                                        profileHeuristic, false));
-    
-    
-    std::string ordering_file{""};
-    parser.getCmdLine().add<TCLAP::ValueArg<std::string>>(ordering_file, "", "static-ordering",
-                                   "use static ordering heuristic", false, "",
-                                   "string");
-    
   parser.parse(argc, argv);
   Options opt = parser.getOptions();
-  Solver<intfinity<int>> S(opt);
+  Solver<> S(opt);
   seed(opt.seed);
 
   // an interval standing for the makespan of schedule
@@ -173,9 +165,9 @@ int main(int argc, char *argv[]) {
 
   // depending on the option "input-format", parse a disjunctive scheduling
   // instance, and collect resources and interval objects
-  std::vector<NoOverlapExpression<intfinity<int>>> resources;
+  std::vector<NoOverlapExpression<>> resources;
   std::vector<std::vector<size_t>> resource_tasks;
-  std::vector<Interval<intfinity<int>>> intervals;
+  std::vector<Interval<>> intervals;
   std::vector<int> weights;
   std::vector<std::vector<std::vector<int>>> resource_transitions;
 
@@ -202,7 +194,7 @@ int main(int argc, char *argv[]) {
   resource_transitions.resize(resource_tasks.size());
 
   index_t i{0};
-  std::vector<Interval<intfinity<int>>> scope;
+  std::vector<Interval<int>> scope;
   for (auto &tasks : resource_tasks) {
     for (auto j : tasks) {
       scope.push_back(intervals[j]);
@@ -231,7 +223,7 @@ int main(int argc, char *argv[]) {
 //  //    S.post(schedule.end <= ub);
 
   if (opt.ub != Constant::Infinity<int>) {
-    S.post(schedule.end.before(intfinity<int>(opt.ub)));
+    S.post(schedule.end.before(opt.ub));
     //        S.set(schedule.end.before(schedule.start, -opt.ub));
     //        S.propagate();
 
@@ -245,7 +237,7 @@ int main(int argc, char *argv[]) {
 
   int num_restart{0};
   SubscriberHandle handlerToken;
-  FullTransitivity<intfinity<int>>* primal{NULL};
+  FullTransitivity<int>* primal{NULL};
   if (opt.full_transitivity or opt.primal_boost) {
     primal = S.postFullTransitivity(resources.begin(), resources.end());
     if (opt.primal_boost)
@@ -295,28 +287,6 @@ int main(int argc, char *argv[]) {
 
   // search
   if (not optimal) {
-      
-      if(ordering_file != "") {
-          std::vector<var_t> ordering;
-          std::ifstream infile(ordering_file.c_str(), std::ios_base::in);
-          int length;
-          var_t x;
-          infile >> length;
-          for(int i{0}; i<length; ++i) {
-              infile >> x;
-              ordering.push_back(x);
-              
-//              std::cout << " " << x;
-          }
-//          std::cout << std::endl;
-          
-          std::cout << "setting static ordering\n";
-          
-          S.setBranchingHeuristic(heuristics::make_compound_heuristic(heuristics::Static(S,ordering), heuristics::make_value_heuristic(S)));
-      }
-      
-//      std::cout << "ok\n";
-      
     S.minimize(schedule.duration);
   }
 
