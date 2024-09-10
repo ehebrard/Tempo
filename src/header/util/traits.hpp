@@ -8,6 +8,7 @@
 #include <type_traits>
 #include <functional>
 #include "Global.hpp"
+#include "util/IntFinity.hpp"
 
 /**
  * @brief namespace containing various type traits
@@ -64,6 +65,18 @@ namespace tempo::traits {
 
     template<template<typename ...> typename Template, typename T>
     constexpr inline bool is_same_template_v = is_same_template<Template, std::remove_cvref_t<T>>::value;
+
+    template<typename T>
+    struct is_scalar {
+        static constexpr bool value = std::is_integral_v<T> or std::is_floating_point_v<T>;
+    };
+
+    template<typename T, UnsignedUnderflow U>
+    struct is_scalar<intfinity<T, U>> : std::true_type {};
+
+    template<typename T>
+    inline constexpr bool is_scalar_v = is_scalar<T>::value;
+
 }
 
 namespace tempo::concepts {
@@ -72,7 +85,7 @@ namespace tempo::concepts {
                          std::convertible_to<std::invoke_result_t<Functor, Args...>, Return>;
 
     template<typename T>
-    concept scalar = std::integral<T> || std::floating_point<T>;
+    concept scalar = traits::is_scalar_v<T>;//std::integral<T> || std::floating_point<T>;
 
     template<typename E, typename T>
     concept task_dist_fun = callable_r<E, T, unsigned , unsigned>;
