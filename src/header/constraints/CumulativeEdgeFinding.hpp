@@ -896,7 +896,7 @@ void CumulativeEdgeFinding<T>::horizontallyElasticEdgeFinder() {
               if (beta != -1) {
                 std::cout << "scheduleOmega until " << beta << std::endl;
 
-                //                auto ect_i_H{scheduleOmegaMinus(beta, ii)};
+                auto ect_i_H{scheduleOmegaMinus(beta, ii)};
               }
             }
 
@@ -955,8 +955,13 @@ void CumulativeEdgeFinding<T>::computeBound(const int i) {
 template <typename T>
 T CumulativeEdgeFinding<T>::scheduleOmegaMinus(
     const int b, const std::vector<int>::reverse_iterator j) {
+    
+    std::cout << "\nhere:\n" << profile << std::endl;
+    
   auto jj{j};
   for (; *jj != b; --jj) {
+      
+      std::cout << "remove " << *jj << std::endl;
 
     prev[lct_[*jj]] = profile.prev(lct_[*jj]);
     profile.remove(lct_[*jj]);
@@ -966,6 +971,8 @@ T CumulativeEdgeFinding<T>::scheduleOmegaMinus(
 
     prev[est_[*jj]] = profile.prev(est_[*jj]);
     profile.remove(est_[*jj]);
+      
+      std::cout << profile << std::endl;
   }
 
   auto ect_i_H{scheduleOmega()};
