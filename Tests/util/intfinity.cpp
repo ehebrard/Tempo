@@ -6,6 +6,7 @@
 
 #include <gtest/gtest.h>
 
+#include "testing.hpp"
 #include "util/IntFinity.hpp"
 
 using namespace tempo;
@@ -648,4 +649,25 @@ TEST(util, intfinity_cast) {
     EXPECT_TRUE(uNumber.isNan());
     auto uzNumber = number.cast<unsigned, UnsignedUnderflow::ToZero>();
     EXPECT_EQ(uzNumber, 0);
+}
+
+template<typename T, typename U, UnsignedUnderflow UM>
+void testCast() {
+    using namespace tempo::testing;
+    intfinity src = random_int<T>(std::numeric_limits<T>::min(), std::numeric_limits<T>::max());
+    auto dest1 = src.template cast<U, UM>();
+    auto dest2 = static_cast<intfinity<U, UM>>(src);
+    EXPECT_TRUE(dest1 == dest2 or (dest1.isNan() and dest2.isNan()));
+}
+
+TEST(util, intfinity_cast2) {
+    using enum UnsignedUnderflow;
+    for (int i = 0; i < 10000; ++i) {
+        testCast<int, unsigned, ToZero>();
+        testCast<unsigned long, short, ToNan>();
+        testCast<int, unsigned, ToNan>();
+        testCast<long, unsigned, ToInfinity>();
+        testCast<long long, long, ToNan>();
+        testCast<short, unsigned, ToZero>();
+    }
 }

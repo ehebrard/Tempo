@@ -119,6 +119,9 @@ namespace tempo {
         template<std::integral I>
         constexpr intfinity(I value) noexcept: value(convert(value)) {}
 
+        template<std::integral I>
+        explicit constexpr intfinity(intfinity<I> value) noexcept: value(convert(value.get())) {}
+
         template<std::floating_point F>
         constexpr intfinity(F value) noexcept: value(value) {
             constexpr auto FInf = static_cast<F>(Infinity);
