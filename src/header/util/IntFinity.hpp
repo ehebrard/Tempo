@@ -1,7 +1,7 @@
 /**
 * @author Tim Luchterhand
 * @date 03.09.24
-* @brief
+* @brief Integer-like class that supports infinity and nan values
 */
 
 #ifndef TEMPO_INTFINITY_HPP
@@ -48,9 +48,18 @@ namespace tempo {
     }
 
     enum class UnsignedUnderflow {
-        ToNan, ToZero, ToInfinity
+        ToNan, ToZero, ToInfinity, WrapAround
     };
 
+    /**
+     * @brief Integer-like class that supports infinity and nan
+     * @details @copybrief
+     * Over- / underflows are well defined and produce infinity values. Behaves like ieee745 concerning nan values.
+     * @note arithmetic operations on built-in integer types are usually faster. Use this class when extreme performance
+     * is not necessary or when arithmetic operations are not the bottleneck.
+     * @tparam T underlying integer type
+     * @tparam UnderflowMode behavior in case of unsigned underflow (default: produce nan)
+     */
     template<std::integral T, UnsignedUnderflow UnderflowMode = UnsignedUnderflow::ToNan>
     class intfinity {
         T value;
@@ -71,6 +80,8 @@ namespace tempo {
                 return NotANumber;
             } else if (UnderflowMode == ToInfinity) {
                 return Infinity;
+            } else if constexpr (UnderflowMode == WrapAround) {
+                return Infinity - 1;
             } else {
                 return 0;
             }
@@ -100,12 +111,27 @@ namespace tempo {
         }
 
     public:
+        /**
+         * Positive infinity
+         * @return
+         */
         static constexpr intfinity Inf() { return {Infinity, 0}; }
 
+        /**
+         * Not a number
+         * @return
+         */
         static constexpr intfinity Nan() { return {NotANumber, 0}; }
 
+        /**
+         * Default Ctor. Initializes to UNDEFINED value
+         */
         constexpr intfinity() noexcept = default;
 
+        /**
+         * Ctor. Converts to infinity if number does not fit into underlying type
+         * @param value init value
+         */
         constexpr intfinity(T value) noexcept: value(value) {
             if (value == NotANumber) {
                 if constexpr (std::is_signed_v<T>) {
@@ -116,12 +142,28 @@ namespace tempo {
             }
         }
 
+        /**
+         * Conversion Ctor. Converts to infinity if number does not fit into underlying type
+         * @tparam I source integer type
+         * @param value init value
+         */
         template<std::integral I>
         constexpr intfinity(I value) noexcept: value(convert(value)) {}
 
+        /**
+         * Explicit conversion Ctor overload. Converts to infinity if number does not fit into underlying type.
+         * @note behaves like cast()
+         * @tparam I source integer type
+         * @param value init value
+         */
         template<std::integral I>
         explicit constexpr intfinity(intfinity<I> value) noexcept: value(convert(value.get())) {}
 
+        /**
+         * Float conversion Ctor. Converts to infinity if number does not fit into underlying type. Keeps nan values
+         * @tparam F floating point type
+         * @param value init value
+         */
         template<std::floating_point F>
         constexpr intfinity(F value) noexcept: value(value) {
             constexpr auto FInf = static_cast<F>(Infinity);
@@ -143,6 +185,10 @@ namespace tempo {
             }
         }
 
+        /**
+         * Checks whether value is infinite
+         * @return true on positive or negative infinity, false otherwise
+         */
         [[nodiscard]] constexpr bool isInf() const noexcept {
             if constexpr (std::is_signed_v<T>) {
                 return std::abs(value) == Infinity;
@@ -151,30 +197,62 @@ namespace tempo {
             }
         }
 
+        /**
+         * Checks whether value is not a number
+         * @return true if value is NaN, false otherwise
+         */
         [[nodiscard]] constexpr bool isNan() const noexcept {
             return value == NotANumber;
         }
 
+        /**
+         * Equality comparison.
+         * @note two nan values are always unequal
+         * @param other
+         * @return true if values are equal, false otherwise
+         */
         constexpr bool operator==(intfinity other) const noexcept {
             if (isNan() or other.isNan()) { return false; }
             return value == other.value;
         }
 
+        /**
+         * Equality comparison with float. Performs conversion to float type and then does comparison
+         * @tparam F floating point type
+         * @param other
+         * @return true if values are equal, false otherwise
+         */
         template<std::floating_point F>
         constexpr bool operator==(F other) const noexcept {
             return static_cast<F>(*this) == other;
         }
 
+        /**
+         * Relational operators
+         * @param other
+         * @return
+         */
         constexpr std::partial_ordering operator<=>(intfinity other) const noexcept {
             if (isNan() or other.isNan()) { return std::partial_ordering::unordered; }
             return value <=> other.value;
         }
 
+        /**
+         * Relational operators with float. Performs conversion to float and then does comparison.
+         * @tparam F floating point type
+         * @param other
+         * @return
+         */
         template<std::floating_point F>
         constexpr auto operator<=>(F other) const noexcept {
             return static_cast<F>(*this) <=> other;
         }
 
+        /**
+         * Compound addition. Performs bounds checking and supports NaN
+         * @param other
+         * @return
+         */
         constexpr intfinity &operator+=(intfinity other) noexcept {
             if (isNan() or other.isNan()) {
                 value = NotANumber;
@@ -211,12 +289,24 @@ namespace tempo {
             return *this;
         }
 
+        /**
+         * Compound addition with float. Performs conversion to float, then performs addition, then converts back to
+         * int. Performs bounds checking and supports NaN
+         * @tparam F floating point type
+         * @param other
+         * @return
+         */
         template<std::floating_point F>
         constexpr intfinity &operator+=(F other) noexcept {
             *this = static_cast<F>(*this) + other;
             return *this;
         }
 
+        /**
+         * Compound subtraction. Performs bounds checking and supports NaN
+         * @param other
+         * @return
+         */
         constexpr intfinity &operator-=(intfinity other) noexcept {
             if (isNan() or other.isNan()) {
                 value = NotANumber;
@@ -258,62 +348,128 @@ namespace tempo {
             return *this;
         }
 
+        /**
+         * Compound subtraction with float. Performs conversion to float, then performs subtraction, then converts back
+         * to int. Performs bounds checking and supports NaN
+         * @tparam F floating point type
+         * @param other
+         * @return
+         */
         template<std::floating_point F>
         constexpr intfinity &operator-=(F other) {
             *this = static_cast<F>(*this) - other;
             return *this;
         }
 
+        /**
+         * Binary addition. See compound addition
+         * @param lhs
+         * @param rhs
+         * @return
+         */
         constexpr friend intfinity operator+(intfinity lhs, intfinity rhs) noexcept {
             lhs += rhs;
             return lhs;
         }
 
+        /**
+         * Binary addition with float. See compound addition
+         * @param lhs
+         * @param rhs
+         * @return
+         */
         template<std::floating_point F>
         friend constexpr F operator+(intfinity lhs, F rhs) noexcept {
             return static_cast<F>(lhs) + rhs;
         }
 
+        /**
+         * Binary addition with float. See compound addition
+         * @param lhs
+         * @param rhs
+         * @return
+         */
         template<std::floating_point F>
         friend constexpr F operator+(F lhs, intfinity rhs) noexcept {
             return lhs + static_cast<F>(rhs);
         }
 
+        /**
+         * Binary subtraction. See compound addition
+         * @param lhs
+         * @param rhs
+         * @return
+         */
         constexpr friend intfinity operator-(intfinity lhs, intfinity rhs) noexcept {
             lhs -= rhs;
             return lhs;
         }
 
+        /**
+         * Binary subtraction with float. See compound subtraction
+         * @param lhs
+         * @param rhs
+         * @return
+         */
         template<std::floating_point F>
         friend constexpr F operator-(intfinity lhs, F rhs) noexcept {
             return static_cast<F>(lhs) - rhs;
         }
 
+        /**
+         * Binary subtraction with float. See compound subtraction
+         * @param lhs
+         * @param rhs
+         * @return
+         */
         template<std::floating_point F>
         friend constexpr F operator-(F lhs, intfinity rhs) noexcept {
             return lhs - static_cast<F>(rhs);
         }
 
+
+        /**
+         * prefix increment
+         * @return
+         */
         constexpr intfinity &operator++() noexcept {
             return operator+=(1);
         }
 
+        /**
+         * postfix increment
+         * @return
+         */
         constexpr intfinity operator++(int) noexcept {
             auto old = *this;
             operator++();
             return old;
         }
 
+        /**
+         * prefix decrement
+         * @return
+         */
         constexpr intfinity &operator--() noexcept {
             return operator-=(1);
         }
 
+        /**
+         * postfix decrement
+         * @return
+         */
         constexpr intfinity operator--(int) noexcept {
             auto old = *this;
             operator--();
             return old;
         }
 
+
+        /**
+         * Compound multiplication. Performs bounds checking and supports NaN
+         * @param other
+         * @return
+         */
         constexpr intfinity &operator*=(intfinity other) noexcept {
             if (isNan() or other.isNan()) {
                 value = NotANumber;
@@ -348,12 +504,24 @@ namespace tempo {
             return *this;
         }
 
+        /**
+         * Compound multiplication with float. Performs conversion to float, then performs multiplication, then converts
+         * back to int. Performs bounds checking and supports NaN
+         * @tparam F floating point type
+         * @param other
+         * @return
+         */
         template<std::floating_point F>
         constexpr intfinity &operator*=(F other) noexcept {
             *this = static_cast<F>(*this) * other;
             return *this;
         }
 
+        /**
+         * Compound division. Performs bounds checking and supports NaN
+         * @param other
+         * @return
+         */
         constexpr intfinity &operator/=(intfinity other) noexcept {
             if (isNan() or other.isNan()) {
                 value = NotANumber;
@@ -383,56 +551,111 @@ namespace tempo {
             return *this;
         }
 
+        /**
+         * Compound division with float. Performs conversion to float, then performs division, then converts
+         * back to int. Performs bounds checking and supports NaN
+         * @tparam F floating point type
+         * @param other
+         * @return
+         */
         template<std::floating_point F>
         constexpr intfinity &operator/=(F other) noexcept {
             *this = static_cast<F>(*this) / other;
             return *this;
         }
 
+        /**
+         * Binary multiplication. See compound multiplication
+         * @param lhs
+         * @param rhs
+         * @return
+         */
         constexpr friend intfinity operator*(intfinity lhs, intfinity rhs) noexcept {
             lhs *= rhs;
             return lhs;
         }
 
+        /**
+         * Binary multiplication with float. See compound multiplication
+         * @param lhs
+         * @param rhs
+         * @return
+         */
         template<std::floating_point F>
         friend constexpr F operator*(intfinity lhs, F rhs) noexcept {
             return static_cast<F>(lhs) * rhs;
         }
 
+        /**
+         * Binary multiplication with float. See compound multiplication
+         * @param lhs
+         * @param rhs
+         * @return
+         */
         template<std::floating_point F>
         friend constexpr F operator*(F lhs, intfinity rhs) noexcept {
             return lhs * static_cast<F>(rhs);
         }
 
-
+        /**
+         * Binary division. See compound division
+         * @param lhs
+         * @param rhs
+         * @return
+         */
         constexpr friend intfinity operator/(intfinity lhs, intfinity rhs) noexcept {
             lhs /= rhs;
             return lhs;
         }
 
+        /**
+         * Binary division with float. See compound division
+         * @param lhs
+         * @param rhs
+         * @return
+         */
         template<std::floating_point F>
         friend constexpr F operator/(intfinity lhs, F rhs) noexcept {
             return static_cast<F>(lhs) / rhs;
         }
 
+        /**
+         * Binary division with float. See compound division
+         * @param lhs
+         * @param rhs
+         * @return
+         */
         template<std::floating_point F>
         friend constexpr F operator/(F lhs, intfinity rhs) noexcept {
             return lhs / static_cast<F>(rhs);
         }
 
+        /**
+         * Unary +. Returns *this
+         * @return *this
+         */
         constexpr intfinity operator+() const noexcept {
-            return {value, 0};
+            return *this;
         }
 
+        /**
+         * Unary -. Inverts sign on signed types
+         * @return
+         */
         template<std::signed_integral = T>
         constexpr intfinity operator-() const noexcept {
             if (not isNan()) {
                 return -value;
             }
 
-            return {value, 0};
+            return *this;
         }
 
+        /**
+         * Explicit float conversion. If the value is too large for the destiantion type, the behavior is undefined
+         * @tparam F floating point type
+         * @return
+         */
         template<std::floating_point F>
         explicit constexpr operator F() const noexcept {
             if (isNan()) {
@@ -469,10 +692,20 @@ namespace tempo {
             return is;
         }
 
+        /**
+         * Gets the raw integer value
+         * @return
+         */
         constexpr T get() const noexcept {
             return value;
         }
 
+        /**
+         * Cast to different integer type. Yields infinity if too large for target type. Supports nan
+         * @tparam I target type
+         * @tparam UMode target underflow mode
+         * @return cast result
+         */
         template<std::integral I, UnsignedUnderflow UMode = UnsignedUnderflow::ToNan>
         constexpr auto cast() const noexcept {
             return intfinity<I, UMode>(value);

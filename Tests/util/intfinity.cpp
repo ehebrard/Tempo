@@ -273,6 +273,18 @@ TEST(util, intfinity_ctor_conversion) {
     EXPECT_EQ(sInf, -intfinity<short>::Inf());
 }
 
+TEST(util, intfinity_unsigned_underflow) {
+    using enum UnsignedUnderflow;
+    intfinity<unsigned, ToZero> z = -4;
+    intfinity<unsigned, ToNan> n = -4;
+    intfinity<unsigned, ToInfinity> i = -4;
+    intfinity<unsigned, WrapAround> w = -4;
+    EXPECT_EQ(z, 0);
+    EXPECT_TRUE(n.isNan());
+    EXPECT_TRUE(i.isInf());
+    EXPECT_EQ(w, std::numeric_limits<decltype(w)>::max());
+}
+
 TEST(util, intfinity_float_conversion) {
     intfinity<int> number = 1.5;
     intfinity<unsigned, tempo::UnsignedUnderflow::ToZero> uNumber = 1.5;
@@ -668,6 +680,6 @@ TEST(util, intfinity_cast2) {
         testCast<int, unsigned, ToNan>();
         testCast<long, unsigned, ToInfinity>();
         testCast<long long, long, ToNan>();
-        testCast<short, unsigned, ToZero>();
+        testCast<short, unsigned, WrapAround>();
     }
 }
