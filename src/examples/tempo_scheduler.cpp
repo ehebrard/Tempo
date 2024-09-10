@@ -308,9 +308,9 @@ int main(int argc, char *argv[]) {
 //              std::cout << " " << x;
           }
 //          std::cout << std::endl;
-          
-          std::cout << "setting static ordering\n";
-          
+
+          //          std::cout << "setting static ordering\n";
+
           S.setBranchingHeuristic(heuristics::make_compound_heuristic(heuristics::Static(S,ordering), heuristics::make_value_heuristic(S)));
       }
       

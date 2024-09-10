@@ -153,6 +153,7 @@ public:
     //    int tail() const {return nodes[tail].prev;}
 
     int next(const int i) const { return nodes[i].next; }
+    int prev(const int i) const { return nodes[i].prev; }
 
     void add_front(const int tindex) { add_after(tail, tindex); }
 
@@ -183,6 +184,8 @@ public:
       nodes[nodes[tindex].prev].next = nodes[tindex].next;
       nodes[nodes[tindex].next].prev = nodes[tindex].prev;
     }
+
+    //    void cut_interval(const int i, const int j) {
 
     void clear() {
       nodes[tail].next = tail;

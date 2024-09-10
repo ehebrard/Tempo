@@ -80,6 +80,8 @@ private:
   std::vector<Interval<T>> the_tasks;
   std::vector<NumericVar<T>> demand;
   std::vector<std::vector<Literal<T>>> precedence;
+  std::vector<int> prec;
+  std::vector<int> prev;
 
   // helpers
   List<Timepoint<T>> profile;
@@ -133,11 +135,12 @@ public:
   void propagate() override;
 
   T scheduleOmega();
-    void computeBound(const int i);
-    void buildFullProfile();
-    void addPrime(const int i);
-    void rmPrime();
-    void horizontallyElasticEdgeFinder();
+  T scheduleOmegaMinus(const int b, const std::vector<int>::reverse_iterator j);
+  void computeBound(const int i);
+  void buildFullProfile();
+  void addPrime(const int i);
+  void rmPrime();
+  void horizontallyElasticEdgeFinder();
 
   void xplain(const Literal<T> l, const hint h,
               std::vector<Literal<T>> &Cl) override;
@@ -294,15 +297,16 @@ CumulativeEdgeFinding<T>::CumulativeEdgeFinding(
     ++dp;
   }
 
-    auto ip{the_tasks.size()};
-    
+  auto ip{the_tasks.size()};
+
+  prec.resize(ip);
   precedence.resize(ip);
-  est_.resize(ip+1);
-  ect_.resize(ip+1);
-  lct_.resize(ip+1);
+  est_.resize(ip + 1);
+  ect_.resize(ip + 1);
+  lct_.resize(ip + 1);
 
   auto maxcap{capacity.max(m_solver)};
-    
+
   for (unsigned i = 0; i < ip; ++i) {
     precedence[i].resize(the_tasks.size());
     est_[i] = profile.create_element(est(i), maxcap, mindemand(i), mindemand(i),
@@ -339,6 +343,8 @@ CumulativeEdgeFinding<T>::CumulativeEdgeFinding(
   //                    });
 
 //  std::vector<int> event_ordering(profile.size());
+
+  prev.resize(profile.size());
   event_ordering.resize(profile.size());
   std::iota(event_ordering.begin(), event_ordering.end(), 1);
     est_[ip] = profile.create_element(0, 0, 0, 0, 0, 0, 0, 0);
@@ -845,13 +851,14 @@ void CumulativeEdgeFinding<T>::horizontallyElasticEdgeFinder() {
             break;
         
         // lct of the task that precedes all the task whose lct is lct(i)
-        auto lct_j{lct(*ii)};
-        
+        auto j{*ii};
+        auto lct_j{lct(j)};
+
         // otherwise, add their "prime" versions one by one and run scheduleOmega
         while(is != ii) {
             
             auto i{*is};
-            
+
 #ifdef DBG_SEF
         if (DBG_SEF) {
             std::cout << "  * add " << i << "'\n";
@@ -873,27 +880,33 @@ void CumulativeEdgeFinding<T>::horizontallyElasticEdgeFinder() {
 #ifdef DBG_SEF
             if (DBG_SEF) {
                 std::cout << " ect^H = " << omega_ect << " / lct(S) = " << lct_j << std::endl;
+                std::cout << "  * rm " << i << "'\n";
             }
 #endif
-                
-                
-                
-                
+
+            rmPrime();
+
+            if (omega_ect > lct_j) {
+
+              std::cout << "pruning!\n";
+
+              prec[i] = j;
+            } else {
+              computeBound(i);
+              if (beta != -1) {
+                std::cout << "scheduleOmega until " << beta << std::endl;
+
+                //                auto ect_i_H{scheduleOmegaMinus(beta, ii)};
+              }
+            }
+
                 for(auto p{profile.begin()}; p!=profile.end(); ++p) {
                     p->capacity = cap;
                 }
                 
                 //            std::cout << omega_ect << std::endl;
             }
-            
-#ifdef DBG_SEF
-        if (DBG_SEF) {
-            std::cout << "  * rm " << i << "'\n";
-        }
-#endif
-            
-            rmPrime();
-            
+
             ++is;
         }
     }
@@ -922,11 +935,11 @@ void CumulativeEdgeFinding<T>::computeBound(const int i) {
             break;
         E += energy(j);
         if(lct(j) <= ect(i) and est(i) < lct(j)) {
-            auto slack{(capacity.max(m_solver) - demand(i)) * lct(j) - E};
-            if(slack < minSlack[0] and profile[lct_[j]].overflow > 0) {
-                minSlack[0] = slack;
-                alpha = j;
-            }
+          auto slack{(capacity.max(m_solver) - mindemand(i)) * lct(j) - E};
+          if (slack < minSlack[0] and profile[lct_[j]].overflow > 0) {
+            minSlack[0] = slack;
+            alpha = j;
+          }
         } else if(lct(j) > ect(i)) {
             auto slack{capacity.max(m_solver) * lct(j) - E};
             if(slack < minSlack[1] and profile[lct_[j]].overflow > 0) {
@@ -935,6 +948,35 @@ void CumulativeEdgeFinding<T>::computeBound(const int i) {
             }
         }
     }
+}
+
+// template <typename Iter>
+
+template <typename T>
+T CumulativeEdgeFinding<T>::scheduleOmegaMinus(
+    const int b, const std::vector<int>::reverse_iterator j) {
+  auto jj{j};
+  for (; *jj != b; --jj) {
+
+    prev[lct_[*jj]] = profile.prev(lct_[*jj]);
+    profile.remove(lct_[*jj]);
+
+    prev[ect_[*jj]] = profile.prev(ect_[*jj]);
+    profile.remove(ect_[*jj]);
+
+    prev[est_[*jj]] = profile.prev(est_[*jj]);
+    profile.remove(est_[*jj]);
+  }
+
+  auto ect_i_H{scheduleOmega()};
+
+  for (; jj != j; ++jj) {
+    profile.add_after(prev[est_[*jj]], est_[*jj]);
+    profile.add_after(prev[ect_[*jj]], ect_[*jj]);
+    profile.add_after(prev[lct_[*jj]], lct_[*jj]);
+  }
+
+  return ect_i_H;
 }
 
 template <typename T> T CumulativeEdgeFinding<T>::scheduleOmega() {
@@ -993,24 +1035,26 @@ template <typename T> T CumulativeEdgeFinding<T>::scheduleOmega() {
         }
     }
 #endif
-      
-      
 
     // there is some overflow, and it will be resorbed by the next time point
     if (overflow > 0 and overflow < ((h_cons - h_req) * l)) {
       // then we create a new time point for the moment it will be resorbed
-//      l = std::max(Gap<T>::epsilon(), overflow / (h_cons - h_req));
-        l = std::max(Gap<T>::epsilon(), ceil_division<T>(overflow, (h_cons - h_req)));
+      // l = std::max(Gap<T>::epsilon(), ceil_division<T>(overflow, (h_cons -
+      // h_req)));
+      l = std::max(Gap<T>::epsilon(), overflow / (h_cons - h_req));
       auto new_event{
           profile.create_element(t->time + l, t->capacity, 0, 0, 0, 0, 0, 0)};
       profile.add_after(t.index, new_event);
+      next = profile.at(new_event);
     }
     // overflow is the deficit on resource for that period (because tasks are
     // set to their earliest)profile[est_[ip]].time = _est;
     overflow += (h_req - h_cons) * l;
     // once there
     t->capacity = C - h_cons;
-    if (t->capacity < C)
+    if (overflow > 0)
+      omega_ect = Constant::Infinity<T>;
+    else if (t->capacity < C)
       omega_ect = profile[profile.next(t.index)].time;
 
 #ifdef DBG_SEF
