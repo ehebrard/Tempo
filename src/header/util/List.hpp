@@ -203,7 +203,10 @@ public:
 //    List<E>::const_iterator end() const { return const_iterator(this, tail); }
     
     List<E>::iterator at(const int i) { return iterator(this, i); }
-    
+    List<E>::iterator reverse_at(const int i) {
+      return reverse_iterator(this, i);
+    }
+
     size_t size() const {return nodes.size()-1;}
     E& operator[](const int i) {return nodes[i].content;}
 
