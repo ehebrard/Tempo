@@ -185,6 +185,11 @@ public:
   }
 };
 
+template<typename Integer>
+Integer ceil_division(const Integer x, const Integer y) {
+    return (x + y - 1) / y;
+}
+
 //
 double cpu_time(void);
 
