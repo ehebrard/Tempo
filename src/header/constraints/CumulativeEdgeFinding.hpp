@@ -80,8 +80,9 @@ private:
   std::vector<Interval<T>> the_tasks;
   std::vector<NumericVar<T>> demand;
   std::vector<std::vector<Literal<T>>> precedence;
-  std::vector<int> prec;
-  std::vector<int> prev;
+  std::vector<int> prec; // mapping from the tasks that need to be adjusted to the corresponding left-cut interval
+    SparseSet<> in_conflict; // tasks that have been found to be in conflict with an left-cut interval
+  std::vector<int> prev; // helper to undo changes on the profile more efficiently
 
   // helpers
   List<Timepoint<T>> profile;
@@ -140,7 +141,9 @@ public:
   void buildFullProfile();
   void addPrime(const int i);
   void rmPrime();
-  void horizontallyElasticEdgeFinder();
+  void horizontallyElasticEdgeFinderForward();
+    void forwardDetection();
+    void forwardAdjustment();
 
   void xplain(const Literal<T> l, const hint h,
               std::vector<Literal<T>> &Cl) override;
@@ -299,6 +302,7 @@ CumulativeEdgeFinding<T>::CumulativeEdgeFinding(
 
   auto ip{the_tasks.size()};
 
+    in_conflict.reserve(ip);
   prec.resize(ip);
   precedence.resize(ip);
   est_.resize(ip + 1);
@@ -678,6 +682,8 @@ template <typename T> void CumulativeEdgeFinding<T>::buildFullProfile() {
 }
 
 template <typename T> void CumulativeEdgeFinding<T>::propagate() {
+    
+    in_conflict.clear();
 
   std::sort(lct_order.begin(), lct_order.end(),
             [this](const int i, const int j) { return lct(i) < lct(j); });
@@ -703,7 +709,7 @@ template <typename T> void CumulativeEdgeFinding<T>::propagate() {
 //        ++k;
     }
     
-    horizontallyElasticEdgeFinder();
+    horizontallyElasticEdgeFinderForward();
 //    buildFullProfile();
 
 //    k = 0;
@@ -745,7 +751,8 @@ template <typename T> void CumulativeEdgeFinding<T>::propagate() {
 
 template <typename T>
 void CumulativeEdgeFinding<T>::addPrime(const int i) {
-    auto _est{std::max(est(i), profile.begin()->time)};
+//    auto _est{std::max(est(i), profile.begin()->time)};
+    auto _est{est(i)};
     auto _lct{std::min(profile.rbegin()->time, ect(i))};
 //    auto _dur{lct-est};
     
@@ -777,6 +784,10 @@ void CumulativeEdgeFinding<T>::addPrime(const int i) {
         ++p;
         
 //        std::cout << " next=" << p.index << ":" << p->time << std::endl;
+    }
+    if(p==profile.rend()) {
+        profile.add_front(lct_[ip]);
+        profile.add_front(ect_[ip]);
     }
     while(p!=profile.rend()) {
         if(p->time <= _est) {
@@ -810,8 +821,26 @@ void CumulativeEdgeFinding<T>::rmPrime() {
 
 
 template <typename T>
-void CumulativeEdgeFinding<T>::horizontallyElasticEdgeFinder() {
+void CumulativeEdgeFinding<T>::horizontallyElasticEdgeFinderForward() {
     
+    forwardDetection();
+    forwardAdjustment();
+    
+}
+
+template <typename T>
+void CumulativeEdgeFinding<T>::forwardAdjustment() {
+    
+    std::cout << "hello\n";
+    
+    while(not in_conflict.empty()) {
+        std::cout << in_conflict.back() << ": " << prec[in_conflict.back()] << std::endl;
+        in_conflict.pop_back();
+    }
+}
+    
+template <typename T>
+void CumulativeEdgeFinding<T>::forwardDetection() {
     buildFullProfile();
     
     auto cap{capacity.max(m_solver)};
@@ -889,6 +918,7 @@ void CumulativeEdgeFinding<T>::horizontallyElasticEdgeFinder() {
                 }
 #endif
                 prec[i] = j;
+                  in_conflict.add(i);
               } else {
 
 #ifdef DBG_SEF
@@ -920,6 +950,7 @@ void CumulativeEdgeFinding<T>::horizontallyElasticEdgeFinder() {
                     }
 #endif
                     prec[i] = beta;
+                      in_conflict.add(i);
                   }
                 }
                 if (prec[i] == -1 and alpha != -1) {
@@ -943,6 +974,9 @@ void CumulativeEdgeFinding<T>::horizontallyElasticEdgeFinder() {
                                 << alpha << std::endl;
                     }
 #endif
+                      
+                      prec[i] = alpha;
+                        in_conflict.add(i);
                   }
                 }
 
@@ -952,7 +986,7 @@ void CumulativeEdgeFinding<T>::horizontallyElasticEdgeFinder() {
                       
 #ifdef DBG_SEF
               if (DBG_SEF) {
-                std::cout << "  * re-add " << *ti << "'\n";
+                std::cout << "  * re-add " << *ti << "\n";
               }
 #endif
 
@@ -967,11 +1001,21 @@ void CumulativeEdgeFinding<T>::horizontallyElasticEdgeFinder() {
                 std::cout << "  * rm " << i << "'\n";
               }
 #endif
+//                if(i==4) {
+//                    std::cout << profile << std::endl;
+//                }
+                
               rmPrime();
+                
+//                if(i==4) {
+//                    std::cout << profile << std::endl;
+//                    exit(1);
+//                }
+                
 
               for (auto p{profile.begin()}; p != profile.end(); ++p) {
 
-                std::cout << *p << std::endl;
+//                std::cout << *p << std::endl;
 
                 p->capacity = cap;
               }
@@ -1022,7 +1066,7 @@ T CumulativeEdgeFinding<T>::scheduleOmegaMinus(
 
 #ifdef DBG_SEF
               if (DBG_SEF) {
-                std::cout << "  * rm " << *jj << "'\n";
+                std::cout << "  * rm " << *jj << "\n";
               }
 #endif
 
