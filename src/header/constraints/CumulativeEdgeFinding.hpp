@@ -1049,10 +1049,13 @@ void CumulativeEdgeFinding<T>::forwardAdjustment() {
         
 //        std::cout << profile << std::endl;
         
-        auto ect_h{scheduleOmega(capacity.max(m_solver) - mindemand(i))};
+        scheduleOmega(capacity.max(m_solver) - mindemand(i));
         
-        std::cout << "\n ==> adjust est(" << i << ") to " << profile.begin()->time + ceil_division(overflow, mindemand(i)) << std::endl;
+        auto t{profile.begin()->time + ceil_division(overflow, mindemand(i))};
+        
+        std::cout << "\n ==> adjust est(" << i << ") to " << t << std::endl;
   
+        m_solver.set(the_tasks[i].start.after(t), {this, Constant::FactHint});
         
         in_conflict.pop_front();
     }
