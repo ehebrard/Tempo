@@ -31,7 +31,7 @@
 #include "helpers/cli.hpp"
 #include "util/Profiler.hpp"
 #include "helpers/shell.hpp"
-#include "helpers/git_sha.hpp"
+#include "util/IntFinity.hpp"
 
 //#define VERBOSE true
 
@@ -425,7 +425,7 @@ void crunch_numbers(Options& opt, std::string& analyse_file) {
 //      std::cout << "obj = " << obj << std::endl;
 
   unsigned long prev_cp;
-  int prev_makespan;
+  intfinity<int> prev_makespan;
   int makespan{Constant::Infinity<int>};
 
   unsigned branch_length;
@@ -480,6 +480,10 @@ void crunch_numbers(Options& opt, std::string& analyse_file) {
 
   //    int branch_i{0};
   while (true) {
+    if (KillHandler::instance().signalReceived()) {
+        std::cout << "-- killed" << std::endl;
+        break;
+    }
 
     prev_cp = total_cp;
     prev_makespan = makespan;
@@ -501,10 +505,7 @@ void crunch_numbers(Options& opt, std::string& analyse_file) {
       dec_level.resize(rsigns.size(), 0);
 
     irrelevant_correct = test_branches(
-        opt,
-        (prev_makespan == Constant::Infinity<int> ? Constant::Infinity<int>
-                                                  : prev_makespan - 1),
-        dsigns, dvars, rsigns, rvars, dec_level, num_mistakes, false);
+        opt, (prev_makespan - 1).get(), dsigns, dvars, rsigns, rvars, dec_level, num_mistakes, false);
 
     //      unsigned ttotal{0};
     for (size_t l{0}; l < rvars.size(); ++l) {
@@ -559,7 +560,7 @@ void crunch_numbers(Options& opt, std::string& analyse_file) {
           static_cast<double>(nvars) / static_cast<double>(num_mistakes.size());
     }
 
-    size_t avg_dec_level{0};
+    intfinity<std::size_t> avg_dec_level{0};
     for (size_t i{0}; i < dec_level.size(); ++i) {
       avg_dec_level += i * dec_level[i];
     }
