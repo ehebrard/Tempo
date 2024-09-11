@@ -27,6 +27,8 @@
 
 #include <vector>
 
+#define DBG_LIST true
+
 namespace tempo {
 
 template<typename E>
@@ -131,6 +133,11 @@ class List {
 public:
   List() {
     nodes.resize(1); // dummy element to represent head/tail
+      last_saved = tail;
+      
+#ifdef DBG_LIST
+      verify("constructor");
+#endif
   }
 
     bool empty() const {return nodes[tail].next == tail;}
@@ -138,12 +145,24 @@ public:
     void pop_back() {
       remove(nodes.size() - 1);
       nodes.pop_back();
+//        present.pop_back();
+        last_saved = tail;
+        
+#ifdef DBG_LIST
+      verify("pop back");
+#endif
     }
 
     template <typename... T>
     int create_element(T ...args) {
         int tindex{static_cast<int>(nodes.size())};
         nodes.emplace_back(-1,-1,args...);
+//        present.push_back(false);
+        
+#ifdef DBG_LIST
+      verify("create element");
+#endif
+        
         return tindex;
     }
 
@@ -155,7 +174,11 @@ public:
     int next(const int i) const { return nodes[i].next; }
     int prev(const int i) const { return nodes[i].prev; }
 
-    void add_front(const int tindex) { add_after(tail, tindex); }
+    void add_front(const int tindex) { add_after(tail, tindex);
+#ifdef DBG_LIST
+      verify("add front");
+#endif
+    }
 
     void add_after(const int rid, const int tindex) {
         nodes[tindex].prev = rid;
@@ -163,6 +186,10 @@ public:
         nodes[rid].next = tindex;
         nodes[nid].prev = tindex;
         nodes[tindex].next = nid;
+//        present[tindex] = true;
+#ifdef DBG_LIST
+      verify("add after");
+#endif
     }
 
     void add_before(const int rid, const int tindex) {
@@ -171,6 +198,11 @@ public:
       nodes[rid].prev = tindex;
       nodes[pid].next = tindex;
       nodes[tindex].prev = pid;
+//        present[tindex] = true;
+        
+#ifdef DBG_LIST
+      verify("add before");
+#endif
     }
 
     template <typename Func> void add_when(Func test, const int tindex) {
@@ -178,18 +210,73 @@ public:
         if (test(i))
           add_after(i.index, tindex);
       }
+        
+#ifdef DBG_LIST
+      verify("add when");
+#endif
     }
 
     void remove(const int tindex) {
+        remove_and_forget(tindex);
+        nodes[tindex].next = last_saved;
+        last_saved = tindex;
+//        present[tindex] = false;
+        
+//        auto x{last_saved};
+//        std::cout << "removed:" ;
+//        while(x != tail) {
+//            std::cout << " " << x;
+//            x = nodes[x].next;
+//        }
+//        std::cout << std::endl;
+        
+#ifdef DBG_LIST
+      verify("remove");
+#endif
+    }
+    
+    void remove_and_forget(const int tindex) {
       nodes[nodes[tindex].prev].next = nodes[tindex].next;
       nodes[nodes[tindex].next].prev = nodes[tindex].prev;
+       
+//        auto x{last_saved};
+//        std::cout << "removed:" ;
+//        while(x != tail) {
+//            std::cout << " " << x;
+//            x = nodes[x].next;
+//        }
+//        std::cout << std::endl;
+        
+#ifdef DBG_LIST
+      verify("remove and forget");
+#endif
     }
+    
+    void re_add() {
+        auto x{last_saved};
+        last_saved = nodes[x].next;
+        add_after(nodes[x].prev, x);
+        
+#ifdef DBG_LIST
+      verify("re add");
+#endif
+    }
+    
+//    bool has(const int i) {
+//        return present[i];
+////        return next(nodes[i].prev) == i;
+////        return prev(nodes[i].next) == i;
+//    }
 
     //    void cut_interval(const int i, const int j) {
 
     void clear() {
       nodes[tail].next = tail;
       nodes[tail].prev = tail;
+        
+#ifdef DBG_LIST
+      verify("clear");
+#endif
     }
 
     List<E>::iterator begin() { return iterator(this, first()); }
@@ -212,15 +299,43 @@ public:
 
     std::ostream &display(std::ostream &os) {
       for (auto tp{begin()}; tp != end(); ++tp) {
-        os << tp.index << ": " << *tp << std::endl;
+        os << tp.index << ": " << *tp << " " << prev(tp.index) << "|" << next(tp.index) << std::endl;
       }
       return os;
+    }
+    
+    void verify(const char* msg) {
+        int i, p;
+        
+        i = p = tail;
+        do {
+            i = next(i);
+            if(prev(i) != p) {
+                std::cout << msg << " (" << p << "->" << i << "<-" << prev(i) << ")\n" ;
+                display(std::cout);
+                exit(1);
+            }
+            p = i;
+        } while(i != tail);
+        
+        i = p = tail;
+        do {
+             i = prev(i);
+            if(next(i) != p) {
+                std::cout << msg << " (" << p << "<-" << i << "->" << next(i) << ")\n" ;
+                display(std::cout);
+                exit(1);
+            }
+            p = i;
+        } while(i != tail);
     }
 
     static int tail;
 
   protected:
     std::vector<Node<E>> nodes;
+//    std::vector<bool> present;
+    int last_saved;
 };
 
 template<typename E>

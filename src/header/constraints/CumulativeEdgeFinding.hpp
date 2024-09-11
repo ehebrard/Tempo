@@ -29,7 +29,9 @@
 #include <cassert>
 #include <map>
 #include <vector>
+#include <sstream>
 #include <numeric>
+
 
 #include "Explanation.hpp"
 #include "Global.hpp"
@@ -82,7 +84,9 @@ private:
   std::vector<std::vector<Literal<T>>> precedence;
   std::vector<int> prec; // mapping from the tasks that need to be adjusted to the corresponding left-cut interval
     SparseSet<> in_conflict; // tasks that have been found to be in conflict with an left-cut interval
-  std::vector<int> prev; // helper to undo changes on the profile more efficiently
+    std::vector<bool> inLeftCut;
+    std::vector<int>::reverse_iterator lc_ptr; // right side of the left-cut interval
+//  std::vector<int> prev; // helper to undo changes on the profile more efficiently
 
   // helpers
   List<Timepoint<T>> profile;
@@ -96,6 +100,8 @@ private:
   int sentinel;
     int alpha;
     int beta;
+    
+    T overflow;
 
   std::vector<std::vector<int>> triggers;
 
@@ -135,12 +141,19 @@ public:
   void post(const int idx) override;
   void propagate() override;
 
-  T scheduleOmega();
-  T scheduleOmegaMinus(const int b, std::vector<int>::reverse_iterator& j);
+  T scheduleOmega(const T C);
+//  T scheduleOmegaMinus(const int b, std::vector<int>::reverse_iterator& j);
   void computeBound(const int i);
   void buildFullProfile();
-  void addPrime(const int i);
+  
+    void addTask(const int i);
+    void rmTask(const int i);
+    
+    void leftCut(const int i);
+    
+    void addPrime(const int i);
   void rmPrime();
+    
   void horizontallyElasticEdgeFinderForward();
     void forwardDetection();
     void forwardAdjustment();
@@ -301,6 +314,7 @@ CumulativeEdgeFinding<T>::CumulativeEdgeFinding(
   }
 
   auto ip{the_tasks.size()};
+    inLeftCut.resize(ip, false);
 
     in_conflict.reserve(ip);
   prec.resize(ip);
@@ -348,7 +362,7 @@ CumulativeEdgeFinding<T>::CumulativeEdgeFinding(
 
 //  std::vector<int> event_ordering(profile.size());
 
-  prev.resize(profile.size());
+//  prev.resize(profile.size());
   event_ordering.resize(profile.size());
   std::iota(event_ordering.begin(), event_ordering.end(), 1);
     est_[ip] = profile.create_element(0, 0, 0, 0, 0, 0, 0, 0);
@@ -667,14 +681,25 @@ template <typename T> void CumulativeEdgeFinding<T>::buildFullProfile() {
     
 //    std::cout << profile << std::endl;
     
-    auto prev{List<Timepoint<T>>::tail};
+    auto pr{List<Timepoint<T>>::tail};
     for(auto e : event_ordering) {
-        profile.add_after(prev, e);
-        prev = e;
         
-//        std::cout << " add (" << e << ") " << profile[e] << std::endl;
+//        std::cout << " add (" << e << ") after " << pr << std::endl;
+        
+        profile.add_after(pr, e);
+        pr = e;
+        
+        
     }
-    profile.add_after(prev, sentinel);
+    
+    for(auto i : lct_order) {
+        inLeftCut[i] = true;
+    }
+    
+    
+//    std::cout << profile << std::endl;
+//
+//    profile.add_after(pr, sentinel);
 //    
 //    std::cout << profile << std::endl;
 //    exit(1);
@@ -687,6 +712,8 @@ template <typename T> void CumulativeEdgeFinding<T>::propagate() {
 
   std::sort(lct_order.begin(), lct_order.end(),
             [this](const int i, const int j) { return lct(i) < lct(j); });
+    
+    lc_ptr = lct_order.rbegin();
 
 //  profile.add_front(sentinel);
     
@@ -749,8 +776,148 @@ template <typename T> void CumulativeEdgeFinding<T>::propagate() {
 }
 
 
+//template <typename T>
+//void CumulativeEdgeFinding<T>::addTask() {
+//    
+//#ifdef DBG_SEF
+//          if (DBG_SEF) {
+//            std::cout << "  * add " << (i) << std::endl;
+//          }
+//#endif
+//    
+//    profile.add_after(prev[est_[i]], est_[i]);
+//    profile.add_after(prev[ect_[i]], ect_[i]);
+//    profile.add_after(prev[lct_[i]], lct_[i]);
+//    prev[lct_[i]] = prev[ect_[i]] = prev[est_[i]] = -1;
+//}
+
+template <typename T>
+void CumulativeEdgeFinding<T>::addTask(const int i) {
+    
+#ifdef DBG_SEF
+          if (DBG_SEF) {
+            std::cout << "  * add " << (i) << std::endl;
+          }
+#endif
+    
+//    assert(not profile.has(est_[i]));
+//    assert(not profile.has(ect_[i]));
+//    assert(not profile.has(lct_[i]));
+    
+    assert(not inLeftCut[i]);
+    profile.re_add();
+    profile.re_add();
+    profile.re_add();
+//    assert(profile.has(est_[i]));
+//    assert(profile.has(ect_[i]));
+//    assert(profile.has(lct_[i]));
+    
+    inLeftCut[i] = true;
+    
+//    profile.add_after(prev[est_[i]], est_[i]);
+//    profile.add_after(prev[ect_[i]], ect_[i]);
+//    profile.add_after(prev[lct_[i]], lct_[i]);
+//    prev[lct_[i]] = prev[ect_[i]] = prev[est_[i]] = -1;
+}
+
+template <typename T>
+void CumulativeEdgeFinding<T>::leftCut(const int i) {
+//    auto ti{lct_order.rbegin()};
+//    if(profile.has(est_[the_tasks.size()])) {
+//        ti
+//    }
+    
+//    ++ti; // skip the sentinel
+//    if(profile.has(i)) {
+    
+    if(lc_ptr != lct_order.rend())
+        std::cout << "leftcut = " << *lc_ptr << ":\n" << profile;
+    else
+        std::cout << "leftcut = empty:\n" << profile;
+    
+    
+    if(inLeftCut[i]) {
+        // task j is in the current profile, remove the tasks in (j..*ti]
+        for(;*lc_ptr!=i; ++lc_ptr) {
+            rmTask(*lc_ptr);
+        }
+    } else {
+        do {
+            addTask(*(--lc_ptr));
+        } while(*lc_ptr != i);
+    }
+}
+
+template <typename T>
+void CumulativeEdgeFinding<T>::rmTask(const int i) {
+    
+#ifdef DBG_SEF
+          if (DBG_SEF) {
+            std::cout << "  * rm " << (i) << std::endl;
+          }
+#endif
+    
+//    assert(profile.has(est_[i]));
+//    assert(profile.has(ect_[i]));
+    
+    assert(inLeftCut[i]);
+    
+    
+//    if(not profile.has(lct_[i])) {
+//        std::cout << std::endl << lct_[i] << "->" << profile.next(lct_[i]) << "<-" << profile.prev(profile.next(lct_[i])) << ":\n" << profile ;
+//        exit(1);
+//    }
+    
+//    assert(profile.has(lct_[i]));
+    
+
+//    std::cout << std::endl << lct_[i] << "<-" << profile.prev(lct_[i]) << "->" << profile.next(profile.prev(lct_[i])) << ":\n" << profile ;
+////    prev[lct_[i]] = profile.prev(lct_[i]);
+    profile.remove(lct_[i]);
+//    std::cout << lct_[i] << "<-" << profile.prev(lct_[i]) << "->" << profile.next(profile.prev(lct_[i])) << std::endl;
+//    
+//    std::cout << std::endl << ect_[i] << "<-" << profile.prev(ect_[i]) << "->" << profile.next(profile.prev(ect_[i])) << ":\n" << profile ;
+////    prev[ect_[i]] = profile.prev(ect_[i]);
+    profile.remove(ect_[i]);
+//    std::cout << ect_[i] << "<-" << profile.prev(ect_[i]) << "->" << profile.next(profile.prev(ect_[i])) << std::endl;
+//    
+//    std::cout << std::endl << est_[i] << "<-" << profile.prev(est_[i]) << "->" << profile.next(profile.prev(est_[i])) << ":\n" << profile ;
+////    prev[est_[i]] = profile.prev(est_[i]);
+    profile.remove(est_[i]);
+//    std::cout << est_[i] << "<-" << profile.prev(est_[i]) << "->" << profile.next(profile.prev(est_[i])) << std::endl;
+//    
+    
+//    if(profile.has(est_[i])) {
+//        std::cout << est_[i] << ":\n" << profile << std::endl;
+//        exit(1);
+//    }
+//    if(profile.has(ect_[i])) {
+//        std::cout << ect_[i] << ":\n" << profile << std::endl;
+//        exit(1);
+//    }
+//    if(profile.has(lct_[i])) {
+//        std::cout << lct_[i] << ":\n" << profile << std::endl;
+//        exit(1);
+//    }
+
+    inLeftCut[i] = false;
+    
+//    assert(not profile.has(est_[i]));
+//    assert(not profile.has(ect_[i]));
+//    assert(not profile.has(lct_[i]));
+    
+}
+
+
 template <typename T>
 void CumulativeEdgeFinding<T>::addPrime(const int i) {
+    
+#ifdef DBG_SEF
+              if (DBG_SEF) {
+                std::cout << "  * add " << i << "'\n";
+              }
+#endif
+    
 //    auto _est{std::max(est(i), profile.begin()->time)};
     auto _est{est(i)};
     auto _lct{std::min(profile.rbegin()->time, ect(i))};
@@ -811,11 +978,9 @@ void CumulativeEdgeFinding<T>::rmPrime() {
 //    std::cout << "rm " << est_.back() << "|" << ect_.back() << "|" << lct_.back() << std::endl;
 //    std::cout << profile << std::endl;
     
-    profile.remove(est_.back());
-    profile.remove(ect_.back());
-    profile.remove(lct_.back());
-    
-    
+    profile.remove_and_forget(est_.back());
+    profile.remove_and_forget(ect_.back());
+    profile.remove_and_forget(lct_.back());
     
 }
 
@@ -831,17 +996,73 @@ void CumulativeEdgeFinding<T>::horizontallyElasticEdgeFinderForward() {
 template <typename T>
 void CumulativeEdgeFinding<T>::forwardAdjustment() {
     
-    std::cout << "hello\n";
+#ifdef DBG_SEF
+              if (DBG_SEF) {
+                std::cout << " adjustments on " << in_conflict << "\n";
+              }
+#endif
     
+//    std::cout << "hello\n" << profile << std::endl;
+////    exit(1);
+    
+    // re-build the (forward) profile in linear time
+//    for(auto ti{lct_order.rbegin()}; ti!=lct_order.rend(); ++ti) {
+//        addTask(*ti);
+////        profile.add_after(prev[est_[i]], est_[i]);
+////        profile.add_after(prev[ect_[i]], ect_[i]);
+////        profile.add_after(prev[lct_[i]], lct_[i]);
+//    }
+    
+//    for(auto i : lct_order) {
+//        addTask(i);
+//    }
+
+//    std::cout << "hello\n" << profile << std::endl;
+//    exit(1);
+    
+    
+//    std::vector<int>::reverse_iterator
+//    auto ti{lct_order.rbegin()};
     while(not in_conflict.empty()) {
-        std::cout << in_conflict.back() << ": " << prec[in_conflict.back()] << std::endl;
-        in_conflict.pop_back();
+        
+        auto i{in_conflict.front()};
+        auto j{prec[i]};
+        
+        
+//        std::cout << "pop " << i << " prev=" << j << " (" << prec[j] << ")" << std::endl;
+        
+        //ti = lct_order.rbegin();
+        
+        leftCut(j);
+        
+//        if(profile.has(est_[j])) {
+//            // task j is in the current profile, remove the tasks in (j..*ti]
+//            for(;*ti!=j; ++ti) {
+//                rmTask(*ti);
+//            }
+//        } else {
+//            // task j is not in the current profile, add the tasks in (*ti..j]
+//            while(*ti != j) {
+//                addTask(*(++ti));
+//            }
+//        }
+        
+//        std::cout << profile << std::endl;
+        
+        auto ect_h{scheduleOmega(capacity.max(m_solver) - mindemand(i))};
+        
+        std::cout << "\n ==> adjust est(" << i << ") to " << profile.begin()->time + ceil_division(overflow, mindemand(i)) << std::endl;
+  
+        
+        in_conflict.pop_front();
     }
 }
     
 template <typename T>
 void CumulativeEdgeFinding<T>::forwardDetection() {
     buildFullProfile();
+    
+//    profile.verify("build profile\n");
     
     auto cap{capacity.max(m_solver)};
     
@@ -864,16 +1085,21 @@ void CumulativeEdgeFinding<T>::forwardDetection() {
         // remove all tasks whose lct is equal the current max
         do {
             
-#ifdef DBG_SEF
-          if (DBG_SEF) {
-            std::cout << "  * rm " << (*ii) << std::endl;
-          }
-#endif
+//#ifdef DBG_SEF
+//          if (DBG_SEF) {
+//            std::cout << "  * rm " << (*ii) << std::endl;
+//          }
+//#endif
             
-            profile.remove(lct_[*ii]);
-            profile.remove(ect_[*ii]);
-            profile.remove(est_[*ii]);
+//            prev[lct_[*ii]] = profile.prev(lct_[*ii]);
+//            profile.remove(lct_[*ii]);
+//            prev[ect_[*ii]] = profile.prev(ect_[*ii]);
+//            profile.remove(ect_[*ii]);
+//            prev[est_[*ii]] = profile.prev(est_[*ii]);
+//            profile.remove(est_[*ii]);
+            rmTask(*ii);
             ++ii;
+            ++lc_ptr;
 
         } while(ii != lct_order.rend() and lct(*is) == lct(*ii));
 
@@ -891,15 +1117,10 @@ void CumulativeEdgeFinding<T>::forwardDetection() {
             auto i{*is};
 
             if (ect(i) < lct(i)) {
-
-#ifdef DBG_SEF
-              if (DBG_SEF) {
-                std::cout << "  * add " << i << "'\n";
-              }
-#endif
+                
               addPrime(i);
 
-              auto omega_ect{scheduleOmega()};
+              auto omega_ect{scheduleOmega(capacity.max(m_solver))};
 #ifdef DBG_SEF
               if (DBG_SEF) {
                 std::cout << " ect^H = " << omega_ect << " / lct(S) = " << lct_j
@@ -913,7 +1134,7 @@ void CumulativeEdgeFinding<T>::forwardDetection() {
 #ifdef DBG_SEF
                 if (DBG_SEF) {
                   std::cout << " task " << i
-                            << " is in conflict with task interval 0.." << j
+                            << " is in conflict with task interval " << *(lct_order.begin()) << ".." << j
                             << std::endl;
                 }
 #endif
@@ -938,14 +1159,19 @@ void CumulativeEdgeFinding<T>::forwardDetection() {
 #endif
 
 //                  b = beta;
-                  auto ect_i_H{scheduleOmegaMinus(beta, ti)};
+                    for (; *ti != beta; ++ti) {
+                        rmTask(*ti);
+                        ++lc_ptr;
+                    }
+//                  auto ect_i_H{scheduleOmegaMinus(beta, ti)};
+                    auto ect_i_H{scheduleOmega(capacity.max(m_solver))};
 
                   if (ect_i_H > lct(beta)) {
 
 #ifdef DBG_SEF
                     if (DBG_SEF) {
                       std::cout << " task " << i
-                                << " is in conflict with task interval 0.."
+                                << " is in conflict with task interval " << *(lct_order.begin()) << ".."
                                 << beta << std::endl;
                     }
 #endif
@@ -962,15 +1188,20 @@ void CumulativeEdgeFinding<T>::forwardDetection() {
 #endif
 
 //                  b = alpha;
-                  auto ect_i_H{
-                      scheduleOmegaMinus(alpha, ti)};
+                    for (; *ti != alpha; ++ti) {
+                        rmTask(*ti);
+                        ++lc_ptr;
+                    }
+                    auto ect_i_H{scheduleOmega(capacity.max(m_solver))};
+//                  auto ect_i_H{
+//                      scheduleOmegaMinus(alpha, ti)};
 
                   if (ect_i_H > lct(alpha)) {
 
 #ifdef DBG_SEF
                     if (DBG_SEF) {
                       std::cout << " task " << i
-                                << " is in conflict with task interval 0.."
+                                << " is in conflict with task interval " << *(lct_order.begin()) << ".."
                                 << alpha << std::endl;
                     }
 #endif
@@ -981,18 +1212,10 @@ void CumulativeEdgeFinding<T>::forwardDetection() {
                 }
 
                   for (; ti != ii;) {
-
                     --ti;
+                      --lc_ptr;
+                      addTask(*ti);
                       
-#ifdef DBG_SEF
-              if (DBG_SEF) {
-                std::cout << "  * re-add " << *ti << "\n";
-              }
-#endif
-
-                    profile.add_after(prev[est_[*ti]], est_[*ti]);
-                    profile.add_after(prev[ect_[*ti]], ect_[*ti]);
-                    profile.add_after(prev[lct_[*ti]], lct_[*ti]);
                   }
                 }
 
@@ -1001,17 +1224,8 @@ void CumulativeEdgeFinding<T>::forwardDetection() {
                 std::cout << "  * rm " << i << "'\n";
               }
 #endif
-//                if(i==4) {
-//                    std::cout << profile << std::endl;
-//                }
-                
+
               rmPrime();
-                
-//                if(i==4) {
-//                    std::cout << profile << std::endl;
-//                    exit(1);
-//                }
-                
 
               for (auto p{profile.begin()}; p != profile.end(); ++p) {
 
@@ -1025,6 +1239,168 @@ void CumulativeEdgeFinding<T>::forwardDetection() {
         }
     }
 }
+
+
+//template <typename T>
+//void CumulativeEdgeFinding<T>::forwardDetection() {
+//    buildFullProfile();
+//    
+//    auto cap{capacity.max(m_solver)};
+//    
+//    auto stop{lct_order.rend()};
+//    --stop;
+//    
+//    // explore the tasks by decreasing lct
+//    for(auto ii{lct_order.rbegin()}; ii!=stop;) {
+//        auto is{ii};
+//        
+//        
+//#ifdef DBG_SEF
+//        if (DBG_SEF) {
+//            std::cout << " - analyse tasks whose lct is " << lct(*ii) << std::endl;
+//        }
+//#endif
+//        // remove all tasks whose lct is equal the current max
+//        do {
+//    
+//            rmTask(*ii);
+//            ++ii;
+//            ++lc_ptr;
+//
+//        } while(ii != lct_order.rend() and lct(*is) == lct(*ii));
+//
+//        // if there are no more tasks, all those in the current level have the same lct and we can stop
+//        if(ii == lct_order.rend())
+//            break;
+//        
+//        // lct of the task that precedes all the task whose lct is lct(i)
+//        auto j{*ii};
+//        auto lct_j{lct(j)};
+//
+//        // otherwise, add their "prime" versions one by one and run scheduleOmega
+//        while(is != ii) {
+//            
+//            auto i{*is};
+//
+//            if (ect(i) < lct(i)) {
+//                
+//              addPrime(i);
+//
+//              auto omega_ect{scheduleOmega(capacity.max(m_solver))};
+//#ifdef DBG_SEF
+//              if (DBG_SEF) {
+//                std::cout << " ect^H = " << omega_ect << " / lct(S) = " << lct_j
+//                          << std::endl;
+//                //                    std::cout << "  * rm " << i << "'\n";
+//              }
+//#endif
+//              //                rmPrime();
+//              if (omega_ect > lct_j) {
+//
+//#ifdef DBG_SEF
+//                if (DBG_SEF) {
+//                  std::cout << " task " << i
+//                            << " is in conflict with task interval 0.." << j
+//                            << std::endl;
+//                }
+//#endif
+//                prec[i] = j;
+//                  in_conflict.add(i);
+//              } else {
+//
+//#ifdef DBG_SEF
+//                if (DBG_SEF) {
+//                  std::cout << " compute bound\n";
+//                }
+//#endif
+//
+//                  auto ti{ii};
+////                int b = -1;
+//                computeBound(i);
+//                if (beta != -1) {
+//#ifdef DBG_SEF
+//                  if (DBG_SEF) {
+//                    std::cout << "  - beta = " << beta << std::endl;
+//                  }
+//#endif
+//
+////                  b = beta;
+//                    for (; *ti != beta; ++ti) {
+//                        rmTask(*ti);
+//                    }
+////                  auto ect_i_H{scheduleOmegaMinus(beta, ti)};
+//                    auto ect_i_H{scheduleOmega(capacity.max(m_solver))};
+//
+//                  if (ect_i_H > lct(beta)) {
+//
+//#ifdef DBG_SEF
+//                    if (DBG_SEF) {
+//                      std::cout << " task " << i
+//                                << " is in conflict with task interval 0.."
+//                                << beta << std::endl;
+//                    }
+//#endif
+//                    prec[i] = beta;
+//                      in_conflict.add(i);
+//                  }
+//                }
+//                if (prec[i] == -1 and alpha != -1) {
+//
+//#ifdef DBG_SEF
+//                  if (DBG_SEF) {
+//                    std::cout << "  - alpha = " << alpha << std::endl;
+//                  }
+//#endif
+//
+////                  b = alpha;
+//                    for (; *ti != alpha; ++ti) {
+//                        rmTask(*ti);
+//                    }
+//                    auto ect_i_H{scheduleOmega(capacity.max(m_solver))};
+////                  auto ect_i_H{
+////                      scheduleOmegaMinus(alpha, ti)};
+//
+//                  if (ect_i_H > lct(alpha)) {
+//
+//#ifdef DBG_SEF
+//                    if (DBG_SEF) {
+//                      std::cout << " task " << i
+//                                << " is in conflict with task interval 0.."
+//                                << alpha << std::endl;
+//                    }
+//#endif
+//                      
+//                      prec[i] = alpha;
+//                        in_conflict.add(i);
+//                  }
+//                }
+//
+//                  for (; ti != ii;) {
+//                    --ti;
+//                      addTask(*ti);
+//                  }
+//                }
+//
+//#ifdef DBG_SEF
+//              if (DBG_SEF) {
+//                std::cout << "  * rm " << i << "'\n";
+//              }
+//#endif
+//
+//              rmPrime();
+//
+//              for (auto p{profile.begin()}; p != profile.end(); ++p) {
+//
+////                std::cout << *p << std::endl;
+//
+//                p->capacity = cap;
+//              }
+//            }
+//
+//            ++is;
+//        }
+//    }
+//}
 
 
 template <typename T>
@@ -1053,60 +1429,63 @@ void CumulativeEdgeFinding<T>::computeBound(const int i) {
     }
 }
 
+
+
 // template <typename Iter>
 
-template <typename T>
-T CumulativeEdgeFinding<T>::scheduleOmegaMinus(
-    const int b, std::vector<int>::reverse_iterator& jj) {
+//template <typename T>
+//T CumulativeEdgeFinding<T>::scheduleOmegaMinus(
+//    const int b, std::vector<int>::reverse_iterator& jj) {
+//
+//  //    std::cout << "\nhere:\n" << profile << std::endl;
+//
+////  auto jj{j};
+//  for (; *jj != b; ++jj) {
+//
+////#ifdef DBG_SEF
+////              if (DBG_SEF) {
+////                std::cout << "  * rm " << *jj << "\n";
+////              }
+////#endif
+//
+////    prev[lct_[*jj]] = profile.prev(lct_[*jj]);
+////    profile.remove(lct_[*jj]);
+////
+////    prev[ect_[*jj]] = profile.prev(ect_[*jj]);
+////    profile.remove(ect_[*jj]);
+////
+////    prev[est_[*jj]] = profile.prev(est_[*jj]);
+////    profile.remove(est_[*jj]);
+//      rmTask(*jj);
+//  }
+//
+//  //    addPrime(i);
+//
+//  //    std::cout << profile << std::endl;
+//
+//  auto ect_i_H{scheduleOmega(capacity.max(m_solver))};
+//
+//  //    rmPrime();
+//  //
+//  //  for (; jj != j;) {
+//  //
+//  //      --jj;
+//  ////      std::cout << "readd " << *jj << std::endl;
+//  //
+//  //    profile.add_after(prev[est_[*jj]], est_[*jj]);
+//  //    profile.add_after(prev[ect_[*jj]], ect_[*jj]);
+//  //    profile.add_after(prev[lct_[*jj]], lct_[*jj]);
+//  //  }
+//
+//  return ect_i_H;
+//}
 
-  //    std::cout << "\nhere:\n" << profile << std::endl;
-
-//  auto jj{j};
-  for (; *jj != b; ++jj) {
-
-#ifdef DBG_SEF
-              if (DBG_SEF) {
-                std::cout << "  * rm " << *jj << "\n";
-              }
-#endif
-
-    prev[lct_[*jj]] = profile.prev(lct_[*jj]);
-    profile.remove(lct_[*jj]);
-
-    prev[ect_[*jj]] = profile.prev(ect_[*jj]);
-    profile.remove(ect_[*jj]);
-
-    prev[est_[*jj]] = profile.prev(est_[*jj]);
-    profile.remove(est_[*jj]);
-  }
-
-  //    addPrime(i);
-
-  //    std::cout << profile << std::endl;
-
-  auto ect_i_H{scheduleOmega()};
-
-  //    rmPrime();
-  //
-  //  for (; jj != j;) {
-  //
-  //      --jj;
-  ////      std::cout << "readd " << *jj << std::endl;
-  //
-  //    profile.add_after(prev[est_[*jj]], est_[*jj]);
-  //    profile.add_after(prev[ect_[*jj]], ect_[*jj]);
-  //    profile.add_after(prev[lct_[*jj]], lct_[*jj]);
-  //  }
-
-  return ect_i_H;
-}
-
-template <typename T> T CumulativeEdgeFinding<T>::scheduleOmega() {
+template <typename T> T CumulativeEdgeFinding<T>::scheduleOmega(const T C) {
     
     
 #ifdef DBG_SEF
         if (DBG_SEF) {
-            std::cout << "[schedule tasks] profile=" << std::endl << profile;
+            std::cout << "[schedule tasks until " << *lc_ptr << "] profile=" << std::endl << profile;
         }
 #endif
     
@@ -1115,9 +1494,10 @@ template <typename T> T CumulativeEdgeFinding<T>::scheduleOmega() {
   auto sentinel{profile.end()};
   --sentinel;
 
-  auto C{capacity.max(m_solver)};
+//  auto C{scapacity.max(m_solver)};
   auto next{profile.begin()};
-  T overflow{0};
+//  T overflow{0};
+    overflow = 0;
   T omega_ect{-Constant::Infinity<T>};
   T S{0};
   T h_req{0};
