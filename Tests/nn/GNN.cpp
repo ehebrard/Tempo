@@ -8,7 +8,7 @@
 #include <Iterators.hpp>
 
 #include "nn/GNN.hpp"
-#include "nn/GNNEdgePolarityPredictor.hpp"
+#include "nn/tensor_utils.hpp"
 #include "testing.hpp"
 
 class TestGNN: public tempo::nn::GNN {
@@ -49,16 +49,15 @@ TEST(nn_GNN, edge_regressor_heat_map){
 
 TEST(nn_GNN, gnn_heat_map_choose_polarity) {
     using namespace tempo;
-    using tempo::nn::heuristics::detail::choosePolarityFromHeatMap;
     Matrix<nn::DataType> heatMap(3, 3, nn::GNN::NoValue);
     heatMap(0, 1) = 0.9;
     heatMap(1, 0) = 0.1;
     heatMap(2, 1) = 1;
     heatMap(1, 2) = 1;
-    EXPECT_TRUE(choosePolarityFromHeatMap(0, 1, heatMap));
-    EXPECT_FALSE(choosePolarityFromHeatMap(1, 0, heatMap));
-    EXPECT_FALSE(choosePolarityFromHeatMap(2, 1, heatMap));
-    EXPECT_FALSE(choosePolarityFromHeatMap(1, 2, heatMap));
-    EXPECT_THROW(choosePolarityFromHeatMap(0, 2, heatMap), std::runtime_error);
-    EXPECT_THROW(choosePolarityFromHeatMap(2, 0, heatMap), std::runtime_error);
+    EXPECT_NEAR(nn::EdgeRegressor::dstEdgeProbability(0, 1, heatMap), 0.9, 0.00001);
+    EXPECT_NEAR(nn::EdgeRegressor::dstEdgeProbability(1, 0, heatMap), 0.1, 0.00001);
+    EXPECT_DOUBLE_EQ(nn::EdgeRegressor::dstEdgeProbability(2, 1, heatMap), 0.5);
+    EXPECT_DOUBLE_EQ(nn::EdgeRegressor::dstEdgeProbability(1, 2, heatMap), 0.5);
+    EXPECT_THROW(nn::EdgeRegressor::dstEdgeProbability(0, 2, heatMap), std::runtime_error);
+    EXPECT_THROW(nn::EdgeRegressor::dstEdgeProbability(2, 0, heatMap), std::runtime_error);
 }

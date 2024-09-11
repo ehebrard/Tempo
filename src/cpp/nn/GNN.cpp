@@ -35,4 +35,19 @@ namespace tempo::nn {
 
         return ret;
     }
+
+    double EdgeRegressor::dstEdgeProbability(unsigned int taskFrom, unsigned int taskTo,
+                                             const Matrix<DataType> &heatMap) {
+        const auto edgeProb = heatMap(taskFrom, taskTo);
+        const auto inverseProb = heatMap(taskTo, taskFrom);
+        if (edgeProb == GNN::NoValue or inverseProb == GNN::NoValue) {
+            std::stringstream ss;
+            ss << "Invalid edge in GNN: task edge " << taskFrom << " -> " << taskTo << std::endl;
+            throw std::runtime_error(ss.str());
+        }
+
+        // in accordance with https://arxiv.org/pdf/1605.02406.pdf based on DS evidence theory. For bernoulli
+        // probabilities this is simply the edgeProbability
+        return edgeProb + 0.5 * (1 - edgeProb - inverseProb);
+    }
 } // nn

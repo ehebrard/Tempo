@@ -18,12 +18,7 @@ namespace tempo {
     class Solver;
 }
 
-namespace tempo::nn::heuristics {
-
-    namespace detail {
-        bool choosePolarityFromHeatMap(unsigned taskFrom, unsigned taskTo, const Matrix<DataType> &heatMap);
-    }
-
+namespace tempo::nn {
 
     /**
      * GNN based value selection heuristic that predicts a probability for each edge and returns the polarity of
@@ -67,7 +62,7 @@ namespace tempo::nn::heuristics {
                 throw std::runtime_error("positive and negative edges have different tasks as endpoints.");
             }
 
-            return solver.boolean.getLiteral(detail::choosePolarityFromHeatMap(from, to, edgeHeatMap), x);
+            return solver.boolean.getLiteral(EdgeRegressor::dstEdgeProbability(from, to, edgeHeatMap) > 0.5, x);
         }
 
         /**
