@@ -1149,11 +1149,11 @@ template <typename T> T CumulativeEdgeFinding<T>::scheduleOmega() {
     //        profile.remove(profile.size());
   }
     
-#ifdef DBG_SEF
-    if (DBG_SEF) {
-      std::cout << "return ect^H = " << omega_ect << std::endl;
-    }
-#endif
+//#ifdef DBG_SEF
+//    if (DBG_SEF) {
+//      std::cout << "return ect^H = " << omega_ect << std::endl;
+//    }
+//#endif
 
   return omega_ect;
 }
