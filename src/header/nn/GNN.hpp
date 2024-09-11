@@ -56,14 +56,6 @@ namespace tempo::nn {
          */
         auto getHeatMap(const InputGraph &input) -> Matrix<DataType>;
 
-        /**
-         * Computes the bayesian probability of an edge from taskFrom to taskTo using Dempster-Shafer theory
-         * @param taskFrom source node of the edge
-         * @param taskTo destination node of the edge
-         * @param heatMap heat map with arbitrary probability masses
-         * @return probability value in [0, 1]
-         */
-        static double dstEdgeProbability(unsigned taskFrom, unsigned taskTo, const Matrix<DataType> &heatMap);
     protected:
         static auto extractHeatMap(const torch::Tensor &edgeProbabilities, const torch::Tensor &edgeIdx,
                             std::size_t numTasks) -> Matrix<DataType>;
