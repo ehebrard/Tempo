@@ -154,6 +154,10 @@ int main(int argc, char *argv[]) {
   bool profileHeuristic;
   cli::detail::configureParser(parser, cli::SwitchSpec("heuristic-profiling", "activate heuristic profiling",
                                                        profileHeuristic, false));
+    
+    std::string ordering_file{""};
+    parser.getCmdLine().add<TCLAP::ValueArg<std::string>>(ordering_file, "", "static-ordering", "use static ordering heuristic", false, "", "string");
+    
   parser.parse(argc, argv);
   Options opt = parser.getOptions();
   Solver<> S(opt);
