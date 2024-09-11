@@ -826,7 +826,9 @@ void CumulativeEdgeFinding<T>::horizontallyElasticEdgeFinder() {
         
 #ifdef DBG_SEF
         if (DBG_SEF) {
-            std::cout << std::endl << profile << " - analyse tasks whose lct is " << lct(*ii) << std::endl; //<< " (remove and add the 'prime'):\n";
+            std::cout 
+            //<< std::endl << profile
+            << " - analyse tasks whose lct is " << lct(*ii) << std::endl; //<< " (remove and add the 'prime'):\n";
         }
 #endif
         
@@ -867,11 +869,6 @@ void CumulativeEdgeFinding<T>::horizontallyElasticEdgeFinder() {
               }
 #endif
               addPrime(i);
-#ifdef DBG_SEF
-              if (DBG_SEF) {
-                std::cout << profile; //<< std::endl;
-              }
-#endif
 
               auto omega_ect{scheduleOmega()};
 #ifdef DBG_SEF
@@ -952,7 +949,12 @@ void CumulativeEdgeFinding<T>::horizontallyElasticEdgeFinder() {
                   for (; ti != ii;) {
 
                     --ti;
-                    std::cout << "readd " << *ti << std::endl;
+                      
+#ifdef DBG_SEF
+              if (DBG_SEF) {
+                std::cout << "  * re-add " << *ti << "'\n";
+              }
+#endif
 
                     profile.add_after(prev[est_[*ti]], est_[*ti]);
                     profile.add_after(prev[ect_[*ti]], ect_[*ti]);
@@ -1018,7 +1020,11 @@ T CumulativeEdgeFinding<T>::scheduleOmegaMinus(
 //  auto jj{j};
   for (; *jj != b; ++jj) {
 
-    //      std::cout << "remove " << *jj << std::endl;
+#ifdef DBG_SEF
+              if (DBG_SEF) {
+                std::cout << "  * rm " << *jj << "'\n";
+              }
+#endif
 
     prev[lct_[*jj]] = profile.prev(lct_[*jj]);
     profile.remove(lct_[*jj]);
@@ -1056,7 +1062,7 @@ template <typename T> T CumulativeEdgeFinding<T>::scheduleOmega() {
     
 #ifdef DBG_SEF
         if (DBG_SEF) {
-            std::cout << "[schedule tasks]" << std::endl;
+            std::cout << "[schedule tasks] profile=" << std::endl << profile;
         }
 #endif
     
