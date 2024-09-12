@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "nn/GNNPrecedencePredictor.hpp"
+#include "util/Profiler.hpp"
 #include "../helpers/scheduling_helpers.hpp"
 #include "../helpers/cli.hpp"
 #include "../helpers/shell.hpp"
@@ -62,12 +63,29 @@ int main(int argc, char **argv) {
     }
 
     nn::GNNPrecedencePredictor precedencePredictor(gnnLocation, featureExtractorConf, problem, std::move(literals));
+    util::StopWatch sw;
     if (numberOfIterations > 0) {
-        precedencePredictor.updateConfidence(*solver);
+        auto o = opt;
+        o.verbosity = Options::SILENT;
+        auto [s, p, _1, _2] = loadSchedulingProblem(o);
+        s->setBranchingHeuristic(heuristics::make_compound_heuristic(heuristics::RandomVariableSelection{},
+                                                                     heuristics::RandomBinaryValue{}));
+        s->PropagationCompleted.subscribe_unhandled(
+                [i = 0u, numberOfIterations, &precedencePredictor](auto &state) mutable {
+            if (++i > numberOfIterations) {
+                KillHandler::instance().kill();
+            } else {
+                precedencePredictor.updateConfidence(state);
+            }
+        });
+
+        s->minimize(p.schedule().duration);
+        KillHandler::instance().reset();
     }
 
     setLiterals(*solver, precedencePredictor.getLiterals(confidenceThresh));
     solver->minimize(schedule.duration);
+    auto [start, end] = sw.getTiming();
     if (solver->numeric.hasSolution()) {
         auto makespan = solver->numeric.lower(schedule.duration);
         std::cout << "-- makespan " << makespan << std::endl;
@@ -76,5 +94,7 @@ int main(int argc, char **argv) {
         }
     }
 
+    std::cout << "total duration: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count()
+              << "ms";
     return 0;
 }
