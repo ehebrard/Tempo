@@ -56,6 +56,9 @@ FACTORY_TYPE6, FACTORY_TYPE5, FACTORY_TYPE4, FACTORY_TYPE3, FACTORY_TYPE2, FACTO
     T_HEADER                                                                   \
     auto create(const std::string &typeName, CTOR_SIG ) const                  \
         -> TYPE_NAME {                                                         \
+      if (not registry.contains(typeName)) {                                   \
+        throw std::runtime_error("unknown type " + typeName);                  \
+      }                                                                        \
       const auto &constructor = registry.at(typeName);                         \
       return std::visit(                                                       \
           [&](const auto &ctor) -> TYPE_NAME {                                 \
