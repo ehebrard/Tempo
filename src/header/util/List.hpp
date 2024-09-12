@@ -27,7 +27,7 @@
 
 #include <vector>
 
-#define DBG_LIST true
+
 
 namespace tempo {
 
@@ -143,10 +143,9 @@ public:
     bool empty() const {return nodes[tail].next == tail;}
 
     void pop_back() {
-      remove(nodes.size() - 1);
+      remove_and_forget(nodes.size() - 1);
       nodes.pop_back();
 //        present.pop_back();
-        last_saved = tail;
         
 #ifdef DBG_LIST
       verify("pop back");
@@ -169,8 +168,6 @@ public:
     int first() const { return nodes[tail].next; }
     int last() const { return nodes[tail].prev; }
 
-    //    int tail() const {return nodes[tail].prev;}
-
     int next(const int i) const { return nodes[i].next; }
     int prev(const int i) const { return nodes[i].prev; }
 
@@ -181,14 +178,36 @@ public:
     }
 
     void add_after(const int rid, const int tindex) {
+#ifdef DBG_LIST
+        std::stringstream msg;
+        msg << "before add " << tindex << " after " << rid ;
+      verify(msg.str());
+#endif
+        
+        ++add_count;
+        
+//        if(add_count == 3021138) {
+//            std::cout << std::endl;
+//            display(std::cout);
+//        }
+        
+        
         nodes[tindex].prev = rid;
         int nid = nodes[rid].next;
         nodes[rid].next = tindex;
         nodes[nid].prev = tindex;
         nodes[tindex].next = nid;
+        
+//        if(nodes[tindex].next == tindex) {
+//            std::cout << "cycle!! " << add_count << " " << tindex << " " << rid << "\n";
+//            exit(1);
+//        }
+        
 //        present[tindex] = true;
 #ifdef DBG_LIST
-      verify("add after");
+        msg.clear();
+        msg << "after add " << tindex << " after " << rid ;
+      verify(msg.str());
 #endif
     }
 
@@ -220,35 +239,23 @@ public:
         remove_and_forget(tindex);
         nodes[tindex].next = last_saved;
         last_saved = tindex;
-//        present[tindex] = false;
-        
-//        auto x{last_saved};
-//        std::cout << "removed:" ;
-//        while(x != tail) {
-//            std::cout << " " << x;
-//            x = nodes[x].next;
-//        }
-//        std::cout << std::endl;
-        
+
 #ifdef DBG_LIST
       verify("remove");
 #endif
     }
     
     void remove_and_forget(const int tindex) {
+
+#ifdef DBG_LIST
+      verify("before remove and forget");
+#endif
+
       nodes[nodes[tindex].prev].next = nodes[tindex].next;
       nodes[nodes[tindex].next].prev = nodes[tindex].prev;
-       
-//        auto x{last_saved};
-//        std::cout << "removed:" ;
-//        while(x != tail) {
-//            std::cout << " " << x;
-//            x = nodes[x].next;
-//        }
-//        std::cout << std::endl;
-        
+
 #ifdef DBG_LIST
-      verify("remove and forget");
+      verify("after remove and forget");
 #endif
     }
     
@@ -261,18 +268,11 @@ public:
       verify("re add");
 #endif
     }
-    
-//    bool has(const int i) {
-//        return present[i];
-////        return next(nodes[i].prev) == i;
-////        return prev(nodes[i].next) == i;
-//    }
-
-    //    void cut_interval(const int i, const int j) {
-
+ 
     void clear() {
       nodes[tail].next = tail;
       nodes[tail].prev = tail;
+        last_saved = tail;
         
 #ifdef DBG_LIST
       verify("clear");
@@ -298,37 +298,71 @@ public:
     E& operator[](const int i) {return nodes[i].content;}
 
     std::ostream &display(std::ostream &os) {
+#ifdef DBG_LIST
+        int itermax{1000};
+#endif
       for (auto tp{begin()}; tp != end(); ++tp) {
         os << tp.index << ": " << *tp << " " << prev(tp.index) << "|" << next(tp.index) << std::endl;
+          
+#ifdef DBG_LIST
+        if(--itermax == 0)
+            exit(1);
+#endif
       }
       return os;
     }
-    
-    void verify(const char* msg) {
+
+#ifdef DBG_LIST
+    void verify(std::string msg) {
+
+        ++op_count;
+
         int i, p;
+        
+//        int itermax{1000};
+
+        if(op_count >= 15440720) {
+            std::cout << op_count << ": " << msg << std::endl;
+            display(std::cout);
+        }
+
         
         i = p = tail;
         do {
             i = next(i);
             if(prev(i) != p) {
-                std::cout << msg << " (" << p << "->" << i << "<-" << prev(i) << ")\n" ;
-                display(std::cout);
+                std::cout << msg << " (" << p << "->" << i << "<-" << prev(i) << ") @" << op_count << "\n" ;
+//                display(std::cout);
                 exit(1);
             }
             p = i;
+            
+//            if(--itermax == 0)
+//            {
+//                std::cout << "cycle?\n";
+//                exit(1);
+//            }
         } while(i != tail);
         
+//        itermax = 1000;
         i = p = tail;
         do {
              i = prev(i);
             if(next(i) != p) {
-                std::cout << msg << " (" << p << "<-" << i << "->" << next(i) << ")\n" ;
-                display(std::cout);
+                std::cout << msg << " (" << p << "<-" << i << "->" << next(i) << ") @" << op_count << "\n" ;
+//                display(std::cout);
                 exit(1);
             }
             p = i;
+//            if(--itermax == 0)
+//            {
+//                std::cout << "cycle?\n";
+//                exit(1);
+//            }
         } while(i != tail);
     }
+#endif
+        
 
     static int tail;
 
@@ -336,6 +370,13 @@ public:
     std::vector<Node<E>> nodes;
 //    std::vector<bool> present;
     int last_saved;
+    
+#ifdef DBG_LIST
+    unsigned long op_count{0};
+#endif
+    
+public:
+    unsigned long add_count{0};
 };
 
 template<typename E>
