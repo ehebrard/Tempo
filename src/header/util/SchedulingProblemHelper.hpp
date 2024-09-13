@@ -58,14 +58,14 @@ namespace tempo {
             TaskDistanceFunction(const std::vector<Interval<T>> &tasks, const DirectedGraph<Arc> &varGraph,
                                  const BoundProvider &boundProvider) :
                     tasks(tasks), boundProvider(boundProvider),
-                    graphDistances(varGraph.size(), varGraph.size(), NoDistance<T>) {
+                    graphDistances(varGraph.size(), varGraph.size(), InfiniteDistance<T>) {
                 getDistances(graphDistances, varGraph.forward(), false);
                 getDistances(graphDistances, varGraph.backward(), true);
             }
 
             [[nodiscard]] T operator()(unsigned taskFrom, unsigned taskTo) const {
                 if (taskFrom == taskTo) {
-                    return NoDistance<T>;
+                    return 0;
                 }
 
                 const auto srcVar = tasks[taskFrom].start;

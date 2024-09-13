@@ -51,10 +51,9 @@ public:
       return solver.boolean.getLiteral(true, x);
     }
 
-    auto edgePos = solver.boolean.getEdge(true, x);
-    auto edgeNeg = solver.boolean.getEdge(false, x);
-    auto gapPos = boundEstimation(edgePos, solver);
-    auto gapNeg = boundEstimation(edgeNeg, solver);
+    auto gapPos = boundEstimation(true, x, solver);
+    auto gapNeg = boundEstimation(false, x, solver);
+    assert(not std::isnan(gapPos) and not std::isnan(gapNeg));
     return solver.boolean.getLiteral(gapPos >= gapNeg, x);
   }
 };
