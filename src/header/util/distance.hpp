@@ -85,13 +85,21 @@ namespace tempo {
     template<concepts::scalar T>
     using distance_t = distance<T>::type;
 
+    template<typename S>
+    concept distance_provider = requires(const S instance, var_t e) {
+        { instance.numeric.upper(e) } -> concepts::scalar;
+        { instance.numeric.lower(e) } -> concepts::scalar;
+    };
+
+
     /**
      * @brief Requirement for a type that provides distances for edges between variables
      * @tparam Solver
      */
     template <typename Solver>
-    concept edge_distance_provider = concepts::distance_provider<Solver> and requires(const Solver s, var_t x) {
+    concept edge_distance_provider = distance_provider<Solver> and requires(const Solver s, var_t x) {
         { s.boolean.getEdge(true, x) } -> concepts::same_template<DistanceConstraint>;
+        { s.boolean.hasSemantic(x) } -> std::convertible_to<bool>;
     };
 
     /**
@@ -102,7 +110,7 @@ namespace tempo {
      * @param solver solver that provides upper and lower bounds for variables
      * @return estimated length of the edge or invalid distance if edge is null-edge
      */
-    template<concepts::scalar T, edge_distance_provider S>
+    template<concepts::scalar T, distance_provider S>
     auto boundEstimation(const DistanceConstraint<T> &edge, const S &solver) -> distance_t<T> {
         if (edge.isNull()) {
             return std::numeric_limits<distance_t<T>>::quiet_NaN();
@@ -121,6 +129,11 @@ namespace tempo {
      */
     template<edge_distance_provider S>
     auto boundEstimation(bool sign, var_t x, const S &solver) {
+        using distT = decltype(boundEstimation(solver.boolean.getEdge(sign, x), solver));
+        if (not solver.boolean.hasSemantic(x)) {
+            return std::numeric_limits<distT>::quiet_NaN();
+        }
+
         auto edge = solver.boolean.getEdge(sign, x);
         return boundEstimation(edge, solver);
     }
