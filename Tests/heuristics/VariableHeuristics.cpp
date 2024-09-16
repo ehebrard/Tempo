@@ -35,7 +35,7 @@ TEST(variable_heuristics, tightest) {
     LitProvider provider(makeBooleanLiteral<int>(true, 0, 2), {10, 8, 11, 6}, {5, 8, 9, 2});
     EXPECT_EQ(tightest.getCost(0, provider), 6);
     provider.boolean.lit = makeBooleanLiteral<int>(true, 3, 2);
-    EXPECT_EQ(tightest.getCost(0, provider), 9);
+    EXPECT_EQ(tightest.getCost(3, provider), 9);
     provider.boolean.lit = makeBooleanLiteral<int>(true, 0, Constant::NoSemantic);
     EXPECT_EQ(tightest.getCost(0, provider), 1);
 }
