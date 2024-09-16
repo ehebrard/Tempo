@@ -36,26 +36,20 @@ concept BranchProvider = requires(const S solver) {
 };
 
 template <typename Impl, typename S>
-concept CostProvider = requires(Impl instance, var_t x, const S& solver) {
-    { instance.getCost(x,solver) } -> std::convertible_to<double>;
+concept PartialOrder = requires(Impl instance, var_t x, const S& solver) {
+    { instance.chooseBest(x, x, solver) } -> std::same_as<var_t>;
 };
 
 template <typename Impl>
 class RankingHeuristic : public crtp<Impl, RankingHeuristic> {
 public:
 
-    template<concepts::typed_range<var_t> Variables, BranchProvider S> requires(CostProvider<Impl, S>)
+    template<concepts::typed_range<var_t> Variables, typename S> requires(PartialOrder<Impl, S>)
     auto bestVariable(const Variables &variables, const S &solver) const {
         auto best_var = Constant::NoVar;
-        double minCost = std::numeric_limits<double>::infinity();
         assert(not std::ranges::empty(variables));
         for (auto x: variables) {
-            const auto cost = this->getImpl().getCost(x, solver);
-
-            if (cost < minCost) {
-                minCost = cost;
-                best_var = x;
-            }
+            best_var = this->getImpl().chooseBest(best_var, x, solver);
         }
 
         assert(best_var != Constant::NoVar);
