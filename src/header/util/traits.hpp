@@ -94,12 +94,6 @@ namespace tempo::concepts {
     concept arbitrary_task_dist_fun = std::invocable<E, unsigned, unsigned> &&
                                        scalar<std::remove_reference_t<std::invoke_result_t<E, unsigned, unsigned>>>;
 
-    template<typename S>
-    concept distance_provider = requires(const S instance, var_t e) {
-        { instance.numeric.upper(e) } -> scalar;
-        { instance.numeric.lower(e) } -> scalar;
-    };
-
     template<typename R, typename T>
     concept typed_range = std::ranges::range<R> && std::same_as<std::ranges::range_value_t<R>, T>;
 

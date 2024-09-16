@@ -20,23 +20,11 @@
 #include "Model.hpp"
 #include "util/Matrix.hpp"
 #include "util/traits.hpp"
+#include "util/distance.hpp"
 
 namespace tempo {
 
     namespace detail {
-        template<concepts::scalar T>
-        struct NoValue {
-            static constexpr auto value() {
-                if constexpr (std::floating_point<T>) {
-                    return std::numeric_limits<T>::infinity();
-                } else {
-                    return std::numeric_limits<T>::max();
-                }
-            }
-        };
-
-        template<concepts::scalar T>
-        inline constexpr auto NoDistance = detail::NoValue<T>::value();
 
         template<typename T, typename Arc>
         void getDistances(Matrix<T> &matrix, const std::vector<std::vector<Arc>> &adjacency, bool incoming) noexcept {
@@ -70,14 +58,14 @@ namespace tempo {
             TaskDistanceFunction(const std::vector<Interval<T>> &tasks, const DirectedGraph<Arc> &varGraph,
                                  const BoundProvider &boundProvider) :
                     tasks(tasks), boundProvider(boundProvider),
-                    graphDistances(varGraph.size(), varGraph.size(), NoDistance<T>) {
+                    graphDistances(varGraph.size(), varGraph.size(), InfiniteDistance<T>) {
                 getDistances(graphDistances, varGraph.forward(), false);
                 getDistances(graphDistances, varGraph.backward(), true);
             }
 
             [[nodiscard]] T operator()(unsigned taskFrom, unsigned taskTo) const {
                 if (taskFrom == taskTo) {
-                    return NoDistance<T>;
+                    return 0;
                 }
 
                 const auto srcVar = tasks[taskFrom].start;

@@ -14,6 +14,7 @@
 #include <nlohmann/json.hpp>
 
 #include "util/traits.hpp"
+#include "util/distance.hpp"
 #include "util/serialization.hpp"
 #include "util/SchedulingProblemHelper.hpp"
 #include "tensor_utils.hpp"
@@ -45,7 +46,7 @@ namespace tempo::nn {
          * @param problem scheduling problem description
          * @return torch::Tensor containing task features
          */
-        template<typename DistFun, concepts::distance_provider S, concepts::scalar T, SchedulingResource R>
+        template<typename DistFun, distance_provider S, concepts::scalar T, SchedulingResource R>
         auto operator()(const Topology &topology, const SolverState<DistFun, S> &state,
                         const SchedulingProblemHelper<T, R> &problem) const -> torch::Tensor {
             const auto ub = static_cast<DataType>(problem.schedule().getLatestEnd(state.solver));
@@ -83,7 +84,7 @@ namespace tempo::nn {
          * @param problem scheduling problem description
          * @return torch::Tensor containing resource features
          */
-        template<typename Dist, concepts::distance_provider S, concepts::scalar T, SchedulingResource R>
+        template<typename Dist, distance_provider S, concepts::scalar T, SchedulingResource R>
         auto operator()(const Topology &topology, const SolverState<Dist, S> &state,
                         const SchedulingProblemHelper<T, R> &problem) const -> torch::Tensor {
             const auto ub = static_cast<DataType>(problem.schedule().getLatestEnd(state.solver));
