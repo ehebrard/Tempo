@@ -25,16 +25,16 @@ namespace tempo::heuristics {
          */
         template<edge_distance_provider S>
         [[nodiscard]] auto getCost(var_t x, const S &solver) const {
-            using T = decltype(boundEstimation(true, 0, solver));
+            using T = std::remove_cvref_t<decltype(*boundEstimation(true, 0, solver))>;
             if (x == Constant::NoVar) {
-                return std::numeric_limits<T>::infinity();
+                return InfiniteDistance<T>;
             }
 
             T dom{1};
             if (solver.boolean.hasSemantic(x)) {
                 auto gapA = boundEstimation(true, x, solver);
                 auto gapB = boundEstimation(false, x, solver);
-                dom = std::max(gapA, gapB);
+                dom = std::max(gapA, gapB).value_or(InfiniteDistance<T>);
             }
 
             return dom;

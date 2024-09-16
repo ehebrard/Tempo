@@ -23,10 +23,10 @@ TEST(util, distance_bound_estimation_null_edge) {
     using namespace tempo;
     using namespace tempo::testing;
     DummyScheduler scheduler(std::vector{9, 7, 7, 4}, std::vector{8, 7, 3, 3});
-    EXPECT_TRUE(std::isnan(boundEstimation(DistanceConstraint{Constant::NoVar, 2, 0}, scheduler)));
-    EXPECT_TRUE(std::isnan(boundEstimation(DistanceConstraint{Constant::NoVar, 2, 0.3}, scheduler)));
-    EXPECT_TRUE(std::isnan(boundEstimation(DistanceConstraint{Constant::NoVar, 2, 0.3f}, scheduler)));
+    EXPECT_FALSE(boundEstimation(DistanceConstraint{Constant::NoVar, 2, 0}, scheduler).has_value());
+    EXPECT_FALSE(boundEstimation(DistanceConstraint{Constant::NoVar, 2, 0.3}, scheduler).has_value());
+    EXPECT_FALSE(boundEstimation(DistanceConstraint{Constant::NoVar, 2, 0.3f}, scheduler).has_value());
     heuristics::LitProvider provider(makeBooleanLiteral<int>(true, -1));
-    EXPECT_TRUE(std::isnan(boundEstimation(true, 0, provider)));
-    EXPECT_TRUE(std::isnan(boundEstimation(false, 0, provider)));
+    EXPECT_FALSE(boundEstimation(true, 0, provider).has_value());
+    EXPECT_FALSE(boundEstimation(false, 0, provider).has_value());
 }

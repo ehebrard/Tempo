@@ -7,11 +7,12 @@
 #ifndef TEMPO_DISTANCE_HPP
 #define TEMPO_DISTANCE_HPP
 
+#include <optional>
+
 #include "Global.hpp"
 #include "Constant.hpp"
 #include "DistanceConstraint.hpp"
 #include "util/traits.hpp"
-#include "util/IntFinity.hpp"
 
 namespace tempo {
 
@@ -59,32 +60,6 @@ namespace tempo {
     template<concepts::scalar T>
     inline constexpr auto InfiniteDistance = Limits<T>::infinity();
 
-
-    /**
-     * @brief transforms scalar types to distance type that support truly infinite and invalid distances
-     * @tparam T distance type
-     */
-    template<concepts::scalar T>
-    struct distance {
-        using type = intfinity<T>;
-    };
-
-    template<>
-    struct distance<double> {
-        using type = double;
-    };
-
-    template<>
-    struct distance<float> {
-        using type = float;
-    };
-
-    /**
-     * @brief Helper alias for distance type transformation
-     */
-    template<concepts::scalar T>
-    using distance_t = distance<T>::type;
-
     template<typename S>
     concept distance_provider = requires(const S instance, var_t e) {
         { instance.numeric.upper(e) } -> concepts::scalar;
@@ -111,9 +86,9 @@ namespace tempo {
      * @return estimated length of the edge or invalid distance if edge is null-edge
      */
     template<concepts::scalar T, distance_provider S>
-    auto boundEstimation(const DistanceConstraint<T> &edge, const S &solver) -> distance_t<T> {
+    auto boundEstimation(const DistanceConstraint<T> &edge, const S &solver) -> std::optional<T> {
         if (edge.isNull()) {
-            return std::numeric_limits<distance_t<T>>::quiet_NaN();
+            return {};
         }
 
         return solver.numeric.upper(edge.from) - solver.numeric.lower(edge.to);
@@ -129,9 +104,10 @@ namespace tempo {
      */
     template<edge_distance_provider S>
     auto boundEstimation(bool sign, var_t x, const S &solver) {
-        using distT = decltype(boundEstimation(solver.boolean.getEdge(sign, x), solver));
+        using T = decltype(boundEstimation(solver.boolean.getEdge(sign, x), solver));
         if (not solver.boolean.hasSemantic(x)) {
-            return std::numeric_limits<distT>::quiet_NaN();
+            T empty;
+            return empty;
         }
 
         auto edge = solver.boolean.getEdge(sign, x);

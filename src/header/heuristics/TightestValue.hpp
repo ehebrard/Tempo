@@ -53,7 +53,7 @@ public:
 
     auto gapPos = boundEstimation(true, x, solver);
     auto gapNeg = boundEstimation(false, x, solver);
-    assert(not std::isnan(gapPos) and not std::isnan(gapNeg));
+    assert(gapPos.has_value() and gapNeg.has_value());
     return solver.boolean.getLiteral(gapPos >= gapNeg, x);
   }
 };
