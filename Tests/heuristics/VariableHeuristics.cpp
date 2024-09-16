@@ -7,8 +7,8 @@
 #include <gtest/gtest.h>
 #include <vector>
 
-#include "Solver.hpp"
-#include "src/header/heuristics/RankingHeuristic.hpp"
+#include "testing.hpp"
+#include "heuristics/RankingHeuristic.hpp"
 #include "heuristics/Tightest.hpp"
 
 struct TestRanker : public tempo::heuristics::RankingHeuristic<TestRanker> {
@@ -26,18 +26,16 @@ struct TestRanker : public tempo::heuristics::RankingHeuristic<TestRanker> {
         return x > y ? x : y;
     }
 };
-/*
-TEST(variable_heuristics, ranking_base) {
-    using namespace tempo;
-    TestRanker ranker;
-    std::vector<var_t> vars{5, 2, 7, 4, 6, 3};
-    Solver s;
-    EXPECT_EQ(ranker.bestVariable(vars, s), 7);
-}*/
 
 TEST(variable_heuristics, tightest) {
     using namespace tempo;
     using namespace heuristics;
+    using tempo::testing::heuristics::LitProvider;
     Tightest tightest;
-
+    LitProvider provider(makeBooleanLiteral<int>(true, 0, 2), {10, 8, 11, 6}, {5, 8, 9, 2});
+    EXPECT_EQ(tightest.getCost(0, provider), 6);
+    provider.boolean.lit = makeBooleanLiteral<int>(true, 3, 2);
+    EXPECT_EQ(tightest.getCost(0, provider), 9);
+    provider.boolean.lit = makeBooleanLiteral<int>(true, 0, Constant::NoSemantic);
+    EXPECT_EQ(tightest.getCost(0, provider), 1);
 }

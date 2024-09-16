@@ -7,6 +7,7 @@
 
 #include "RankingHeuristic.hpp"
 #include "Global.hpp"
+#include "util/distance.hpp"
 
 namespace tempo::heuristics {
 
@@ -22,8 +23,9 @@ namespace tempo::heuristics {
          * @param solver solver for which to select a variable
          * @return maximum of the Distances in both directions between the nodes
          */
-        template<concepts::scalar T>
-        [[nodiscard]] T getCost(var_t x, const Solver<T> &solver) const {
+        template<edge_distance_provider S>
+        [[nodiscard]] auto getCost(var_t x, const S &solver) const {
+            using T = decltype(boundEstimation(true, 0, solver));
             T dom{1};
             if (solver.boolean.hasSemantic(x)) {
                 auto p{solver.boolean.getLiteral(true, x)};

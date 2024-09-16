@@ -114,6 +114,8 @@ namespace tempo::testing {
 
                 [[nodiscard]] auto getEdge(bool sign, tempo::var_t x) const -> DistanceConstraint<int>;
 
+                [[nodiscard]] auto getEdge(Literal<int> literal) const -> DistanceConstraint<int>;
+
                 [[nodiscard]] bool hasSemantic(tempo::var_t) const;
 
                 [[nodiscard]] bool hasSolution() const;

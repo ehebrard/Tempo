@@ -147,6 +147,11 @@ namespace tempo::testing {
                tempo::DistanceConstraint{lit.semantic(), x, 0};
     }
 
+    auto heuristics::LitProvider::Storage::getEdge(Literal<int> literal) const -> DistanceConstraint<int> {
+        return getEdge(literal.sign(), literal.variable());
+    }
+
+
     bool heuristics::LitProvider::Storage::hasSemantic(var_t) const {
         return lit.hasSemantic();
     }
