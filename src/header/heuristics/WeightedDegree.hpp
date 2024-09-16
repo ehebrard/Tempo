@@ -24,6 +24,11 @@ namespace tempo::heuristics {
     class WeightedDegree : public GapOverActivity {
     public:
 
+        /**
+         * CTor. Infers parameters from given scheduler. Subscribes to events of interest
+         * @tparam T timing type
+         * @param solver target solver
+         */
         template<concepts::scalar T>
         explicit WeightedDegree(Solver<T> &solver):
                   GapOverActivity(solver, solver.ConflictEncountered.subscribe_handled(

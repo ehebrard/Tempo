@@ -1,15 +1,17 @@
 /**
 * @author Tim Luchterhand
 * @date 16.09.24
-* @brief
+* @brief Variable selection heuristics that orders variables by their respective gap in the temporal network divided by
+ * variable activity
 */
 
 #ifndef TEMPO_GAPOVERACTIVITY_HPP
 #define TEMPO_GAPOVERACTIVITY_HPP
 
-#include <utility>
+#include <algorithm>
 
 #include "Global.hpp"
+#include "Constant.hpp"
 #include "RankingHeuristic.hpp"
 #include "heuristics/impl/DecayingEventActivityMap.hpp"
 #include "util/SubscribableEvent.hpp"
@@ -22,12 +24,19 @@ namespace tempo {
 
 namespace tempo::heuristics {
 
-    class GapOverActivity: public RankingHeuristic<GapOverActivity> {
+    /**
+     * @brief Variable selection heuristics that orders variables by their respective gap in the temporal network
+     * divided by variable activity.
+     * @details @copybrief
+     * This is the base class for heuristics like VSIDS and WeightedDegree
+     */
+    class GapOverActivity : public RankingHeuristic<GapOverActivity> {
     public:
 
         /**
-         * CTor. Infers parameters from given scheduler. Subscribes to events of interest
+         * CTor. Initializes activity map.
          * @param solver target solver
+         * @param handle subscriber handle of event handler that updates activity map
          */
         template<concepts::scalar T>
         explicit GapOverActivity(Solver<T> &solver, SubscriberHandle handle) :
@@ -59,13 +68,24 @@ namespace tempo::heuristics {
             return dom / act;
         }
 
-        template<edge_distance_provider S>
-        [[nodiscard]] var_t chooseBest(var_t x, var_t y, const S &solver) const {
+        /**
+         * Ranking heuristic interface. Out of two variables selects the one for which gap_v / activity_v is lower.
+         * Herby gap_v is the maximum distance on the associated distance constraint arcs and activity_v is the
+         * variables activity.
+         * @tparam T timing type
+         * @param x variable x
+         * @param y variable y
+         * @param solver solver that provides distance information
+         * @return variable according to criteria described above
+         */
+        template<concepts::scalar T>
+        [[nodiscard]] var_t chooseBest(var_t x, var_t y, const Solver<T> &solver) const {
             return getCost(x, solver) <= getCost(y, solver) ? x : y;
         }
 
 
         /**
+         * Heuristic interface.
          * @param solver
          * @todo currently only selects boolean variables
          */
