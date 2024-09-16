@@ -70,6 +70,11 @@ namespace tempo::heuristics {
             return dom / activity.get(x, solver);
         }
 
+        template<edge_distance_provider S>
+        [[nodiscard]] var_t chooseBest(var_t x, var_t y, const S &solver) const {
+            return getCost(x, solver) <= getCost(y, solver) ? x : y;
+        }
+
         /**
          * @param solver
          * @todo currently only selects boolean variables

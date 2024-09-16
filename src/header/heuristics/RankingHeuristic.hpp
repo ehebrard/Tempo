@@ -23,6 +23,7 @@
 
 
 #include <concepts>
+#include <ranges>
 
 #include "heuristic_interface.hpp"
 #include "util/crtp.hpp"
@@ -46,9 +47,9 @@ public:
 
     template<concepts::typed_range<var_t> Variables, typename S> requires(PartialOrder<Impl, S>)
     auto bestVariable(const Variables &variables, const S &solver) const {
-        auto best_var = Constant::NoVar;
         assert(not std::ranges::empty(variables));
-        for (auto x: variables) {
+        auto best_var = *std::begin(variables);
+        for (auto x: variables | std::views::drop(1)) {
             best_var = this->getImpl().chooseBest(best_var, x, solver);
         }
 
