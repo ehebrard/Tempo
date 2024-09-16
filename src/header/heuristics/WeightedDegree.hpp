@@ -32,12 +32,6 @@ namespace tempo::heuristics {
                               expl.explain(Solver<T>::Contradiction, clause);
                               this->activity.update(clause, solver);
                           })) {}
-
-        WeightedDegree(const WeightedDegree &) = delete;
-        WeightedDegree(WeightedDegree &&) = delete;
-        WeightedDegree &operator=(const WeightedDegree &) = delete;
-        WeightedDegree &operator=(WeightedDegree &&) = delete;
-        ~WeightedDegree() = default;
     };
 }
 

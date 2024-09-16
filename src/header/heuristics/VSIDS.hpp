@@ -34,17 +34,6 @@ namespace tempo::heuristics {
                 GapOverActivity(solver, solver.ClauseAdded.subscribe_handled(
                         [this, &solver](const auto &arg) { this->activity.update(arg, solver); })) {}
 
-        // Copy and move are disabled. Otherwise, a call to the subscribed event handler will cause undefined behavior
-        VSIDS(const VSIDS &) = delete;
-
-        VSIDS(VSIDS &&) = delete;
-
-        VSIDS &operator=(const VSIDS &) = delete;
-
-        VSIDS &operator=(VSIDS &&) = delete;
-
-        ~VSIDS() = default;
-
     };
 }
 

@@ -39,28 +39,20 @@ namespace tempo::heuristics {
         GapOverActivity &operator=(const GapOverActivity&) = delete;
         GapOverActivity &operator=(GapOverActivity &&) = delete;
         ~GapOverActivity() = default;
+
         template<concepts::scalar T>
         [[nodiscard]] double getCost(const var_t x, const Solver<T> &solver) const {
-
             //@TODO: there shoud be a normalization thingy and Boolean variables without semantic should get the highest value
             double dom{1};
-
             if (solver.boolean.hasSemantic(x)) {
-                auto p{solver.boolean.getLiteral(true, x)};
-                auto n{solver.boolean.getLiteral(false, x)};
-
-                auto prec_a{solver.boolean.getEdge(p)};
-                auto prec_b{solver.boolean.getEdge(n)};
-
-                auto gap_a = (prec_a == Constant::NoEdge<T> ? Constant::Infinity<T> : solver.numeric.upper(prec_a.from) - solver.numeric.lower(prec_a.to));
-                auto gap_b = (prec_b == Constant::NoEdge<T> ? Constant::Infinity<T> : solver.numeric.upper(prec_b.from) - solver.numeric.lower(prec_b.to));
-
-                if(gap_a == Constant::Infinity<T>) {
-                    dom = static_cast<double>(gap_a/2 + gap_b/2);
-                } else if(gap_b == Constant::Infinity<T>) {
-                    dom = static_cast<double>(gap_a/2 + gap_b/2);
+                auto gapA = boundEstimation(true, x, solver).value_or(Constant::Infinity<T>);
+                auto gapB = boundEstimation(false, x, solver).value_or(Constant::Infinity<T>);
+                if(gapA == Constant::Infinity<T>) {
+                    dom = static_cast<double>(gapA/2 + gapB/2);
+                } else if(gapB == Constant::Infinity<T>) {
+                    dom = static_cast<double>(gapA/2 + gapB/2);
                 } else {
-                    dom = static_cast<double>(std::max(gap_a, gap_b));
+                    dom = static_cast<double>(std::max(gapA, gapB));
                 }
             }
             auto act{activity.get(x, solver)};
