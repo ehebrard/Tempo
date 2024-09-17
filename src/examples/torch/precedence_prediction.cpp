@@ -9,6 +9,7 @@
 #include <variant>
 #include <vector>
 #include <optional>
+#include <ranges>
 
 #include "nn/GNNPrecedencePredictor.hpp"
 #include "heuristics/TightestPrecedencePredictor.hpp"
@@ -18,12 +19,10 @@
 #include "../helpers/shell.hpp"
 
 
-void setLiterals(tempo::Solver<int> &solver, const std::vector<tempo::Literal<int>> &literals) {
-    if (solver.getOptions().verbosity >= tempo::Options::NORMAL) {
-        std::cout << "-- setting " << literals.size() << " literals\n";
-    }
-
-    for (auto lit : literals) {
+template<tempo::concepts::ttyped_range<tempo::Literal> L>
+void setLiterals(tempo::Solver<int> &solver, L &&literals) {
+    std::size_t numLits = 0;
+    for (auto lit : std::forward<L>(literals)) {
         auto branch = solver.getBranch();
         if (not branch.safe_has(lit.variable())) {
             continue;
@@ -33,9 +32,14 @@ void setLiterals(tempo::Solver<int> &solver, const std::vector<tempo::Literal<in
             std::cout << lit << " ";
         }
         solver.set(lit);
+        ++numLits;
     }
 
     std::cout << std::endl;
+    if (solver.getOptions().verbosity >= tempo::Options::NORMAL) {
+        std::cout << "-- setting " << numLits << " literals" << std::endl;
+    }
+
 }
 
 enum class PredictorType {
@@ -53,12 +57,14 @@ int main(int argc, char **argv) {
     std::string featureExtractorConf;
     int pType = 0;
     unsigned numberOfIterations = 0;
-    double confidenceThresh = 1;
+    auto confidenceThresh = 0.0;
+    unsigned numLiterals = 0;
     auto opt = cli::parseOptions(argc, argv,
                                  cli::ArgSpec("gnn-loc", "Location of the GNN model", false, gnnLocation),
                                  cli::ArgSpec("feat-config", "Location of the feature extractor config", false,
                                               featureExtractorConf),
                                  cli::ArgSpec("confidence", "minimum confidence of GNN", false, confidenceThresh),
+                                 cli::ArgSpec("num-lits", "number of literals to set", false, numLiterals),
                                  cli::ArgSpec("iterations", "number of precedence predictor runs", false,
                                               numberOfIterations),
                                  cli::ArgSpec("predictor-type", "predictor type to use", false, pType));
@@ -86,7 +92,7 @@ int main(int argc, char **argv) {
     }
 
     util::StopWatch sw;
-    if (numberOfIterations > 0) {
+    if (numberOfIterations > 0 and numLiterals > 0) {
         auto o = opt;
         o.verbosity = Options::SILENT;
         auto [s, p, _1, _2] = loadSchedulingProblem(o);
@@ -103,10 +109,15 @@ int main(int argc, char **argv) {
 
         s->minimize(p.schedule().duration);
         KillHandler::instance().reset();
+
+        using namespace std::views;
+        auto allLits = std::visit([](const auto &pred) { return pred.getLiterals(); }, *predictor);
+        setLiterals(*solver,
+                    allLits |
+                    filter([confidenceThresh](const auto &tpl) { return std::get<1>(tpl) > confidenceThresh; }) |
+                    take(numLiterals) | elements<0>);
     }
 
-    setLiterals(*solver, std::visit([confidenceThresh](const auto &pred) { return pred.getLiterals(confidenceThresh); },
-                                    *predictor));
     solver->minimize(schedule.duration);
     auto [start, end] = sw.getTiming();
     if (solver->numeric.hasSolution()) {

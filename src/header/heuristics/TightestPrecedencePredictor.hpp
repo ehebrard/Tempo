@@ -10,24 +10,25 @@
 #include <vector>
 #include <Iterators.hpp>
 
-#include "Literal.hpp"
 #include "util/traits.hpp"
 #include "util/distance.hpp"
 #include "util/IntFinity.hpp"
+#include "PrecedencePredictor.hpp"
+
+namespace tempo {
+    template<typename T>
+    class Solver;
+}
 
 namespace tempo::heuristics {
     template<concepts::scalar T>
-    class TightestPrecedencePredictor {
-        std::vector<Literal<T>> literals;
-        std::vector<float> massesPos;
-        std::vector<float> massesNeg;
+    class TightestPrecedencePredictor : public PrecedencePredictor<TightestPrecedencePredictor<T>, T> {
     public:
-        explicit TightestPrecedencePredictor(std::vector<Literal<T>> literals) : literals(std::move(literals)),
-                                                                                 massesPos(this->literals.size(), 0),
-                                                                                 massesNeg(this->literals.size(), 0) {}
+        explicit TightestPrecedencePredictor(std::vector<Literal<T>> literals)
+                : PrecedencePredictor<TightestPrecedencePredictor<T>, T>(std::move(literals)) {}
 
         void updateConfidence(const Solver<T> &solver) {
-            for(auto [lit, pos, neg] : iterators::zip(literals, massesPos, massesNeg)) {
+            for(auto [lit, pos, neg] : iterators::zip(this->literals, this->massesPos, this->massesNeg)) {
                 auto estPos = boundEstimation(lit, solver);
                 auto estNeg = boundEstimation(~lit, solver);
                 intfinity distPos = estPos.has_value() ? *estPos
@@ -40,18 +41,8 @@ namespace tempo::heuristics {
             }
         }
 
-
-        auto getLiterals(double confidenceThreshold) const -> std::vector<Literal<T>> {
-            std::vector<Literal<T>> ret;
-            for (auto [lit, pos, neg] : iterators::zip(literals, massesPos, massesNeg)) {
-                // = |m1 - m2| / (m1 + m2)
-                auto certainty = std::pow(std::abs(2 * pos / (pos + neg) - 1), 0.1);
-                if (certainty > confidenceThreshold) {
-                    ret.emplace_back(pos > neg ? lit : ~lit);
-                }
-            }
-
-            return ret;
+        static double getCertainty(double pos, double neg) {
+            return std::pow(std::abs(2 * pos / (pos + neg) - 1), 0.1);
         }
     };
 }
