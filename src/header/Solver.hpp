@@ -46,6 +46,7 @@
 #include "constraints/FullTransitivity.hpp"
 #include "heuristics/heuristic_factories.hpp"
 #include "heuristics/impl/DecayingEventActivityMap.hpp"
+#include "RelaxationPolicy.hpp"
 #include "util/KillHandler.hpp"
 #include "util/Options.hpp"
 #include "util/SubscribableEvent.hpp"
@@ -2604,6 +2605,9 @@ void Solver<T>::largeNeighborhoodSearch(S &objective, A &relaxationPolicy) {
     if (not boolean.hasSolution()) {
         auto satisfiability{search()};
         if (satisfiability == TrueState) {
+            
+//            std::cout << "INIT SOL\n";
+            
             auto best{objective.value(*this)};
             if (options.verbosity >= Options::NORMAL) {
                 std::cout << std::setw(10) << best;
@@ -2632,8 +2636,25 @@ void Solver<T>::largeNeighborhoodSearch(S &objective, A &relaxationPolicy) {
     
     while (objective.gap() and not KillHandler::instance().signalReceived()) {
         relaxationPolicy.select(assumptions);
-        makeAssumptions(assumptions.begin(), assumptions.end());
-        auto satisfiability{search()};
+        
+//        std::cout << " ASSUMPTIONS:";
+//        for(auto l : assumptions)
+//            std::cout << " " << pretty(l);
+//        std::cout << std::endl;
+        
+        auto satisfiability{FalseState};
+        
+        try {
+            makeAssumptions(assumptions.begin(), assumptions.end());
+            satisfiability = UnknownState;
+        }
+        catch(Failure<T>& f) {
+//            std::cout << "assumptions are inconsistent under the current UB\n";
+        }
+        
+        if(satisfiability == UnknownState)
+            satisfiability = search();
+            
         if (satisfiability == TrueState) {
             auto best{objective.value(*this)};
             if (options.verbosity >= Options::NORMAL) {
@@ -2657,6 +2678,16 @@ void Solver<T>::largeNeighborhoodSearch(S &objective, A &relaxationPolicy) {
             }
             ground_level = trail.size();
         } else {
+            
+//            std::cout << "failed to improve the current best\n";
+            
+//            std::cout << "learn clause:\n";
+//            for(auto l : learnt_clause) {
+//                std::cout << pretty(l) << std::endl;
+//            }
+//            std::cout << std::endl;
+            
+//            std::cout << learnt_clause.size() << "/" << assumptions.size() << std::endl;
             
             relaxationPolicy.notifyFailure();
             restoreState(0);

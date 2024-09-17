@@ -1141,20 +1141,22 @@ void ClauseBase<T>::set_watcher(const int r, const index_t i, Clause<T> *cl) {
 // }
 
 template <typename T> void ClauseBase<T>::makeUnforgettable(Clause<T> *cl) {
-  if (not free_cl_indices.isback(cl->id)) {
-    std::cout << "clause " << *cl << " is not learnt\n";
+//  if (not free_cl_indices.isback(cl->id)) {
+//    std::cout << "clause " << *cl << " is not learnt\n";
+//
+//    if (free_cl_indices.isfront(cl->id)) {
+//      std::cout << "(marked)\n";
+//    } else {
+//      std::cout << "(unreferenced)\n";
+//    }
+//
+//    exit(1);
+//  }
 
-    if (free_cl_indices.isfront(cl->id)) {
-      std::cout << "(marked)\n";
-    } else {
-      std::cout << "(unreferenced)\n";
+    if(free_cl_indices.isback(cl->id)) {
+        free_cl_indices.add(cl->id);
+        free_cl_indices.remove_front(cl->id);
     }
-
-    exit(1);
-  }
-
-  free_cl_indices.add(cl->id);
-  free_cl_indices.remove_front(cl->id);
 }
 
 template <typename T> void ClauseBase<T>::forget(Clause<T> *cl) {
