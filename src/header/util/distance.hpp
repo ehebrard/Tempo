@@ -10,6 +10,7 @@
 #include <optional>
 
 #include "Global.hpp"
+#include "Literal.hpp"
 #include "Constant.hpp"
 #include "DistanceConstraint.hpp"
 #include "util/traits.hpp"
@@ -92,6 +93,23 @@ namespace tempo {
         }
 
         return solver.numeric.upper(edge.from) - solver.numeric.lower(edge.to);
+    }
+
+    /**
+     * overload of boundEstimation. Calculates an estimate of the length of an edge associated with a given literal
+     * @tparam T timing type
+     * @tparam S edge distance provider (usually the solver)
+     * @param lit literal associated with an arc
+     * @param solver solver that provides upper and lower bounds for variables
+     * @return estimated length of the edge or invalid distance if edge is null-edge
+     */
+    template<concepts::scalar T, edge_distance_provider S>
+    auto boundEstimation(Literal<T> lit, const S &solver) -> std::optional<T> {
+        if (not lit.hasSemantic()) {
+            return {};
+        }
+
+        return boundEstimation(solver.boolean.getEdge(lit), solver);
     }
 
     /**
