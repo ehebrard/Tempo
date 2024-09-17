@@ -12,9 +12,9 @@
 #include <iostream>
 
 #include "heuristic_interface.hpp"
-#include "Static.hpp"
 #include "Tightest.hpp"
 #include "VSIDS.hpp"
+#include "RandomVariableSelection.hpp"
 #include "WeightedDegree.hpp"
 #include "RandomBinaryValue.hpp"
 #include "TightestValue.hpp"
@@ -64,7 +64,8 @@ namespace tempo::heuristics {
 
     }
 
-    using VariableHeuristic = detail::VariantHeuristicWrapper<Tightest, detail::VSIDS_M, detail::WeightedDegree_M>;
+    using VariableHeuristic = detail::VariantHeuristicWrapper<Tightest, detail::VSIDS_M, detail::WeightedDegree_M,
+                                                              RandomVariableSelection>;
 
     /// Define heuristic factory types here
 
@@ -87,7 +88,14 @@ namespace tempo::heuristics {
         }
     };
 
-    MAKE_T_FACTORY_PATTERN(VariableHeuristic, template<concepts::scalar T>, Solver<T>&, Tightest, VSIDS, WeightedDegree)
+    MAKE_TEMPLATE_FACTORY(RandomVariableSelection, concepts::scalar T, Solver<T> &) {
+            return RandomVariableSelection{};
+        }
+    };
+
+    MAKE_T_FACTORY_PATTERN(VariableHeuristic, template<concepts::scalar T>, Solver<T> &, Tightest, VSIDS,
+                           WeightedDegree, RandomVariableSelection)
+
 
     /// --- Value Heuristics ---
 

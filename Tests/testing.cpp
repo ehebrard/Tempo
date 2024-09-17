@@ -137,5 +137,36 @@ namespace tempo::testing {
     int BoundProvider::upper(tempo::var_t var) const { return u.at(var); }
 
     int BoundProvider::lower(tempo::var_t var) const { return l.at(var); }
+
+    auto heuristics::LitProvider::Storage::getLiteral(bool sign, var_t) const -> Literal<int> {
+        return sign ? lit : ~lit;
+    }
+
+    auto heuristics::LitProvider::Storage::getEdge(bool sign, var_t x) const -> tempo::DistanceConstraint<int> {
+        return sign ? tempo::DistanceConstraint{x, lit.semantic(), 0} :
+               tempo::DistanceConstraint{lit.semantic(), x, 0};
+    }
+
+    auto heuristics::LitProvider::Storage::getEdge(Literal<int> literal) const -> DistanceConstraint<int> {
+        return getEdge(literal.sign(), literal.variable());
+    }
+
+
+    bool heuristics::LitProvider::Storage::hasSemantic(var_t) const {
+        return lit.hasSemantic();
+    }
+
+    bool heuristics::LitProvider::Storage::hasSolution() const {
+        return not solution.empty();
+    }
+
+    auto heuristics::LitProvider::Storage::bestSolution() const -> const std::vector<bool> &{
+        return solution;
+    }
+
+    heuristics::LitProvider::Storage::Storage(Literal<int> lit) : lit(lit) {}
+
+    heuristics::LitProvider::LitProvider(Literal<int> lit, std::vector<int> upper, std::vector<int> lower) :
+            boolean(lit), numeric(std::move(upper), std::move(lower)) {}
 }
 

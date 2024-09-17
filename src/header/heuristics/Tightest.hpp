@@ -7,6 +7,7 @@
 
 #include "RankingHeuristic.hpp"
 #include "Global.hpp"
+#include "util/distance.hpp"
 
 namespace tempo::heuristics {
 
@@ -22,23 +23,23 @@ namespace tempo::heuristics {
          * @param solver solver for which to select a variable
          * @return maximum of the Distances in both directions between the nodes
          */
-        template<concepts::scalar T>
-        [[nodiscard]] T getCost(var_t x, const Solver<T> &solver) const {
+        template<edge_distance_provider S>
+        [[nodiscard]] auto getCost(var_t x, const S &solver) const {
+            using T = std::remove_cvref_t<decltype(*boundEstimation(true, 0, solver))>;
+            assert(x != Constant::NoVar);
             T dom{1};
             if (solver.boolean.hasSemantic(x)) {
-                auto p{solver.boolean.getLiteral(true, x)};
-                auto n{solver.boolean.getLiteral(false, x)};
-
-                auto prec_a{solver.boolean.getEdge(p)};
-                auto prec_b{solver.boolean.getEdge(n)};
-
-                auto gap_a = solver.numeric.upper(prec_a.from) - solver.numeric.lower(prec_a.to);
-                auto gap_b = solver.numeric.upper(prec_b.from) - solver.numeric.lower(prec_b.to);
-
-                dom = std::max(gap_a, gap_b);
+                auto gapA = boundEstimation(true, x, solver);
+                auto gapB = boundEstimation(false, x, solver);
+                dom = std::max(gapA, gapB).value_or(InfiniteDistance<T>);
             }
 
             return dom;
+        }
+
+        template<edge_distance_provider S>
+        [[nodiscard]] var_t chooseBest(var_t x, var_t y, const S &solver) const {
+            return getCost(x, solver) <= getCost(y, solver) ? x : y;
         }
 
         /**

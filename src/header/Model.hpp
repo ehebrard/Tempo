@@ -27,6 +27,7 @@
 #include <utility>
 
 #include "util/traits.hpp"
+#include "util/distance.hpp"
 #include "Literal.hpp"
 #include "constraints/Cardinality.hpp"
 #include "constraints/PseudoBoolean.hpp"
@@ -109,16 +110,16 @@ public:
     NumericVar(const var_t i, const T o = 0)
         : ExpressionFlag(false), data(i, o) {}
 
-    template<concepts::distance_provider S>
+    template<distance_provider S>
     T min(const S &sc) const;
 
-    template<concepts::distance_provider S>
+    template<distance_provider S>
     T max(const S &sc) const;
 
-    template<concepts::distance_provider S>
+    template<distance_provider S>
     T earliest(const S &) const;
 
-    template<concepts::distance_provider S>
+    template<distance_provider S>
     T latest(const S &) const;
 
     Literal<T> after(const T t) const;
@@ -353,24 +354,24 @@ public:
   Interval(Solver<T> &solver, const NumericVar<T> s, const NumericVar<T> e,
            const NumericVar<T> d, const BooleanVar<T> opt = Constant::True);
 
-  template<concepts::distance_provider S>
+  template<distance_provider S>
   T getEarliestStart(const S &s) const;
 
-  template<concepts::distance_provider S>
+  template<distance_provider S>
   T getLatestStart(const S &s) const;
 
-  template<concepts::distance_provider S>
+  template<distance_provider S>
   T getEarliestEnd(const S &s) const;
 
-  template<concepts::distance_provider S>
+  template<distance_provider S>
   T getLatestEnd(const S &s) const;
 
   bool mustExist(Solver<T> &s) const;
   bool cannotExist(Solver<T> &s) const;
 
-  template<concepts::distance_provider S>
+  template<distance_provider S>
   T minDuration(const S &s) const;
-  template<concepts::distance_provider S>
+  template<distance_provider S>
   T maxDuration(const S &s) const;
 
   var_t getStart() const;
@@ -1780,7 +1781,7 @@ CumulativeExpression<T> Cumulative(Interval<T> &s, const NumericVar<T> c,
  NumericVar  impl
 */
 template<typename T>
-template<concepts::distance_provider S>
+template<distance_provider S>
 T NumericVar<T>::min(const S& s) const {
   T v = s.numeric.lower(id());
   if (v == -Constant::Infinity<T>)
@@ -1789,7 +1790,7 @@ T NumericVar<T>::min(const S& s) const {
 }
 
 template<typename T>
-template<concepts::distance_provider S>
+template<distance_provider S>
 T NumericVar<T>::max(const S& s) const {
   T v = s.numeric.upper(id());
   if (v == Constant::Infinity<T>)
@@ -1798,13 +1799,13 @@ T NumericVar<T>::max(const S& s) const {
 }
 
 template <typename T>
-template<concepts::distance_provider S>
+template<distance_provider S>
 T NumericVar<T>::earliest(const S &s) const {
   return min(s);
 }
 
 template <typename T>
-template<concepts::distance_provider S>
+template<distance_provider S>
 T NumericVar<T>::latest(const S &s) const {
   return max(s);
 }
@@ -1986,25 +1987,25 @@ template <typename T> bool Interval<T>::operator==(const Interval<T> &t) const {
 }
 
 template <typename T>
-template<concepts::distance_provider S>
+template<distance_provider S>
 T Interval<T>::getEarliestStart(const S &solver) const {
   return start.earliest(solver);
 }
 
 template <typename T>
-template<concepts::distance_provider S>
+template<distance_provider S>
 T Interval<T>::getLatestStart(const S &solver) const {
   return start.latest(solver);
 }
 
 template <typename T>
-template<concepts::distance_provider S>
+template<distance_provider S>
 T Interval<T>::getEarliestEnd(const S &solver) const {
   return end.earliest(solver);
 }
 
 template <typename T>
-template<concepts::distance_provider S>
+template<distance_provider S>
 T Interval<T>::getLatestEnd(const S &solver) const {
   return end.latest(solver);
 }
@@ -2018,13 +2019,13 @@ template <typename T> bool Interval<T>::cannotExist(Solver<T> &) const {
 }
 
 template <typename T>
-template<concepts::distance_provider S>
+template<distance_provider S>
 T Interval<T>::minDuration(const S &solver) const {
   return duration.min(solver);
 }
 
 template <typename T>
-template<concepts::distance_provider S>
+template<distance_provider S>
 T Interval<T>::maxDuration(const S &solver) const {
   return duration.max(solver);
 }

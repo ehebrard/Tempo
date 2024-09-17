@@ -23,6 +23,7 @@
 
 #include "Solver.hpp"
 #include "heuristics/Greedy.hpp"
+#include "heuristics/Static.hpp"
 #include "util/parsing/jsp.hpp"
 #include "util/parsing/jstl.hpp"
 #include "util/parsing/osp.hpp"

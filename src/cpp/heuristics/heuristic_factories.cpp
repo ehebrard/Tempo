@@ -20,6 +20,8 @@ namespace tempo::heuristics::detail {
                 RETURN_NAME(WeightedDegree);
             case Options::ChoicePointHeuristics::VSIDS:
                 RETURN_NAME(VSIDS);
+            case Options::ChoicePointHeuristics::Random:
+                RETURN_NAME(RandomVariableSelection);
             default:
                 throw std::runtime_error("unknown variable heuristic");
         }
