@@ -1,5 +1,7 @@
+-- using variable selection strategy 'VSIDS'
+-- using value selection strategy 'TightestValue'
  objective   failures   branches    nds/s    lvl   clauses  size   cpu
-       147        162        733   157532     15       207     7   0.004653
-       151        281       1453   191461     17       326     7   0.007589
-       163        520       2341   179827     15       565     7   0.013018
-   optimal        560       2481   179952     14       592     7   0.013787
+       147        162        733   454432     15       207     7   0.001613
+       151        281       1453   514154     17       326     7   0.002826
+       163        520       2318   443976     15       565     7   0.005221
+   optimal        564       2469   437843     14       608     7   0.005639

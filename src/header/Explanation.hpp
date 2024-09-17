@@ -58,6 +58,14 @@ public:
   int id() const { return cons_id; }
 };
 
+template <typename T> class AssumptionExplainer : public Explainer<T> {
+    
+public:
+     void xplain(const Literal<T>, const hint, std::vector<Literal<T>> &) override;
+
+     std::ostream &print_reason(std::ostream &, const hint) const override;
+};
+
 //! Explanation class
 /*!
  An Explanation is a pointer to an Explainer  and a 'hint' to help it explain
@@ -87,6 +95,20 @@ template <typename T>
 std::ostream &Explainer<T>::print_reason(std::ostream &os,
                                             const hint) const {
   os << "no reason";
+  return os;
+}
+
+
+template <typename T>
+void AssumptionExplainer<T>::xplain(const Literal<T> l, const hint,
+                             std::vector<Literal<T>> &Cl) {
+    Cl.push_back(l);
+}
+
+template <typename T>
+std::ostream &AssumptionExplainer<T>::print_reason(std::ostream &os,
+                                            const hint) const {
+  os << "assumption";
   return os;
 }
 

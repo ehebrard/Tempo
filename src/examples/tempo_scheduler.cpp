@@ -160,8 +160,9 @@ int main(int argc, char *argv[]) {
     
   parser.parse(argc, argv);
   Options opt = parser.getOptions();
-  Solver<> S(opt);
   seed(opt.seed);
+
+  Solver<> S(opt);
 
   // an interval standing for the makespan of schedule
   auto schedule{S.newInterval(0, Constant::Infinity<int>, 0, 0, 0,

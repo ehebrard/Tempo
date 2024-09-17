@@ -147,6 +147,8 @@ public:
    * @name clause forgetting
    */
   //@{
+  // make a clause unforgettable
+  void makeUnforgettable(Clause<T> *cl);
   // forgets a learnt clause
   void forget(Clause<T> *cl);
   // forgets the last learnt clause (worst if they have been sorted)
@@ -453,7 +455,7 @@ template <typename T> Clause<T> *ClauseBase<T>::consistent() {
 //#endif
 //
 //#ifdef DBG_TRACE
-//   if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
+//   if (DBG_CLBOUND and (DBG_TRACE & UNITPROPAGATION)) {
 //     std::cout << "unit propagate true lit " << l << "\n";
 //   }
 //#endif
@@ -490,7 +492,7 @@ void ClauseBase<T>::unit_propagate(const Literal<T> l) {
     auto cl{*c};
 
 #ifdef DBG_TRACE
-    if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
+    if (DBG_CLBOUND and (DBG_TRACE & UNITPROPAGATION)) {
       std::cout << " watched by " << *cl << std::endl;
     }
 #endif
@@ -507,8 +509,8 @@ void ClauseBase<T>::unit_propagate(const Literal<T> l) {
       if (c_lit.value() + l.value() >= 0) {
 
 #ifdef DBG_TRACE
-        if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
-                    std::cout << " false trigger (" << c_lit << " is not falsified)\n";
+        if (DBG_CLBOUND and (DBG_TRACE & UNITPROPAGATION)) {
+          std::cout << " false trigger (" << c_lit << " is not falsified)\n";
         }
 #endif
 
@@ -517,7 +519,7 @@ void ClauseBase<T>::unit_propagate(const Literal<T> l) {
       } else {
 
 #ifdef DBG_TRACE
-        if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
+        if (DBG_CLBOUND and (DBG_TRACE & UNITPROPAGATION)) {
           std::cout << " true trigger (" << c_lit << " and " << l
                     << " are contradictory)\n";
         }
@@ -528,7 +530,7 @@ void ClauseBase<T>::unit_propagate(const Literal<T> l) {
     if (satisfied(other)) {
 
 #ifdef DBG_TRACE
-      if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
+      if (DBG_CLBOUND and (DBG_TRACE & UNITPROPAGATION)) {
         std::cout << ": satisfied by " << other << std::endl;
       }
 #endif
@@ -539,7 +541,7 @@ void ClauseBase<T>::unit_propagate(const Literal<T> l) {
     index_t i{idx};
 
 #ifdef DBG_TRACE
-    if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
+    if (DBG_CLBOUND and (DBG_TRACE & UNITPROPAGATION)) {
       std::cout << "search another literal to watch";
     }
 #endif
@@ -554,7 +556,7 @@ void ClauseBase<T>::unit_propagate(const Literal<T> l) {
       auto p = (*cl)[i];
 
 #ifdef DBG_TRACE
-      if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
+      if (DBG_CLBOUND and (DBG_TRACE & UNITPROPAGATION)) {
         std::cout << "  " << p;
       }
 #endif
@@ -563,7 +565,7 @@ void ClauseBase<T>::unit_propagate(const Literal<T> l) {
         if (not falsified(p)) {
 
 #ifdef DBG_TRACE
-          if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
+          if (DBG_CLBOUND and (DBG_TRACE & UNITPROPAGATION)) {
             std::cout << ": replace by " << p << " (" << i << ") as "
                       << watch_rank << "-th watcher ";
           }
@@ -572,7 +574,7 @@ void ClauseBase<T>::unit_propagate(const Literal<T> l) {
           set_watcher(watch_rank, i, cl);
 
 #ifdef DBG_TRACE
-          if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
+          if (DBG_CLBOUND and (DBG_TRACE & UNITPROPAGATION)) {
             std::cout << " and rm from " << l << "'s watches\n";
           }
 #endif
@@ -585,7 +587,7 @@ void ClauseBase<T>::unit_propagate(const Literal<T> l) {
         }
       }
 #ifdef DBG_TRACE
-      else if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
+      else if (DBG_CLBOUND and (DBG_TRACE & UNITPROPAGATION)) {
         std::cout << "*";
       }
 #endif
@@ -594,14 +596,25 @@ void ClauseBase<T>::unit_propagate(const Literal<T> l) {
     if (i == idx) {
 
 #ifdef DBG_TRACE
-      if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
-        std::cout << ": new unit " << other << std::endl;
+      if (DBG_CLBOUND and (DBG_TRACE & UNITPROPAGATION)) {
+        std::cout << "-> new unit @lvl " << solver.level() << ": " << other
+                  << std::endl;
       }
 #endif
 
 #ifdef DBG_WATCHERS
       verifyWatchers("at assign");
 #endif
+
+#ifdef DBGP0
+      if (solver.level() <= solver.init_level) {
+        std::cout << "pruning @lvl " << solver.init_level << std::endl;
+      }
+#endif
+
+      if (solver.level() <= solver.init_level) {
+        makeUnforgettable(cl);
+      }
 
       solver.set(other, {this, cl->id});
 
@@ -633,21 +646,21 @@ void ClauseBase<T>::unit_propagate_numeric(const Literal<T> l) {
   search_stack.push_back(0);
   while (not search_stack.empty()) {
 
-#ifdef DBG_TRACE
-    if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
-      for (index_t i{0}; i < watch[NUMERIC][l].size(); ++i) {
-        std::cout << std::setw(3) << i << " "
-                  << watch[NUMERIC][l][i]->watched(
-                         watch[NUMERIC][l][i]->watch_rank(l))
-                  << " " << *(watch[NUMERIC][l][i]) << std::endl;
-      }
-      std::cout << "stack:";
-      for (auto i : search_stack) {
-        std::cout << " " << i;
-      }
-      std::cout << std::endl;
-    }
-#endif
+    //#ifdef DBG_TRACE
+    //    if (DBG_CLBOUND and (DBG_TRACE & UNITPROPAGATION)) {
+    //      for (index_t i{0}; i < watch[NUMERIC][l].size(); ++i) {
+    //        std::cout << std::setw(3) << i << " "
+    //                  << watch[NUMERIC][l][i]->watched(
+    //                         watch[NUMERIC][l][i]->watch_rank(l))
+    //                  << " " << *(watch[NUMERIC][l][i]) << std::endl;
+    //      }
+    //      std::cout << "stack:";
+    //      for (auto i : search_stack) {
+    //        std::cout << " " << i;
+    //      }
+    //      std::cout << std::endl;
+    //    }
+    //#endif
 
     auto k{search_stack.back()};
 
@@ -664,7 +677,7 @@ void ClauseBase<T>::unit_propagate_numeric(const Literal<T> l) {
     Literal<T> c_lit{(*cl)[idx]};
 
 #ifdef DBG_TRACE
-    if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
+    if (DBG_CLBOUND and (DBG_TRACE & UNITPROPAGATION)) {
       std::cout << "explore clause " << *cl << " (" << c_lit << ")\n";
     }
 #endif
@@ -672,7 +685,7 @@ void ClauseBase<T>::unit_propagate_numeric(const Literal<T> l) {
     if (c_lit.value() + l.value() >= 0) {
 
 #ifdef DBG_TRACE
-      if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
+      if (DBG_CLBOUND and (DBG_TRACE & UNITPROPAGATION)) {
         std::cout << " false trigger (" << c_lit << " is not falsified)\n";
       }
 #endif
@@ -687,7 +700,7 @@ void ClauseBase<T>::unit_propagate_numeric(const Literal<T> l) {
     if (satisfied(other)) {
 
 #ifdef DBG_TRACE
-      if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
+      if (DBG_CLBOUND and (DBG_TRACE & UNITPROPAGATION)) {
         std::cout << ": satisfied by " << other << std::endl;
       }
 #endif
@@ -709,7 +722,7 @@ void ClauseBase<T>::unit_propagate_numeric(const Literal<T> l) {
     index_t i{idx};
 
 #ifdef DBG_TRACE
-    if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
+    if (DBG_CLBOUND and (DBG_TRACE & UNITPROPAGATION)) {
       std::cout << "search another literal to watch";
     }
 #endif
@@ -724,7 +737,7 @@ void ClauseBase<T>::unit_propagate_numeric(const Literal<T> l) {
       auto p = (*cl)[i];
 
 #ifdef DBG_TRACE
-      if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
+      if (DBG_CLBOUND and (DBG_TRACE & UNITPROPAGATION)) {
         std::cout << "  " << p;
       }
 #endif
@@ -733,7 +746,7 @@ void ClauseBase<T>::unit_propagate_numeric(const Literal<T> l) {
         if (not falsified(p)) {
 
 #ifdef DBG_TRACE
-          if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
+          if (DBG_CLBOUND and (DBG_TRACE & UNITPROPAGATION)) {
             std::cout << ": replace by " << p << " (" << i << ") as "
                       << watch_rank << "-th watcher ";
           }
@@ -745,7 +758,7 @@ void ClauseBase<T>::unit_propagate_numeric(const Literal<T> l) {
           set_watcher(watch_rank, i, cl);
 
 #ifdef DBG_TRACE
-          if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
+          if (DBG_CLBOUND and (DBG_TRACE & UNITPROPAGATION)) {
             std::cout << " and rm from " << l << "'s watches\n";
           }
 #endif
@@ -772,7 +785,7 @@ void ClauseBase<T>::unit_propagate_numeric(const Literal<T> l) {
         }
       }
 #ifdef DBG_TRACE
-      else if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
+      else if (DBG_CLBOUND and (DBG_TRACE & UNITPROPAGATION)) {
         std::cout << "*";
       }
 #endif
@@ -781,14 +794,25 @@ void ClauseBase<T>::unit_propagate_numeric(const Literal<T> l) {
     if (i == idx) {
 
 #ifdef DBG_TRACE
-      if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
-        std::cout << ": new unit " << other << std::endl;
+      if (DBG_CLBOUND and (DBG_TRACE & UNITPROPAGATION)) {
+        std::cout << "-> new unit @lvl " << solver.level() << ": " << other
+                  << std::endl;
+        //        std::cout << ": new unit " << other << std::endl;
       }
 #endif
 
 #ifdef DBG_WATCHERS
       verifyWatchers("at assign");
 #endif
+
+#ifdef DBGP0
+      if (solver.level() <= solver.init_level) {
+        std::cout << "pruning @lvl " << solver.init_level << std::endl;
+      }
+#endif
+      if (solver.level() <= solver.init_level) {
+        makeUnforgettable(cl);
+      }
 
       solver.set(other, {this, cl->id});
       // there was pruning, descendant might trigger
@@ -827,7 +851,7 @@ void ClauseBase<T>::unit_propagate_numeric(const Literal<T> l) {
 //    auto cl{*c};
 //
 //#ifdef DBG_TRACE
-//    if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
+//    if (DBG_CLBOUND and (DBG_TRACE & UNITPROPAGATION)) {
 //      std::cout << " watched by " << *cl << std::endl;
 //    }
 //#endif
@@ -853,7 +877,7 @@ void ClauseBase<T>::unit_propagate_numeric(const Literal<T> l) {
 //          if(c_lit.value() + l.value() >= 0) {
 //
 //#ifdef DBG_TRACE
-//              if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
+//              if (DBG_CLBOUND and (DBG_TRACE & UNITPROPAGATION)) {
 //                  std::cout << " false trigger (" << c_lit << " is not
 //                  falsified)\n";
 //              }
@@ -863,7 +887,7 @@ void ClauseBase<T>::unit_propagate_numeric(const Literal<T> l) {
 //          } else {
 //
 //#ifdef DBG_TRACE
-//              if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
+//              if (DBG_CLBOUND and (DBG_TRACE & UNITPROPAGATION)) {
 //                  std::cout << " true trigger (" << c_lit << " and " << l << "
 //                  are contradictory)\n";
 //              }
@@ -874,7 +898,7 @@ void ClauseBase<T>::unit_propagate_numeric(const Literal<T> l) {
 //    if (satisfied(other)) {
 //
 //#ifdef DBG_TRACE
-//      if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
+//      if (DBG_CLBOUND and (DBG_TRACE & UNITPROPAGATION)) {
 //        std::cout << ": satisfied by " << other << std::endl;
 //      }
 //#endif
@@ -885,7 +909,7 @@ void ClauseBase<T>::unit_propagate_numeric(const Literal<T> l) {
 //    index_t i{idx};
 //
 //#ifdef DBG_TRACE
-//      if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
+//      if (DBG_CLBOUND and (DBG_TRACE & UNITPROPAGATION)) {
 //        std::cout << "search another literal to watch" ;
 //      }
 //#endif
@@ -900,7 +924,7 @@ void ClauseBase<T>::unit_propagate_numeric(const Literal<T> l) {
 //      auto p = (*cl)[i];
 //
 //#ifdef DBG_TRACE
-//      if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
+//      if (DBG_CLBOUND and (DBG_TRACE & UNITPROPAGATION)) {
 //        std::cout << "  " << p;
 //      }
 //#endif
@@ -909,7 +933,7 @@ void ClauseBase<T>::unit_propagate_numeric(const Literal<T> l) {
 //        if (not falsified(p)) {
 //
 //#ifdef DBG_TRACE
-//          if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
+//          if (DBG_CLBOUND and (DBG_TRACE & UNITPROPAGATION)) {
 //            std::cout << ": replace by " << p << " (" << i << ") as "
 //                      << watch_rank << "-th watcher ";
 //          }
@@ -918,7 +942,7 @@ void ClauseBase<T>::unit_propagate_numeric(const Literal<T> l) {
 //          set_watcher(watch_rank, i, cl);
 //
 //#ifdef DBG_TRACE
-//          if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
+//          if (DBG_CLBOUND and (DBG_TRACE & UNITPROPAGATION)) {
 //            std::cout << " and rm from " << l << "'s watches\n";
 //          }
 //#endif
@@ -935,7 +959,7 @@ void ClauseBase<T>::unit_propagate_numeric(const Literal<T> l) {
 //        }
 //      }
 //#ifdef DBG_TRACE
-//      else if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
+//      else if (DBG_CLBOUND and (DBG_TRACE & UNITPROPAGATION)) {
 //        std::cout << "*";
 //      }
 //#endif
@@ -944,7 +968,7 @@ void ClauseBase<T>::unit_propagate_numeric(const Literal<T> l) {
 //    if (i == idx) {
 //
 //#ifdef DBG_TRACE
-//      if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
+//      if (DBG_CLBOUND and (DBG_TRACE & UNITPROPAGATION)) {
 //        std::cout << ": new unit " << other << std::endl;
 //      }
 //#endif
@@ -973,7 +997,7 @@ void ClauseBase<T>::unit_propagate_boolean(const Literal<T> l) {
     auto cl{*c};
 
 #ifdef DBG_TRACE
-    if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
+    if (DBG_CLBOUND and (DBG_TRACE & UNITPROPAGATION)) {
       std::cout << " watched by " << *cl << std::endl;
     }
 #endif
@@ -986,7 +1010,7 @@ void ClauseBase<T>::unit_propagate_boolean(const Literal<T> l) {
     if (satisfied(other)) {
 
 #ifdef DBG_TRACE
-      if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
+      if (DBG_CLBOUND and (DBG_TRACE & UNITPROPAGATION)) {
         std::cout << ": satisfied by " << other << std::endl;
       }
 #endif
@@ -997,7 +1021,7 @@ void ClauseBase<T>::unit_propagate_boolean(const Literal<T> l) {
     index_t i{idx};
 
 #ifdef DBG_TRACE
-    if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
+    if (DBG_CLBOUND and (DBG_TRACE & UNITPROPAGATION)) {
       std::cout << "search another literal to watch";
     }
 #endif
@@ -1012,7 +1036,7 @@ void ClauseBase<T>::unit_propagate_boolean(const Literal<T> l) {
       auto p = (*cl)[i];
 
 #ifdef DBG_TRACE
-      if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
+      if (DBG_CLBOUND and (DBG_TRACE & UNITPROPAGATION)) {
         std::cout << "  " << p;
       }
 #endif
@@ -1021,7 +1045,7 @@ void ClauseBase<T>::unit_propagate_boolean(const Literal<T> l) {
         if (not falsified(p)) {
 
 #ifdef DBG_TRACE
-          if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
+          if (DBG_CLBOUND and (DBG_TRACE & UNITPROPAGATION)) {
             std::cout << ": replace by " << p << " (" << i << ") as "
                       << watch_rank << "-th watcher ";
           }
@@ -1030,7 +1054,7 @@ void ClauseBase<T>::unit_propagate_boolean(const Literal<T> l) {
           set_watcher(watch_rank, i, cl);
 
 #ifdef DBG_TRACE
-          if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
+          if (DBG_CLBOUND and (DBG_TRACE & UNITPROPAGATION)) {
             std::cout << " and rm from " << l << "'s watches\n";
           }
 #endif
@@ -1043,7 +1067,7 @@ void ClauseBase<T>::unit_propagate_boolean(const Literal<T> l) {
         }
       }
 #ifdef DBG_TRACE
-      else if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
+      else if (DBG_CLBOUND and (DBG_TRACE & UNITPROPAGATION)) {
         std::cout << "*";
       }
 #endif
@@ -1052,14 +1076,25 @@ void ClauseBase<T>::unit_propagate_boolean(const Literal<T> l) {
     if (i == idx) {
 
 #ifdef DBG_TRACE
-      if (DBG_CBOUND and (DBG_TRACE & UNITPROPAGATION)) {
-        std::cout << ": new unit " << other << std::endl;
+      if (DBG_CLBOUND and (DBG_TRACE & UNITPROPAGATION)) {
+        std::cout << "-> new unit @lvl " << solver.level() << ": " << other
+                  << std::endl;
+        //        std::cout << ": new unit " << other << std::endl;
       }
 #endif
 
 #ifdef DBG_WATCHERS
       verifyWatchers("at assign");
 #endif
+
+#ifdef DBGP0
+      if (solver.level() <= solver.init_level) {
+        std::cout << "pruning @lvl " << solver.init_level << std::endl;
+      }
+#endif
+      if (solver.level() <= solver.init_level) {
+        makeUnforgettable(cl);
+      }
 
       solver.set(other, {this, cl->id});
 
@@ -1104,6 +1139,23 @@ void ClauseBase<T>::set_watcher(const int r, const index_t i, Clause<T> *cl) {
 //                                 c2->watched(c2->watch_rank(l)).value();
 //                        });
 // }
+
+template <typename T> void ClauseBase<T>::makeUnforgettable(Clause<T> *cl) {
+  if (not free_cl_indices.isback(cl->id)) {
+    std::cout << "clause " << *cl << " is not learnt\n";
+
+    if (free_cl_indices.isfront(cl->id)) {
+      std::cout << "(marked)\n";
+    } else {
+      std::cout << "(unreferenced)\n";
+    }
+
+    exit(1);
+  }
+
+  free_cl_indices.add(cl->id);
+  free_cl_indices.remove_front(cl->id);
+}
 
 template <typename T> void ClauseBase<T>::forget(Clause<T> *cl) {
   for (auto r{0}; r < 2; ++r) {
@@ -1323,6 +1375,16 @@ Clause<T> *ClauseBase<T>::add(const iter first, const iter last,
       if(learnt) {
           Literal<T> l{(*c)[0]};
           //          assign(l, {this, c->id});
+
+#ifdef DBGP0
+          if (solver.level() <= solver.init_level) {
+            std::cout << "pruning @lvl " << solver.init_level << std::endl;
+          }
+#endif
+          if (solver.level() <= solver.init_level) {
+            makeUnforgettable(c);
+          }
+
           solver.set(l, {this, c->id});
       }
   }

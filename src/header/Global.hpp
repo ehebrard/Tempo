@@ -44,10 +44,11 @@ using boolean_state = int;
 using hint = int;
 //#define NoHint -1
 //
-//#define DBG_BOUND num_choicepoints >= 0
-//#define DBG_CBOUND solver.num_choicepoints >= 0
-//#define DBG_BBOUND num_choicepoints >= 0 //(sched.num_fails >= 236)
-//#define DBG_TRACE 115                      // 183 //1+2+4+32+128
+//#define DBG_BOUND level() == init_level //num_choicepoints >= 10103
+//#define DBG_CBOUND solver.level() == solver.init_level //solver.num_choicepoints >= 10103
+//#define DBG_CLBOUND false //cl->id == 80 //solver.num_choicepoints >= 10527
+//#define DBG_BBOUND level() == init_level //num_choicepoints >= 10103 //(sched.num_fails >= 236)
+//#define DBG_TRACE 33                      // 183 //1+2+4+32+128
 #define SEARCH 1
 #define DOMAINS 2
 #define BRANCH 4
@@ -81,6 +82,7 @@ using hint = int;
 //#define DBG_EXTRACT true
 //#define DBG_SPANNING true
 //#define DBG_LIST true
+//#define DBGP0 true
 
 // priority values for constraint propagation
 enum class Priority {
