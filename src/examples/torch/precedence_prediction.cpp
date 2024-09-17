@@ -17,6 +17,7 @@
 #include "../helpers/scheduling_helpers.hpp"
 #include "../helpers/cli.hpp"
 #include "../helpers/shell.hpp"
+#include "../helpers/git_sha.hpp"
 
 
 template<tempo::concepts::ttyped_range<tempo::Literal> L>
@@ -59,6 +60,7 @@ int main(int argc, char **argv) {
     unsigned numberOfIterations = 0;
     auto confidenceThresh = 0.0;
     unsigned numLiterals = 0;
+    util::Profiler profiler;
     auto opt = cli::parseOptions(argc, argv,
                                  cli::ArgSpec("gnn-loc", "Location of the GNN model", false, gnnLocation),
                                  cli::ArgSpec("feat-config", "Location of the feature extractor config", false,
@@ -99,10 +101,11 @@ int main(int argc, char **argv) {
         s->setBranchingHeuristic(heuristics::make_compound_heuristic(heuristics::RandomVariableSelection{},
                                                                      heuristics::RandomBinaryValue{}));
         s->PropagationCompleted.subscribe_unhandled(
-                [i = 0u, numberOfIterations, &predictor](auto &state) mutable {
+                [i = 0u, numberOfIterations, &predictor, &profiler](auto &state) mutable {
             if (++i > numberOfIterations) {
                 KillHandler::instance().kill();
             } else {
+                util::ScopeWatch scopeWatch(profiler, "predictor");
                 std::visit([&state](auto &pred) {pred.updateConfidence(state);}, *predictor);
             }
         });
@@ -128,7 +131,13 @@ int main(int argc, char **argv) {
         }
     }
 
-    std::cout << "total duration: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count()
-              << "ms";
+    if (profiler.has("predictor")) {
+        profiler.print<std::chrono::milliseconds>("predictor", std::cout);
+    }
+
+    std::cout << "-- total duration: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count()
+              << "ms" << std::endl;
+    std::cout << "-- date: " << shell::getTimeStamp() << std::endl;
+    std::cout << "-- commit: " << GitSha << std::endl;
     return 0;
 }
