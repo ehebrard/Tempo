@@ -173,6 +173,15 @@ namespace tempo::util {
         }
 
         /**
+         * Checks whether profiling data on a specific event is available
+         * @param event event name
+         * @return true if event occurred at least once, false otherwise
+         */
+        bool has(const std::string &event) const noexcept {
+            return events.contains(event);
+        }
+
+        /**
          * prints all events to an out stream
          * @tparam T timing type
          * @param os out stream
