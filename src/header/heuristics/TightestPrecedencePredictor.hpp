@@ -21,12 +21,25 @@ namespace tempo {
 }
 
 namespace tempo::heuristics {
+    /**
+     * @brief Precedence predictor based on Tightest heuristic
+     * @tparam T timing type
+     */
     template<concepts::scalar T>
     class TightestPrecedencePredictor : public PrecedencePredictor<TightestPrecedencePredictor<T>, T> {
     public:
+        /**
+         * Ctor
+         * @param literals all possible search literals
+         */
         explicit TightestPrecedencePredictor(std::vector<Literal<T>> literals)
                 : PrecedencePredictor<TightestPrecedencePredictor<T>, T>(std::move(literals)) {}
 
+
+        /**
+         * Update confidences using the current state of the solver
+         * @param solver Solver that represents the current state of the search
+         */
         void updateConfidence(const Solver<T> &solver) {
             for(auto [lit, pos, neg] : iterators::zip(this->literals, this->massesPos, this->massesNeg)) {
                 auto estPos = boundEstimation(lit, solver);
@@ -41,6 +54,12 @@ namespace tempo::heuristics {
             }
         }
 
+        /**
+         * Calculates prediction certainty from two evidence masses (not really theoretically motivated)
+         * @param mPos positive evidence for a literal
+         * @param mNeg negative evidence for a literal
+         * @return confidence value in [0, 1]
+         */
         static double getCertainty(double pos, double neg) {
             return std::pow(std::abs(2 * pos / (pos + neg) - 1), 0.1);
         }
