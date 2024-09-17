@@ -8,8 +8,9 @@
 #include <Iterators.hpp>
 
 #include "nn/GNN.hpp"
-#include "nn/GNNEdgePolarityPredictor.hpp"
+#include "nn/tensor_utils.hpp"
 #include "testing.hpp"
+#include "nn/heat_map_utils.hpp"
 
 class TestGNN: public tempo::nn::GNN {
 public:
@@ -45,20 +46,4 @@ TEST(nn_GNN, edge_regressor_heat_map){
     EXPECT_EQ(heatMap.at(0, 1), TestEdgeRegressor::NoValue);
     EXPECT_EQ(heatMap.at(1, 0), TestEdgeRegressor::NoValue);
     EXPECT_EQ(heatMap.at(4, 1), TestEdgeRegressor::NoValue);
-}
-
-TEST(nn_GNN, gnn_heat_map_choose_polarity) {
-    using namespace tempo;
-    using tempo::nn::heuristics::detail::choosePolarityFromHeatMap;
-    Matrix<nn::DataType> heatMap(3, 3, nn::GNN::NoValue);
-    heatMap(0, 1) = 0.9;
-    heatMap(1, 0) = 0.1;
-    heatMap(2, 1) = 1;
-    heatMap(1, 2) = 1;
-    EXPECT_TRUE(choosePolarityFromHeatMap(0, 1, heatMap));
-    EXPECT_FALSE(choosePolarityFromHeatMap(1, 0, heatMap));
-    EXPECT_FALSE(choosePolarityFromHeatMap(2, 1, heatMap));
-    EXPECT_FALSE(choosePolarityFromHeatMap(1, 2, heatMap));
-    EXPECT_THROW(choosePolarityFromHeatMap(0, 2, heatMap), std::runtime_error);
-    EXPECT_THROW(choosePolarityFromHeatMap(2, 0, heatMap), std::runtime_error);
 }

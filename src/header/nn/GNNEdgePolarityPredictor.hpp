@@ -12,18 +12,14 @@
 #include "util/Matrix.hpp"
 #include "util/traits.hpp"
 #include "Literal.hpp"
+#include "heat_map_utils.hpp"
 
 namespace tempo {
     template<typename T>
     class Solver;
 }
 
-namespace tempo::nn::heuristics {
-
-    namespace detail {
-        bool choosePolarityFromHeatMap(unsigned taskFrom, unsigned taskTo, const Matrix<DataType> &heatMap);
-    }
-
+namespace tempo::nn {
 
     /**
      * GNN based value selection heuristic that predicts a probability for each edge and returns the polarity of
@@ -51,23 +47,8 @@ namespace tempo::nn::heuristics {
          * @return corresponding positive or negative literal according to the GNN
          */
         auto choose(var_t x, const Solver<T> &solver) const -> Literal<T> {
-            auto edge = solver.boolean.getEdge(true, x);
-            auto edgeRev = solver.boolean.getEdge(false, x);
             const auto &mapping = graphBuilder.getProblem().getMapping();
-            assert(mapping.contains(edge.from));
-            assert(mapping.contains(edge.to));
-            assert(mapping.contains(edgeRev.from));
-            assert(mapping.contains(edgeRev.to));
-            unsigned from = mapping(edge.from);
-            unsigned to = mapping(edge.to);
-            unsigned rfrom = mapping(edgeRev.from);
-            unsigned rto = mapping(edgeRev.to);
-            if (from != rto or to != rfrom) {
-                // @TODO not strictly necessary. simply allow distances between different tasks and use DST for probs
-                throw std::runtime_error("positive and negative edges have different tasks as endpoints.");
-            }
-
-            return solver.boolean.getLiteral(detail::choosePolarityFromHeatMap(from, to, edgeHeatMap), x);
+            return solver.boolean.getLiteral(pignisticEdgeProbability(x, edgeHeatMap, solver, mapping) > 0.5, x);
         }
 
         /**

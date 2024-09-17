@@ -35,7 +35,7 @@ namespace tempo::heuristics {
      */
     template<concepts::scalar T, SchedulingResource R>
     class GNNFullGuidance: public BaseBooleanHeuristic<GNNFullGuidance<T, R>> {
-        nn::heuristics::GNNEdgePolarityPredictor<T, R> polarityPredictor;
+        nn::GNNEdgePolarityPredictor<T, R> polarityPredictor;
     public:
 
         /**

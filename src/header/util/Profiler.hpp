@@ -161,7 +161,7 @@ namespace tempo::util {
          */
         template<typename T>
         void print(const std::string &eventName, std::ostream &os, int nameWidth = 0, int valWidth = 0) const {
-            auto [min, max, avg, sum, stddev, med] = getResult<T>(eventName);
+            auto [min, max, avg, stddev, med, sum] = getResult<T>(eventName);
             constexpr auto s = detail::timing_symbol<T>::symbol;
             os << "-- " << std::setw(nameWidth) << std::left << eventName << ": \tmin: " << std::setw(valWidth)
                << std::left << min << s
@@ -170,6 +170,15 @@ namespace tempo::util {
                << ", std: " << std::setw(valWidth) << std::left << stddev << s << ", median: " << std::setw(valWidth)
                << std::left << med
                << s << ", total: " << sum << s << "\n";
+        }
+
+        /**
+         * Checks whether profiling data on a specific event is available
+         * @param event event name
+         * @return true if event occurred at least once, false otherwise
+         */
+        bool has(const std::string &event) const noexcept {
+            return events.contains(event);
         }
 
         /**
