@@ -577,8 +577,6 @@ public:
     // index of the first decision in the trail
     index_t ground_level{0};
     index_t assumption_level{0};
-    // list of assumptions
-    std::vector<Literal<T>> assumptions;
     // apply the assumptions
     template <typename IterLit>
     void makeAssumptions(IterLit beg_a, IterLit end_a);
