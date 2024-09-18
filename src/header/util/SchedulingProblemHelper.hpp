@@ -21,6 +21,7 @@
 #include "util/Matrix.hpp"
 #include "util/traits.hpp"
 #include "util/distance.hpp"
+#include "Literal.hpp"
 
 namespace tempo {
 
@@ -263,6 +264,25 @@ namespace tempo {
         [[nodiscard]] auto getTaskDistances(const Solver<T> &solver) const {
             using BP = std::remove_cvref_t<decltype(solver.numeric)>;
             return detail::TaskDistanceFunction<T, BP>(t, solver.core, solver.numeric);
+        }
+
+        /**
+         * Gets all non-fixed literals that have a semantic and correspond to task edges
+         * @param solver solver from which to extract the literals
+         * @return list of free literals corresponding to edges between tasks
+         */
+        auto getSearchLiterals(const Solver<T> &solver) const -> std::vector<Literal<T>> {
+            std::vector<Literal<T>> literals;
+            for (auto var : solver.getBranch()) {
+                if (solver.boolean.hasSemantic(var)) {
+                    auto edge = solver.boolean.getEdge(true, var);
+                    if (hasVariable(edge.from) and hasVariable(edge.to)) {
+                        literals.emplace_back(solver.boolean.getLiteral(true, var));
+                    }
+                }
+            }
+
+            return literals;
         }
     };
 }
