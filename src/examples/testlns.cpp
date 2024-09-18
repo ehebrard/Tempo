@@ -288,39 +288,17 @@ int main(int argc, char *argv[]) {
   }
     
     if(not optimal) {
-//        //    S.initializeSearch();
-//        //    S.saveState();
-//        std::vector<Literal<int>> assumptions;
-//        for(auto x : S.getBranch()) {
-//            assumptions.push_back(S.boolean.getLiteral((tempo::random() % 2), x));
-//        }
-//        size_t n{10};
-//        for(unsigned i{0}; i<n; ++i) {
-//            auto r{i + (tempo::random() % (assumptions.size()-i))};
-//            std::swap(assumptions[i], assumptions[r]);
-//            std::cout << S.pretty(assumptions[i]) << std::endl;
-//            //        S.set(assumptions[i], Constant::Assumption<int>);
-//        }
-//        //    S.assumption_level = S.numLiteral()-1;
-//        //    exit(1);
-//
-//        //    S.makeAssumptions(assumptions.begin(), assumptions.begin()+n);
-//        //
-//        //    S.minimize(schedule.duration);
-//        //
-//        //    std::cout << "\nclause:\n";
-//        //    for(auto li{S.begin_learnt()}; li!=S.end_learnt(); ++li) {
-//        //        std::cout << S.pretty(*li) << std::endl;
-//        //    }
-//        //
-//        //    S.restoreState(0);
-//        //
-//        //    S.minimize(schedule.duration);
-        
-        
+
+                
         MinimizationObjective<int> objective(schedule.duration);
 //        RelaxRandomDisjunctiveResource<int> policy(S, resources);
-        FixRandomDisjunctiveResource<int> policy(S, resources);
+//                FixRandomDisjunctiveResource<int> policy(S, resources);
+        std::vector<BooleanVar<int>> vars;
+        for(auto& resource : resources)
+            for(auto bi{resource.begDisjunct()}; bi!=resource.endDisjunct(); ++bi) {
+                vars.push_back(*bi);
+            }
+        RandomSubset<int> policy(S, vars, .97);
         
         S.largeNeighborhoodSearch(objective, policy);
     }

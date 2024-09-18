@@ -54,6 +54,9 @@ template<typename T>
 void RelaxRandomDisjunctiveResource<T>::select(std::vector<Literal<T>>& fixed) {
     fixed.clear();
     int r{static_cast<int>(random() % resources.size())};
+
+    std::cout << "relax resource " << r << "/" << resources.size() << std::endl;
+
     for(auto &resource : resources) if(--r != 0) {
         for(auto bi{resource.begDisjunct()}; bi!=resource.endDisjunct(); ++bi) {
             fixed.push_back(*bi == solver.boolean.value(*bi));
@@ -83,6 +86,32 @@ void FixRandomDisjunctiveResource<T>::select(std::vector<Literal<T>>& fixed) {
         }
 }
 
+template <typename T> class RandomSubset : public RelaxationPolicy<T> {
+public:
+  RandomSubset(Solver<T> &solver, std::vector<BooleanVar<T>> &vars,
+            const double ratio)
+      : solver(solver), vars(vars), ratio(1.0 - ratio) {}
+  void select(std::vector<Literal<T>> &fixed) override;
+
+private:
+  Solver<T> &solver;
+  std::vector<BooleanVar<T>> vars;
+  double ratio;
+};
+
+template <typename T>
+void RandomSubset<T>::select(std::vector<Literal<T>> &fixed) {
+  fixed.clear();
+  for (auto x : vars)
+    fixed.push_back(x == solver.boolean.value(x));
+
+  size_t n{static_cast<size_t>(ratio * static_cast<double>(vars.size()))};
+  for (size_t i{0}; i < n; ++i) {
+    size_t r{i + static_cast<size_t>(random() % (n - i))};
+    std::swap(fixed[i], fixed[r]);
+  }
+  fixed.resize(n);
+}
 
 } // namespace tempo
 

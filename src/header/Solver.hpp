@@ -2693,6 +2693,9 @@ void Solver<T>::largeNeighborhoodSearch(S &objective, A &relaxationPolicy) {
             restoreState(0);
         }
     }
+    
+    if (options.verbosity >= Options::QUIET)
+        displaySummary(std::cout, (objective.gap() > 0 ? "killed" : "optimal"));
 }
 
 //
