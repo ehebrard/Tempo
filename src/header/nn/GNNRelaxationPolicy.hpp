@@ -39,6 +39,7 @@ namespace tempo::nn {
         double minCertainty;
         const Solver<T> &solver;
         tempo::util::Profiler profiler;
+        std::vector<Literal<T>> assumptionCache;
 
     public:
         GNNRelaxationPolicy(const GNNRelaxationPolicy &) = default;
@@ -79,27 +80,21 @@ namespace tempo::nn {
                 throw std::runtime_error("invalid relaxation ratio");
             }
 
-            tempo::util::ScopeWatch sw(profiler, "gnn lns policy update");
-            predictor.updateConfidence(solver);
+            updateCache();
         }
 
         /**
          * Relaxation policy interface. Selects a set of literals according to the last GNN prediction
          * @param literals out param literals
          */
-        void select(std::vector<Literal<T>> &literals) {
-            using namespace std::views;
+        void select(std::vector<Literal<T>> &literals) const {
             auto numLiterals = static_cast<std::size_t>(predictor.numLiterals() * relaxationRatio);
             if (numLiterals == 0) {
                 literals.clear();
                 return;
             }
 
-            //predictor.updateConfidence(solver);
-            auto lits = predictor.getLiterals();
-            auto selection = lits | filter([m = minCertainty](auto &tpl) { return std::get<1>(tpl) > m; }) |
-                             take(numLiterals) | elements<0> | common;
-            literals = std::vector(selection.begin(), selection.end());
+            literals = assumptionCache;
             if (solver.getOptions().verbosity >= Options::NORMAL) {
                 std::cout << "-- trying to fix " << literals.size() << " literals" << std::endl;
             }
@@ -110,6 +105,25 @@ namespace tempo::nn {
          */
         void notifySuccess() {
 
+        }
+
+        void updateCache() {
+            using namespace std::views;
+            auto numLiterals = static_cast<std::size_t>(predictor.numLiterals() * relaxationRatio);
+            if (numLiterals == 0) {
+                return;
+            }
+
+            tempo::util::ScopeWatch sw(profiler, "gnn lns policy update");
+            {
+                tempo::util::ScopeWatch _(profiler, "gnn inference");
+                predictor.updateConfidence(solver);
+            }
+
+            auto lits = predictor.getLiterals();
+            auto selection = lits | filter([m = minCertainty](auto &tpl) { return std::get<1>(tpl) > m; }) |
+                             take(numLiterals) | elements<0> | common;
+            assumptionCache = std::vector(selection.begin(), selection.end());
         }
 
         /**
@@ -124,10 +138,7 @@ namespace tempo::nn {
                           << relaxationRatio * 100 << "%" << std::endl;
             }
 
-            if (numLiterals > 0) {
-                tempo::util::ScopeWatch sw(profiler, "gnn lns policy update");
-                predictor.updateConfidence(solver);
-            }
+            updateCache();
         }
     };
 }
