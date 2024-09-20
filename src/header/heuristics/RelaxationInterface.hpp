@@ -149,6 +149,18 @@ namespace tempo::heuristics {
         }
 
     };
+
+    /**
+     * @brief Relaxation policy interface
+     * @tparam P policy type
+     * @tparam T timing type
+     */
+    template<typename P, typename T>
+    concept RelaxationPolicy = requires(P policy, AssumptionInterface<T> interface) {
+        policy.relax(interface);
+        policy.notifySuccess();
+        policy.notifyFailure();
+    };
 }
 
 #endif //TEMPO_RELAXATIONINTERFACE_HPP

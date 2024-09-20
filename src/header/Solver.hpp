@@ -598,8 +598,8 @@ public:
     
     template <typename S> void optimize(S &objective);
     
-    template <typename S, typename A>
-    void largeNeighborhoodSearch(S &objective, A &relaxationPolicy);
+    template <typename S, heuristics::RelaxationPolicy<T> P>
+    void largeNeighborhoodSearch(S &objective, P &&relaxationPolicy);
     
     boolean_state satisfiable();
     void minimize(const NumericVar<T> x);
@@ -2600,8 +2600,8 @@ void Solver<T>::optimize(S &objective) {
 }
 
 template <typename T>
-template <typename S, typename A>
-void Solver<T>::largeNeighborhoodSearch(S &objective, A &relaxationPolicy) {
+template <typename S, heuristics::RelaxationPolicy<T> P>
+void Solver<T>::largeNeighborhoodSearch(S &objective, P &&relaxationPolicy) {
     objective.X.extract(*this);
     objective_var = objective.X.id();
     initializeSearch();
@@ -2641,7 +2641,7 @@ void Solver<T>::largeNeighborhoodSearch(S &objective, A &relaxationPolicy) {
 
     while (objective.gap() and not KillHandler::instance().signalReceived()) {
         heuristics::AssumptionInterface surrogate = *this;
-        relaxationPolicy.relax(surrogate);
+        std::forward<P>(relaxationPolicy).relax(surrogate);
         auto satisfiability = UnknownState;
         if (surrogate.getState() != heuristics::AssumptionState::Fail) {
             satisfiability = search();
@@ -2659,7 +2659,7 @@ void Solver<T>::largeNeighborhoodSearch(S &objective, A &relaxationPolicy) {
             ++num_solutions;
             SolutionFound.trigger(*this);
             
-            relaxationPolicy.notifySuccess();
+            std::forward<P>(relaxationPolicy).notifySuccess();
             restoreState(0);
         
             try {
@@ -2685,7 +2685,7 @@ void Solver<T>::largeNeighborhoodSearch(S &objective, A &relaxationPolicy) {
             if (surrogate.getState() == heuristics::AssumptionState::Empty) {
                 objective.setDual(objective.primalBound());
             } else {
-                relaxationPolicy.notifyFailure();
+                std::forward<P>(relaxationPolicy).notifyFailure();
                 restoreState(0);
             }
         }
