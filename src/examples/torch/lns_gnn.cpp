@@ -19,20 +19,24 @@ int main(int argc, char **argv) {
     using namespace tempo;
     std::string gnnLocation;
     std::string featureExtractorConf;
-    auto confidenceThresh = 0.0;
-    auto relaxationRatio = 0.0;
-    auto relaxationDecay = 0.0;
+    nn::PolicyConfig config{.relaxationRatio = 1, .relaxationDecay = 0.5, .minCertainty = 0.5,
+                            .carefulAssumptions = true, .retryLimit = 0};
     auto opt = cli::parseOptions(argc, argv,
                                  cli::ArgSpec("gnn-loc", "Location of the GNN model", false, gnnLocation),
                                  cli::ArgSpec("feat-config", "Location of the feature extractor config", false,
                                               featureExtractorConf),
-                                 cli::ArgSpec("confidence", "minimum confidence of GNN", false, confidenceThresh),
-                                 cli::ArgSpec("ratio", "percentage of literals to relax", false, relaxationRatio),
-                                 cli::ArgSpec("decay", "relaxation ratio decay on failure", false, relaxationDecay));
+                                 cli::ArgSpec("confidence", "minimum confidence of GNN", false,
+                                              config.minCertainty),
+                                 cli::ArgSpec("ratio", "percentage of literals to relax", false,
+                                              config.relaxationRatio),
+                                 cli::ArgSpec("decay", "relaxation ratio decay on failure", false,
+                                              config.relaxationDecay),
+                                 cli::SwitchSpec("careful", "whether to make careful assumptions after failure",
+                                                  config.carefulAssumptions, false),
+                                 cli::ArgSpec("retry-limit", "number of fails before decreasing relaxation ratio", false,
+                                              config.retryLimit));
     auto [solver, problem, optSol, _] = loadSchedulingProblem(opt);
-    nn::GNNRelaxationPolicy policy(*solver, gnnLocation, featureExtractorConf, problem, relaxationRatio,
-                                   relaxationDecay, confidenceThresh);
-
+    nn::GNNRelaxationPolicy policy(*solver, gnnLocation, featureExtractorConf, problem, config);
     MinimizationObjective objective(problem.schedule().duration);
     util::StopWatch sw;
     solver->largeNeighborhoodSearch(objective, policy);
