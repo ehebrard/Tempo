@@ -29,7 +29,6 @@ constexpr auto InputsName = "inputs";
 constexpr auto OutputsName = "outputs";
 constexpr auto LabelFileName = "task_network";
 constexpr auto LabelName = "label";
-constexpr auto InfoFileName = "info.json";
 constexpr auto GraphReferenceFile = "ref.json";
 
 template<tempo::concepts::scalar T>
@@ -61,7 +60,7 @@ int main(int argc, char **argv) {
                                      cli::ArgSpec("save-to", "Where to save the features", true, saveTo),
                                      cli::ArgSpec("feat-config", "Path to the feature extractor config", true,
                                                   featConfig),
-                                     cli::SwitchSpec("filter-duplicates", "Whether to filter duplicate graphs",
+                                     cli::SwitchSpec("no-filter-duplicates", "disable duplicate graph filtering",
                                                      filterDuplicates, true));
     if (not fs::is_directory(options.instance_file)) {
         std::cerr << "specify the path to the directory with the data points" << std::endl;
