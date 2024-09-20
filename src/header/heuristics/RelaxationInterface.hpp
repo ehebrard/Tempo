@@ -85,7 +85,6 @@ namespace tempo::heuristics {
 
             try {
                 s.propagate();
-                s.makeAssumptions(std::forward<L>(literals));
             } catch (const Failure<T> &) {
                 stateTransition(Fail);
                 return false;
