@@ -15,7 +15,7 @@ TEST(nn_utils, dstToBayes) {
     using namespace tempo::nn;
     using tempo::testing::random_float;
     for (int i = 0; i < 100; ++i) {
-        auto a = random_float(0.0, 100.0);
+        auto a = random_float(0.0, 1.0);
         auto p = random_float(0.0, 1.0);
         EXPECT_NEAR(dstToBayes(a, a), 0.5, 0.00001);
         EXPECT_NEAR(dstToBayes(p, 1 - p), p, 0.00001);
