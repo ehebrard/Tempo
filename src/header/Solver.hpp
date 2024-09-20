@@ -48,8 +48,10 @@
 #include "heuristics/impl/DecayingEventActivityMap.hpp"
 #include "RelaxationPolicy.hpp"
 #include "util/KillHandler.hpp"
+#include "util/traits.hpp"
 #include "util/Options.hpp"
 #include "util/SubscribableEvent.hpp"
+#include "heuristics/RelaxationInterface.hpp"
 
 
 namespace tempo {
@@ -577,9 +579,15 @@ public:
     // index of the first decision in the trail
     index_t ground_level{0};
     index_t assumption_level{0};
-    // apply the assumptions
-    template <typename IterLit>
-    void makeAssumptions(IterLit beg_a, IterLit end_a);
+
+    /**
+     * set literals without any checks. May throw
+     * @tparam L literal range type
+     * @param literals range containing literals
+     */
+    template <concepts::typed_range<Literal<T>> L>
+    void makeAssumptions(const L &literals);
+
     //@}
     
     /**
@@ -2630,29 +2638,15 @@ void Solver<T>::largeNeighborhoodSearch(S &objective, A &relaxationPolicy) {
         }
     }
     
-    std::vector<Literal<T>> assumptions;
-    
+
     while (objective.gap() and not KillHandler::instance().signalReceived()) {
-        relaxationPolicy.select(assumptions);
-        
-//        std::cout << " ASSUMPTIONS:";
-//        for(auto l : assumptions)
-//            std::cout << " " << pretty(l);
-//        std::cout << std::endl;
-        
-        auto satisfiability{FalseState};
-        
-        try {
-            makeAssumptions(assumptions.begin(), assumptions.end());
-            satisfiability = UnknownState;
-        }
-        catch(Failure<T>& f) {
-//            std::cout << "assumptions are inconsistent under the current UB\n";
-        }
-        
-        if(satisfiability == UnknownState)
+        heuristics::AssumptionInterface surrogate = *this;
+        relaxationPolicy.relax(surrogate);
+        auto satisfiability = UnknownState;
+        if (surrogate.getState() != heuristics::AssumptionState::Fail) {
             satisfiability = search();
-            
+        }
+
         if (satisfiability == TrueState) {
             auto best{objective.value(*this)};
             if (options.verbosity >= Options::NORMAL) {
@@ -2686,9 +2680,14 @@ void Solver<T>::largeNeighborhoodSearch(S &objective, A &relaxationPolicy) {
 //            std::cout << std::endl;
             
 //            std::cout << learnt_clause.size() << "/" << assumptions.size() << std::endl;
-            
-            relaxationPolicy.notifyFailure();
-            restoreState(0);
+
+            // no assumptions made and still failure => no improving solution exists
+            if (surrogate.getState() == heuristics::AssumptionState::Empty) {
+                objective.setDual(objective.primalBound());
+            } else {
+                relaxationPolicy.notifyFailure();
+                restoreState(0);
+            }
         }
     }
     
@@ -2733,12 +2732,14 @@ void Solver<T>::largeNeighborhoodSearch(S &objective, A &relaxationPolicy) {
 //}
 
 template <typename T>
-template <typename IterLit>
- void Solver<T>::makeAssumptions(IterLit beg_a, IterLit end_a) {
+template <concepts::typed_range<Literal<T>> L>
+ void Solver<T>::makeAssumptions(const L &literals) {
     initializeSearch();
     saveState();
-    for (auto a{beg_a}; a!=end_a; ++a)
-      set(*a);
+    for (auto lit : literals) {
+        set(lit);
+    }
+
     propagate();
     assumption_level = numLiteral()-1;
 }
