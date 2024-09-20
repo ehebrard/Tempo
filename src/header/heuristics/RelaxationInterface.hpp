@@ -1,7 +1,7 @@
 /**
 * @author Tim Luchterhand
 * @date 19.09.24
-* @brief
+* @brief LNS relaxation policy interface.
 */
 
 #ifndef TEMPO_RELAXATIONINTERFACE_HPP
@@ -18,8 +18,13 @@ namespace tempo {
 
 namespace tempo::heuristics {
 
+    /**
+     * @brief State of the AssumptionInterface used by the solver to determine followup actions
+     */
     enum class AssumptionState {
-        Success, Fail, Empty
+        Success, ///< relaxation succeeded
+        Fail, ///< relaxation failed and relaxation policy cannot handle the error
+        Empty ///< relaxation policy does not want to make assumptions
     };
 
     /**
