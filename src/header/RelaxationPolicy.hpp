@@ -37,6 +37,7 @@ public:
     virtual void notifySuccess() {}
     virtual void notifyFailure() {}
 
+    BaseRelaxationPolicy() = default;
     virtual ~BaseRelaxationPolicy() = default;
     BaseRelaxationPolicy(BaseRelaxationPolicy &&) = default;
     BaseRelaxationPolicy &operator=(BaseRelaxationPolicy &&) = default;
