@@ -12,6 +12,7 @@
 #include <ranges>
 #include <iostream>
 
+#include "heuristics/RelaxationInterface.hpp"
 #include "util/traits.hpp"
 #include "util/SchedulingProblemHelper.hpp"
 #include "Literal.hpp"
@@ -26,6 +27,12 @@ namespace tempo {
 namespace tempo::nn {
     namespace fs = std::filesystem;
 
+    struct PolicyConfig {
+        double relaxationRatio, relaxationDecay, minCertainty;
+        bool carefulAssumptions;
+        unsigned retryLimit;
+    };
+
     /**
      * @brief GNN based relaxation policy. Uses precedence predictor to fix most probable precedences
      * @tparam T timing type
@@ -34,12 +41,11 @@ namespace tempo::nn {
     template<concepts::scalar T, SchedulingResource R>
     class GNNRelaxationPolicy {
         GNNPrecedencePredictor<T, R> predictor;
-        double relaxationRatio;
-        double relaxationDecay;
-        double minCertainty;
         const Solver<T> &solver;
-        tempo::util::Profiler profiler;
+        mutable tempo::util::Profiler profiler;
+        PolicyConfig config;
         std::vector<Literal<T>> assumptionCache;
+        unsigned failCount = 0;
 
     public:
         GNNRelaxationPolicy(const GNNRelaxationPolicy &) = default;
@@ -67,36 +73,52 @@ namespace tempo::nn {
         GNNRelaxationPolicy(const Solver<T> &solver, const fs::path &modelLocation,
                             const fs::path &featureExtractorConfigLocation,
                             const SchedulingProblemHelper<T, R> &problemInstance,
-                            double relaxationRatio, double relaxationDecay, double minCertainty) :
+                            const PolicyConfig &config) :
                 predictor(modelLocation, featureExtractorConfigLocation, problemInstance,
-                          problemInstance.getSearchLiterals(solver)),
-                relaxationRatio(relaxationRatio), relaxationDecay(relaxationDecay), minCertainty(minCertainty),
-                solver(solver) {
-            if (relaxationRatio < 0 or relaxationRatio > 1) {
+                          problemInstance.getSearchLiterals(solver)), solver(solver), config(config) {
+            if (config.relaxationRatio < 0 or config.relaxationRatio > 1) {
                 throw std::runtime_error("invalid relaxation ratio");
             }
 
-            if (relaxationDecay < 0 or relaxationDecay > 1) {
+            if (config.relaxationDecay < 0 or config.relaxationDecay > 1) {
                 throw std::runtime_error("invalid relaxation ratio");
             }
 
             updateCache();
         }
 
-        /**
-         * Relaxation policy interface. Selects a set of literals according to the last GNN prediction
-         * @param literals out param literals
-         */
-        void select(std::vector<Literal<T>> &literals) const {
-            auto numLiterals = static_cast<std::size_t>(predictor.numLiterals() * relaxationRatio);
+        void relax(heuristics::AssumptionInterface<T> &s) {
+            auto numLiterals = static_cast<std::size_t>(predictor.numLiterals() * config.relaxationRatio);
             if (numLiterals == 0) {
-                literals.clear();
                 return;
             }
 
-            literals = assumptionCache;
-            if (solver.getOptions().verbosity >= Options::NORMAL) {
-                std::cout << "-- trying to fix " << literals.size() << " literals" << std::endl;
+            tempo::util::ScopeWatch sw(profiler, "make relaxation");
+            if (not config.carefulAssumptions or failCount == 0) {
+                s.makeAssumptions(assumptionCache);
+                if (not assumptionCache.empty() and solver.getOptions().verbosity >= Options::NORMAL) {
+                    std::cout << "-- fixing " << assumptionCache.size() << " literals\n";
+                }
+            } else {
+                std::size_t litCount = 0;
+                std::vector<Literal<T>> newAssumptions;
+                newAssumptions.reserve(numLiterals);
+                for (auto lit : assumptionCache) {
+                    if (litCount == numLiterals) {
+                        break;
+                    }
+
+                    bool success = s.tryMakeAssumption(lit);
+                    litCount += success;
+                    if (success) {
+                        newAssumptions.emplace_back(lit);
+                    }
+                }
+
+                std::swap(newAssumptions, assumptionCache);
+                if (litCount > 0 and solver.getOptions().verbosity >= Options::NORMAL) {
+                    std::cout << "-- fixing " << litCount << " literals after fail\n";
+                }
             }
         }
 
@@ -104,24 +126,21 @@ namespace tempo::nn {
          * Call this method when the last relaxation was a success. Currently does nothing
          */
         void notifySuccess() {
-
+            failCount = 0;
         }
 
         void updateCache() {
             using namespace std::views;
-            auto numLiterals = static_cast<std::size_t>(predictor.numLiterals() * relaxationRatio);
+            auto numLiterals = static_cast<std::size_t>(predictor.numLiterals() * config.relaxationRatio);
             if (numLiterals == 0) {
+                assumptionCache.clear();
                 return;
             }
 
             tempo::util::ScopeWatch sw(profiler, "gnn lns policy update");
-            {
-                tempo::util::ScopeWatch _(profiler, "gnn inference");
-                predictor.updateConfidence(solver);
-            }
-
+            predictor.updateConfidence(solver);
             auto lits = predictor.getLiterals();
-            auto selection = lits | filter([m = minCertainty](auto &tpl) { return std::get<1>(tpl) > m; }) |
+            auto selection = lits | filter([m = config.minCertainty](auto &tpl) { return std::get<1>(tpl) > m; }) |
                              take(numLiterals) | elements<0> | common;
             assumptionCache = std::vector(selection.begin(), selection.end());
         }
@@ -131,11 +150,17 @@ namespace tempo::nn {
          * the relaxation ratio
          */
         void notifyFailure() {
-            relaxationRatio *= relaxationDecay;
-            auto numLiterals = static_cast<std::size_t>(predictor.numLiterals() * relaxationRatio);
-            if (numLiterals > 0 and solver.getOptions().verbosity >= Options::NORMAL) {
-                std::cout << std::setprecision(2) << "-- failed to relax, setting relaxation ratio = "
-                          << relaxationRatio * 100 << "%" << std::endl;
+            if (++failCount > config.retryLimit) {
+                config.relaxationRatio *= config.relaxationDecay;
+                auto numLiterals = static_cast<std::size_t>(predictor.numLiterals() * config.relaxationRatio);
+                if (numLiterals > 0 and solver.getOptions().verbosity >= Options::NORMAL) {
+                    std::cout << std::setprecision(2) << "-- setting relaxation ratio = "
+                              << config.relaxationRatio * 100 << "%" << std::endl;
+                }
+            } else {
+                if (solver.getOptions().verbosity >= Options::NORMAL) {
+                    std::cout << "-- relaxation failed, retrying more carefully\n";
+                }
             }
 
             updateCache();
