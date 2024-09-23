@@ -5,6 +5,7 @@
 */
 
 #include <gtest/gtest.h>
+#include <vector>
 
 #include "testing.hpp"
 #include "util/distance.hpp"
@@ -22,7 +23,7 @@ TEST(util, distance_bound_estimation) {
 TEST(util, distance_bound_estimation_null_edge) {
     using namespace tempo;
     using namespace tempo::testing;
-    DummyScheduler scheduler(std::vector{9, 7, 7, 4}, std::vector{8, 7, 3, 3});
+    DummyScheduler scheduler(std::vector<int>{9, 7, 7, 4}, std::vector<int>{8, 7, 3, 3});
     EXPECT_FALSE(boundEstimation(DistanceConstraint{Constant::NoVar, 2, 0}, scheduler).has_value());
     EXPECT_FALSE(boundEstimation(DistanceConstraint{Constant::NoVar, 2, 0.3}, scheduler).has_value());
     EXPECT_FALSE(boundEstimation(DistanceConstraint{Constant::NoVar, 2, 0.3f}, scheduler).has_value());

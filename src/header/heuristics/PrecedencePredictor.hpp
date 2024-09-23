@@ -73,6 +73,14 @@ namespace tempo::heuristics {
 
             return ret;
         }
+
+        /**
+         * Number of literals
+         * @return number of literals
+         */
+        [[nodiscard]] std::size_t numLiterals() const noexcept {
+            return literals.size();
+        }
     };
 }
 

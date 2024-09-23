@@ -73,16 +73,7 @@ int main(int argc, char **argv) {
     const PredictorType predictorType{pType};
     auto [solver, problem, optSol, _] = loadSchedulingProblem(opt);
     auto schedule = problem.schedule();
-    std::vector<Literal<int>> literals;
-    for (auto var : solver->getBranch()) {
-        if (solver->boolean.hasSemantic(var)) {
-            auto edge = solver->boolean.getEdge(true, var);
-            if (problem.hasVariable(edge.from) and problem.hasVariable(edge.to)) {
-                literals.emplace_back(solver->boolean.getLiteral(true, var));
-            }
-        }
-    }
-
+    auto literals = problem.getSearchLiterals(*solver);
     std::optional<Predictor> predictor;
     if (predictorType == PredictorType::GNN) {
         predictor.emplace(std::in_place_type<GNNPredictor>, gnnLocation, featureExtractorConf, problem, std::move(literals));
