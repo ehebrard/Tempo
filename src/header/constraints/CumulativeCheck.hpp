@@ -110,9 +110,6 @@ CumulativeCheck<T>::CumulativeCheck(Solver<T> &solver, const NumericVar<T> c,
   for (auto jp{beg_task}; jp != end_task; ++jp) {
     the_tasks.push_back(*jp);
     demand.push_back(*dp);
-
-    //              std::cout << *jp << " requires " << *dp <<
-    //              std::endl;
     ++dp;
   }
 
@@ -137,14 +134,8 @@ CumulativeCheck<T>::CumulativeCheck(Solver<T> &solver, const NumericVar<T> c,
       auto i{std::distance(beg_task, ip)};
       auto j{std::distance(beg_task, jp)};
       precedence[i][j] = m_solver.boolean.getLiteral(false, x);
-
       x = *(++ep);
-
-      precedence[j][i] = m_solver.boolean.getLiteral(false, x);
-
-      //        std::cout << *ip << " // " << *jp << " iff (" <<
-      //        precedence[i][j] << " and " << precedence[j][i] << ")\n";
-
+      precedence[j][i] = m_solver.boolean.getLiteral(true, x);
       ++ep;
     }
   }
@@ -467,15 +458,12 @@ void CumulativeCheck<T>::xplain(const Literal<T> l, const hint,
     std::cout << "bug xplain cumulative!\n";
     exit(1);
   } else {
-    //        std::cout << "explain failure : clique with";
     for (auto v{fail_xpl.begin()}; v != fail_xpl.end(); ++v) {
-      //            std::cout << " " << the_tasks[*v] ;
       for (auto w{v + 1}; w != fail_xpl.end(); ++w) {
         Cl.push_back(precedence[*v][*w]);
         Cl.push_back(precedence[*w][*v]);
       }
     }
-    //        std::cout << std::endl;
   }
 }
 

@@ -83,6 +83,7 @@ using hint = int;
 //#define DBG_SPANNING true
 //#define DBG_LIST true
 //#define DBGP0 true
+//#define DBG_RPROF true
 
 // priority values for constraint propagation
 enum class Priority {

@@ -1674,18 +1674,47 @@ public:
   void post(Solver<T> &solver) override {
     size_t k{0};
 
+    auto da{this->begDemand()};
     for (auto a{this->begin()}; a != this->end(); ++a) {
+      auto db{da + 1};
       for (auto b{a + 1}; b != this->end(); ++b) {
 
         auto ea_before_sb{a->end.before(b->start)};
         auto eb_before_sa{b->end.before(a->start)};
 
-        disjunct.push_back(solver.newDisjunct(~ea_before_sb, ea_before_sb));
-        disjunct.push_back(solver.newDisjunct(~eb_before_sa, eb_before_sa));
+        if (da->min(solver) + db->min(solver) > capacity.max(solver)) {
+          //              std::cout << "disjunct " << *a << " / " << *b <<
+          //              std::endl;
+
+          auto d{solver.newDisjunct(eb_before_sa, ea_before_sb)};
+
+          //              std::cout << "**disjunct " << solver.pretty(d==true)
+          //              << " <> " << solver.pretty(d==false) << std::endl;
+
+          disjunct.push_back(d);
+          disjunct.push_back(d);
+
+        } else {
+
+          auto ba{solver.newDisjunct(~ea_before_sb, ea_before_sb)};
+          //              std::cout << "disjunct " << solver.pretty(ba==true) <<
+          //              " <> " << solver.pretty(ba==false) << std::endl;
+
+          auto bb{solver.newDisjunct(eb_before_sa, ~eb_before_sa)};
+          //              std::cout << "disjunct " << solver.pretty(bb==true) <<
+          //              " <> " << solver.pretty(bb==false) << std::endl;
+
+          disjunct.push_back(ba);
+          disjunct.push_back(bb);
+        }
 
         while (k < disjunct.size())
           solver.addToSearch(disjunct[k++]);
+
+        ++db;
       }
+
+      ++da;
     }
 
     if (std::distance(this->begin(), this->end()) > 1) {

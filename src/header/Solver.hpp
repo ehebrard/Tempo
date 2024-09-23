@@ -582,6 +582,8 @@ public:
     // apply the assumptions
     template <typename IterLit>
     void makeAssumptions(IterLit beg_a, IterLit end_a);
+    //
+    void saveSolution();
     //@}
     
     /**
@@ -1396,6 +1398,13 @@ bound_exp(*this)
     if (options.dbg_file != "")
         cl_file = new std::ofstream(options.dbg_file, std::ofstream::out);
 #endif
+}
+
+template <typename T> void Solver<T>::saveSolution() {
+    boolean.saveSolution();
+    numeric.saveSolution();
+    ++num_solutions;
+    SolutionFound.trigger(*this);
 }
 
 template <typename T> BooleanVar<T> Solver<T>::newBoolean() {
@@ -2279,7 +2288,11 @@ template <typename T> void Solver<T>::analyze(Explanation<T> &e) {
         std::cout << std::endl;
     }
 #endif
-    
+
+    //    for (auto l : learnt_clause)
+    //      std::cout << " " << pretty(l);
+    //    std::cout << std::endl;
+
     for (auto p : learnt_clause)
         if (p.isNumeric()) {
             numeric.setConflictIndex(~p, Constant::NoIndex);
@@ -2454,11 +2467,11 @@ template <typename T> boolean_state Solver<T>::satisfiable() {
     initializeSearch();
     auto satisfiability{search()};
     if (satisfiability == TrueState) {
-        boolean.saveSolution();
-        numeric.saveSolution();
-        
-        ++num_solutions;
-        SolutionFound.trigger(*this);
+//        boolean.saveSolution();
+//        numeric.saveSolution();
+//        ++num_solutions;
+//        SolutionFound.trigger(*this);
+        saveSolution();
     }
     if(options.verbosity >= Options::QUIET)
         displaySummary(
@@ -2574,10 +2587,11 @@ void Solver<T>::optimize(S &objective) {
             }
             
             objective.apply(best, *this);
-            boolean.saveSolution();
-            numeric.saveSolution();
-            ++num_solutions;
-            SolutionFound.trigger(*this);
+//            boolean.saveSolution();
+//            numeric.saveSolution();
+//            ++num_solutions;
+//            SolutionFound.trigger(*this);
+            saveSolution();
             restart(true);
             try {
                 objective.setPrimal(best, *this);
@@ -2613,12 +2627,11 @@ void Solver<T>::largeNeighborhoodSearch(S &objective, A &relaxationPolicy) {
                 std::cout << std::setw(10) << best;
                 displayProgress(std::cout);
             }
-            boolean.saveSolution();
-            numeric.saveSolution();
-            
-            ++num_solutions;
-            SolutionFound.trigger(*this);
-            //        current_best.load(*this);
+//            boolean.saveSolution();
+//            numeric.saveSolution();
+//            ++num_solutions;
+//            SolutionFound.trigger(*this);
+            saveSolution();
             restart(true);
             try {
                 objective.setPrimal(best, *this);
@@ -2661,12 +2674,11 @@ void Solver<T>::largeNeighborhoodSearch(S &objective, A &relaxationPolicy) {
                 std::cout << std::setw(10) << best;
                 displayProgress(std::cout);
             }
-            boolean.saveSolution();
-            numeric.saveSolution();
-            
-            ++num_solutions;
-            SolutionFound.trigger(*this);
-            
+//            boolean.saveSolution();
+//            numeric.saveSolution();
+//            ++num_solutions;
+//            SolutionFound.trigger(*this);
+            saveSolution();
             relaxationPolicy.notifySuccess();
             restoreState(0);
         
