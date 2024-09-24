@@ -2635,10 +2635,15 @@ void Solver<T>::largeNeighborhoodSearch(S &objective, A &relaxationPolicy) {
     while (objective.gap() and not KillHandler::instance().signalReceived()) {
         relaxationPolicy.select(assumptions);
         
-//        std::cout << " ASSUMPTIONS:";
-//        for(auto l : assumptions)
-//            std::cout << " " << pretty(l);
-//        std::cout << std::endl;
+        std::cout << "LVL=" << env.level() << " ASSUMPTIONS:";
+        for(auto l : assumptions)
+            std::cout << " " << pretty(l);
+        std::cout << std::endl;
+        
+        
+        
+        
+        std::cout << "trail = " << static_cast<index_t>(propag_pointer) << "/" << trail.size() << std::endl;
         
         auto satisfiability{FalseState};
         
@@ -2677,7 +2682,7 @@ void Solver<T>::largeNeighborhoodSearch(S &objective, A &relaxationPolicy) {
             ground_level = trail.size();
         } else {
             
-//            std::cout << "failed to improve the current best\n";
+            std::cout << "failed to improve the current best\n";
             
 //            std::cout << "learn clause:\n";
 //            for(auto l : learnt_clause) {
@@ -2688,10 +2693,14 @@ void Solver<T>::largeNeighborhoodSearch(S &objective, A &relaxationPolicy) {
 //            std::cout << learnt_clause.size() << "/" << assumptions.size() << std::endl;
 
             if (assumptions.empty()) {
+                
+                std::cout << "set lb to " << objective.primalBound() << std::endl;
+                
                 objective.setDual(objective.primalBound());
             } else {
                 relaxationPolicy.notifyFailure();
                 restoreState(0);
+                clauses.forgetAll();
             }
         }
     }
