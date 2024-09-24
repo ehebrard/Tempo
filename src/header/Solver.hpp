@@ -2288,7 +2288,7 @@ template <typename T> void Solver<T>::analyze(Explanation<T> &e) {
     }
     
 #ifdef DBG_CL
-    if (cl_file != NULL) {
+    if (cl_file != NULL) { //} and decisions.empty()) {
         *cl_file << "0 " << (learnt_clause.size() + 1) << " 0 1 " << numeric.upper(1);
         for (auto p : learnt_clause) {
             writeLiteral(~p);
@@ -2596,16 +2596,13 @@ template <typename S, typename A>
 void Solver<T>::largeNeighborhoodSearch(S &objective, A &relaxationPolicy) {
     objective.X.extract(*this);
     objective_var = objective.X.id();
+    
     initializeSearch();
-    
-    //    Solution<T> current_best;
-    
+ 
     if (not boolean.hasSolution()) {
         auto satisfiability{search()};
         if (satisfiability == TrueState) {
-            
-//            std::cout << "INIT SOL\n";
-            
+          
             auto best{objective.value(*this)};
             if (options.verbosity >= Options::NORMAL) {
                 std::cout << std::setw(10) << best;
@@ -2622,6 +2619,7 @@ void Solver<T>::largeNeighborhoodSearch(S &objective, A &relaxationPolicy) {
                 objective.setPrimal(best, *this);
             } catch (Failure<T> &f) {
                 objective.setDual(objective.primalBound());
+                propagate();
             }
         } else {
             if(options.verbosity >= Options::QUIET)
@@ -2634,17 +2632,15 @@ void Solver<T>::largeNeighborhoodSearch(S &objective, A &relaxationPolicy) {
     
     while (objective.gap() and not KillHandler::instance().signalReceived()) {
         relaxationPolicy.select(assumptions);
+//        
+//        std::cout << "LVL=" << env.level() << " ASSUMPTIONS:";
+//        for(auto l : assumptions)
+//            std::cout << " " << pretty(l);
+//        std::cout << std::endl;
+//        
+//        
         
-        std::cout << "LVL=" << env.level() << " ASSUMPTIONS:";
-        for(auto l : assumptions)
-            std::cout << " " << pretty(l);
-        std::cout << std::endl;
-        
-        
-        
-        
-        std::cout << "trail = " << static_cast<index_t>(propag_pointer) << "/" << trail.size() << std::endl;
-        
+     
         auto satisfiability{FalseState};
         
         try {
@@ -2682,7 +2678,7 @@ void Solver<T>::largeNeighborhoodSearch(S &objective, A &relaxationPolicy) {
             ground_level = trail.size();
         } else {
             
-            std::cout << "failed to improve the current best\n";
+//            std::cout << "failed to improve the current best\n";
             
 //            std::cout << "learn clause:\n";
 //            for(auto l : learnt_clause) {
@@ -2694,13 +2690,14 @@ void Solver<T>::largeNeighborhoodSearch(S &objective, A &relaxationPolicy) {
 
             if (assumptions.empty()) {
                 
-                std::cout << "set lb to " << objective.primalBound() << std::endl;
+//                std::cout << "set lb to " << objective.primalBound() << std::endl;
                 
                 objective.setDual(objective.primalBound());
+                
             } else {
                 relaxationPolicy.notifyFailure();
                 restoreState(0);
-                clauses.forgetAll();
+//                clauses.forgetAll();
             }
         }
     }
@@ -2748,8 +2745,9 @@ void Solver<T>::largeNeighborhoodSearch(S &objective, A &relaxationPolicy) {
 template <typename T>
 template <typename IterLit>
  void Solver<T>::makeAssumptions(IterLit beg_a, IterLit end_a) {
-    initializeSearch();
-    saveState();
+     // propagate();
+     initializeSearch();
+     saveState();
     for (auto a{beg_a}; a!=end_a; ++a)
       set(*a);
     propagate();
@@ -2947,6 +2945,11 @@ template <typename T> void tempo::Solver<T>::propagate() {
 }
 
 template <typename T> int Solver<T>::saveState() {
+    if(propag_pointer != static_cast<index_t>(trail.size())) {
+        std::cout << "failed assert\n";
+        exit(1);
+    }
+    
   assert(propag_pointer == static_cast<index_t>(trail.size()));
 
   int lvl{env.level()};

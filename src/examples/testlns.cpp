@@ -73,6 +73,7 @@ void warmstart(Solver<T> &S, Interval<T> &schedule,
   }
 
   S.set(schedule.end.before(ub));
+    S.propagate();
 }
 
 template <typename T>
