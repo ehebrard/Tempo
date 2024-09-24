@@ -579,6 +579,15 @@ public:
     // index of the first decision in the trail
     index_t ground_level{0};
     index_t assumption_level{0};
+//<<<<<<< HEAD
+//    // list of assumptions
+//    std::vector<Literal<T>> assumptions;
+//    // apply the assumptions
+//    template <typename IterLit>
+//    void makeAssumptions(IterLit beg_a, IterLit end_a);
+    //
+    void saveSolution();
+//=======
 
     /**
      * set literals without any checks. May throw
@@ -588,6 +597,7 @@ public:
     template <concepts::typed_range<Literal<T>> L>
     void makeAssumptions(const L &literals);
 
+//>>>>>>> 5e3de6be79b5753044226efba9642bcd0164d56f
     //@}
     
     /**
@@ -1402,6 +1412,13 @@ bound_exp(*this)
     if (options.dbg_file != "")
         cl_file = new std::ofstream(options.dbg_file, std::ofstream::out);
 #endif
+}
+
+template <typename T> void Solver<T>::saveSolution() {
+    boolean.saveSolution();
+    numeric.saveSolution();
+    ++num_solutions;
+    SolutionFound.trigger(*this);
 }
 
 template <typename T> BooleanVar<T> Solver<T>::newBoolean() {
@@ -2285,7 +2302,11 @@ template <typename T> void Solver<T>::analyze(Explanation<T> &e) {
         std::cout << std::endl;
     }
 #endif
-    
+
+    //    for (auto l : learnt_clause)
+    //      std::cout << " " << pretty(l);
+    //    std::cout << std::endl;
+
     for (auto p : learnt_clause)
         if (p.isNumeric()) {
             numeric.setConflictIndex(~p, Constant::NoIndex);
@@ -2460,11 +2481,11 @@ template <typename T> boolean_state Solver<T>::satisfiable() {
     initializeSearch();
     auto satisfiability{search()};
     if (satisfiability == TrueState) {
-        boolean.saveSolution();
-        numeric.saveSolution();
-        
-        ++num_solutions;
-        SolutionFound.trigger(*this);
+//        boolean.saveSolution();
+//        numeric.saveSolution();
+//        ++num_solutions;
+//        SolutionFound.trigger(*this);
+        saveSolution();
     }
     if(options.verbosity >= Options::QUIET)
         displaySummary(
@@ -2580,10 +2601,11 @@ void Solver<T>::optimize(S &objective) {
             }
             
             objective.apply(best, *this);
-            boolean.saveSolution();
-            numeric.saveSolution();
-            ++num_solutions;
-            SolutionFound.trigger(*this);
+//            boolean.saveSolution();
+//            numeric.saveSolution();
+//            ++num_solutions;
+//            SolutionFound.trigger(*this);
+            saveSolution();
             restart(true);
             try {
                 objective.setPrimal(best, *this);
@@ -2619,12 +2641,11 @@ void Solver<T>::largeNeighborhoodSearch(S &objective, P &&relaxationPolicy) {
                 std::cout << std::setw(10) << best;
                 displayProgress(std::cout);
             }
-            boolean.saveSolution();
-            numeric.saveSolution();
-            
-            ++num_solutions;
-            SolutionFound.trigger(*this);
-            //        current_best.load(*this);
+//            boolean.saveSolution();
+//            numeric.saveSolution();
+//            ++num_solutions;
+//            SolutionFound.trigger(*this);
+            saveSolution();
             restart(true);
             try {
                 objective.setPrimal(best, *this);
@@ -2653,13 +2674,22 @@ void Solver<T>::largeNeighborhoodSearch(S &objective, P &&relaxationPolicy) {
                 std::cout << std::setw(10) << best;
                 displayProgress(std::cout);
             }
-            boolean.saveSolution();
-            numeric.saveSolution();
-            
-            ++num_solutions;
-            SolutionFound.trigger(*this);
+//<<<<<<< HEAD
+//            boolean.saveSolution();
+//            numeric.saveSolution();
+//            ++num_solutions;
+//            SolutionFound.trigger(*this);
+            saveSolution();
+//            relaxationPolicy.notifySuccess();
+//=======
+//            boolean.saveSolution();
+//            numeric.saveSolution();
+//            
+//            ++num_solutions;
+//            SolutionFound.trigger(*this);
             
             std::forward<P>(relaxationPolicy).notifySuccess();
+//>>>>>>> 5e3de6be79b5753044226efba9642bcd0164d56f
             restoreState(0);
         
             try {

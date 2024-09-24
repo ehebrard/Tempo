@@ -281,7 +281,7 @@ public:
 
     List<E>::iterator begin() { return iterator(this, first()); }
     List<E>::iterator end() { return iterator(this, tail); }
-    
+
     List<E>::reverse_iterator rbegin() { return reverse_iterator(this, last()); }
     List<E>::reverse_iterator rend() { return reverse_iterator(this, tail); }
     
@@ -296,6 +296,7 @@ public:
 
     size_t size() const {return nodes.size()-1;}
     E& operator[](const int i) {return nodes[i].content;}
+    const E &operator[](const int i) const { return nodes[i].content; }
 
     std::ostream &display(std::ostream &os) {
 #ifdef DBG_LIST
