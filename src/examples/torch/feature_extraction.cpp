@@ -23,13 +23,6 @@
 #include "../helpers/git_sha.hpp"
 
 namespace fs = std::filesystem;
-constexpr auto RootName = "root";
-constexpr auto GraphName = "graph";
-constexpr auto InputsName = "inputs";
-constexpr auto OutputsName = "outputs";
-constexpr auto LabelFileName = "task_network";
-constexpr auto LabelName = "label";
-constexpr auto GraphReferenceFile = "ref.json";
 
 template<tempo::concepts::scalar T>
 bool distanceSanityCheck(const tempo::Matrix<T> &distances) {
