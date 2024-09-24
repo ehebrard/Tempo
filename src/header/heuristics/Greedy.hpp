@@ -108,6 +108,9 @@ private:
     std::vector<Interval<T>>& intervals;
     std::vector<std::pair<int,int>>& precedences;
     
+    BacktrackEnvironment env;
+    
+    
     //helpers
     std::vector<int> sources;
     SparseSet<> tasks;
@@ -119,6 +122,10 @@ private:
     SparseSet<> stack;
     std::vector<T> dem;
     
+    
+public:
+    // statistics
+    unsigned long num_insertions{0};
     
 };
 
@@ -135,7 +142,9 @@ tasks_requirements(tasks_requirements),
 task_demands(task_demands),
 resource_capacities(resource_capacities),
 intervals(intervals),
-precedences(precedences) {
+precedences(precedences)
+, precedence_graph(&env)
+{
     
     tasks.reserve(intervals.size());
     tasks.fill();
@@ -188,26 +197,46 @@ void ScheduleGenerationScheme<T>::clear() {
 
 template<typename T>
 void ScheduleGenerationScheme<T>::load() {
+    
+    assert(not best_start_time.empty());
+    
     auto s{solver.saveState()};
     int i{0};
     for(auto I : intervals) {
+        
+//        std::cout << i << "/" << best_start_time.size() << std::endl;
+        
+//        std::cout << "post " << I.start << " <= " << best_start_time[i] << std::endl;
+        
         solver.post(I.start <= best_start_time[i]);
+        
+//        std::cout << "post " << I.start << " >= " << best_start_time[i] << std::endl;
+        
         solver.post(I.start >= best_start_time[i]);
         ++i;
     }
+    
+//    std::cout << "propagate\n";
+    
     solver.propagate();
     solver.saveSolution();
     solver.restoreState(s);
+    
     
 //    std::cout << solver << std::endl;
 }
 
 template<typename T>
 T ScheduleGenerationScheme<T>::run() {
+    
+    env.save();
+    
+ 
     int makespan{0};
     while(not tasks.empty()) {
 //        auto j{tasks.front()};
         auto j{tasks.any()};
+        ++num_insertions;
         
 #ifdef DBG_RPROF
         std::cout << "process " << j << ", dur = " << intervals[j].maxDuration(solver) <<  " min start-time = " << start_time[j] ; //<< std::endl;
@@ -290,9 +319,15 @@ T ScheduleGenerationScheme<T>::run() {
 //    }
     
     if(makespan < best_makespan) {
+        
+//        std::cout << "improved makespan " << best_makespan << " -> " << makespan << std::endl;
+        
         best_makespan = makespan;
         best_start_time = start_time;
     }
+    
+    env.restore(0);
+    
     return makespan;
 }
 

@@ -207,62 +207,57 @@ int main(int argc, char *argv[]) {
   }
     
     
-    int makespan{0};
+    int ub_makespan{0};
       for (auto &j : intervals) {
         if (j.maxDuration(S) == Constant::Infinity<int>) {
-            makespan = Constant::Infinity<int>;
+            ub_makespan = Constant::Infinity<int>;
           break;
         }
-          makespan += j.maxDuration(S);
+          ub_makespan += j.maxDuration(S);
       }
     
 //
-//  auto optimal{false};
+  auto optimal{false};
     if (opt.greedy_runs > 0) {
-        //    try {
+        
+        S.initializeSearch();
+        
         ScheduleGenerationScheme<int> sgs(S, tasks_requirements, task_demands, resource_capacities, intervals, precedences);
         
         for(auto i{0}; i<opt.greedy_runs; ++i) {
-            auto o{sgs.run()};
-            std::cout << "makespan = " << o << std::endl;
+            auto makespan{sgs.run()};
             sgs.clear();
+            
+            if(makespan < ub_makespan) {
+                sgs.load();
+                ub_makespan = makespan;
+                S.num_choicepoints += sgs.num_insertions;
+                if (opt.verbosity >= Options::NORMAL) {
+                    std::cout << std::setw(10) << ub_makespan;
+                    S.displayProgress(std::cout);
+                }
+            }
         }
         
-        makespan = sgs.best_makespan;
-        //        std::cout << "makespan = " << makespan << std::endl;
-        sgs.load();
-        //        std::cout << S << std::endl;
+//        ub_makespan = sgs.best_makespan;
         
-        //      warmstart(S, schedule, intervals /*, resources*/, ub);
-        if (opt.verbosity >= Options::NORMAL) {
-            std::cout << std::setw(10) << makespan;
-            S.displayProgress(std::cout);
+        try {
+            S.post(schedule.duration < ub_makespan);
+        } catch(Failure<int>& f) {
+            optimal = true;
         }
+        
+        S.num_choicepoints = 0;
     }
-//        S.post(schedule.end <= makespan);
+
+  // search
+    if (not optimal) {
+        auto ub{std::min(opt.ub, ub_makespan)};
         
-//    } catch (Failure<int> &f) {
-//      //            std::cout << " optimal solution found in a greedy run\n";
-//      optimal = true;
-//    }
-//
-//  // search
-//  if (not optimal)
-//
-//  // set a trivial (and the user-defined) upper bound
-//  int total_duration{0};
-//  for (auto &j : intervals) {
-//    if (j.maxDuration(S) == Constant::Infinity<int>) {
-//      total_duration = Constant::Infinity<int>;
-//      break;
-//    }
-//    total_duration += j.maxDuration(S);
-//  }
-  auto ub{std::min(opt.ub, makespan)};
-
-  S.post(schedule.end.before(ub));
-
-  S.minimize(schedule.duration);
+        S.post(schedule.end.before(ub));
+        
+        S.minimize(schedule.duration);
+    }
   
     if (opt.print_sol) {
       printJobs(S, intervals);
