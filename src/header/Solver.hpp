@@ -2686,9 +2686,13 @@ void Solver<T>::largeNeighborhoodSearch(S &objective, A &relaxationPolicy) {
 //            std::cout << std::endl;
             
 //            std::cout << learnt_clause.size() << "/" << assumptions.size() << std::endl;
-            
-            relaxationPolicy.notifyFailure();
-            restoreState(0);
+
+            if (assumptions.empty()) {
+                objective.setDual(objective.primalBound());
+            } else {
+                relaxationPolicy.notifyFailure();
+                restoreState(0);
+            }
         }
     }
     

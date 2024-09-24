@@ -93,6 +93,10 @@ public:
       : solver(solver), vars(vars), ratio(1.0 - ratio) {}
   void select(std::vector<Literal<T>> &fixed) override;
 
+  void notifyFailure() override {
+      ratio /= 2;
+  }
+
 private:
   Solver<T> &solver;
   std::vector<BooleanVar<T>> vars;
