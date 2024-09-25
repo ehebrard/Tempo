@@ -25,3 +25,10 @@ To compile example xxx:
 ## Running
 Executables usually require a positional argument standing for the instance file, all other arguments have a flag. Run <exec> --help
 
+
+
+## DEBUG CLAUSE LEARNING
+1/ define the macro DBG_CL X (X is a number standing for the maximum number of generated clauses to debug)
+2/ run tempo_scheduler with the option --dbg <filename> (it outputs clauses in <filename>)
+3/ run the same cmd line as above, but with 'clausecheck' instead of tempo_scheduler
+

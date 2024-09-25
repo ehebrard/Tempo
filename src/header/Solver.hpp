@@ -2046,15 +2046,13 @@ template <typename T> void Solver<T>::analyze(Explanation<T> &e) {
         
         
 #ifdef DBG_CLPLUS
-        if (num_clauses == DBG_CL and cl_file != NULL) {
-            *cl_file << "0 " << (conflict.size() + num_lit + 1) << " 0 1 " << numeric.upper(1);
-            for(index_t i{0}; i<conflict.size(); ++i) {
+        if (cl_file != NULL) {
+            *cl_file << "1 " << (conflict.size() - csize + 1 + (l != Contradiction)) << " 0 1 " << numeric.upper(1);
+            for (int i{static_cast<int>(conflict.size()) - 1}; i >= csize; --i) {
                 writeLiteral(conflict[i]);
             }
-            for(index_t i{li}; i>=decision_lvl; --i) {
-                if(explored[i])
-                    writeLiteral(trail[i]);
-            }
+            if(l != Contradiction)
+                writeLiteral(~l);
             *cl_file << std::endl;
         }
 #endif
@@ -2185,6 +2183,13 @@ template <typename T> void Solver<T>::analyze(Explanation<T> &e) {
 #endif
             }
         }
+        
+#ifdef DBG_CLPLUS
+        if (++num_clauses > DBG_CL) {
+            std::cout << "exit because of dbg clause limit (#fails = " << num_fails << ", #cpts = " << num_choicepoints << ")\n";
+            exit(1);
+        }
+#endif
         
         conflict.resize(csize);
         
