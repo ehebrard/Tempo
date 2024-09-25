@@ -4,8 +4,8 @@
 * @brief GNN based relaxation policy based on edge predictor
 */
 
-#ifndef TEMPO_GNNRELAXATIONPOLICY_HPP
-#define TEMPO_GNNRELAXATIONPOLICY_HPP
+#ifndef TEMPO_GNNBACKBONEPREDICTOR_HPP
+#define TEMPO_GNNBACKBONEPREDICTOR_HPP
 
 #include <filesystem>
 #include <vector>
@@ -39,7 +39,7 @@ namespace tempo::nn {
      * @tparam R resource type
      */
     template<concepts::scalar T, SchedulingResource R>
-    class GNNRelaxationPolicy {
+    class GNNBackbonePredictor {
         GNNPrecedencePredictor<T, R> predictor;
         const Solver<T> &solver;
         mutable tempo::util::Profiler profiler;
@@ -48,13 +48,13 @@ namespace tempo::nn {
         unsigned failCount = 0;
 
     public:
-        GNNRelaxationPolicy(const GNNRelaxationPolicy &) = default;
-        GNNRelaxationPolicy(GNNRelaxationPolicy &&) = default;
+        GNNBackbonePredictor(const GNNBackbonePredictor &) = default;
+        GNNBackbonePredictor(GNNBackbonePredictor &&) = default;
 
         /**
          * Dtor. Prints timing information if solver verbosity allows it
          */
-        ~GNNRelaxationPolicy() {
+        ~GNNBackbonePredictor() {
             if (solver.getOptions().verbosity >= Options::NORMAL) {
                 profiler.printAll<std::chrono::milliseconds>(std::cout);
             }
@@ -70,10 +70,10 @@ namespace tempo::nn {
          * @param relaxationDecay decay factor applied to the relaxation ratio on each relaxation fail
          * @param minCertainty minimum GNN prediction certainty
          */
-        GNNRelaxationPolicy(const Solver<T> &solver, const fs::path &modelLocation,
-                            const fs::path &featureExtractorConfigLocation,
-                            const SchedulingProblemHelper<T, R> &problemInstance,
-                            const PolicyConfig &config) :
+        GNNBackbonePredictor(const Solver<T> &solver, const fs::path &modelLocation,
+                             const fs::path &featureExtractorConfigLocation,
+                             const SchedulingProblemHelper<T, R> &problemInstance,
+                             const PolicyConfig &config) :
                 predictor(modelLocation, featureExtractorConfigLocation, problemInstance,
                           problemInstance.getSearchLiterals(solver)), solver(solver), config(config) {
             if (config.relaxationRatio < 0 or config.relaxationRatio > 1) {
@@ -168,4 +168,4 @@ namespace tempo::nn {
     };
 }
 
-#endif //TEMPO_GNNRELAXATIONPOLICY_HPP
+#endif //TEMPO_GNNBACKBONEPREDICTOR_HPP

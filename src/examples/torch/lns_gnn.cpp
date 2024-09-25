@@ -12,7 +12,7 @@
 #include "../helpers/cli.hpp"
 #include "../helpers/shell.hpp"
 #include "../helpers/git_sha.hpp"
-#include "nn/GNNRelaxationPolicy.hpp"
+#include "nn/GNNBackbonePredictor.hpp"
 #include "util/Profiler.hpp"
 
 int main(int argc, char **argv) {
@@ -36,7 +36,7 @@ int main(int argc, char **argv) {
                                  cli::ArgSpec("retry-limit", "number of fails before decreasing relaxation ratio", false,
                                               config.retryLimit));
     auto [solver, problem, optSol, _] = loadSchedulingProblem(opt);
-    nn::GNNRelaxationPolicy policy(*solver, gnnLocation, featureExtractorConf, problem, config);
+    nn::GNNBackbonePredictor policy(*solver, gnnLocation, featureExtractorConf, problem, config);
     MinimizationObjective objective(problem.schedule().duration);
     util::StopWatch sw;
     solver->largeNeighborhoodSearch(objective, policy);

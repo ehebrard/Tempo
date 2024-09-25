@@ -26,6 +26,13 @@ namespace tempo {
     namespace fs = std::filesystem;
     constexpr auto ProblemFileName = "problem_definition.txt";
     constexpr auto InfoFileName = "info.json";
+    constexpr auto RootName = "root";
+    constexpr auto GraphName = "graph";
+    constexpr auto InputsName = "inputs";
+    constexpr auto OutputsName = "outputs";
+    constexpr auto LabelFileName = "task_network";
+    constexpr auto LabelName = "label";
+    constexpr auto GraphReferenceFile = "ref.json";
 
     /**
      * @brief Class that can be used to serialize solutions and partial problems to a files.
