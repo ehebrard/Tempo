@@ -1992,12 +1992,12 @@ template <typename T> void Solver<T>::analyze(Explanation<T> &e) {
 #ifdef DBG_TRACE
     if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
         std::cout << "analyze conflict:\n";
-        //        displayBranches(std::cout);
-        for(auto i{ground_level}; i<trail.size(); ++i) {
-            if(i == assumption_level)
-                std::cout << "** ";
-            std::cout << std::setw(4) << i << " " << pretty(trail[i]) << std::endl;
-        }
+//        //        displayBranches(std::cout);
+//        for(auto i{ground_level}; i<trail.size(); ++i) {
+//            if(i == assumption_level)
+//                std::cout << "** ";
+//            std::cout << std::setw(4) << i << " " << pretty(trail[i]) << std::endl;
+//        }
     }
 #endif
     
@@ -2021,17 +2021,20 @@ template <typename T> void Solver<T>::analyze(Explanation<T> &e) {
         
         
 #ifdef DBG_CLPLUS
-        if (num_clauses == DBG_CL and cl_file != NULL) {
-            *cl_file << "0 " << (conflict.size() + num_lit + 1) << " 0 1 " << numeric.upper(1);
-            for(index_t i{0}; i<conflict.size(); ++i) {
+        if (cl_file != NULL) {
+            *cl_file << "1 " << (conflict.size() - csize + 1 + (l != Contradiction)) << " 0 1 " << numeric.upper(1);
+            for (int i{static_cast<int>(conflict.size()) - 1}; i >= csize; --i) {
                 writeLiteral(conflict[i]);
             }
-            for(index_t i{li}; i>=decision_lvl; --i) {
-                if(explored[i])
-                    writeLiteral(trail[i]);
-            }
+            if(l != Contradiction)
+                writeLiteral(~l);
             *cl_file << std::endl;
         }
+        
+//        if (++num_clauses > DBG_CL) {
+//            std::cout << "exit because of dbg clause limit (#fails = " << num_fails << ", #cpts = " << num_choicepoints << ")\n";
+//            exit(1);
+//        }
 #endif
         
         for (int i{static_cast<int>(conflict.size()) - 1}; i >= csize;) {
@@ -2161,6 +2164,13 @@ template <typename T> void Solver<T>::analyze(Explanation<T> &e) {
             }
         }
         
+#ifdef DBG_CLPLUS
+        if (++num_clauses > DBG_CL) {
+            std::cout << "exit because of dbg clause limit (#fails = " << num_fails << ", #cpts = " << num_choicepoints << ")\n";
+            exit(1);
+        }
+#endif
+        
         conflict.resize(csize);
         
 #ifdef DBG_TRACE
@@ -2288,7 +2298,7 @@ template <typename T> void Solver<T>::analyze(Explanation<T> &e) {
     }
     
 #ifdef DBG_CL
-    if (cl_file != NULL) { //} and decisions.empty()) {
+    if (cl_file != NULL) { //and decisions.empty()) {
         *cl_file << "0 " << (learnt_clause.size() + 1) << " 0 1 " << numeric.upper(1);
         for (auto p : learnt_clause) {
             writeLiteral(~p);
