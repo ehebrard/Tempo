@@ -2306,6 +2306,11 @@ template <typename T> void Solver<T>::analyze(Explanation<T> &e) {
         *cl_file << std::endl;
     }
 #endif
+    
+    
+    
+    if(num_choicepoints >= 1561)
+        exit(1);
 }
 
 template <typename T> bool Solver<T>::isAssertive(std::vector<Literal<T>> &conf) const {

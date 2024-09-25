@@ -359,12 +359,12 @@ void DisjunctiveEdgeFinding<T>::printLBExplanation(const hint ph) {
   auto l{the_explanation_tasks[ph].back()};
   std::cout << "because t" << l->id() << " starts after " << explanation_lb[ph]
             << " and";
-  T dur{l->minDuration()};
+  T dur{l->minDuration(m_solver)};
   for (auto ti : the_explanation_tasks[ph]) {
     if (ti != l) {
       std::cout << " t" << ti->id();
       std::cout.flush();
-      dur += ti->minDuration();
+      dur += ti->minDuration(m_solver);
       assert(ti->getEarliestStart(m_solver) >= explanation_lb[ph]);
       assert(ti->getLatestEnd(m_solver) <= explanation_ub[ph]);
     }
@@ -384,12 +384,12 @@ void DisjunctiveEdgeFinding<T>::printUBExplanation(const hint ph) {
   std::cout << " [" << explanation_lb[ph] << ".." << explanation_ub[ph]
             << "] because t" << l->id() << " ends before " << explanation_ub[ph]
             << " and";
-  T dur{l->minDuration()};
+  T dur{l->minDuration(m_solver)};
   for (auto ti : the_explanation_tasks[ph]) {
     if (ti != l) {
       std::cout << " t" << ti->id();
       std::cout.flush();
-      dur += ti->minDuration();
+      dur += ti->minDuration(m_solver);
 
       assert(ti->getEarliestStart(m_solver) >= explanation_lb[ph]);
       assert(ti->getLatestEnd(m_solver) <= explanation_ub[ph]);
@@ -547,6 +547,12 @@ template <typename T> void DisjunctiveEdgeFinding<T>::propagateForward() {
     omegas.pop_back();
     relevant_starts.pop_back();
     bound_omegas.pop_back();
+      
+#ifdef DBG_EDGEFINDING
+    if (DBG_EDGEFINDING) {
+      std::cout << "add f precedences w.r.t. " << prettyTask(r) << std::endl;
+    }
+#endif
 
     auto &tl{the_tasks[r]};
     ph = Constant::FactHint;
@@ -556,10 +562,15 @@ template <typename T> void DisjunctiveEdgeFinding<T>::propagateForward() {
 
 #ifdef DBG_EDGEFINDING
         if (DBG_EDGEFINDING) {
-          std::cout << "add precedence " << disjunct[r][*j] << "?" << std::endl;
+          std::cout << "add f precedence " << m_solver.pretty(disjunct[r][*j]) << "?" << std::endl;
         }
 #endif
 
+          if(disjunct[r][*j].id() == 208) {
+              std::cout << "HERE! (" << this->id() << ")\n";
+          }
+          
+          
         // ej < si (ub(si) & lb(ej))
         if (m_solver.boolean.falsified(disjunct[*j][r])) {
           // the precedence is trivially implied because r >> *j
@@ -731,7 +742,7 @@ template <typename T> void DisjunctiveEdgeFinding<T>::propagateBackward() {
 
 #ifdef DBG_EDGEFINDING
     if (DBG_EDGEFINDING) {
-      std::cout << "add precedences w.r.t. " << prettyTask(r) << std::endl;
+      std::cout << "add b precedences w.r.t. " << prettyTask(r) << std::endl;
     }
 #endif
 
@@ -742,9 +753,15 @@ template <typename T> void DisjunctiveEdgeFinding<T>::propagateBackward() {
       if (not m_solver.boolean.satisfied(disjunct[*j][r])) {
 #ifdef DBG_EDGEFINDING
         if (DBG_EDGEFINDING) {
-          std::cout << "add precedence " << disjunct[*j][r] << "?" << std::endl;
+          std::cout << "add b precedence " << m_solver.pretty(disjunct[*j][r]) << "?" << std::endl;
         }
 #endif
+          
+//          if(disjunct[*j][r].id() == 208) {
+//              std::cout << "HERE (2)! (" << this->id() << ")\n";
+//          }
+          
+          
         // ej < si (ub(si) & lb(ej))
         if (m_solver.boolean.falsified(disjunct[r][*j])) {
 

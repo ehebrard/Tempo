@@ -44,11 +44,11 @@ using boolean_state = int;
 using hint = int;
 //#define NoHint -1
 //
-//#define DBG_BOUND true //level() == init_level //num_choicepoints >= 10103
-//#define DBG_CBOUND true //solver.level() == solver.init_level //solver.num_choicepoints >= 10103
-//#define DBG_CLBOUND true //false //cl->id == 80 //solver.num_choicepoints >= 10527
-//#define DBG_BBOUND true //level() == init_level //num_choicepoints >= 10103 //(sched.num_fails >= 236)
-//#define DBG_TRACE 33                      // 183 //1+2+4+32+128
+#define DBG_BOUND true //level() == init_level //num_choicepoints >= 10103
+#define DBG_CBOUND true //solver.level() == solver.init_level //solver.num_choicepoints >= 10103
+#define DBG_CLBOUND true //false //cl->id == 80 //solver.num_choicepoints >= 10527
+#define DBG_BBOUND true //level() == init_level //num_choicepoints >= 10103 //(sched.num_fails >= 236)
+#define DBG_TRACE 33                      // 183 //1+2+4+32+128
 #define SEARCH 1
 #define DOMAINS 2
 #define BRANCH 4
@@ -59,16 +59,16 @@ using hint = int;
 #define UNITPROPAGATION 128
 
 //#define DBG_MINIMIZATION
-//#define DBG_EDGEFINDING (m_solver.num_cons_propagations >= 0)
+#define DBG_EDGEFINDING (m_solver.num_cons_propagations >= 0)
 //#define DBG_EXPLEF true      //(m_schedule.num_fails > 236)
 //#define DBG_THETA (m_schedule.num_fails >= 481)
 //#define DBG_BELLMAN true //(sched.num_choicepoints >= 1045)
 //#define DBG_BELLMAN_EXPL (sched.num_choicepoints >= 4172)
 //#define DEBUG_HEURISTICS
 //#define DBG_UP
-//#define DBG_CL 115
+#define DBG_CL 2100
 //#define
-//#define DBG_CLPLUS 100000000
+#define DBG_CLPLUS 100000000
 //#define DBG_TRANSITIVITY true //(m_schedule.num_choicepoints >= 4064)
 //#define DBG_EXPL_TRANS true
 //#define DBG_SOL
