@@ -453,6 +453,10 @@ public:
   }
 
   void preprocessNumeric(Solver<T> &solver) {
+      
+#ifdef DBG_EXTRACT_SUM
+      std::cout << "preprocess\n";
+#endif
 
     if (not numeric_arguments.empty()) {
       // preprocessing to remove duplicates and constants
@@ -502,18 +506,29 @@ public:
 #endif
 
         if (w == 0) {
+            
+#ifdef DBG_EXTRACT_SUM
+            std::cout << ": null weight => remove\n";
+#endif
+            
           // coefficient is 0 -> just ignore
           rm = true;
         } else if (i > 0 and x.id() == args[i - 1].id()) {
+            
+#ifdef DBG_EXTRACT_SUM
+            std::cout << ": duplicate => change weight from " << ws[i - 1] << " to " << (ws[i - 1] + w) << "  and remove\n";
+#endif
+            
           // duplicate -> increase
           ws[i - 1] += w;
           rm = true;
         } else if (x.min(solver) == x.max(solver)) {
           // constant (after extraction) -> move it to the bias
 #ifdef DBG_EXTRACT_SUM
-          std::cout << ": => increase the bias by " << (w * x.min(solver));
+          std::cout << ": constant => increase the bias by " << (w * x.min(solver));
 #endif
-          increaseBias(w * x.min(solver));
+          if(x.id() != Constant::K) // otherwise the bias was already counted
+              increaseBias(w * x.min(solver));
           rm = true;
         }
 
@@ -526,6 +541,7 @@ public:
 #ifdef DBG_EXTRACT_SUM
           std::cout << " rm term " << w << "*" << x << std::endl;
 #endif
+//          increaseBias(-w * x.min(solver));
           args[i] = args.back();
           ws[i] = ws.back();
           args.pop_back();
@@ -792,6 +808,9 @@ public:
       //            num_part.setId(Constant::K);
       //            num_part.setOffset(bias);
       //            num_part._is_expression = false;
+        
+        
+//        std::cout << " extract constant sum = " << NumericExpressionImpl<T>::self.offset() << std::endl;
     }
 
     //      NumericExpressionImpl<T>::self = num_part;
@@ -802,11 +821,22 @@ public:
   }
 
   SumExpressionImpl<T> &addTerm(const NumericVar<T> &x, const T w = 1) {
+      
+//      std::cout << "increase bias by " << w << "*" << x.offset() << ", was " << NumericExpressionImpl<T>::self.offset();
+      
     increaseBias(w * x.offset());
+      
+//      std::cout << " now: " << NumericExpressionImpl<T>::self.offset() << std::endl;
+      
     if (x.id() != Constant::K) {
       numeric_arguments.push_back(x);
       num_weights.push_back(w);
     }
+      
+#ifdef DBG_EXTRACT_SUM
+      std::cout << "add term " << w << "*" << x << " => offset = " << NumericExpressionImpl<T>::self.offset() << std::endl;
+#endif
+      
     return *this;
   }
 
@@ -821,6 +851,11 @@ public:
 
   SumExpressionImpl<T> &addTerm(const T k) {
     increaseBias(k);
+      
+#ifdef DBG_EXTRACT_SUM
+      std::cout << "add term " << k << " => offset = " << NumericExpressionImpl<T>::self.offset() << std::endl;
+#endif
+      
     return *this;
   }
 
@@ -842,9 +877,9 @@ template <typename T>
 std::ostream &SumExpressionImpl<T>::display(std::ostream &os) const {
   os << "{";
   if (not numeric_arguments.empty()) {
-    os << num_weights[0] << "*" << numeric_arguments[0];
+    os << num_weights[0] << "*(" << numeric_arguments[0] << ")";
     for (unsigned i{1}; i < numeric_arguments.size(); ++i) {
-      os << " + " << num_weights[i] << "*" << numeric_arguments[i];
+      os << " + " << num_weights[i] << "*(" << numeric_arguments[i] << ")";
     }
   }
   if (not boolean_arguments.empty()) {
@@ -859,6 +894,11 @@ std::ostream &SumExpressionImpl<T>::display(std::ostream &os) const {
 
 template <typename T>
 NumericVar<T> operator+(const NumericVar<T> &x, const T k) {
+    
+#ifdef DBG_EXTRACT_SUM
+    std::cout << " create expression " << x << " + " << k << std::endl;
+#endif
+    
   auto sum{new SumExpressionImpl<T>()};
   sum->addTerm(x);
   sum->addTerm(k);
@@ -868,6 +908,11 @@ NumericVar<T> operator+(const NumericVar<T> &x, const T k) {
 
 template <typename T>
 NumericVar<T> operator+(const NumericVar<T> &x, const NumericVar<T> &y) {
+    
+#ifdef DBG_EXTRACT_SUM
+    std::cout << " create expression " << x << " + " << y << std::endl;
+#endif
+    
   auto sum{new SumExpressionImpl<T>()};
   sum->addTerm(x);
   sum->addTerm(y);
@@ -877,6 +922,11 @@ NumericVar<T> operator+(const NumericVar<T> &x, const NumericVar<T> &y) {
 
 template <typename T>
 NumericVar<T> operator-(const NumericVar<T> &x, const T k) {
+    
+#ifdef DBG_EXTRACT_SUM
+    std::cout << " create expression " << x << " - " << k << std::endl;
+#endif
+    
   auto sum{new SumExpressionImpl<T>()};
   sum->addTerm(x);
   sum->addTerm(-k);
@@ -886,6 +936,11 @@ NumericVar<T> operator-(const NumericVar<T> &x, const T k) {
 
 template <typename T>
 NumericVar<T> operator-(const NumericVar<T> &x, const NumericVar<T> &y) {
+    
+#ifdef DBG_EXTRACT_SUM
+    std::cout << " create expression " << x << " - " << y << std::endl;
+#endif
+    
   auto sum{new SumExpressionImpl<T>()};
   sum->addTerm(x);
   sum->addTerm(y, -1);
@@ -1472,6 +1527,7 @@ public:
 //          std::cout << " ===> " << a->id() << ": " << a->exist << std::endl;
         
       for (auto b{a + 1}; b != this->end(); ++b) {
+        
         auto t_ab{0};
         auto t_ba{0};
         auto ai{static_cast<size_t>(a - this->begin())};
@@ -1485,7 +1541,7 @@ public:
 
         auto a_before_b{a->end.before(b->start, t_ab)};
         auto b_before_a{b->end.before(a->start, t_ba)};
-
+          
         if (a->isOptional(solver) or b->isOptional(solver)) {
 
           auto x_ab{solver.newDisjunct(Constant::NoEdge<T>, a_before_b)};
@@ -1858,7 +1914,7 @@ template <typename T> Literal<T> NumericVar<T>::after(const T t) const {
 template <typename T> Literal<T> NumericVar<T>::before(const T t) const {
 //  assert(t != Constant::Infinity<T>);
 //  assert(t != -Constant::Infinity<T>);
-
+    
     return leq<T>(id(), (t == Constant::Infinity<T> ? t : t - offset()));
 
   //    if(sign())
@@ -1876,16 +1932,6 @@ DistanceConstraint<T> NumericVar<T>::after(const NumericVar<T> &e,
 template <typename T>
 DistanceConstraint<T> NumericVar<T>::before(const NumericVar<T> &e,
                                             const T t) const {
-  //  return {e.id(), id(),
-  //          (t == Constant::Infinity<T> ? t : e.offset() - offset() - t)};
-
-  //    if(e.id() == Constant::K) {
-  //        return this->before(e.offset() - t);
-  //    }
-  //    if(id() == Constant::K) {
-  //        e.after(offset() + t);
-  //    }
-
   return {e.id(), id(),
           (t == Constant::Infinity<T> ? t : e.offset() - offset() - t)};
 }
@@ -1941,17 +1987,21 @@ Interval<T>::Interval(Solver<T> &solver, const NumericVar<T> s,
                       const NumericVar<T> e, const NumericVar<T> d,
                       const BooleanVar<T> o)
     : _id_(num_intervals++), start(s), end(e), duration(d), exist(o) {
+        
 
-  //  std::cout << "\ncreate start\n";
+
+  
   start.extract(solver);
-
-  //  std::cout << "\ncreate end\n";
+//        std::cout << "\ncreate start " << start << "\n";
+        
   end.extract(solver);
-
-  //  std::cout << "\ncreate duration\n";
+//        std::cout << "\ncreate end " << end << "\n";
+        
   duration.extract(solver);
-
+//        std::cout << "\ncreate duration " << duration << "\n";
+        
   exist.extract(solver);
+//        std::cout << "\ncreate optionality " << exist << "\n";
 
   //
   //  solver.post((start + duration) == end);

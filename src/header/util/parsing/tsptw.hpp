@@ -80,10 +80,10 @@ void parse(const std::string &fn, M &model, J &schedule,
         auto s{model.newNumeric(release, duedate - dur)};
 
         tempo::Interval<int> t;
-        if (optional)
-          t = model.maybe_between(s, s + dur);
-        else
-          t = model.between(s, s + dur);
+          if (optional)
+              t = model.maybe_between(s, s + dur);
+          else
+              t = model.between(s, s + dur);
 
         model.post(t.start.after(schedule.start));
         model.post(t.end.before(schedule.end));

@@ -255,10 +255,14 @@ std::string CumulativeEdgeFinding<T>::asciiArt(const int i) const {
   for (auto k{est(i) + 1}; k < ect(i); ++k) {
     ss << "=";
   }
-  for (auto k{ect(i)}; k < lct(i) - 1; ++k) {
-    ss << ".";
-  }
-  ss << "] " << est(i) << ".." << lct(i);
+    if(lct(i) == Constant::Infinity<T>) {
+        ss << "=... " << est(i) << "..\\inf";
+    } else {
+        for (auto k{ect(i)}; k < lct(i) - 1; ++k) {
+            ss << ".";
+        }
+        ss << "] " << est(i) << ".." << lct(i);
+    }
   return ss.str();
 }
 
@@ -601,12 +605,15 @@ void CumulativeEdgeFinding<T>::horizontallyElasticEdgeFinderForward() {
               [this](const int i, const int j) { return lct(i) < lct(j); });
 
     lc_ptr = lct_order.rbegin();
+    
+    if(lct(*(lct_order.begin())) == Constant::Infinity<T>)
+        return;
 
   #ifdef DBG_SEF
     if (DBG_SEF) {
       std::cout << "\n\nstart propagation\n";
       for (auto j : lct_order) {
-        std::cout << "task " << j << ": " << asciiArt(j) << std::endl;
+          std::cout << "task " << j << ": " << asciiArt(j) << std::endl;
       }
     }
   #endif

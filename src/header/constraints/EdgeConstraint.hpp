@@ -74,7 +74,9 @@ template <typename T> void EdgeConstraint<T>::post(const int idx) {
   // p <=> to - from > d
   // lb(to) - ub(from) > d
   Constraint<T>::cons_id = idx;
-  m_solver.wake_me_on(lb<T>(edge.from), Constraint<T>::cons_id);
+    if(edge.from != Constant::K)
+        m_solver.wake_me_on(lb<T>(edge.from), Constraint<T>::cons_id);
+    if(edge.to != Constant::K)
   m_solver.wake_me_on(ub<T>(edge.to), Constraint<T>::cons_id);
 }
 
@@ -95,7 +97,9 @@ bool EdgeConstraint<T>::notify(const Literal<T>, const int) {
 
     if (edge.satisfied(m_solver)) {
         
+        if(edge.from != Constant::K)
       r_lb = m_solver.numeric.lastLitIndex(bound::lower, edge.from);
+        if(edge.to != Constant::K)
       r_ub = m_solver.numeric.lastLitIndex(bound::upper, edge.to);
 
 #ifdef DBG_EDGECONS
@@ -128,7 +132,11 @@ template <typename T>
 void EdgeConstraint<T>::xplain(const Literal<T>, const hint,
                                   std::vector<Literal<T>> &Cl) {
     
-    if(r_lb < r_ub) {
+    if(r_lb == Constant::NoIndex) {
+        Cl.push_back(m_solver.getLiteral(r_ub));
+    } else if(r_ub == Constant::NoIndex) {
+        Cl.push_back(m_solver.getLiteral(r_lb));
+    } else if(r_lb < r_ub) {
         
         auto p{m_solver.getLiteral(r_lb)};
         auto q{makeNumericLiteral(bound::upper, edge.to, edge.distance - p.value())};

@@ -739,7 +739,7 @@ void FullTransitivity<T>::getPath(const index_t h,
 template <typename T>
 void FullTransitivity<T>::xplain(const Literal<T> l, const hint h,
                                  std::vector<Literal<T>> &Cl) {
-
+    
   if (l == Solver<T>::Contradiction) {
 
 #ifdef DBG_EXPL_FTRANS

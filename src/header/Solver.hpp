@@ -1341,7 +1341,27 @@ index_t NumericStore<T>::lastLitIndex(const bool s, const var_t x) const {
 
 template <typename T>
 index_t NumericStore<T>::litIndex(const Literal<T> l) const {
+    
+//    std::cout << l << std::endl;
+//    
+//    std::cout << l.sign() << " " << l.variable() << "/" << bound_index[l.sign()].size() << std::endl;
+//    
+//    
+//    if(bound_index[l.sign()][l.variable()].size() == 0) {
+//                std::cout << "wtf?\n";
+//                exit(1);
+//    }
+//    
+//    if(bound_index[l.sign()][l.variable()].size() == 1)
+//        return bound_index[l.sign()][l.variable()].back();
+        
     auto i{bound_index[l.sign()][l.variable()].rbegin()};
+    
+//    if(bound_index[l.sign()][l.variable()].size() <= 1) {
+//        std::cout << "wtf?\n";
+//        exit(1);
+//    }
+    
     while (solver.getLiteral(*(i + 1)).value() <= l.value())
         ++i;
     return *i;
@@ -1571,6 +1591,9 @@ Interval<T> Solver<T>::continuefor(const NumericVar<T> s, const NumericVar<T> d)
 
 template <typename T>
 Interval<T> Solver<T>::maybe_between(const NumericVar<T> s, const NumericVar<T> e) {
+    
+//    std::cout << "interval " << s << ".." << e << std::endl;
+    
     Interval<T> i(*this, s, e, e - s, newBoolean());
     post(i.duration >= 0);
     return i;
@@ -2046,15 +2069,13 @@ template <typename T> void Solver<T>::analyze(Explanation<T> &e) {
         
         
 #ifdef DBG_CLPLUS
-        if (num_clauses == DBG_CL and cl_file != NULL) {
-            *cl_file << "0 " << (conflict.size() + num_lit + 1) << " 0 1 " << numeric.upper(1);
-            for(index_t i{0}; i<conflict.size(); ++i) {
+        if (cl_file != NULL) {
+            *cl_file << "1 " << (conflict.size() - csize + 1 + (l != Contradiction)) << " 0 1 " << numeric.upper(1);
+            for (int i{static_cast<int>(conflict.size()) - 1}; i >= csize; --i) {
                 writeLiteral(conflict[i]);
             }
-            for(index_t i{li}; i>=decision_lvl; --i) {
-                if(explored[i])
-                    writeLiteral(trail[i]);
-            }
+            if(l != Contradiction)
+                writeLiteral(~l);
             *cl_file << std::endl;
         }
 #endif
@@ -2062,6 +2083,13 @@ template <typename T> void Solver<T>::analyze(Explanation<T> &e) {
         for (int i{static_cast<int>(conflict.size()) - 1}; i >= csize;) {
             
             auto p{conflict[i]};
+            
+#ifdef DBG_TRACE
+            if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+                std::cout << " ** " << pretty(p) << " ";
+                std::cout.flush();
+            }
+#endif
             
             //@TODO: remove
             auto p_lvl{propagationLevel(p)};
@@ -2127,7 +2155,7 @@ template <typename T> void Solver<T>::analyze(Explanation<T> &e) {
                         if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
                             std::cout << " => add to confict [";
                             for (int z{0}; z < csize; ++z) {
-                                std::cout << " " << z << " " << conflict[z];
+                                std::cout << " " << conflict[z];
                                 std::cout.flush();
                             }
                             std::cout << " ]\n";
@@ -2145,7 +2173,7 @@ template <typename T> void Solver<T>::analyze(Explanation<T> &e) {
                         if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
                             std::cout << " => update confict [";
                             for (int z{0}; z < csize; ++z) {
-                                std::cout << " " << z << " " << conflict[z];
+                                std::cout << " " << conflict[z];
                             }
                             std::cout << " ]\n";
                         }
@@ -2186,6 +2214,13 @@ template <typename T> void Solver<T>::analyze(Explanation<T> &e) {
             }
         }
         
+#ifdef DBG_CLPLUS
+        if (++num_clauses > DBG_CL) {
+            std::cout << "exit because of dbg clause limit (#fails = " << num_fails << ", #cpts = " << num_choicepoints << ")\n";
+            exit(1);
+        }
+#endif
+        
         conflict.resize(csize);
         
 #ifdef DBG_TRACE
@@ -2212,7 +2247,7 @@ template <typename T> void Solver<T>::analyze(Explanation<T> &e) {
         
         --num_lit;
         
-    } while (num_lit > 0 and li > ground_level); // or l.isNumeric());
+    } while (num_lit > 0 and li >= ground_level); // or l.isNumeric());
     
     //    std::cout << "conflict.size() = " << conflict.size() << " numlit = " << num_lit << std::endl;
     
