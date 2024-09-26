@@ -526,6 +526,7 @@ public:
 #ifdef DBG_EXTRACT_SUM
           std::cout << " rm term " << w << "*" << x << std::endl;
 #endif
+          increaseBias(-w * x.min(solver));
           args[i] = args.back();
           ws[i] = ws.back();
           args.pop_back();
@@ -792,6 +793,9 @@ public:
       //            num_part.setId(Constant::K);
       //            num_part.setOffset(bias);
       //            num_part._is_expression = false;
+        
+        
+//        std::cout << " extract constant sum = " << NumericExpressionImpl<T>::self.offset() << std::endl;
     }
 
     //      NumericExpressionImpl<T>::self = num_part;
@@ -802,7 +806,13 @@ public:
   }
 
   SumExpressionImpl<T> &addTerm(const NumericVar<T> &x, const T w = 1) {
+      
+//      std::cout << "increase bias by " << w << "*" << x.offset() << ", was " << NumericExpressionImpl<T>::self.offset();
+      
     increaseBias(w * x.offset());
+      
+//      std::cout << " now: " << NumericExpressionImpl<T>::self.offset() << std::endl;
+      
     if (x.id() != Constant::K) {
       numeric_arguments.push_back(x);
       num_weights.push_back(w);
@@ -1472,6 +1482,7 @@ public:
 //          std::cout << " ===> " << a->id() << ": " << a->exist << std::endl;
         
       for (auto b{a + 1}; b != this->end(); ++b) {
+        
         auto t_ab{0};
         auto t_ba{0};
         auto ai{static_cast<size_t>(a - this->begin())};
@@ -1485,7 +1496,7 @@ public:
 
         auto a_before_b{a->end.before(b->start, t_ab)};
         auto b_before_a{b->end.before(a->start, t_ba)};
-
+          
         if (a->isOptional(solver) or b->isOptional(solver)) {
 
           auto x_ab{solver.newDisjunct(Constant::NoEdge<T>, a_before_b)};
@@ -1858,7 +1869,7 @@ template <typename T> Literal<T> NumericVar<T>::after(const T t) const {
 template <typename T> Literal<T> NumericVar<T>::before(const T t) const {
 //  assert(t != Constant::Infinity<T>);
 //  assert(t != -Constant::Infinity<T>);
-
+    
     return leq<T>(id(), (t == Constant::Infinity<T> ? t : t - offset()));
 
   //    if(sign())
@@ -1876,16 +1887,6 @@ DistanceConstraint<T> NumericVar<T>::after(const NumericVar<T> &e,
 template <typename T>
 DistanceConstraint<T> NumericVar<T>::before(const NumericVar<T> &e,
                                             const T t) const {
-  //  return {e.id(), id(),
-  //          (t == Constant::Infinity<T> ? t : e.offset() - offset() - t)};
-
-  //    if(e.id() == Constant::K) {
-  //        return this->before(e.offset() - t);
-  //    }
-  //    if(id() == Constant::K) {
-  //        e.after(offset() + t);
-  //    }
-
   return {e.id(), id(),
           (t == Constant::Infinity<T> ? t : e.offset() - offset() - t)};
 }
@@ -1941,17 +1942,21 @@ Interval<T>::Interval(Solver<T> &solver, const NumericVar<T> s,
                       const NumericVar<T> e, const NumericVar<T> d,
                       const BooleanVar<T> o)
     : _id_(num_intervals++), start(s), end(e), duration(d), exist(o) {
+        
 
-  //  std::cout << "\ncreate start\n";
+
+  
   start.extract(solver);
-
-  //  std::cout << "\ncreate end\n";
+//        std::cout << "\ncreate start " << start << "\n";
+        
   end.extract(solver);
-
-  //  std::cout << "\ncreate duration\n";
+//        std::cout << "\ncreate end " << end << "\n";
+        
   duration.extract(solver);
-
+//        std::cout << "\ncreate duration " << duration << "\n";
+        
   exist.extract(solver);
+//        std::cout << "\ncreate optionality " << exist << "\n";
 
   //
   //  solver.post((start + duration) == end);

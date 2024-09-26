@@ -1341,7 +1341,27 @@ index_t NumericStore<T>::lastLitIndex(const bool s, const var_t x) const {
 
 template <typename T>
 index_t NumericStore<T>::litIndex(const Literal<T> l) const {
+    
+//    std::cout << l << std::endl;
+//    
+//    std::cout << l.sign() << " " << l.variable() << "/" << bound_index[l.sign()].size() << std::endl;
+//    
+//    
+//    if(bound_index[l.sign()][l.variable()].size() == 0) {
+//                std::cout << "wtf?\n";
+//                exit(1);
+//    }
+//    
+//    if(bound_index[l.sign()][l.variable()].size() == 1)
+//        return bound_index[l.sign()][l.variable()].back();
+        
     auto i{bound_index[l.sign()][l.variable()].rbegin()};
+    
+//    if(bound_index[l.sign()][l.variable()].size() <= 1) {
+//        std::cout << "wtf?\n";
+//        exit(1);
+//    }
+    
     while (solver.getLiteral(*(i + 1)).value() <= l.value())
         ++i;
     return *i;
@@ -1571,6 +1591,9 @@ Interval<T> Solver<T>::continuefor(const NumericVar<T> s, const NumericVar<T> d)
 
 template <typename T>
 Interval<T> Solver<T>::maybe_between(const NumericVar<T> s, const NumericVar<T> e) {
+    
+//    std::cout << "interval " << s << ".." << e << std::endl;
+    
     Interval<T> i(*this, s, e, e - s, newBoolean());
     post(i.duration >= 0);
     return i;
@@ -2061,6 +2084,13 @@ template <typename T> void Solver<T>::analyze(Explanation<T> &e) {
             
             auto p{conflict[i]};
             
+#ifdef DBG_TRACE
+            if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+                std::cout << " ** " << pretty(p) << " ";
+                std::cout.flush();
+            }
+#endif
+            
             //@TODO: remove
             auto p_lvl{propagationLevel(p)};
             
@@ -2125,7 +2155,7 @@ template <typename T> void Solver<T>::analyze(Explanation<T> &e) {
                         if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
                             std::cout << " => add to confict [";
                             for (int z{0}; z < csize; ++z) {
-                                std::cout << " " << z << " " << conflict[z];
+                                std::cout << " " << conflict[z];
                                 std::cout.flush();
                             }
                             std::cout << " ]\n";
@@ -2143,7 +2173,7 @@ template <typename T> void Solver<T>::analyze(Explanation<T> &e) {
                         if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
                             std::cout << " => update confict [";
                             for (int z{0}; z < csize; ++z) {
-                                std::cout << " " << z << " " << conflict[z];
+                                std::cout << " " << conflict[z];
                             }
                             std::cout << " ]\n";
                         }
