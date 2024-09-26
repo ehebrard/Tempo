@@ -2247,7 +2247,7 @@ template <typename T> void Solver<T>::analyze(Explanation<T> &e) {
         
         --num_lit;
         
-    } while (num_lit > 0 and li > ground_level); // or l.isNumeric());
+    } while (num_lit > 0 and li >= ground_level); // or l.isNumeric());
     
     //    std::cout << "conflict.size() = " << conflict.size() << " numlit = " << num_lit << std::endl;
     

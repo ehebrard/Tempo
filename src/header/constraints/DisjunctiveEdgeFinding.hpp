@@ -561,7 +561,7 @@ template <typename T> void DisjunctiveEdgeFinding<T>::propagateForward() {
 #endif
 
         // ej < si (ub(si) & lb(ej))
-        if (m_solver.boolean.falsified(disjunct[*j][r])) {
+        if (m_solver.boolean.falsified(disjunct[*j][r]) and est(*j) >= s) {
           // the precedence is trivially implied because r >> *j
           // not clear if we should just let the edge constraints handle that
 
@@ -739,7 +739,7 @@ template <typename T> void DisjunctiveEdgeFinding<T>::propagateBackward() {
     auto &fl{the_tasks[r]};
     ph = Constant::FactHint;
     for (auto j{est_order.rbegin()}; *j != *ai; ++j) {
-      if (not m_solver.boolean.satisfied(disjunct[*j][r])) {
+      if (not m_solver.boolean.satisfied(disjunct[*j][r]) and lct(*j) <= u) {
 #ifdef DBG_EDGEFINDING
         if (DBG_EDGEFINDING) {
           std::cout << "add precedence " << disjunct[*j][r] << "?" << std::endl;

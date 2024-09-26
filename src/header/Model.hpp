@@ -526,7 +526,7 @@ public:
 #ifdef DBG_EXTRACT_SUM
           std::cout << " rm term " << w << "*" << x << std::endl;
 #endif
-          increaseBias(-w * x.min(solver));
+//          increaseBias(-w * x.min(solver));
           args[i] = args.back();
           ws[i] = ws.back();
           args.pop_back();
