@@ -53,7 +53,8 @@ public:
 //      
     // @TODO no gap info available -> what should I return?
     if (not solver.boolean.hasSemantic(x)) {
-      return solver.boolean.getLiteral((tempo::random() % 2), x);
+        return solver.boolean.getLiteral((tempo::random() % 2), x);
+//        return solver.boolean.getLiteral(false, x);
     }
 
     auto gapPos = boundEstimation(true, x, solver);
