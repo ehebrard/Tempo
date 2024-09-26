@@ -132,6 +132,10 @@ namespace tempo::testing {
         return capacity;
     }
 
+    auto Resource::tasks() const noexcept -> const std::vector<unsigned> & {
+        return *this;
+    }
+
     BoundProvider::BoundProvider(std::vector<int> upper, std::vector<int> lower) : u(std::move(upper)), l(std::move(lower)) {}
 
     int BoundProvider::upper(tempo::var_t var) const { return u.at(var); }

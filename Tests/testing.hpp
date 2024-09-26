@@ -35,8 +35,13 @@ namespace tempo::testing {
     struct Resource : public std::vector<unsigned> {
         std::vector<int> demands;
         int capacity;
+
         Resource(int capacity, std::vector<unsigned> tasks, std::vector<int> demands);
+
+        [[nodiscard]] auto tasks() const noexcept -> const std::vector<unsigned> &;
+
         [[nodiscard]] int getDemand(unsigned taskId) const;
+
         [[nodiscard]] int resourceCapacity() const;
     };
 
@@ -46,12 +51,15 @@ namespace tempo::testing {
         std::vector<int> u, l;
     public:
         BoundProvider(std::vector<int> upper, std::vector<int> lower);
+
         [[nodiscard]] int upper(tempo::var_t var) const;
+
         [[nodiscard]] int lower(tempo::var_t var) const;
     };
 
     struct DummyScheduler {
         tempo::testing::BoundProvider numeric;
+
         template<typename ...Args>
         explicit DummyScheduler(Args &&...args): numeric(std::forward<Args>(args)...) {}
     };
