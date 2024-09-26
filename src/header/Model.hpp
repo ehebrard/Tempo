@@ -1447,7 +1447,7 @@ template <typename T = int>
 class NoOverlapExpressionImpl : public BooleanExpressionImpl<T>,
                                 public std::vector<Interval<T>> {
 public:
-  NoOverlapExpressionImpl(Interval<T> &sched) : schedule(sched) {}
+  NoOverlapExpressionImpl(const Interval<T> &sched) : schedule(sched) {}
 
   virtual ~NoOverlapExpressionImpl() {
 #ifdef DBG_EXTRACT
@@ -1606,7 +1606,7 @@ public:
 };
 
 template <typename T, typename Iterable, typename Matrix>
-NoOverlapExpression<T> NoOverlap(Interval<T> &schedule, const Iterable &X,
+NoOverlapExpression<T> NoOverlap(const Interval<T> &schedule, const Iterable &X,
                                  const Matrix &D) {
   auto impl{new NoOverlapExpressionImpl<T>(schedule)};
   //  for (auto x : X)
@@ -1650,7 +1650,7 @@ template <typename T = int>
 class CumulativeExpressionImpl : public BooleanExpressionImpl<T>,
                                  public std::vector<Interval<T>> {
 public:
-  CumulativeExpressionImpl(const Interval<T> s, const NumericVar<T> c)
+  CumulativeExpressionImpl(const Interval<T> &s, const NumericVar<T> c)
       : schedule(s), capacity(c) {}
 
   virtual ~CumulativeExpressionImpl() {
@@ -1788,7 +1788,7 @@ public:
 };
 
 template <typename T = int>
-CumulativeExpression<T> Cumulative(Interval<T> &s, const NumericVar<T> c,
+CumulativeExpression<T> Cumulative(const Interval<T> &s, const NumericVar<T> c,
                                    const std::vector<Interval<T>> &I,
                                    const std::vector<NumericVar<T>> &D) {
   auto impl{new CumulativeExpressionImpl<T>(s, c)};

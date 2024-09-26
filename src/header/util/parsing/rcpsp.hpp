@@ -15,7 +15,7 @@ void parse(const std::string &fn, Solver<int> &model, Interval<int> &schedule,
            std::vector<Interval<int>> &intervals,
            std::vector<std::vector<size_t>> &resources,
            std::vector<std::vector<int>> &demands, std::vector<int> &capacities,
-           std::vector<std::pair<int, int>> &precedences) {
+           std::vector<std::pair<int, int>> &precedences, std::vector<DistanceConstraint<int>> *distConstraints = nullptr) {
   using std::cerr;
   try {
     std::ifstream ifs(fn);
@@ -147,16 +147,32 @@ void parse(const std::string &fn, Solver<int> &model, Interval<int> &schedule,
     //            }
     //        }
 
+    if (nullptr != distConstraints) {
+        distConstraints->reserve(precedences.size());
+    }
+
     for (auto prec : precedences) {
       auto x{prec.first};
       auto y{prec.second};
 
       if (x < 0) {
-        model.post(schedule.start.before(intervals[y].start));
+        auto dc = schedule.start.before(intervals[y].start);
+        model.post(dc);
+        if (nullptr != distConstraints) {
+            distConstraints->emplace_back(dc);
+        }
       } else if (y >= nj) {
-        model.post(intervals[x].end.before(schedule.end));
+        auto dc = intervals[x].end.before(schedule.end);
+        model.post(dc);
+          if (nullptr != distConstraints) {
+              distConstraints->emplace_back(dc);
+          }
       } else {
-        model.post(intervals[x].end.before(intervals[y].start));
+        auto dc = intervals[x].end.before(intervals[y].start);
+        model.post(dc);
+          if (nullptr != distConstraints) {
+              distConstraints->emplace_back(dc);
+          }
       }
     }
     //        for(unsigned i{0}; i<edges.size(); i+=2) {
