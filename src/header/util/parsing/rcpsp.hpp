@@ -11,7 +11,7 @@ namespace rcpsp {
 
 using namespace tempo;
 
-void parse(const std::string &fn, Solver<int> &model, Interval<int> &schedule,
+inline void parse(const std::string &fn, Solver<int> &model, Interval<int> &schedule,
            std::vector<Interval<int>> &intervals,
            std::vector<std::vector<size_t>> &resources,
            std::vector<std::vector<int>> &demands, std::vector<int> &capacities,
