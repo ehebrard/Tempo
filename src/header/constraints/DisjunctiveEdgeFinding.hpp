@@ -557,39 +557,25 @@ template <typename T> void DisjunctiveEdgeFinding<T>::propagateForward() {
     auto &tl{the_tasks[r]};
     ph = Constant::FactHint;
     for (auto j{ai}; j != lct_order.rend(); ++j) {
-
-      if (not m_solver.boolean.satisfied(disjunct[r][*j])) {
-
+//        if (the_tasks[*x].getEarliestStart(m_solver) >= lb) {
+      if (not m_solver.boolean.satisfied(disjunct[r][*j]) and est(*j) >= s) {
 #ifdef DBG_EDGEFINDING
-        if (DBG_EDGEFINDING) {
-          std::cout << "add f precedence " << m_solver.pretty(disjunct[r][*j]) << "?" << std::endl;
-        }
+        if (DBG_EDGEFINDING) {std::cout << "add f precedence " << m_solver.pretty(disjunct[r][*j]) << "? (" << disjunct[r][*j].id() << ")" << std::endl;}
 #endif
-
-          if(disjunct[r][*j].id() == 208) {
-              std::cout << "HERE! (" << this->id() << ")\n";
-          }
-          
-          
         // ej < si (ub(si) & lb(ej))
         if (m_solver.boolean.falsified(disjunct[*j][r])) {
           // the precedence is trivially implied because r >> *j
           // not clear if we should just let the edge constraints handle that
-
           // this is the edge that is satisfied and implies disjunct[r][*j]
           auto eij{~m_solver.boolean.getEdge(disjunct[*j][r])};
           auto idx_lb{m_solver.numeric.lastLitIndex(bound::lower, eij.from)};
           auto idx_ub{m_solver.numeric.lastLitIndex(bound::upper, eij.to)};
-
           // ei < sj (ub(ei) & lb(sj))
           m_solver.set(
               disjunct[r][*j],
               {this, -1 - static_cast<hint>(std::min(idx_lb, idx_ub))});
-
 #ifdef DBG_EDGEFINDING
-          if (DBG_EDGEFINDING) {
-            printTrivialExplanation(disjunct[r][*j]);
-          }
+          if (DBG_EDGEFINDING) {printTrivialExplanation(disjunct[r][*j]);}
 #endif
         } else {
           assert(checklbpruning(r, s, ai, lct_order.rend()));
@@ -750,7 +736,8 @@ template <typename T> void DisjunctiveEdgeFinding<T>::propagateBackward() {
     auto &fl{the_tasks[r]};
     ph = Constant::FactHint;
     for (auto j{est_order.rbegin()}; *j != *ai; ++j) {
-      if (not m_solver.boolean.satisfied(disjunct[*j][r])) {
+//        if (the_tasks[*x].getLatestEnd(m_solver) <= ub) {
+      if (not m_solver.boolean.satisfied(disjunct[*j][r]) and lct(*j) <= u) {
 #ifdef DBG_EDGEFINDING
         if (DBG_EDGEFINDING) {
           std::cout << "add b precedence " << m_solver.pretty(disjunct[*j][r]) << "?" << std::endl;

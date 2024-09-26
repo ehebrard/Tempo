@@ -1989,15 +1989,22 @@ template <typename T> void Solver<T>::analyze(Explanation<T> &e) {
     index_t li{static_cast<index_t>(trail.size() - 1)};
     Literal<T> l{Contradiction};
     
+    
+//    if(num_choicepoints > 300000) {
+//        if(not decisions.empty())
+//            std::cout << std::endl << *(decisions.begin()) << std::endl;
+//        else std::cout << std::endl << "{}" << std::endl;
+//    }
+    
 #ifdef DBG_TRACE
     if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
         std::cout << "analyze conflict:\n";
-//        //        displayBranches(std::cout);
-//        for(auto i{ground_level}; i<trail.size(); ++i) {
-//            if(i == assumption_level)
-//                std::cout << "** ";
-//            std::cout << std::setw(4) << i << " " << pretty(trail[i]) << std::endl;
-//        }
+        //        displayBranches(std::cout);
+        for(auto i{ground_level}; i<trail.size(); ++i) {
+            if(i == assumption_level)
+                std::cout << "a";
+            std::cout << std::setw(4) << i << " " << pretty(trail[i]) << std::endl;
+        }
     }
 #endif
     
@@ -2021,7 +2028,7 @@ template <typename T> void Solver<T>::analyze(Explanation<T> &e) {
         
         
 #ifdef DBG_CLPLUS
-        if (cl_file != NULL) {
+        if (cl_file != NULL and num_choicepoints >= 319179) {
             *cl_file << "1 " << (conflict.size() - csize + 1 + (l != Contradiction)) << " 0 1 " << numeric.upper(1);
             for (int i{static_cast<int>(conflict.size()) - 1}; i >= csize; --i) {
                 writeLiteral(conflict[i]);
@@ -2100,23 +2107,23 @@ template <typename T> void Solver<T>::analyze(Explanation<T> &e) {
                         }
                     }
                     if (need_add) {
+                        if(not p.isNumeric())
+                            explored[p_lvl] = true;
+                        std::swap(conflict[csize], conflict[i]);
+                        ++csize;
+                        literal_lvl.push_back(p_lvl);
                         
 #ifdef DBG_TRACE
                         if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
                             std::cout << " => add to confict [";
                             for (int z{0}; z < csize; ++z) {
-                                std::cout << " " << z << " " << conflict[z];
+                                std::cout << " " << conflict[z];
                                 std::cout.flush();
                             }
                             std::cout << " ]\n";
                         }
 #endif
                         
-                        if(not p.isNumeric())
-                            explored[p_lvl] = true;
-                        std::swap(conflict[csize], conflict[i]);
-                        ++csize;
-                        literal_lvl.push_back(p_lvl);
                     } else {
                         --i;
 #ifdef DBG_TRACE
@@ -2197,7 +2204,7 @@ template <typename T> void Solver<T>::analyze(Explanation<T> &e) {
         
         --num_lit;
         
-    } while (num_lit > 0 and li > ground_level); // or l.isNumeric());
+    } while (num_lit > 0 and li >= ground_level); // or l.isNumeric());
     
     //    std::cout << "conflict.size() = " << conflict.size() << " numlit = " << num_lit << std::endl;
     
@@ -2298,7 +2305,12 @@ template <typename T> void Solver<T>::analyze(Explanation<T> &e) {
     }
     
 #ifdef DBG_CL
-    if (cl_file != NULL) { //and decisions.empty()) {
+    if (cl_file != NULL and num_choicepoints >= 319179) { //and decisions.empty()) {
+        
+//        std::cout << numeric.upper(1) << std::endl;
+        
+        std::cout << num_choicepoints << std::endl;
+        
         *cl_file << "0 " << (learnt_clause.size() + 1) << " 0 1 " << numeric.upper(1);
         for (auto p : learnt_clause) {
             writeLiteral(~p);
@@ -2307,10 +2319,6 @@ template <typename T> void Solver<T>::analyze(Explanation<T> &e) {
     }
 #endif
     
-    
-    
-    if(num_choicepoints >= 1561)
-        exit(1);
 }
 
 template <typename T> bool Solver<T>::isAssertive(std::vector<Literal<T>> &conf) const {
