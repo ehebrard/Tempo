@@ -66,12 +66,19 @@ public:
     
     bool value(const BooleanVar<T> x) const;
     bool value(const var_t x) const;
+    bool solution_value(const var_t x) const;
     
     T lower_bound(const NumericVar<T> x) const;
     T lower_bound(const var_t x) const;
     
     T upper_bound(const NumericVar<T> x) const;
     T upper_bound(const var_t x) const;
+    
+    bool reachable(const Solver<T> &) const;
+    var_t discrepancy(const Solver<T> &) const;
+    
+    std::ostream &display(std::ostream &os) const;
+    std::istream &load(std::istream &is) ;
     
 private:
     std::vector<bool> boolean_variable;
@@ -275,7 +282,7 @@ public:
         best_solution[bound::upper] = bound[bound::upper];
     }
     bool hasSolution() const { return not best_solution[bound::lower].empty(); }
-    std::vector<T> &bestSolution(const int b) const { return best_solution[b]; }
+    const std::vector<T> &bestSolution(const int b) const { return best_solution[b]; }
     //@}
     
 private:
@@ -591,7 +598,7 @@ public:
     template <typename S> void optimize(S &objective);
     
     template <typename S, typename A>
-    void largeNeighborhoodSearch(S &objective, A &relaxationPolicy);
+    void largeNeighborhoodSearch(S &objective, A &relaxationPolicy, Solution<T>& check_sol);
     
     boolean_state satisfiable();
     void minimize(const NumericVar<T> x);
@@ -846,10 +853,22 @@ template <typename T> Solution<T>::Solution(const Solver<T> &solver) {
 }
 
 template <typename T> void Solution<T>::load(const Solver<T> &solver) {
-    boolean_variable = solver.boolean.bestSolution();
+    var_t end_bool{static_cast<var_t>(solver.boolean.size())};
+    boolean_variable.resize(end_bool);
+    for(var_t i{0}; i<end_bool; ++i) {
+        boolean_variable[i] = solver.boolean.isTrue(i);
+    }
+    
+//    solver.boolean.bestSolution();
     numeric_lower_bound = solver.numeric.bestSolution(bound::lower);
     numeric_upper_bound = solver.numeric.bestSolution(bound::upper);
 }
+
+//template <typename T> void Solution<T>::push(const Solver<T> &solver) {
+//    boolean_variable = solver.boolean.bestSolution();
+//    numeric_lower_bound = solver.numeric.bestSolution(bound::lower);
+//    numeric_upper_bound = solver.numeric.bestSolution(bound::upper);
+//}
 
 template <typename T> bool Solution<T>::value(const BooleanVar<T> x) const {
     return boolean_variable[x.id()];
@@ -860,11 +879,11 @@ template <typename T> bool Solution<T>::value(const var_t x) const {
 }
 
 template <typename T> T Solution<T>::lower_bound(const NumericVar<T> x) const {
-    return numeric_lower_bound[x.id()];
+    return -numeric_lower_bound[x.id()];
 }
 
 template <typename T> T Solution<T>::lower_bound(const var_t x) const {
-    return numeric_lower_bound[x];
+    return -numeric_lower_bound[x];
 }
 
 template <typename T> T Solution<T>::upper_bound(const NumericVar<T> x) const {
@@ -873,6 +892,88 @@ template <typename T> T Solution<T>::upper_bound(const NumericVar<T> x) const {
 
 template <typename T> T Solution<T>::upper_bound(const var_t x) const {
     return numeric_upper_bound[x];
+}
+
+template <typename T> bool Solution<T>::reachable(const Solver<T> &S) const {
+//    bool canreach{true};
+//    
+//    var_t end_bool{static_cast<var_t>(boolean_variable.size())};
+//    var_t end_num{static_cast<var_t>(numeric_lower_bound.size())};
+//    
+//    for(var_t i{1}; canreach and i<end_bool; ++i) {
+//        if(value(i))
+//            canreach = not S.boolean.isFalse(i);
+//        else
+//            canreach = not S.boolean.isTrue(i);
+//    }
+//    for(var_t i{1}; canreach and i<end_num; ++i) {
+//        canreach = (S.numeric.lower(i) <= lower_bound(i) and S.numeric.upper(i) >= upper_bound(i));
+//    }
+//    
+//    return canreach;
+    return discrepancy(S) == 0;
+}
+
+template <typename T> var_t Solution<T>::discrepancy(const Solver<T> &S) const {
+    bool canreach{true};
+    
+    var_t end_bool{static_cast<var_t>(boolean_variable.size())};
+    var_t end_num{static_cast<var_t>(numeric_lower_bound.size())};
+    
+    var_t i{1};
+    for(; canreach and i<end_bool; ++i) {
+        if(value(i))
+            canreach = not S.boolean.isFalse(i);
+        else
+            canreach = not S.boolean.isTrue(i);
+    }
+    if(i < end_bool)
+        return i;
+    
+    i = 1;
+    for(; canreach and i<end_num; ++i) {
+        canreach = (S.numeric.lower(i) <= lower_bound(i) and S.numeric.upper(i) >= upper_bound(i));
+    }
+    if(i < end_num)
+        return -i;
+    
+    return 0;
+}
+
+template <typename T> std::ostream & Solution<T>::display(std::ostream &os) const {
+    os << boolean_variable.size() << " " << numeric_lower_bound.size();
+    for(auto b : boolean_variable) {
+        os << " " << b;
+    }
+    for(auto l : numeric_lower_bound) {
+        os << " " << l ;
+    }
+    for(auto u : numeric_upper_bound) {
+        os << " " << u ;
+    }
+    return os;
+}
+
+template <typename T> std::istream &Solution<T>::load(std::istream &is) {
+    size_t nb;
+    size_t nn;
+    bool v;
+    is >> nb;
+    is >> nn;
+    boolean_variable.resize(nb);
+    numeric_lower_bound.resize(nn);
+    numeric_upper_bound.resize(nn);
+    for(size_t i{0}; i<nb; ++i) {
+        is >> v;
+        boolean_variable[i] = v;
+    }
+    for(size_t i{0}; i<nn; ++i) {
+        is >> numeric_lower_bound[i];
+    }
+    for(size_t i{0}; i<nn; ++i) {
+        is >> numeric_upper_bound[i];
+    }
+    return is;
 }
 
 /*!
@@ -2354,6 +2455,15 @@ template <typename T> void Solver<T>::learnConflict(Explanation<T> &e) {
     
     int jump{1};
     
+    
+#ifdef DBG_TRACE
+    if (DBG_BOUND and (DBG_TRACE & SEARCH)) {
+        std::cout << "learnt_clause.size() = " << learnt_clause.size() << " / decisions.size() = " << decisions.size() << std::endl;
+    }
+#endif
+    
+    
+    
     if (learnt_clause.size() == 1 or decisions.size() <= 1) {
         jump = std::max(1, static_cast<int>(decisions.size()));
     } else {
@@ -2371,6 +2481,7 @@ template <typename T> void Solver<T>::learnConflict(Explanation<T> &e) {
             std::cout << " " << pretty(l) << " (" << propagationLevel(l) << ")";
         }
         std::cout << std::endl; //<< *this << std::endl;
+        std::cout << "jump from lvl_" << env.level() << " to lvl_" << (env.level() - jump) << std::endl;
     }
 #endif
     //        std::cout << "jump to " << (env.level() - jump) << std::endl;
@@ -2616,7 +2727,7 @@ void Solver<T>::optimize(S &objective) {
 
 template <typename T>
 template <typename S, typename A>
-void Solver<T>::largeNeighborhoodSearch(S &objective, A &relaxationPolicy) {
+void Solver<T>::largeNeighborhoodSearch(S &objective, A &relaxationPolicy, Solution<T>& check_sol) {
     objective.X.extract(*this);
     objective_var = objective.X.id();
     
@@ -2643,6 +2754,11 @@ void Solver<T>::largeNeighborhoodSearch(S &objective, A &relaxationPolicy) {
             } catch (Failure<T> &f) {
                 objective.setDual(objective.primalBound());
                 propagate();
+                
+                if(not check_sol.reachable(*this)) {
+                    std::cout << "bug here\n";
+                    exit(1);
+                }
             }
         } else {
             if(options.verbosity >= Options::QUIET)
@@ -2655,12 +2771,15 @@ void Solver<T>::largeNeighborhoodSearch(S &objective, A &relaxationPolicy) {
     
     while (objective.gap() and not KillHandler::instance().signalReceived()) {
         relaxationPolicy.select(assumptions);
-//        
-//        std::cout << "LVL=" << env.level() << " ASSUMPTIONS:";
-//        for(auto l : assumptions)
-//            std::cout << " " << pretty(l);
-//        std::cout << std::endl;
-//        
+//
+        
+#ifdef DBG_LNS
+        std::cout << "LVL=" << env.level() << " ASSUMPTIONS:";
+        for(auto l : assumptions)
+            std::cout << " " << pretty(l);
+        std::cout << std::endl;
+#endif
+//
 //        
         
      
@@ -2671,11 +2790,31 @@ void Solver<T>::largeNeighborhoodSearch(S &objective, A &relaxationPolicy) {
             satisfiability = UnknownState;
         }
         catch(Failure<T>& f) {
-//            std::cout << "assumptions are inconsistent under the current UB\n";
+
+#ifdef DBG_LNS
+            std::cout << "assumptions are inconsistent under the current UB\n";
+#endif
+
         }
         
-        if(satisfiability == UnknownState)
+        if(satisfiability == UnknownState) {
+            
+            
+            if (assumptions.empty()) {
+                if(not check_sol.reachable(*this)) {
+                    std::cout << "bug after empty assumption (" << objective.primalBound() << ")\n";
+                    exit(1);
+                }
+//                std::cout << *this << std::endl;
+            }
+            
+//            clauses.forgetAll();
+//            std::cout << num_choicepoints << std::endl;
+            
+            
             satisfiability = search();
+            
+        }
             
         if (satisfiability == TrueState) {
             auto best{objective.value(*this)};
@@ -2691,13 +2830,57 @@ void Solver<T>::largeNeighborhoodSearch(S &objective, A &relaxationPolicy) {
             
             relaxationPolicy.notifySuccess();
             restoreState(0);
+            decisions.clear();
+            
+            
+            auto x{check_sol.discrepancy(*this)};
+            if(x != 0) {
+                std::cout << "bug after restore (" << objective.primalBound() << ") at var ";
+                if(x > 0) {
+                    std::cout << "b" << x;
+                } else {
+                    std::cout << "x" << -x;
+                }
+                
+                std::cout << "\n";
+                var_t end_bool{static_cast<var_t>(boolean.size())};
+                var_t end_num{static_cast<var_t>(numeric.size())};
+                for(var_t i{1}; i<end_bool; ++i) {
+                    std::cout << "b" << i << ": " << check_sol.value(i) << " / " ;
+                    if(boolean.isTrue(i))
+                        std::cout << "1";
+                    else if(boolean.isFalse(i))
+                        std::cout << "0";
+                    else
+                        std::cout << "*";
+                    std::cout << std::endl;
+                }
+                
+                for(var_t i{1}; i<end_num; ++i) {
+                    std::cout << "x" << i << ": " << numeric.lower(i) << ".." << check_sol.lower_bound(i) << ".."
+                    << check_sol.upper_bound(i) << ".." << numeric.upper(i) << std::endl;
+                }
+                
+                exit(1);
+            }
         
             try {
                 objective.setPrimal(best, *this);
                 propagate();
             } catch (Failure<T> &f) {
                 objective.setDual(objective.primalBound());
+                
+#ifdef DBG_LNS
+            std::cout << "set LB after fail on new UB, gap=" << objective.gap() << "\n";
+#endif
+                
             }
+            
+            if(not check_sol.reachable(*this)) {
+                std::cout << "bug after setting the primal bound (" << objective.primalBound() << ")\n";
+                exit(1);
+            }
+            
             ground_level = trail.size();
         } else {
             
@@ -2717,10 +2900,22 @@ void Solver<T>::largeNeighborhoodSearch(S &objective, A &relaxationPolicy) {
                 
                 objective.setDual(objective.primalBound());
                 
+#ifdef DBG_LNS
+            std::cout << "set LB after fail on empty assumptions, gap=" << objective.gap() << "\n";
+#endif
+                
+                
             } else {
                 relaxationPolicy.notifyFailure();
                 restoreState(0);
+                decisions.clear();
 //                clauses.forgetAll();
+                
+                if(not check_sol.reachable(*this)) {
+                    std::cout << "bug over there (" << objective.primalBound() << ")\n";
+                    exit(1);
+                }
+                
             }
         }
     }
@@ -3546,6 +3741,19 @@ template <typename T>
 std::ostream &operator<<(std::ostream &os, const Solver<T> &x) {
   return x.display(os);
 }
+
+
+template <typename T>
+std::ostream &operator<<(std::ostream &os, const Solution<T> &x) {
+  return x.display(os);
+}
+
+template <typename T>
+std::istream &operator>>(std::istream &is, Solution<T> &x) {
+  return x.load(is);
+}
+
+
 }
 
 #endif

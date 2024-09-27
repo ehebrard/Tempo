@@ -159,6 +159,9 @@ int main(int argc, char *argv[]) {
     std::string ordering_file{""};
     parser.getCmdLine().add<TCLAP::ValueArg<std::string>>(ordering_file, "", "static-ordering", "use static ordering heuristic", false, "", "string");
     
+    std::string load_solution{""};
+    parser.getCmdLine().add<TCLAP::ValueArg<std::string>>(load_solution, "", "load-solution", "load solution from file", false, "sol_orb03.txt", "string");
+    
   parser.parse(argc, argv);
   Options opt = parser.getOptions();
   Solver<> S(opt);
@@ -301,7 +304,13 @@ int main(int argc, char *argv[]) {
             }
         RandomSubset<int> policy(S, vars, .97);
         
-        S.largeNeighborhoodSearch(objective, policy);
+        Solution<int> sol;
+        std::ifstream infile(load_solution.c_str(), std::ios_base::in);
+        infile >> sol;
+        
+//        std::cout << "load " << sol << std::endl;
+        
+        S.largeNeighborhoodSearch(objective, policy, sol);
     }
 
   if (S.numeric.hasSolution()) {
