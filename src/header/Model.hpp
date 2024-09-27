@@ -723,8 +723,9 @@ public:
                 const var_t target = Constant::NoVar) override {
 
 #ifdef DBG_EXTRACT_SUM
-    this->display(std::cout);
-    std::cout << std::endl;
+      std::cout << "extract ";
+      this->display(std::cout);
+    std::cout << " with target " << target << std::endl;
 #endif
 
     //      NumericVar<T> num_part;
@@ -738,19 +739,30 @@ public:
         L.push_back(x == true);
       }
 
-      auto bool_part{solver.newNumeric(bool_lb, bool_ub)};
+        auto bool_part{target};
+        if(target == Constant::NoVar) {
+//            auto bool_part{solver.newNumeric(bool_lb, bool_ub)};
+            NumericExpressionImpl<T>::self = solver.newNumeric(bool_lb, bool_ub);
+            bool_part = NumericExpressionImpl<T>::self.id();
+        } else {
+            NumericExpressionImpl<T>::self.data = NumInfo<T>(bool_part, 0);
+            solver.set(leq<T>(target, bool_ub));
+            solver.set(geq<T>(target, bool_lb));
+        }
+        
+        
 
       solver.post(new PseudoBooleanLeqVar<T>(
-          solver, L.begin(), L.end(), bool_weights.begin(), bool_part.id()));
+          solver, L.begin(), L.end(), bool_weights.begin(), bool_part));
 
       solver.post(new PseudoBooleanGeqVar<T>(
-          solver, L.begin(), L.end(), bool_weights.begin(), bool_part.id()));
+          solver, L.begin(), L.end(), bool_weights.begin(), bool_part));
 
       assert(numeric_arguments.empty());
 
-      NumericExpressionImpl<T>::self = bool_part;
+      
 
-      return NumericExpressionImpl<T>::self.id();
+      return bool_part;
     }
 
     preprocessNumeric(solver);
