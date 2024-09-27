@@ -2738,11 +2738,8 @@ void Solver<T>::optimize(S &objective) {
                 displayProgress(std::cout);
             }
             
+            
             objective.apply(best, *this);
-//            boolean.saveSolution();
-//            numeric.saveSolution();
-//            ++num_solutions;
-//            SolutionFound.trigger(*this);
             saveSolution();
             restart(true);
             try {

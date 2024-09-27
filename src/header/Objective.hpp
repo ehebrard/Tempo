@@ -38,22 +38,24 @@ template <typename T> class Objective {
 public:
   Objective(const NumericVar<T> x) : X(x) {}
 
-  T gap() { return p_b - d_b; }
+//  T gap() { return p_b - d_b; }
   T dualBound() const { return d_b; }
   T primalBound() const { return p_b; }
 
   void setDual(const T v) { d_b = v; }
+    
+    T gap() { return std::abs(p_b - d_b); }
 
   NumericVar<T> X;
     
 protected:
-  T d_b{0};
-  T p_b{Constant::Infinity<T>};
+    T d_b; //{0};
+    T p_b; //{Constant::Infinity<T>};
 };
 
 template <typename T> class MinimizationObjective : public Objective<T> {
 public:
-  MinimizationObjective(const NumericVar<T> x) : Objective<T>(x) {}
+    MinimizationObjective(const NumericVar<T> x) : Objective<T>(x) { Objective<T>::d_b = -Constant::Infinity<T>; Objective<T>::p_b = Constant::Infinity<T>; }
 
   T value(Solver<T> &solver) { return Objective<T>::X.min(solver); }
 
@@ -63,6 +65,8 @@ public:
       apply(Objective<T>::p_b - Gap<T>::epsilon(), solver);
     }
   }
+    
+//    T gap() { return Objective<T>::p_b - Objective<T>::d_b; }
 
 //private:
   void apply(const T target, Solver<T> &solver) {
@@ -73,7 +77,7 @@ public:
 
 template <typename T> class MaximizationObjective : public Objective<T> {
 public:
-  MaximizationObjective(const NumericVar<T> x) : Objective<T>(x) {}
+    MaximizationObjective(const NumericVar<T> x) : Objective<T>(x) { Objective<T>::d_b = Constant::Infinity<T>; Objective<T>::p_b = -Constant::Infinity<T>; }
 
   T value(Solver<T> &solver) { return Objective<T>::X.max(solver); }
 
@@ -84,6 +88,8 @@ public:
     }
   }
 
+//    T gap() { return Objective<T>::d_b - Objective<T>::p_b; }
+    
 //private:
   void apply(const T target, Solver<T> &solver) {
     solver.post(Objective<T>::X.after(target));
