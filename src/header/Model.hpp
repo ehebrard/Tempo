@@ -1558,15 +1558,49 @@ public:
 
           auto x_ab{solver.newDisjunct(Constant::NoEdge<T>, a_before_b)};
           auto x_ba{solver.newDisjunct(Constant::NoEdge<T>, b_before_a)};
-
-          // (a->exist and b->exist) -> (x_ab or x_ba)
-          // ~a->exist or ~b->exist or x_ab or x_ba
-          std::vector<Literal<T>> cl{x_ab == true, x_ba == true};
-          if (a->isOptional(solver))
-            cl.push_back(a->exist == false);
-          if (b->isOptional(solver))
-            cl.push_back(b->exist == false);
-          solver.clauses.add(cl.begin(), cl.end());
+            
+            // (a->exist and b->exist) -> (x_ab or x_ba)
+            // ~a->exist or ~b->exist or x_ab or x_ba
+            std::vector<Literal<T>> cl{x_ab == true, x_ba == true};
+            if (a->isOptional(solver))
+              cl.push_back(a->exist == false);
+            if (b->isOptional(solver))
+              cl.push_back(b->exist == false);
+            solver.clauses.add(cl.begin(), cl.end());
+            
+            
+            // to avoid setting useless constraints
+            // (~a->exist -> ~x_ab) and (~a->exist -> ~x_ba)
+            // a->exist or ~x_ab
+            cl.clear();
+            if (a->isOptional(solver)) {
+                cl.push_back(a->exist == true);
+                cl.push_back(x_ab == false);
+                solver.clauses.add(cl.begin(), cl.end());
+                
+                cl.pop_back();
+                cl.push_back(x_ba == false);
+                solver.clauses.add(cl.begin(), cl.end());
+            }
+            
+            cl.clear();
+            if (b->isOptional(solver)) {
+                cl.push_back(b->exist == true);
+                cl.push_back(x_ab == false);
+                solver.clauses.add(cl.begin(), cl.end());
+                
+                cl.pop_back();
+                cl.push_back(x_ba == false);
+                solver.clauses.add(cl.begin(), cl.end());
+            }
+            
+            // to enforce the disjunction
+            cl.clear();
+            cl.push_back(x_ab == false);
+            cl.push_back(x_ba == false);
+            solver.clauses.add(cl.begin(), cl.end());
+            
+            
 
           disjunct.push_back(x_ab);
           disjunct.push_back(x_ba);
