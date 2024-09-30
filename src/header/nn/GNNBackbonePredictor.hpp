@@ -204,6 +204,7 @@ namespace tempo::nn {
             }
 
             updateCache();
+            solverFailCount = solver.num_fails;
         }
     };
 }
