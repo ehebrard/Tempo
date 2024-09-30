@@ -77,7 +77,7 @@ namespace tempo::nn {
          * Dtor. Prints timing information if solver verbosity allows it
          */
         ~GNNBackbonePredictor() {
-            if (solver.getOptions().verbosity >= Options::NORMAL) {
+            if (solver.getOptions().verbosity >= Options::YACKING) {
                 profiler.printAll<std::chrono::milliseconds>(std::cout);
             }
         }
@@ -119,7 +119,7 @@ namespace tempo::nn {
             auto assumptions = assumptionCache | std::views::take(numLiterals);
             if (not config.carefulAssumptions or failCount == 0) {
                 s.makeAssumptions(assumptions);
-                if (not assumptions.empty() and solver.getOptions().verbosity >= Options::NORMAL) {
+                if (not assumptions.empty() and solver.getOptions().verbosity >= Options::YACKING) {
                     std::cout << "-- fixing " << assumptions.size() << " literals\n";
                 }
             } else {
@@ -139,7 +139,7 @@ namespace tempo::nn {
                 }
 
                 std::swap(newAssumptions, assumptionCache);
-                if (litCount > 0 and solver.getOptions().verbosity >= Options::NORMAL) {
+                if (litCount > 0 and solver.getOptions().verbosity >= Options::YACKING) {
                     std::cout << "-- fixing " << litCount << " literals after fail\n";
                 }
             }
@@ -153,14 +153,14 @@ namespace tempo::nn {
             if (failRatio > config.maxFailRatio) {
                 config.relaxationRatio *= config.relaxationDecay;
                 updateCache();
-                if (solver.getOptions().verbosity >= Options::NORMAL) {
-                    std::cout << "-- decreasing relaxation ratio to " << config.relaxationRatio * 100
+                if (solver.getOptions().verbosity >= Options::YACKING) {
+                    std::cout << "-- decreasing fix ratio to " << config.relaxationRatio * 100
                               << "% after too many solver fails" << std::endl;
                 }
             } else if (failRatio < config.minFailRatio) {
                 config.relaxationRatio = std::min(1.0, config.relaxationRatio / config.relaxationDecay);
-                if (solver.getOptions().verbosity >= Options::NORMAL) {
-                    std::cout << "-- increasing relaxation ratio to " << config.relaxationRatio * 100
+                if (solver.getOptions().verbosity >= Options::YACKING) {
+                    std::cout << "-- increasing fix ratio to " << config.relaxationRatio * 100
                               << "%" << std::endl;
                 }
             }
@@ -193,13 +193,13 @@ namespace tempo::nn {
             if (++failCount > config.retryLimit) {
                 config.relaxationRatio *= config.relaxationDecay;
                 auto numLiterals = static_cast<std::size_t>(predictor.numLiterals() * config.relaxationRatio);
-                if (numLiterals > 0 and solver.getOptions().verbosity >= Options::NORMAL) {
-                    std::cout << std::setprecision(2) << "-- setting relaxation ratio = "
+                if (numLiterals > 0 and solver.getOptions().verbosity >= Options::YACKING) {
+                    std::cout << std::setprecision(2) << "-- setting fix ratio = "
                               << config.relaxationRatio * 100 << "%" << std::endl;
                 }
             } else {
-                if (solver.getOptions().verbosity >= Options::NORMAL) {
-                    std::cout << "-- relaxation failed, retrying more carefully\n";
+                if (solver.getOptions().verbosity >= Options::YACKING) {
+                    std::cout << "-- backbone prediction failed, retrying more carefully\n";
                 }
             }
 
