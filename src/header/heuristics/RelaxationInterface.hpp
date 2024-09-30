@@ -83,11 +83,11 @@ namespace tempo::heuristics {
                 return true;
             }
 
-            for (auto &&lit : std::forward<L>(literals)) {
-                s.set(std::forward<decltype(lit)>(lit));
-            }
-
             try {
+                for (auto &&lit : std::forward<L>(literals)) {
+                    s.set(std::forward<decltype(lit)>(lit));
+                }
+
                 s.propagate();
             } catch (const Failure<T> &) {
                 stateTransition(Fail);
