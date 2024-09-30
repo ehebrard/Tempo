@@ -164,9 +164,9 @@ namespace tempo::heuristics {
      * @tparam T timing type
      */
     template<typename P, typename T>
-    concept RelaxationPolicy = requires(P policy, AssumptionInterface<T> interface) {
+    concept RelaxationPolicy = requires(P policy, AssumptionInterface<T> interface, unsigned fails) {
         policy.relax(interface);
-        policy.notifySuccess();
+        policy.notifySuccess(fails);
         policy.notifyFailure();
     };
 }

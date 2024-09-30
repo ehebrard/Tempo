@@ -2809,7 +2809,7 @@ void Solver<T>::largeNeighborhoodSearch(S &objective, P &&relaxationPolicy) {
                 displayProgress(std::cout);
             }
             saveSolution();
-            std::forward<P>(relaxationPolicy).notifySuccess();
+            std::forward<P>(relaxationPolicy).notifySuccess(num_fails);
             restoreState(0);
             decisions.clear();
         
