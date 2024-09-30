@@ -79,6 +79,10 @@ namespace tempo::heuristics {
                 throw std::runtime_error("cannot make assumptions in inconsistent state. Did you forget to try reset?");
             }
 
+            if (std::ranges::empty(std::forward<L>(literals))) {
+                return true;
+            }
+
             for (auto &&lit : std::forward<L>(literals)) {
                 s.set(std::forward<decltype(lit)>(lit));
             }
