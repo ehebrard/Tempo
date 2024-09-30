@@ -256,7 +256,7 @@ std::string CumulativeEdgeFinding<T>::asciiArt(const int i) const {
     ss << "=";
   }
     if(lct(i) == Constant::Infinity<T>) {
-        ss << "=... " << est(i) << "..\\inf";
+        ss << "=... " << est(i) << "...";
     } else {
         for (auto k{ect(i)}; k < lct(i) - 1; ++k) {
             ss << ".";
@@ -611,9 +611,9 @@ void CumulativeEdgeFinding<T>::horizontallyElasticEdgeFinderForward() {
 
   #ifdef DBG_SEF
     if (DBG_SEF) {
-      std::cout << "\n\nstart propagation\n";
+      std::cout << "\n\nstart propagation (capacity = " << capacity.max(m_solver) << ")\n";
       for (auto j : lct_order) {
-          std::cout << "task " << j << ": " << asciiArt(j) << std::endl;
+          std::cout << "task t" << std::setw(3) << std::left << the_tasks[j].id() << ": " << asciiArt(j) << std::endl;
       }
     }
   #endif
@@ -623,6 +623,12 @@ void CumulativeEdgeFinding<T>::horizontallyElasticEdgeFinderForward() {
     forwardDetection();
     forwardAdjustment();
     
+    
+#ifdef DBG_SEF
+  if (DBG_SEF) {
+    std::cout << "end propagation\n";
+  }
+#endif
 }
 
 template <typename T>

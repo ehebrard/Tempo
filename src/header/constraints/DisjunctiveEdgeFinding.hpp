@@ -622,8 +622,8 @@ template <typename T> void DisjunctiveEdgeFinding<T>::applyPruning() {
                             std::cout << " start after " << explanation_lb[ph] << "\n";
                     }
                     
-                    if(not checkpruning(prec,h)) {
-                        std::cout << "bug overload fail\n";
+                    if(not checkpruning(prec,ph)) {
+                        std::cout << "bug prec\n";
                         exit(1);
                     }
 #endif

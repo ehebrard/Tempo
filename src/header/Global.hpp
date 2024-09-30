@@ -44,11 +44,11 @@ using boolean_state = int;
 using hint = int;
 //#define NoHint -1
 //
-//#define DBG_BOUND num_choicepoints >= 0
-//#define DBG_CBOUND solver.num_choicepoints >= 0
-//#define DBG_CLBOUND false //cl->id == 80 //solver.num_choicepoints >= 10527
-//#define DBG_BBOUND num_choicepoints >= 0
-//#define DBG_TRACE 49                      // 183 //1+2+4+32+128
+#define DBG_BOUND num_choicepoints >= 0
+#define DBG_CBOUND solver.num_choicepoints >= 0
+#define DBG_CLBOUND false //cl->id == 80 //solver.num_choicepoints >= 10527
+#define DBG_BBOUND num_choicepoints >= 0
+#define DBG_TRACE 49                      // 183 //1+2+4+32+128
 #define SEARCH 1
 #define DOMAINS 2
 #define BRANCH 4
@@ -78,7 +78,7 @@ using hint = int;
 //#define DBG_FTRANS true //m_solver.num_choicepoints >= 900
 //#define DBG_BELLMAN_FT true
 //#define DBG_EXPL_FTRANS true
-//#define DBG_SEF true //(m_solver.num_choicepoints >= 88262)
+#define DBG_SEF true //(m_solver.num_choicepoints >= 88262)
 //#define DBG_EXTRACT true
 //#define DBG_SPANNING true
 //#define DBG_LIST true
