@@ -34,7 +34,7 @@ template<typename T>
 class BaseRelaxationPolicy {
 public:
     virtual void relax(heuristics::AssumptionInterface<T> &solver) = 0;
-    virtual void notifySuccess() {}
+    virtual void notifySuccess(unsigned) {}
     virtual void notifyFailure() {}
 
     BaseRelaxationPolicy() = default;
