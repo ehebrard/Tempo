@@ -40,6 +40,7 @@ find_package(TorchSparse QUIET)
 option(ENABLE_TORCH "Build with torch. If set to off (default), you are unable to use features that depend on torch")
 option(PRETTY_JSON "Save json files in a more human readable format at the cost of higher memory usage (default on)" ON)
 set(TORCH_ENABLED FALSE)
+#set(PRETTY_JSON FALSE)
 
 if (${ENABLE_TORCH})
     if (NOT TorchScatter_FOUND OR NOT TorchSparse_FOUND)

@@ -40,7 +40,6 @@
 #include "constraints/CumulativeEdgeFinding.hpp"
 #include "constraints/DisjunctiveEdgeFinding.hpp"
 #include "constraints/EdgeConstraint.hpp"
-//#include "constraints/OptionalEdgeConstraint.hpp"
 #include "constraints/PseudoBoolean.hpp"
 #include "constraints/Transitivity.hpp"
 #include "constraints/FullTransitivity.hpp"
