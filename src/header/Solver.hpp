@@ -2795,7 +2795,7 @@ void Solver<T>::largeNeighborhoodSearch(S &objective, P &&relaxationPolicy) {
     
 
     while (objective.gap() and not KillHandler::instance().signalReceived()) {
-        heuristics::AssumptionInterface surrogate = *this;
+        heuristics::AssumptionProxy surrogate = *this;
         std::forward<P>(relaxationPolicy).relax(surrogate);
         auto satisfiability = UnknownState;
         if (surrogate.getState() != heuristics::AssumptionState::Fail) {

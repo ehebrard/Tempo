@@ -109,7 +109,7 @@ namespace tempo::nn {
             updateCache();
         }
 
-        void relax(heuristics::AssumptionInterface<T> &s) {
+        void relax(heuristics::AssumptionProxy<T> &s) {
             auto numLiterals = static_cast<std::size_t>(predictor.numLiterals() * config.relaxationRatio);
             if (numLiterals == 0) {
                 return;

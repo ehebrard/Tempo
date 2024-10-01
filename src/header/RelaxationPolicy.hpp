@@ -33,7 +33,7 @@ namespace tempo {
 template<typename T>
 class BaseRelaxationPolicy {
 public:
-    virtual void relax(heuristics::AssumptionInterface<T> &solver) = 0;
+    virtual void relax(heuristics::AssumptionProxy<T> &solver) = 0;
     virtual void notifySuccess(unsigned) {}
     virtual void notifyFailure() {}
 
@@ -49,7 +49,7 @@ template<typename T>
 class RelaxRandomDisjunctiveResource : public BaseRelaxationPolicy<T> {
 public:
     RelaxRandomDisjunctiveResource(Solver<T>& solver, std::vector<NoOverlapExpression<T>>& resources) : solver(solver), resources(resources) {}
-    void relax(heuristics::AssumptionInterface<T> &s) override;
+    void relax(heuristics::AssumptionProxy<T> &s) override;
 
 private:
     Solver<T>& solver;
@@ -58,7 +58,7 @@ private:
 
 
 template<typename T>
-void RelaxRandomDisjunctiveResource<T>::relax(heuristics::AssumptionInterface<T> &s) {
+void RelaxRandomDisjunctiveResource<T>::relax(heuristics::AssumptionProxy<T> &s) {
     int r{static_cast<int>(random() % resources.size())};
 
     std::cout << "relax resource " << r << "/" << resources.size() << std::endl;
@@ -79,7 +79,7 @@ template<typename T>
 class FixRandomDisjunctiveResource : public BaseRelaxationPolicy<T> {
 public:
     FixRandomDisjunctiveResource(Solver<T>& solver, std::vector<NoOverlapExpression<T>>& resources) : solver(solver), resources(resources) {}
-    void relax(heuristics::AssumptionInterface<T> &s) override;
+    void relax(heuristics::AssumptionProxy<T> &s) override;
     
 private:
     Solver<T>& solver;
@@ -88,7 +88,7 @@ private:
 
 
 template<typename T>
-void FixRandomDisjunctiveResource<T>::relax(heuristics::AssumptionInterface<T> &s) {
+void FixRandomDisjunctiveResource<T>::relax(heuristics::AssumptionProxy<T> &s) {
     int r{static_cast<int>(random() % resources.size())};
     s.makeAssumptions(std::ranges::subrange(resources[r].begDisjunct(), resources[r].endDisjunct()));
 }
@@ -98,7 +98,7 @@ public:
   RandomSubset(Solver<T> &solver, std::vector<BooleanVar<T>> &vars,
             double ratio, double decay)
       : solver(solver), vars(vars), ratio(1.0 - ratio), decay(decay) {}
-  void relax(heuristics::AssumptionInterface<T> &s) override;
+  void relax(heuristics::AssumptionProxy<T> &s) override;
   void notifyFailure() override;
 
 private:
@@ -113,7 +113,7 @@ void RandomSubset<T>::notifyFailure() {
 }
 
 template <typename T>
-void RandomSubset<T>::relax(heuristics::AssumptionInterface<T> &s) {
+void RandomSubset<T>::relax(heuristics::AssumptionProxy<T> &s) {
   std::vector<Literal<T>> fixed;
   fixed.reserve(vars.size());
   for (auto x : vars) {

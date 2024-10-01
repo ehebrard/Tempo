@@ -33,24 +33,24 @@ namespace tempo::heuristics {
      * Ensures propagation and correct assumption level at all times
      * @tparam T timing type
      */
-    template<typename T>
-    class AssumptionInterface {
+    template<concepts::scalar T>
+    class AssumptionProxy {
         Solver<T> &s;
         int baseLevel;
         AssumptionState state = AssumptionState::Empty;
 
     public:
-        AssumptionInterface(const AssumptionInterface &) = delete;
-        AssumptionInterface(AssumptionInterface &&) = delete;
-        AssumptionInterface &operator=(const AssumptionInterface &) = delete;
-        AssumptionInterface &operator=(AssumptionInterface &&) = delete;
-        ~AssumptionInterface() = default;
+        AssumptionProxy(const AssumptionProxy &) = delete;
+        AssumptionProxy(AssumptionProxy &&) = delete;
+        AssumptionProxy &operator=(const AssumptionProxy &) = delete;
+        AssumptionProxy &operator=(AssumptionProxy &&) = delete;
+        ~AssumptionProxy() = default;
 
         /**
          * Ctor
          * @param solver
          */
-        AssumptionInterface(Solver<T> &solver): s(solver) {
+        AssumptionProxy(Solver<T> &solver): s(solver) {
             s.initializeSearch();
             baseLevel = s.saveState();
         }
