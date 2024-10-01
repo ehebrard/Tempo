@@ -34,7 +34,7 @@ template<typename T>
 class BaseRelaxationPolicy {
 public:
     virtual void relax(heuristics::AssumptionInterface<T> &solver) = 0;
-    virtual void notifySuccess() {}
+    virtual void notifySuccess(unsigned) {}
     virtual void notifyFailure() {}
 
     BaseRelaxationPolicy() = default;
@@ -96,15 +96,21 @@ void FixRandomDisjunctiveResource<T>::relax(heuristics::AssumptionInterface<T> &
 template <typename T> class RandomSubset : public BaseRelaxationPolicy<T> {
 public:
   RandomSubset(Solver<T> &solver, std::vector<BooleanVar<T>> &vars,
-            const double ratio)
-      : solver(solver), vars(vars), ratio(1.0 - ratio) {}
+            double ratio, double decay)
+      : solver(solver), vars(vars), ratio(1.0 - ratio), decay(decay) {}
   void relax(heuristics::AssumptionInterface<T> &s) override;
+  void notifyFailure() override;
 
 private:
   Solver<T> &solver;
   std::vector<BooleanVar<T>> vars;
-  double ratio;
+  double ratio, decay;
 };
+
+template<typename T>
+void RandomSubset<T>::notifyFailure() {
+    ratio *= decay;
+}
 
 template <typename T>
 void RandomSubset<T>::relax(heuristics::AssumptionInterface<T> &s) {

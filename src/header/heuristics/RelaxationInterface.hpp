@@ -79,11 +79,15 @@ namespace tempo::heuristics {
                 throw std::runtime_error("cannot make assumptions in inconsistent state. Did you forget to try reset?");
             }
 
-            for (auto &&lit : std::forward<L>(literals)) {
-                s.set(std::forward<decltype(lit)>(lit));
+            if (std::ranges::empty(std::forward<L>(literals))) {
+                return true;
             }
 
             try {
+                for (auto &&lit : std::forward<L>(literals)) {
+                    s.set(std::forward<decltype(lit)>(lit));
+                }
+
                 s.propagate();
             } catch (const Failure<T> &) {
                 stateTransition(Fail);
@@ -160,9 +164,9 @@ namespace tempo::heuristics {
      * @tparam T timing type
      */
     template<typename P, typename T>
-    concept RelaxationPolicy = requires(P policy, AssumptionInterface<T> interface) {
+    concept RelaxationPolicy = requires(P policy, AssumptionInterface<T> interface, unsigned fails) {
         policy.relax(interface);
-        policy.notifySuccess();
+        policy.notifySuccess(fails);
         policy.notifyFailure();
     };
 }

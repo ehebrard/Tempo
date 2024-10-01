@@ -19,14 +19,17 @@ int main(int argc, char **argv) {
     using namespace tempo;
     std::string gnnLocation;
     std::string featureExtractorConf;
-    nn::PolicyConfig config{.relaxationRatio = 1, .relaxationDecay = 0.5, .minCertainty = 0.5,
-                            .carefulAssumptions = true, .retryLimit = 0};
+    nn::PolicyConfig config;
     auto opt = cli::parseOptions(argc, argv,
                                  cli::ArgSpec("gnn-loc", "Location of the GNN model", false, gnnLocation),
                                  cli::ArgSpec("feat-config", "Location of the feature extractor config", false,
                                               featureExtractorConf),
                                  cli::ArgSpec("confidence", "minimum confidence of GNN", false,
                                               config.minCertainty),
+                                 cli::ArgSpec("min-fail", "lower bound solver failure rate", false,
+                                              config.minFailRatio),
+                                 cli::ArgSpec("max-fail", "upper bound solver failure rate", false,
+                                              config.maxFailRatio),
                                  cli::ArgSpec("ratio", "percentage of literals to relax", false,
                                               config.relaxationRatio),
                                  cli::ArgSpec("decay", "relaxation ratio decay on failure", false,

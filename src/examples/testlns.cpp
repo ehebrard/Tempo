@@ -152,8 +152,10 @@ void printResources(const Solver<T>& S, const std::vector<Interval<T>>& interval
 int main(int argc, char *argv[]) {
   auto parser = tempo::getBaseParser();
   bool profileHeuristic;
+  double lnsDecay;
   cli::detail::configureParser(parser, cli::SwitchSpec("heuristic-profiling", "activate heuristic profiling",
-                                                       profileHeuristic, false));
+                                                       profileHeuristic, false),
+                               cli::ArgSpec("lns-decay", "relaxation ratio decay", false, lnsDecay, 0.5));
     
     std::string ordering_file{""};
     parser.getCmdLine().add<TCLAP::ValueArg<std::string>>(ordering_file, "", "static-ordering", "use static ordering heuristic", false, "", "string");
@@ -298,7 +300,7 @@ int main(int argc, char *argv[]) {
             for(auto bi{resource.begDisjunct()}; bi!=resource.endDisjunct(); ++bi) {
                 vars.push_back(*bi);
             }
-        RandomSubset<int> policy(S, vars, .97);
+        RandomSubset<int> policy(S, vars, .97, lnsDecay);
         
         S.largeNeighborhoodSearch(objective, policy);
     }
