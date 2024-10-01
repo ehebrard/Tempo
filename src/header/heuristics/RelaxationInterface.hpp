@@ -7,7 +7,12 @@
 #ifndef TEMPO_RELAXATIONINTERFACE_HPP
 #define TEMPO_RELAXATIONINTERFACE_HPP
 
+#include <concepts>
+#include <filesystem>
+#include <vector>
+
 #include "util/traits.hpp"
+#include "util/serialization.hpp"
 #include "Literal.hpp"
 #include "Failure.hpp"
 
@@ -159,12 +164,78 @@ namespace tempo::heuristics {
     };
 
     /**
+     * @brief Wrapper around AssumptionProxy that logs policy assumptions
+     * @tparam T timing type
+     */
+    template<concepts::scalar T>
+    class LoggingAssumptionProxy {
+        AssumptionProxy<T> proxy;
+        std::vector<Literal<T>> assumptions{};
+        std::filesystem::path logFile;
+    public:
+        /**
+         * Ctor
+         * @param logFile destination file
+         * @param solver solver instance
+         */
+        LoggingAssumptionProxy(std::filesystem::path logFile, Solver<T> &solver) noexcept:
+                proxy(solver), logFile(std::move(logFile)) {}
+
+        /**
+         * @copydoc AssumptionProxy::reset
+         */
+        void reset() {
+            assumptions.clear();
+            proxy.reset();
+        }
+
+        /**
+         * @copydoc AssumptionProxy::makeAssumptions
+         */
+        template<concepts::typed_range<Literal<T>> L>
+        bool makeAssumptions(L &&literals) {
+            std::ranges::copy(std::forward<L>(literals), std::back_inserter(assumptions));
+            return proxy.makeAssumptions(std::forward<L>(literals));
+        }
+
+        /**
+         * @copydoc AssumptionProxy::tryMakeAssumption
+         */
+        bool tryMakeAssumption(Literal<T> lit) {
+            assumptions.emplace_back(lit);
+            return proxy.tryMakeAssumption(lit);
+        }
+
+        /**
+         * @copydoc AssumptionProxy::getState
+         * @note this triggers the serialization
+         */
+        [[nodiscard]] AssumptionState getState() const {
+            serialization::serializeToFile(assumptions, logFile, std::ios_base::app);
+            return proxy.getState();
+        }
+    };
+
+    /**
+     * @brief Assumption interface
+     * @tparam I interface type
+     * @tparam T timing type
+     */
+    template<typename I, typename T>
+    concept AssumptionInterface = requires(I interface, Literal<T> l, std::vector<Literal<T>> lits) {
+        interface.reset();
+        { interface.makeAssumptions(lits) } -> std::convertible_to<bool>;
+        { interface.tryMakeAssumption(l) } -> std::convertible_to<bool>;
+        { interface.getState() } -> std::same_as<AssumptionState>;
+    };
+
+    /**
      * @brief Relaxation policy interface
      * @tparam P policy type
      * @tparam T timing type
      */
     template<typename P, typename T>
-    concept RelaxationPolicy = requires(P policy, AssumptionInterface<T> interface, unsigned fails) {
+    concept RelaxationPolicy = requires(P policy, AssumptionProxy<T> interface, unsigned fails) {
         policy.relax(interface);
         policy.notifySuccess(fails);
         policy.notifyFailure();
