@@ -578,32 +578,35 @@ template <typename T> void DisjunctiveEdgeFinding<T>::applyPruning() {
             if (not m_solver.boolean.satisfied(prec)) {
                 
                 // ej < si (ub(si) & lb(ej))
-                if (m_solver.boolean.falsified(prec)) {
-                    // the precedence is trivially implied because r >> *j
-                    // not clear if we should just let the edge constraints handle that
-                    
-                    // this is the edge that is satisfied and implies disjunct[r][*j]
-                    auto eij{~m_solver.boolean.getEdge(~prec)};
-                    auto idx_lb{m_solver.numeric.lastLitIndex(bound::lower, eij.from)};
-                    auto idx_ub{m_solver.numeric.lastLitIndex(bound::upper, eij.to)};
-                    
-                    
-#ifdef DBG_EDGEFINDING
-                    if (DBG_EDGEFINDING) {
-                        std::cout << " trivial precedence: " << m_solver.pretty(prec) << std::endl;
-                    }
-                    
-//                    if(not checktrivialpruning(prec)) {
-//                        std::cout << "bug trivial pruning\n";
-//                        exit(1);
+//                if (m_solver.boolean.falsified(prec)) {
+//                    // the precedence is trivially implied because r >> *j
+//                    // not clear if we should just let the edge constraints handle that
+//                    
+//                    // this is the edge that is satisfied and implies disjunct[r][*j]
+//                    auto eij{~m_solver.boolean.getEdge(~prec)};
+//                    auto idx_lb{m_solver.numeric.lastLitIndex(bound::lower, eij.from)};
+//                    auto idx_ub{m_solver.numeric.lastLitIndex(bound::upper, eij.to)};
+//                    
+//                    
+//#ifdef DBG_EDGEFINDING
+//                    if (DBG_EDGEFINDING) {
+//                        std::cout << " trivial precedence: " << m_solver.pretty(prec) << std::endl;
 //                    }
-#endif
-                    
-                    // ei < sj (ub(ei) & lb(sj))
-                    //          pruning.emplace_back(disjunct[r][*j], -1 - static_cast<hint>(std::min(idx_lb, idx_ub)));
-                    m_solver.set(prec, {this, -1 - static_cast<hint>(std::min(idx_lb, idx_ub))});
-                    
-                } else {
+//                    
+////                    if(not checktrivialpruning(prec)) {
+////                        std::cout << "bug trivial pruning\n";
+////                        exit(1);
+////                    }
+//#endif
+//                    
+//                    // ei < sj (ub(ei) & lb(sj))
+//                    //          pruning.emplace_back(disjunct[r][*j], -1 - static_cast<hint>(std::min(idx_lb, idx_ub)));
+//                    m_solver.set(prec, {this, -1 - static_cast<hint>(std::min(idx_lb, idx_ub))});
+//                    
+//                } else {
+                
+                // the precedences where the precedence is already falsified will be handled by disjunctions
+                if (not m_solver.boolean.falsified(prec)) {
                     if (ph == Constant::FactHint) {
                         ph = boundExplanation(ai, lct_order.rend(), s);
                         the_explanation_tasks[ph].push_back(&tl);
