@@ -22,6 +22,7 @@
 #define __TEMPO_LITERAL_HPP
 
 #include <variant>
+#include <nlohmann/json.hpp>
 
 #include "Constant.hpp"
 #include "Global.hpp"
@@ -159,6 +160,20 @@ namespace detail {
         void setValue(T value) noexcept {
             numericData = value;
             info |= TagBit;
+        }
+
+        friend void to_json(nlohmann::json &j, Literal<T> literal) {
+            j["info"] = literal.info;
+            j["data"] = literal.isNumeric() ? literal.value_unsafe() : literal.semantic_unsafe();
+        }
+
+        friend void from_json(const nlohmann::json &j, Literal<T> &literal) {
+            j.at("info").get_to(literal.info);
+            if (literal.isNumeric()) {
+                j.at("data").get_to(literal.numericData);
+            } else {
+                j.at("data").get_to(literal.semanticInfo);
+            }
         }
     };
 
