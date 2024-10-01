@@ -23,9 +23,11 @@
 
 #include <vector>
 #include <ranges>
+#include <filesystem>
 
 #include "Model.hpp"
 #include "heuristics/RelaxationInterface.hpp"
+#include "util/serialization.hpp"
 
 namespace tempo {
 
@@ -129,6 +131,56 @@ void RandomSubset<T>::relax(heuristics::AssumptionProxy<T> &s) {
 
   s.makeAssumptions(fixed);
 }
+
+/**
+ * @brief Policy that exactly replays the assumptions made by another policy
+ * @tparam T timing type
+ */
+template<typename T>
+class PolicyReplay {
+    std::vector<typename heuristics::LoggingAssumptionProxy<T>::PolicyTrace> trace;
+    std::size_t idx = 0;
+public:
+    /**
+     * Ctor
+     * @param traceFile replay file
+     */
+    explicit PolicyReplay(const std::filesystem::path &traceFile) : trace(
+            serialization::deserializeFromFile<decltype(trace)>(traceFile)) {}
+
+    /**
+     * Relaxation interface. Replays the assumptions previously made by the recorded policy
+     * @param s assumption proxy to
+     */
+    void relax(heuristics::AssumptionProxy<T> &s) {
+        using enum heuristics::PolicyAction;
+        if (idx >= trace.size()) {
+            throw std::runtime_error("Assumption list exhausted. Cannot make any more assumptions.");
+        }
+
+        for (const auto &[action, literals] : trace[idx]) {
+            switch (action) {
+                case Reset:
+                    s.reset();
+                    break;
+                case TrySet:
+                    assert(literals.size() == 1);
+                    s.tryMakeAssumption(literals.front());
+                    break;
+                case Set:
+                    s.makeAssumptions(literals);
+                    break;
+                default:
+                    throw std::runtime_error("enum out of bounds");
+            }
+        }
+
+        ++idx;
+    }
+
+    void notifyFailure() const noexcept {}
+    void notifySuccess(unsigned) const noexcept {}
+};
 
 } // namespace tempo
 

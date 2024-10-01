@@ -163,16 +163,34 @@ namespace tempo::heuristics {
 
     };
 
+    enum class PolicyAction {
+        Reset,
+        TrySet,
+        Set
+    };
+
     /**
      * @brief Wrapper around AssumptionProxy that logs policy assumptions
      * @tparam T timing type
      */
     template<concepts::scalar T>
     class LoggingAssumptionProxy {
+    public:
+        using PolicyTrace = std::vector<std::pair<PolicyAction, std::vector<Literal<T>>>>;
+    private:
         AssumptionProxy<T> proxy;
-        std::vector<Literal<T>> assumptions{};
+        PolicyTrace actions{};
         std::filesystem::path logFile;
     public:
+        LoggingAssumptionProxy(const LoggingAssumptionProxy &) = default;
+        LoggingAssumptionProxy(LoggingAssumptionProxy &&) = default;
+        LoggingAssumptionProxy &operator=(const LoggingAssumptionProxy &) = default;
+        LoggingAssumptionProxy &operator=(LoggingAssumptionProxy &&) = default;
+
+        ~LoggingAssumptionProxy() {
+            serialization::serializeToFile(actions, logFile, std::ios_base::app);
+        }
+
         /**
          * Ctor
          * @param logFile destination file
@@ -185,7 +203,7 @@ namespace tempo::heuristics {
          * @copydoc AssumptionProxy::reset
          */
         void reset() {
-            assumptions.clear();
+            actions.emplace_back(PolicyAction::Reset, std::vector<Literal<T>>{});
             proxy.reset();
         }
 
@@ -194,7 +212,10 @@ namespace tempo::heuristics {
          */
         template<concepts::typed_range<Literal<T>> L>
         bool makeAssumptions(L &&literals) {
-            std::ranges::copy(std::forward<L>(literals), std::back_inserter(assumptions));
+            std::vector<Literal<T>> lits;
+            lits.reserve(std::ranges::size(literals));
+            std::ranges::copy(std::forward<L>(literals), std::back_inserter(lits));
+            actions.emplace_back(PolicyAction::Set, std::move(lits));
             return proxy.makeAssumptions(std::forward<L>(literals));
         }
 
@@ -202,7 +223,7 @@ namespace tempo::heuristics {
          * @copydoc AssumptionProxy::tryMakeAssumption
          */
         bool tryMakeAssumption(Literal<T> lit) {
-            assumptions.emplace_back(lit);
+            actions.emplace_back(PolicyAction::TrySet, std::vector{lit});
             return proxy.tryMakeAssumption(lit);
         }
 
@@ -211,7 +232,6 @@ namespace tempo::heuristics {
          * @note this triggers the serialization
          */
         [[nodiscard]] AssumptionState getState() const {
-            serialization::serializeToFile(assumptions, logFile, std::ios_base::app);
             return proxy.getState();
         }
     };
