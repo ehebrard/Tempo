@@ -697,6 +697,7 @@ void DisjunctiveEdgeFinding<T>::xplain(const Literal<T> l, const hint h,
 #endif
 
     // failure case, everything is in "tasks"
+    assert(static_cast<std::size_t>(h) < the_explanation_tasks.size());
     for (auto ti : the_explanation_tasks[h]) {
 
       Cl.push_back(ti->start.after(explanation_lb[h]));
