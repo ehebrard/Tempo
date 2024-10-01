@@ -1327,9 +1327,11 @@ Clause<T> *ClauseBase<T>::add(const iter first, const iter last,
   //  }
   //  std::cout << std::endl;
 
-  Clause<T> *c{NULL};
+  Clause<T> *c = nullptr;
 
-  assert(first != last);
+  if (first == last) {
+      throw Failure<T>(Constant::GroundFact<T>);
+  }
 
   if (first + 1 == last) {
     //    assign(*first, Constant::NewNoReason<T>);
