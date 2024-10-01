@@ -170,8 +170,13 @@ namespace tempo::heuristics {
     };
 
     /**
-     * @brief Wrapper around AssumptionProxy that logs policy assumptions
+     * @brief Wrapper around AssumptionProxy that logs policy assumptions.
      * @tparam T timing type
+     * @note This class is slower than the base AssumptionProxy because it flushes all decisions directly to a log file.
+     * It should only be used for debugging. Also, due to the way LNS is implemented, this class gets created and
+     * destroyed multiple times and is therefore unable to create valid json. You need to at least insert one
+     * opening '[' ath the beginning and one closing ']' at the end of the log file. If the program crashed, then most
+     * probably there are further missing ']' at the end of the file. But the rest should™ be valid json.
      */
     template<concepts::scalar T>
     class LoggingAssumptionProxy {
@@ -179,8 +184,20 @@ namespace tempo::heuristics {
         using PolicyTrace = std::vector<std::pair<PolicyAction, std::vector<Literal<T>>>>;
     private:
         AssumptionProxy<T> proxy;
-        PolicyTrace actions{};
-        std::filesystem::path logFile;
+        std::ofstream logFile;
+        bool firstAction = true;
+
+        template<serialization::serializable S>
+        void flushToLog(const S &object) {
+            if (not firstAction) {
+                logFile << ",";
+            }
+
+            firstAction = false;
+            nlohmann::json j = object;
+            logFile << j.dump(__JSON_INDENT__) << std::flush;
+        }
+
     public:
         LoggingAssumptionProxy(const LoggingAssumptionProxy &) = default;
         LoggingAssumptionProxy(LoggingAssumptionProxy &&) = default;
@@ -188,7 +205,7 @@ namespace tempo::heuristics {
         LoggingAssumptionProxy &operator=(LoggingAssumptionProxy &&) = default;
 
         ~LoggingAssumptionProxy() {
-            serialization::serializeToFile(actions, logFile, std::ios_base::app);
+            logFile << "],";
         }
 
         /**
@@ -196,14 +213,21 @@ namespace tempo::heuristics {
          * @param logFile destination file
          * @param solver solver instance
          */
-        LoggingAssumptionProxy(std::filesystem::path logFile, Solver<T> &solver) noexcept:
-                proxy(solver), logFile(std::move(logFile)) {}
+        LoggingAssumptionProxy(const std::filesystem::path &logFile, Solver<T> &solver):
+                proxy(solver), logFile(logFile, std::ios_base::app) {
+            if (not this->logFile.is_open()) {
+                throw std::runtime_error("could not open log file for policy logging");
+            }
+
+            this->logFile << "[";
+        }
 
         /**
          * @copydoc AssumptionProxy::reset
          */
         void reset() {
-            actions.emplace_back(PolicyAction::Reset, std::vector<Literal<T>>{});
+            auto data = std::make_pair(PolicyAction::Reset, std::vector<Literal<T>>{});
+            flushToLog(data);
             proxy.reset();
         }
 
@@ -215,7 +239,8 @@ namespace tempo::heuristics {
             std::vector<Literal<T>> lits;
             lits.reserve(std::ranges::size(literals));
             std::ranges::copy(std::forward<L>(literals), std::back_inserter(lits));
-            actions.emplace_back(PolicyAction::Set, std::move(lits));
+            auto data = std::make_pair(PolicyAction::Set, std::move(lits));
+            flushToLog(data);
             return proxy.makeAssumptions(std::forward<L>(literals));
         }
 
@@ -223,7 +248,8 @@ namespace tempo::heuristics {
          * @copydoc AssumptionProxy::tryMakeAssumption
          */
         bool tryMakeAssumption(Literal<T> lit) {
-            actions.emplace_back(PolicyAction::TrySet, std::vector{lit});
+            auto data = std::make_pair(PolicyAction::TrySet, std::vector{lit});
+            flushToLog(data);
             return proxy.tryMakeAssumption(lit);
         }
 
