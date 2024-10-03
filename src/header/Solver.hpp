@@ -40,7 +40,6 @@
 #include "constraints/CumulativeEdgeFinding.hpp"
 #include "constraints/DisjunctiveEdgeFinding.hpp"
 #include "constraints/EdgeConstraint.hpp"
-//#include "constraints/OptionalEdgeConstraint.hpp"
 #include "constraints/PseudoBoolean.hpp"
 #include "constraints/Transitivity.hpp"
 #include "constraints/FullTransitivity.hpp"
@@ -51,6 +50,7 @@
 #include "util/traits.hpp"
 #include "util/Options.hpp"
 #include "util/SubscribableEvent.hpp"
+#include "util/Profiler.hpp"
 #include "heuristics/RelaxationInterface.hpp"
 
 
@@ -68,12 +68,19 @@ public:
     
     bool value(const BooleanVar<T> x) const;
     bool value(const var_t x) const;
+    bool solution_value(const var_t x) const;
     
     T lower_bound(const NumericVar<T> x) const;
     T lower_bound(const var_t x) const;
     
     T upper_bound(const NumericVar<T> x) const;
     T upper_bound(const var_t x) const;
+    
+    bool reachable(const Solver<T> &) const;
+    var_t discrepancy(const Solver<T> &) const;
+    
+    std::ostream &display(std::ostream &os) const;
+    std::istream &load(std::istream &is) ;
     
 private:
     std::vector<bool> boolean_variable;
@@ -277,7 +284,8 @@ public:
         best_solution[bound::upper] = bound[bound::upper];
     }
     bool hasSolution() const { return not best_solution[bound::lower].empty(); }
-    std::vector<T> &bestSolution(const int b) const { return best_solution[b]; }
+    auto bestSolution(const int b) const noexcept -> const std::vector<T> & { return best_solution[b]; }
+//    std::vector<T> &bestSolution(const int b) const { return best_solution[b]; }
     //@}
     
 private:
@@ -768,7 +776,9 @@ private:
     std::vector<index_t> literal_lvl;
     std::vector<Literal<T>> learnt_clause;
     std::vector<Literal<T>> minimal_clause;
-    
+
+    util::StopWatch stopWatch;
+
 public:
     std::vector<Literal<T>>::iterator begin_learnt() {
         return learnt_clause.begin();
@@ -797,7 +807,7 @@ private:
     
     // to restack assumptions after initial propagation
     //    SubscriberHandle assumptionHandler;
-    
+
 public:
     void setActivityMap(heuristics::impl::EventActivityMap *map) {
         activityMap = map;
@@ -857,6 +867,7 @@ private:
     //@}
 };
 
+
 template <typename T> Solution<T>::Solution() {}
 
 template <typename T> Solution<T>::Solution(const Solver<T> &solver) {
@@ -864,10 +875,22 @@ template <typename T> Solution<T>::Solution(const Solver<T> &solver) {
 }
 
 template <typename T> void Solution<T>::load(const Solver<T> &solver) {
-    boolean_variable = solver.boolean.bestSolution();
+    var_t end_bool{static_cast<var_t>(solver.boolean.size())};
+    boolean_variable.resize(end_bool);
+    for(var_t i{0}; i<end_bool; ++i) {
+        boolean_variable[i] = solver.boolean.isTrue(i);
+    }
+    
+//    solver.boolean.bestSolution();
     numeric_lower_bound = solver.numeric.bestSolution(bound::lower);
     numeric_upper_bound = solver.numeric.bestSolution(bound::upper);
 }
+
+//template <typename T> void Solution<T>::push(const Solver<T> &solver) {
+//    boolean_variable = solver.boolean.bestSolution();
+//    numeric_lower_bound = solver.numeric.bestSolution(bound::lower);
+//    numeric_upper_bound = solver.numeric.bestSolution(bound::upper);
+//}
 
 template <typename T> bool Solution<T>::value(const BooleanVar<T> x) const {
     return boolean_variable[x.id()];
@@ -878,11 +901,11 @@ template <typename T> bool Solution<T>::value(const var_t x) const {
 }
 
 template <typename T> T Solution<T>::lower_bound(const NumericVar<T> x) const {
-    return numeric_lower_bound[x.id()];
+    return -numeric_lower_bound[x.id()];
 }
 
 template <typename T> T Solution<T>::lower_bound(const var_t x) const {
-    return numeric_lower_bound[x];
+    return -numeric_lower_bound[x];
 }
 
 template <typename T> T Solution<T>::upper_bound(const NumericVar<T> x) const {
@@ -891,6 +914,88 @@ template <typename T> T Solution<T>::upper_bound(const NumericVar<T> x) const {
 
 template <typename T> T Solution<T>::upper_bound(const var_t x) const {
     return numeric_upper_bound[x];
+}
+
+template <typename T> bool Solution<T>::reachable(const Solver<T> &S) const {
+//    bool canreach{true};
+//
+//    var_t end_bool{static_cast<var_t>(boolean_variable.size())};
+//    var_t end_num{static_cast<var_t>(numeric_lower_bound.size())};
+//
+//    for(var_t i{1}; canreach and i<end_bool; ++i) {
+//        if(value(i))
+//            canreach = not S.boolean.isFalse(i);
+//        else
+//            canreach = not S.boolean.isTrue(i);
+//    }
+//    for(var_t i{1}; canreach and i<end_num; ++i) {
+//        canreach = (S.numeric.lower(i) <= lower_bound(i) and S.numeric.upper(i) >= upper_bound(i));
+//    }
+//
+//    return canreach;
+    return discrepancy(S) == 0;
+}
+
+template <typename T> var_t Solution<T>::discrepancy(const Solver<T> &S) const {
+    bool canreach{true};
+    
+    var_t end_bool{static_cast<var_t>(boolean_variable.size())};
+    var_t end_num{static_cast<var_t>(numeric_lower_bound.size())};
+    
+    var_t i{1};
+    for(; canreach and i<end_bool; ++i) {
+        if(value(i))
+            canreach = not S.boolean.isFalse(i);
+        else
+            canreach = not S.boolean.isTrue(i);
+    }
+    if(i < end_bool)
+        return i;
+    
+    i = 1;
+    for(; canreach and i<end_num; ++i) {
+        canreach = (S.numeric.lower(i) <= lower_bound(i) and S.numeric.upper(i) >= upper_bound(i));
+    }
+    if(i < end_num)
+        return -i;
+    
+    return 0;
+}
+
+template <typename T> std::ostream & Solution<T>::display(std::ostream &os) const {
+    os << boolean_variable.size() << " " << numeric_lower_bound.size();
+    for(auto b : boolean_variable) {
+        os << " " << b;
+    }
+    for(auto l : numeric_lower_bound) {
+        os << " " << l ;
+    }
+    for(auto u : numeric_upper_bound) {
+        os << " " << u ;
+    }
+    return os;
+}
+
+template <typename T> std::istream &Solution<T>::load(std::istream &is) {
+    size_t nb;
+    size_t nn;
+    bool v;
+    is >> nb;
+    is >> nn;
+    boolean_variable.resize(nb);
+    numeric_lower_bound.resize(nn);
+    numeric_upper_bound.resize(nn);
+    for(size_t i{0}; i<nb; ++i) {
+        is >> v;
+        boolean_variable[i] = v;
+    }
+    for(size_t i{0}; i<nn; ++i) {
+        is >> numeric_lower_bound[i];
+    }
+    for(size_t i{0}; i<nn; ++i) {
+        is >> numeric_upper_bound[i];
+    }
+    return is;
 }
 
 /*!
@@ -2485,6 +2590,7 @@ template <typename T> void Solver<T>::branchRight() {
 template <typename T> void Solver<T>::initializeSearch() {
     if(not initialized) {
         start_time = cpu_time();
+        stopWatch.start();
         post(&clauses);
         
         restartPolicy.initialize();
@@ -2635,11 +2741,8 @@ void Solver<T>::optimize(S &objective) {
                 displayProgress(std::cout);
             }
             
+            
             objective.apply(best, *this);
-//            boolean.saveSolution();
-//            numeric.saveSolution();
-//            ++num_solutions;
-//            SolutionFound.trigger(*this);
             saveSolution();
             restart(true);
             try {
@@ -2696,7 +2799,7 @@ void Solver<T>::largeNeighborhoodSearch(S &objective, P &&relaxationPolicy) {
     
 
     while (objective.gap() and not KillHandler::instance().signalReceived()) {
-        heuristics::AssumptionInterface surrogate = *this;
+        heuristics::AssumptionProxy surrogate = *this;
         std::forward<P>(relaxationPolicy).relax(surrogate);
         auto satisfiability = UnknownState;
         if (surrogate.getState() != heuristics::AssumptionState::Fail) {
@@ -2709,23 +2812,10 @@ void Solver<T>::largeNeighborhoodSearch(S &objective, P &&relaxationPolicy) {
                 std::cout << std::setw(10) << best;
                 displayProgress(std::cout);
             }
-//<<<<<<< HEAD
-//            boolean.saveSolution();
-//            numeric.saveSolution();
-//            ++num_solutions;
-//            SolutionFound.trigger(*this);
             saveSolution();
-//            relaxationPolicy.notifySuccess();
-//=======
-//            boolean.saveSolution();
-//            numeric.saveSolution();
-//            
-//            ++num_solutions;
-//            SolutionFound.trigger(*this);
-            
-            std::forward<P>(relaxationPolicy).notifySuccess();
-//>>>>>>> 5e3de6be79b5753044226efba9642bcd0164d56f
+            std::forward<P>(relaxationPolicy).notifySuccess(num_fails);
             restoreState(0);
+            decisions.clear();
         
             try {
                 objective.setPrimal(best, *this);
@@ -2735,16 +2825,6 @@ void Solver<T>::largeNeighborhoodSearch(S &objective, P &&relaxationPolicy) {
             }
             ground_level = trail.size();
         } else {
-            
-//            std::cout << "failed to improve the current best\n";
-            
-//            std::cout << "learn clause:\n";
-//            for(auto l : learnt_clause) {
-//                std::cout << pretty(l) << std::endl;
-//            }
-//            std::cout << std::endl;
-            
-//            std::cout << learnt_clause.size() << "/" << assumptions.size() << std::endl;
 
             // no assumptions made and still failure => no improving solution exists
             if (surrogate.getState() == heuristics::AssumptionState::Empty) {
@@ -2752,6 +2832,7 @@ void Solver<T>::largeNeighborhoodSearch(S &objective, P &&relaxationPolicy) {
             } else {
                 std::forward<P>(relaxationPolicy).notifyFailure();
                 restoreState(0);
+                decisions.clear();
             }
         }
     }
@@ -3304,7 +3385,7 @@ std::ostream &Solver<T>::displayHeader(std::ostream &os,
                                           const int width) const {
   os << std::right << std::setw(width)
      << " objective   failures   branches    nds/s    lvl   clauses  size";
-  os << "   cpu\n";
+  os << "   cpu         wall time\n";
   return os;
 }
 
@@ -3320,6 +3401,8 @@ template <typename T>
 std::ostream &Solver<T>::displayProgress(std::ostream &os) const {
 
   auto cpu{(cpu_time() - start_time)};
+  auto [start, stop] = stopWatch.getTiming();
+  const auto wallTime = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start).count();
 
   os << "  " << std::setw(9) << num_fails << "  " << std::setw(9)
      << num_choicepoints << "  " << std::setw(7)
@@ -3334,7 +3417,7 @@ std::ostream &Solver<T>::displayProgress(std::ostream &os) const {
                                 static_cast<double>(clauses.size()));
 
 
-  os << "   " << std::left << cpu << std::right << std::endl;
+  os << "   " << std::left << std::setw(9) << cpu << "   " << wallTime << std::right << std::endl;
 
   return os;
 }
@@ -3573,6 +3656,17 @@ template <typename T>
 std::ostream &operator<<(std::ostream &os, const Solver<T> &x) {
   return x.display(os);
 }
+
+template <typename T>
+std::ostream &operator<<(std::ostream &os, const Solution<T> &x) {
+  return x.display(os);
+}
+
+template <typename T>
+std::istream &operator>>(std::istream &is, Solution<T> &x) {
+  return x.load(is);
+}
+
 }
 
 #endif

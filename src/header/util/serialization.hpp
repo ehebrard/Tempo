@@ -118,11 +118,13 @@ namespace tempo::serialization {
      * @tparam S Type of object to be serialized
      * @param object Object to be serialized
      * @param destination Destination file
+     * @param fileMode optional file mode (default: open and seek to beginning)
      * @throws std::runtime_error if file could not be opened for writing
      */
     template<serializable S>
-    void serializeToFile(const S &object, const std::filesystem::path &destination) {
-        std::ofstream file(destination);
+    void serializeToFile(const S &object, const std::filesystem::path &destination,
+                         std::ios_base::openmode fileMode = std::ios_base::out) {
+        std::ofstream file(destination, fileMode);
         if (not file.is_open()) {
             std::stringstream ss;
             ss << "unable to open file '" << destination << "' for writing";

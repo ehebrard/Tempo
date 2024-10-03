@@ -94,7 +94,7 @@ namespace cli {
                                                           arg.defaultVal);
             } else {
                 parser.getCmdLine().add<TCLAP::ValueArg<T>>(arg.destination, "", arg.argName, arg.explanation,
-                                                            arg.required, arg.defaultVal.value_or(T{}),
+                                                            arg.required, arg.defaultVal.value_or(arg.destination),
                                                             typeid(T).name());
             }
 

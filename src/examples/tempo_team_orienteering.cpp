@@ -178,20 +178,31 @@ int main(int argc, char *argv[]) {
     S.post(no_overlap);
     scope.clear();
   }
+    
+    
+    
 
     std::vector<BooleanVar<int>> selection;
     for(auto i : intervals) {
         selection.push_back(i.exist);
         S.addToSearch(i.exist);
     }
+    
 
+    auto obj{S.newNumeric()};
+
+    
+    S.post(obj == Sum(selection, weights));
+    
+    
+    
   if (opt.print_mod) {
     std::cout << S << std::endl;
   }
 
   // search
   //  S.maximize(schedule.duration);
-  S.maximize(Sum(selection, weights));
+  S.maximize(obj);
 
   if (opt.print_sol) {
     printJobs(S, intervals);

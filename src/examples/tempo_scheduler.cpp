@@ -156,8 +156,11 @@ int main(int argc, char *argv[]) {
   cli::detail::configureParser(parser, cli::SwitchSpec("heuristic-profiling", "activate heuristic profiling",
                                                        profileHeuristic, false));
     
-    std::string ordering_file{""};
-    parser.getCmdLine().add<TCLAP::ValueArg<std::string>>(ordering_file, "", "static-ordering", "use static ordering heuristic", false, "", "string");
+    std::string save_solution{""};
+    parser.getCmdLine().add<TCLAP::ValueArg<std::string>>(save_solution, "", "save-solution", "save solution to file", false, "", "string");
+    
+    std::string load_solution{""};
+    parser.getCmdLine().add<TCLAP::ValueArg<std::string>>(load_solution, "", "load-solution", "load solution from file", false, "", "string");
     
   parser.parse(argc, argv);
   Options opt = parser.getOptions();
@@ -292,18 +295,26 @@ int main(int argc, char *argv[]) {
 
   // search
   if (not optimal) {
-      if(ordering_file != "") {
-          std::vector<var_t> ordering;
-          std::ifstream infile(ordering_file.c_str(), std::ios_base::in);
-          int length;
-          var_t x;
-          infile >> length;
-          for(int i{0}; i<length; ++i) {
-              infile >> x;
-              ordering.push_back(x);
-          }
-          S.setBranchingHeuristic(heuristics::make_compound_heuristic(heuristics::Static(S,ordering), heuristics::make_value_heuristic(S)));
-      }
+      
+//      if(load_solution != "") {
+//          Solution<int> sol;
+//          std::ifstream infile(load_solution.c_str(), std::ios_base::in);
+//          infile >> sol;
+//        
+//      }
+      
+//      if(ordering_file != "") {
+//          std::vector<var_t> ordering;
+//          std::ifstream infile(ordering_file.c_str(), std::ios_base::in);
+//          int length;
+//          var_t x;
+//          infile >> length;
+//          for(int i{0}; i<length; ++i) {
+//              infile >> x;
+//              ordering.push_back(x);
+//          }
+//          S.setBranchingHeuristic(heuristics::make_compound_heuristic(heuristics::Static(S,ordering), heuristics::make_value_heuristic(S)));
+//      }
 
     S.minimize(schedule.duration);
   }
@@ -320,5 +331,13 @@ int main(int argc, char *argv[]) {
   profiler.printAll<std::chrono::microseconds>(std::cout);
   std::cout << "-- date: " << shell::getTimeStamp() << std::endl;
   std::cout << "-- commit: " << GitSha << std::endl;
+    
+    if(save_solution != "") {
+        std::ofstream cl_file(save_solution, std::ofstream::out);
+        Solution<int> best(S);
+        
+        std::cout << "save " << best << std::endl;
+        cl_file << best << std::endl;
+    }
 
 }

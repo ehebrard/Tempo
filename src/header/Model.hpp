@@ -723,8 +723,9 @@ public:
                 const var_t target = Constant::NoVar) override {
 
 #ifdef DBG_EXTRACT_SUM
-    this->display(std::cout);
-    std::cout << std::endl;
+      std::cout << "extract ";
+      this->display(std::cout);
+    std::cout << " with target " << target << std::endl;
 #endif
 
     //      NumericVar<T> num_part;
@@ -738,19 +739,30 @@ public:
         L.push_back(x == true);
       }
 
-      auto bool_part{solver.newNumeric(bool_lb, bool_ub)};
+        auto bool_part{target};
+        if(target == Constant::NoVar) {
+//            auto bool_part{solver.newNumeric(bool_lb, bool_ub)};
+            NumericExpressionImpl<T>::self = solver.newNumeric(bool_lb, bool_ub);
+            bool_part = NumericExpressionImpl<T>::self.id();
+        } else {
+            NumericExpressionImpl<T>::self.data = NumInfo<T>(bool_part, 0);
+            solver.set(leq<T>(target, bool_ub));
+            solver.set(geq<T>(target, bool_lb));
+        }
+        
+        
 
       solver.post(new PseudoBooleanLeqVar<T>(
-          solver, L.begin(), L.end(), bool_weights.begin(), bool_part.id()));
+          solver, L.begin(), L.end(), bool_weights.begin(), bool_part));
 
       solver.post(new PseudoBooleanGeqVar<T>(
-          solver, L.begin(), L.end(), bool_weights.begin(), bool_part.id()));
+          solver, L.begin(), L.end(), bool_weights.begin(), bool_part));
 
       assert(numeric_arguments.empty());
 
-      NumericExpressionImpl<T>::self = bool_part;
+      
 
-      return NumericExpressionImpl<T>::self.id();
+      return bool_part;
     }
 
     preprocessNumeric(solver);
@@ -1546,15 +1558,49 @@ public:
 
           auto x_ab{solver.newDisjunct(Constant::NoEdge<T>, a_before_b)};
           auto x_ba{solver.newDisjunct(Constant::NoEdge<T>, b_before_a)};
-
-          // (a->exist and b->exist) -> (x_ab or x_ba)
-          // ~a->exist or ~b->exist or x_ab or x_ba
-          std::vector<Literal<T>> cl{x_ab == true, x_ba == true};
-          if (a->isOptional(solver))
-            cl.push_back(a->exist == false);
-          if (b->isOptional(solver))
-            cl.push_back(b->exist == false);
-          solver.clauses.add(cl.begin(), cl.end());
+            
+            // (a->exist and b->exist) -> (x_ab or x_ba)
+            // ~a->exist or ~b->exist or x_ab or x_ba
+            std::vector<Literal<T>> cl{x_ab == true, x_ba == true};
+            if (a->isOptional(solver))
+              cl.push_back(a->exist == false);
+            if (b->isOptional(solver))
+              cl.push_back(b->exist == false);
+            solver.clauses.add(cl.begin(), cl.end());
+            
+            
+            // to avoid setting useless constraints
+            // (~a->exist -> ~x_ab) and (~a->exist -> ~x_ba)
+            // a->exist or ~x_ab
+            cl.clear();
+            if (a->isOptional(solver)) {
+                cl.push_back(a->exist == true);
+                cl.push_back(x_ab == false);
+                solver.clauses.add(cl.begin(), cl.end());
+                
+                cl.pop_back();
+                cl.push_back(x_ba == false);
+                solver.clauses.add(cl.begin(), cl.end());
+            }
+            
+            cl.clear();
+            if (b->isOptional(solver)) {
+                cl.push_back(b->exist == true);
+                cl.push_back(x_ab == false);
+                solver.clauses.add(cl.begin(), cl.end());
+                
+                cl.pop_back();
+                cl.push_back(x_ba == false);
+                solver.clauses.add(cl.begin(), cl.end());
+            }
+            
+            // to enforce the disjunction
+            cl.clear();
+            cl.push_back(x_ab == false);
+            cl.push_back(x_ba == false);
+            solver.clauses.add(cl.begin(), cl.end());
+            
+            
 
           disjunct.push_back(x_ab);
           disjunct.push_back(x_ba);
