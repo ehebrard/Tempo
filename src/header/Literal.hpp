@@ -163,16 +163,16 @@ namespace detail {
         }
 
         friend void to_json(nlohmann::json &j, Literal<T> literal) {
-            j["info"] = literal.info;
-            j["data"] = literal.isNumeric() ? literal.value_unsafe() : literal.semantic_unsafe();
+            j["i"] = literal.info;
+            j["d"] = literal.isNumeric() ? literal.value_unsafe() : literal.semantic_unsafe();
         }
 
         friend void from_json(const nlohmann::json &j, Literal<T> &literal) {
-            j.at("info").get_to(literal.info);
+            j.at("i").get_to(literal.info);
             if (literal.isNumeric()) {
-                j.at("data").get_to(literal.numericData);
+                j.at("d").get_to(literal.numericData);
             } else {
-                j.at("data").get_to(literal.semanticInfo);
+                j.at("d").get_to(literal.semanticInfo);
             }
         }
     };
