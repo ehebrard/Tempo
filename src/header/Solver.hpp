@@ -50,6 +50,7 @@
 #include "util/traits.hpp"
 #include "util/Options.hpp"
 #include "util/SubscribableEvent.hpp"
+#include "util/Profiler.hpp"
 #include "heuristics/RelaxationInterface.hpp"
 
 
@@ -775,7 +776,9 @@ private:
     std::vector<index_t> literal_lvl;
     std::vector<Literal<T>> learnt_clause;
     std::vector<Literal<T>> minimal_clause;
-    
+
+    util::StopWatch stopWatch;
+
 public:
     std::vector<Literal<T>>::iterator begin_learnt() {
         return learnt_clause.begin();
@@ -804,7 +807,7 @@ private:
     
     // to restack assumptions after initial propagation
     //    SubscriberHandle assumptionHandler;
-    
+
 public:
     void setActivityMap(heuristics::impl::EventActivityMap *map) {
         activityMap = map;
@@ -2587,6 +2590,7 @@ template <typename T> void Solver<T>::branchRight() {
 template <typename T> void Solver<T>::initializeSearch() {
     if(not initialized) {
         start_time = cpu_time();
+        stopWatch.start();
         post(&clauses);
         
         restartPolicy.initialize();
@@ -3381,7 +3385,7 @@ std::ostream &Solver<T>::displayHeader(std::ostream &os,
                                           const int width) const {
   os << std::right << std::setw(width)
      << " objective   failures   branches    nds/s    lvl   clauses  size";
-  os << "   cpu\n";
+  os << "   cpu         wall time\n";
   return os;
 }
 
@@ -3397,6 +3401,8 @@ template <typename T>
 std::ostream &Solver<T>::displayProgress(std::ostream &os) const {
 
   auto cpu{(cpu_time() - start_time)};
+  auto [start, stop] = stopWatch.getTiming();
+  const auto wallTime = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start).count();
 
   os << "  " << std::setw(9) << num_fails << "  " << std::setw(9)
      << num_choicepoints << "  " << std::setw(7)
@@ -3411,7 +3417,7 @@ std::ostream &Solver<T>::displayProgress(std::ostream &os) const {
                                 static_cast<double>(clauses.size()));
 
 
-  os << "   " << std::left << cpu << std::right << std::endl;
+  os << "   " << std::left << std::setw(9) << cpu << "   " << wallTime << std::right << std::endl;
 
   return os;
 }
