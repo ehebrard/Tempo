@@ -10,7 +10,7 @@
 #include "VarImportanceRunner.hpp"
 #include "scheduling_helpers.hpp"
 
-VarImportanceRunner::VarImportanceRunner(ser::PartialProblem partialProblem, tempo::Options options,
+VarImportanceRunner::VarImportanceRunner(ser::PartialProblem<Time> partialProblem, tempo::Options options,
                                          const ser::Solution<Time> &optSol) : problem(std::move(partialProblem)),
                                                                                  options(std::move(options)),
                                                                                  optimum(optSol.objective) {

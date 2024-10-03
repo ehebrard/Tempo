@@ -30,10 +30,10 @@ namespace tempo {
         return serialization::deserializeFromFile<nlohmann::json>(file);
     }
 
-    auto getProblems(const fs::path &problemDir) -> std::map<unsigned int, serialization::PartialProblem> {
+    auto getProblems(const fs::path &problemDir) -> std::map<unsigned int, serialization::PartialProblem<DefaultTime>> {
         using namespace tempo::serialization;
         using namespace std::views;
-        std::map<unsigned, PartialProblem> ret;
+        std::map<unsigned, PartialProblem<DefaultTime>> ret;
         const auto dir = problemDir / Serializer<>::SubProblemDir;
         if (not fs::is_directory(dir)) {
             throw std::runtime_error("no problems directory under " + problemDir.string());
@@ -47,7 +47,7 @@ namespace tempo {
                 const auto str = file.path().filename().string();
                 if (std::regex_search(str, res, numberRegex) and res.size() == 2) {
                     auto id = std::stoi(*res.begin());
-                    auto [_, inserted] = ret.emplace(id, deserializeFromFile<PartialProblem>(file));
+                    auto [_, inserted] = ret.emplace(id, deserializeFromFile<PartialProblem<DefaultTime>>(file));
                     if (not inserted) {
                         throw std::runtime_error("duplicate sub problem id " + std::to_string(id));
                     }
@@ -61,7 +61,7 @@ namespace tempo {
     auto loadDataPoint(const fs::path &mainDir, unsigned int id,
                        bool rootInstance) -> std::pair<DataPoint, DataPointStatus> {
         using namespace serialization;
-        PartialProblem problem;
+        PartialProblem<DefaultTime> problem;
         if (rootInstance) {
             problem.associatedSolution = id;
         } else {
@@ -83,9 +83,9 @@ namespace tempo {
         return {{std::move(problem), std::move(solution)}, DataPointStatus::Valid};
     }
 
-    auto getSolutions(const fs::path &problemDir) -> std::map<unsigned int, serialization::Solution<int>> {
+    auto getSolutions(const fs::path &problemDir) -> std::map<unsigned int, serialization::Solution<DefaultTime>> {
         using namespace tempo::serialization;
-        std::map<unsigned, Solution<int>> ret;
+        std::map<unsigned, Solution<DefaultTime>> ret;
         const auto dir = problemDir / Serializer<>::SolutionDir;
         if (not fs::is_directory(dir)) {
             throw std::runtime_error("no solutions directory under " + problemDir.string());
@@ -94,7 +94,7 @@ namespace tempo {
         for (const auto &file : fs::directory_iterator(dir)) {
             if (file.is_regular_file() and
                 file.path().filename().string().starts_with(Serializer<>::SolutionBaseName)) {
-                auto sol = deserializeFromFile<Solution<int>>(file);
+                auto sol = deserializeFromFile<Solution<DefaultTime>>(file);
                 auto id = sol.id;
                 auto [_, inserted] = ret.emplace(id, std::move(sol));
                 if (not inserted) {

@@ -98,7 +98,7 @@ using ProblemInstance = tempo::SchedulingProblemHelper<Time, Resource>;
  * optionally the optimal solution and the number of tasks
  */
 auto loadSchedulingProblem(
-        const tempo::Options &options) -> std::tuple<SolverPtr, ProblemInstance, std::optional<int>, unsigned>;
+        const tempo::Options &options) -> std::tuple<SolverPtr, ProblemInstance, std::optional<Time>, unsigned>;
 
 
 /**
@@ -106,7 +106,7 @@ auto loadSchedulingProblem(
  * @param solver solver to configure
  * @param branch branch to set the solver on
  */
-void loadBranch(tempo::Solver<int> &solver, const tempo::serialization::Branch &branch);
+void loadBranch(tempo::Solver<int> &solver, const tempo::serialization::Branch<Time> &branch);
 
 
 #endif //TEMPO_SCHEDULING_HELPERS_HPP

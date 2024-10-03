@@ -18,47 +18,47 @@ public:
     auto getTruthFunction() {
         return [this](tempo::var_t var) {
             if (this->at(var) == 0) {
-                return tempo::TraceWatcher::TruthVal::Undefined;
+                return tempo::TraceWatcher<int>::TruthVal::Undefined;
             }
 
-            return static_cast<tempo::TraceWatcher::TruthVal>(this->at(var) == 1);
+            return static_cast<tempo::TraceWatcher<int>::TruthVal>(this->at(var) == 1);
         };
     }
 };
 
-struct TestWatcher : public tempo::TraceWatcher {
-    using tempo::TraceWatcher::isAligned;
-    using tempo::TraceWatcher::isEqual;
+struct TestWatcher : public tempo::TraceWatcher<int> {
+    using tempo::TraceWatcher<int>::isAligned;
+    using tempo::TraceWatcher<int>::isEqual;
 };
 
 
 TEST(util, TraceWatcher_ctor) {
     using namespace tempo;
-    TraceWatcher traceWatcher(std::views::iota(0, 5));
+    TraceWatcher<int> traceWatcher(std::views::iota(0, 5));
     EXPECT_EQ(traceWatcher.getOffset(), 0);
     EXPECT_FALSE(traceWatcher.isOnTrack());
 }
 
 TEST(util, TraceWatcher_ctor_empty) {
     using namespace tempo;
-    EXPECT_THROW(TraceWatcher traceWatcher(std::vector<var_t>{}), std::runtime_error);
+    EXPECT_THROW(TraceWatcher<int> traceWatcher(std::vector<var_t>{}), std::runtime_error);
 }
 
 TEST(util, TraceWatcher_ctor_non_continuous) {
     using namespace tempo;
-    EXPECT_THROW(TraceWatcher(std::vector{1, 0, 4, 3}), std::runtime_error);
+    EXPECT_THROW(TraceWatcher<int>(std::vector{1, 0, 4, 3}), std::runtime_error);
 }
 
 TEST(util, TraceWatcher_ctor_offset) {
     using namespace tempo;
-    TraceWatcher traceWatcher(std::views::iota(4, 9));
+    TraceWatcher<int> traceWatcher(std::views::iota(4, 9));
     EXPECT_FALSE(traceWatcher.isOnTrack());
     EXPECT_EQ(traceWatcher.getOffset(), 4);
 }
 
 TEST(util, TraceWatcher_register_soution) {
     using namespace tempo;
-    TraceWatcher traceWatcher(std::views::iota(0, 5));
+    TraceWatcher<int> traceWatcher(std::views::iota(0, 5));
     TestSolver solver{1, 1, 1, -1, -1};
     traceWatcher.registerSolution(solver.getTruthFunction());
     EXPECT_TRUE(traceWatcher.isOnTrack());
@@ -67,7 +67,7 @@ TEST(util, TraceWatcher_register_soution) {
 
 TEST(util, TraceWatcher_register_solution_offset) {
     using namespace tempo;
-    TraceWatcher traceWatcher(std::views::iota(2, 5));
+    TraceWatcher<int> traceWatcher(std::views::iota(2, 5));
     TestSolver solver{0, 0, 1, -1, -1};
     traceWatcher.registerSolution(solver.getTruthFunction());
     EXPECT_TRUE(traceWatcher.isOnTrack());
@@ -76,7 +76,7 @@ TEST(util, TraceWatcher_register_solution_offset) {
 
 TEST(util, TraceWatcher_step) {
     using namespace tempo;
-    TraceWatcher traceWatcher(std::views::iota(0, 5));
+    TraceWatcher<int> traceWatcher(std::views::iota(0, 5));
     TestSolver solver{1, 1, 1, -1, -1};
     traceWatcher.registerSolution(solver.getTruthFunction());
     traceWatcher.step(makeBooleanLiteral<int>(true, 2, 0));
@@ -91,7 +91,7 @@ TEST(util, TraceWatcher_step) {
 
 TEST(util, TraceWatcher_step_offset) {
     using namespace tempo;
-    TraceWatcher traceWatcher(std::views::iota(1, 5));
+    TraceWatcher<int> traceWatcher(std::views::iota(1, 5));
     TestSolver solver{0, 1, 1, -1, -1};
     traceWatcher.registerSolution(solver.getTruthFunction());
     traceWatcher.step(makeBooleanLiteral<int>(true, 2, 0));
@@ -106,7 +106,7 @@ TEST(util, TraceWatcher_step_offset) {
 
 TEST(util, TraceWatcher_update_on_track) {
     using namespace tempo;
-    TraceWatcher traceWatcher(std::views::iota(0, 5));
+    TraceWatcher<int> traceWatcher(std::views::iota(0, 5));
     TestSolver solver{1, 1, 1, -1, -1};
     traceWatcher.registerSolution(solver.getTruthFunction());
     solver = {0, 1, 0, 0, -1};
@@ -124,7 +124,7 @@ TEST(util, TraceWatcher_update_on_track) {
 
 TEST(util, TraceWatcher_update_on_track_offset) {
     using namespace tempo;
-    TraceWatcher traceWatcher(std::views::iota(2, 7));
+    TraceWatcher<int> traceWatcher(std::views::iota(2, 7));
     TestSolver solver{0, 0, 1, 1, 1, -1, -1};
     traceWatcher.registerSolution(solver.getTruthFunction());
     solver = {0, 0, 0, 1, 0, 0, -1};
@@ -142,7 +142,7 @@ TEST(util, TraceWatcher_update_on_track_offset) {
 
 TEST(util, TraceWatcher_set_on_track) {
     using namespace tempo;
-    TraceWatcher traceWatcher(std::views::iota(0, 5));
+    TraceWatcher<int> traceWatcher(std::views::iota(0, 5));
     traceWatcher.setOnTrack(true);
     EXPECT_TRUE(traceWatcher.isOnTrack());
     traceWatcher.setOnTrack(false);
@@ -151,7 +151,7 @@ TEST(util, TraceWatcher_set_on_track) {
 
 TEST(util, TraceWatcher_getVariablesOnTrack_step) {
     using namespace tempo;
-    TraceWatcher traceWatcher(std::views::iota(0, 5));
+    TraceWatcher<int> traceWatcher(std::views::iota(0, 5));
     EXPECT_TRUE(traceWatcher.getVariablesOnTrack().empty());
     TestSolver solver{1, 1, 1, -1, -1};
     traceWatcher.registerSolution(solver.getTruthFunction());
@@ -164,12 +164,12 @@ TEST(util, TraceWatcher_getVariablesOnTrack_step) {
     EXPECT_EQ(traceWatcher.getVariablesOnTrack().front(), std::pair(1u, true));
     EXPECT_EQ(traceWatcher.getVariablesOnTrack().back(), std::pair(3u, false));
     traceWatcher.step(makeBooleanLiteral<int>(false, 0));
-    EXPECT_EQ(traceWatcher.getVariablesOnTrack(), (serialization::Branch{{1, true}, {3, false}}));
+    EXPECT_EQ(traceWatcher.getVariablesOnTrack(), (serialization::Branch<int>{{1, true}, {3, false}}));
 }
 
 TEST(util, TraceWatcher_getVariablesOnTrack_register_solution) {
     using namespace tempo;
-    TraceWatcher traceWatcher(std::views::iota(0, 5));
+    TraceWatcher<int> traceWatcher(std::views::iota(0, 5));
     EXPECT_TRUE(traceWatcher.getVariablesOnTrack().empty());
     TestSolver solver{1, 1, 1, -1, -1};
     traceWatcher.registerSolution(solver.getTruthFunction());
@@ -182,22 +182,22 @@ TEST(util, TraceWatcher_getVariablesOnTrack_register_solution) {
 
 TEST(util, TraceWatcher_getVariablesOnTrack_update_on_track) {
     using namespace tempo;
-    TraceWatcher traceWatcher(std::views::iota(0, 5));
+    TraceWatcher<int> traceWatcher(std::views::iota(0, 5));
     EXPECT_TRUE(traceWatcher.getVariablesOnTrack().empty());
     TestSolver solver{1, 1, 1, -1, -1};
     traceWatcher.registerSolution(solver.getTruthFunction());
     solver = {0, 1, 0, 0, -1};
     traceWatcher.updateOnTrack(solver.getTruthFunction());
     ASSERT_TRUE(traceWatcher.isOnTrack());
-    EXPECT_EQ(traceWatcher.getVariablesOnTrack(), (serialization::Branch{{1, true}, {4, false}}));
+    EXPECT_EQ(traceWatcher.getVariablesOnTrack(), (serialization::Branch<int>{{1, true}, {4, false}}));
     traceWatcher.step(makeBooleanLiteral<int>(true, 3));
     solver = {1, 0, 0, -1, -1};
     traceWatcher.updateOnTrack(solver.getTruthFunction());
-    EXPECT_EQ(traceWatcher.getVariablesOnTrack(), (serialization::Branch{{0, true}, {3, false}, {4, false}}));
+    EXPECT_EQ(traceWatcher.getVariablesOnTrack(), (serialization::Branch<int>{{0, true}, {3, false}, {4, false}}));
 }
 
 TEST(util, TraceWatcher_equal) {
-    using enum tempo::TraceWatcher::TruthVal;
+    using enum tempo::TraceWatcher<int>::TruthVal;
     EXPECT_TRUE(TestWatcher::isEqual(True, true));
     EXPECT_TRUE(TestWatcher::isEqual(False, false));
     EXPECT_FALSE(TestWatcher::isEqual(True, false));
@@ -207,7 +207,7 @@ TEST(util, TraceWatcher_equal) {
 }
 
 TEST(util, TraceWatcher_aligned) {
-    using enum tempo::TraceWatcher::TruthVal;
+    using enum tempo::TraceWatcher<int>::TruthVal;
     EXPECT_TRUE(TestWatcher::isAligned(True, true));
     EXPECT_TRUE(TestWatcher::isAligned(False, false));
     EXPECT_FALSE(TestWatcher::isAligned(True, false));

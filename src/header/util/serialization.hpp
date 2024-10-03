@@ -17,6 +17,7 @@
 #include <sstream>
 
 #include "util/traits.hpp"
+#include "Literal.hpp"
 
 #define DELIM ,
 
@@ -77,7 +78,15 @@ namespace tempo::serialization {
         nlohmann::to_json(j, instance);
     };
 
+#ifdef __LEGACY_SERIALIZATION__
+
+    template<typename>
     using Branch = std::vector<std::pair<var_t, bool>>;
+#else
+    template<concepts::scalar T>
+    using Branch = std::vector<Literal<T>>;
+#endif
+
 
     /**
      * @brief Represents a serializable solution of a scheduling problem
@@ -88,30 +97,31 @@ namespace tempo::serialization {
     struct Solution {
         Solution() = default;
 
-        Solution(unsigned int id, T objective, Branch decisions) : id(id), objective(objective),
-                                                                   decisions(std::move(decisions)) {}
+        Solution(unsigned int id, T objective, Branch<T> decisions) : id(id), objective(objective),
+                                                                       decisions(std::move(decisions)) {}
 
         unsigned id;
         T objective;
-        Branch decisions;
+        Branch<T> decisions;
     };
 
     /**
      * @brief Represents a serializable intermediate state or partial problem state of a scheduling problem.
      * @details @copybrief
      */
+    template<concepts::scalar T>
     struct PartialProblem {
         PartialProblem() = default;
 
-        PartialProblem(unsigned int associatedSolution, Branch decisions)
+        PartialProblem(unsigned int associatedSolution, Branch<T> decisions)
                 : associatedSolution(associatedSolution), decisions(std::move(decisions)) {}
 
         unsigned associatedSolution;
-        Branch decisions;
+        Branch<T> decisions;
     };
 
     DEFINE_SERIALIZATION(concepts::scalar T, Solution<T>, id, objective, decisions)
-    NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(PartialProblem, associatedSolution, decisions)
+    DEFINE_SERIALIZATION(concepts::scalar T, PartialProblem<T>, associatedSolution, decisions)
 
     /**
      * Converts a serializable object to json and writes it to the specified destination

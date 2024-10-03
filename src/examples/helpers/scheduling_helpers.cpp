@@ -104,7 +104,7 @@ void postCumulative(tempo::Solver<Time> &solver, const ProblemInstance &problem)
 }
 
 auto loadSchedulingProblem(const tempo::Options &options)
--> std::tuple<SolverPtr, ProblemInstance, std::optional<int>, unsigned> {
+-> std::tuple<SolverPtr, ProblemInstance, std::optional<Time>, unsigned> {
     using namespace tempo;
     using namespace std::views;
     auto solver = std::make_unique<Solver<>>(options);
@@ -139,7 +139,7 @@ auto loadSchedulingProblem(const tempo::Options &options)
     return {std::move(solver), std::move(problem), optSol, numTasks};
 }
 
-void loadBranch(tempo::Solver<int> &solver, const tempo::serialization::Branch &branch) {
+void loadBranch(tempo::Solver<int> &solver, const tempo::serialization::Branch<Time> &branch) {
     for (auto [id, val] : branch) {
         auto lit = solver.boolean.getLiteral(val, id);
         solver.set(lit);

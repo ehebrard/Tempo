@@ -56,6 +56,8 @@ else ()
     add_compile_definitions(__JSON_INDENT__=)
 endif ()
 
+add_compile_definitions(__LEGACY_SERIALIZATION__)
+
 add_compile_definitions(__TEST_DATA_DIR__="${CMAKE_SOURCE_DIR}/Tests/data")
 get_git_head_revision(GIT_REFSPEC GIT_SHA1)
 configure_file("${CMAKE_SOURCE_DIR}/git_sha.cpp.in"

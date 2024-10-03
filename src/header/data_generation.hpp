@@ -34,17 +34,19 @@ namespace tempo {
     constexpr auto LabelName = "label";
     constexpr auto GraphReferenceFile = "ref.json";
 
+    using DefaultTime = int;
+
     /**
      * @brief Class that can be used to serialize solutions and partial problems to a files.
      * @details @copybrief
      * Automatically creates required folder structure and generates file names
      * @tparam T timing type
      */
-    template<concepts::scalar T = int>
+    template<concepts::scalar T = DefaultTime>
     class Serializer {
         fs::path targetDirectory;
         std::vector<serialization::Solution<T>> solutions;
-        std::vector<serialization::PartialProblem> problems;
+        std::vector<serialization::PartialProblem<T>> problems;
     public:
         static constexpr auto SolutionBaseName = "solution";
         static constexpr auto FileExtension = ".json";
@@ -66,7 +68,7 @@ namespace tempo {
          * @param objective objective value of the solution
          * @param decisions all decisions made by the solver
          */
-        void addSolution(T objective, serialization::Branch decisions) {
+        void addSolution(T objective, serialization::Branch<T> decisions) {
             solutions.emplace_back(solutions.size(), objective, std::move(decisions));
         }
 
@@ -74,7 +76,7 @@ namespace tempo {
          * Adds a sub problem
          * @param decisions all decisions made by the solver
          */
-        void addSubProblem(serialization::Branch decisions) {
+        void addSubProblem(serialization::Branch<T> decisions) {
 
 #ifdef __DEBUG_BUILD__
             std::ranges::sort(decisions);
@@ -163,16 +165,16 @@ namespace tempo {
      * @details @copybrief
      * @tparam T timing type
      */
-    template<concepts::scalar T = int>
+    template<concepts::scalar T = DefaultTime>
     class DataGenerator {
-        Tracer tracer;
+        Tracer<T> tracer;
         Serializer<T> serializer;
         Interval<T> schedule;
         SubscriberHandle solutionHandler;
         SubscriberHandle deviationHandler;
 
     public:
-        SubscribableEvent<const serialization::PartialProblem&, const serialization::Solution<T> &> DataPointCreated;
+        SubscribableEvent<const serialization::PartialProblem<T>&, const serialization::Solution<T> &> DataPointCreated;
         ///< Triggers when a data point is found
 
         DataGenerator(DataGenerator &&) noexcept = default;
@@ -244,12 +246,12 @@ namespace tempo {
 
     private:
 
-        void handleConflict(serialization::Branch decisions) {
+        void handleConflict(serialization::Branch<T> decisions) {
             serializer.addSubProblem(std::move(decisions));
             DataPointCreated.trigger(serializer.getProblems().back(), serializer.getSolutions().back());
         }
 
-        void handlePropagation(const TraceWatcher::Conflicts &conflicts, serialization::Branch decisionsOnTrack) {
+        void handlePropagation(const TraceWatcher<T>::Conflicts &conflicts, serialization::Branch<T> decisionsOnTrack) {
             for (auto [var, val] : conflicts) {
                 decisionsOnTrack.emplace_back(var, val);
                 serializer.addSubProblem(decisionsOnTrack);
@@ -259,7 +261,7 @@ namespace tempo {
         }
 
         void handleSolution(const Solver<T> &solver) {
-            serialization::Branch decisions;
+            serialization::Branch<T> decisions;
             const auto &traceWatcher = tracer.getWatcher();
             decisions.reserve(traceWatcher.getLastSolution().size());
             for (auto [var, val] : iterators::enumerate(traceWatcher.getLastSolution(), traceWatcher.getOffset())) {
@@ -292,7 +294,7 @@ namespace tempo {
      * @return map with deserialized solutions indexed by their ids
      * @throws std::runtime_error if solutions directory could not be found under given path
      */
-    auto getSolutions(const fs::path &problemDir) -> std::map<unsigned int, serialization::Solution<int>>;
+    auto getSolutions(const fs::path &problemDir) -> std::map<unsigned int, serialization::Solution<DefaultTime>>;
 
     /**
      * Loads all sub problems under problem directory
@@ -300,7 +302,7 @@ namespace tempo {
      * @return map with deserialized problems indexed by their ids
      * @throws std::runtime_error if sub_problems directory could not be found under given path
      */
-    auto getProblems(const fs::path &problemDir) -> std::map<unsigned int, serialization::PartialProblem>;
+    auto getProblems(const fs::path &problemDir) -> std::map<unsigned int, serialization::PartialProblem<DefaultTime>>;
 
     /**
      * @brief Datapoint load status
@@ -317,8 +319,8 @@ namespace tempo {
      * @details @copybrief
      */
     struct DataPoint {
-        serialization::PartialProblem problem; ///< partial problem representing the input
-        serialization::Solution<int> solution; ///< expected locally optimal solution
+        serialization::PartialProblem<DefaultTime> problem; ///< partial problem representing the input
+        serialization::Solution<DefaultTime> solution; ///< expected locally optimal solution
     };
 
     /**

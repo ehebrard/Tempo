@@ -34,7 +34,7 @@ struct Result {
 
 
 class VarImportanceRunner {
-    tempo::serialization::PartialProblem problem;
+    tempo::serialization::PartialProblem<Time> problem;
     tempo::Options options;
     Time optimum;
     std::vector<bool> literalCache;
@@ -50,7 +50,7 @@ public:
      * @param options scheduler options for the search
      * @param optSol optimal solution known to this problem
      */
-    VarImportanceRunner(ser::PartialProblem partialProblem, tempo::Options options,
+    VarImportanceRunner(ser::PartialProblem<Time> partialProblem, tempo::Options options,
                         const ser::Solution<Time> &optSol);
 
     /**
