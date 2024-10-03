@@ -17,6 +17,7 @@
 #include <map>
 #include <nlohmann/json.hpp>
 
+#include "Global.hpp"
 #include "util/traits.hpp"
 #include "util/SubscribableEvent.hpp"
 #include "util/serialization.hpp"
@@ -34,7 +35,6 @@ namespace tempo {
     constexpr auto LabelName = "label";
     constexpr auto GraphReferenceFile = "ref.json";
 
-    using DefaultTime = int;
 
     /**
      * @brief Class that can be used to serialize solutions and partial problems to a files.

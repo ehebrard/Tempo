@@ -14,6 +14,7 @@
 #include <ranges>
 #include <variant>
 
+#include "Global.hpp"
 #include "Solver.hpp"
 #include "util/Options.hpp"
 #include "util/SchedulingProblemHelper.hpp"
@@ -85,11 +86,10 @@ public:
     }
 };
 
-using Time = int;
 using ResourceUnit = int;
 using Resource = VariantResource<DisjunctiveResource, CumulativeResource<ResourceUnit>>;
-using SolverPtr = std::unique_ptr<tempo::Solver<Time>>;
-using ProblemInstance = tempo::SchedulingProblemHelper<Time, Resource>;
+using SolverPtr = std::unique_ptr<tempo::Solver<tempo::DefaultTime>>;
+using ProblemInstance = tempo::SchedulingProblemHelper<tempo::DefaultTime, Resource>;
 
 /**
  * loads a problem instance and instantiates the solver using the given options
@@ -97,8 +97,8 @@ using ProblemInstance = tempo::SchedulingProblemHelper<Time, Resource>;
  * @return ready to run scheduler (with default heuristics) and problem scheduling problem instance struct,
  * optionally the optimal solution and the number of tasks
  */
-auto loadSchedulingProblem(
-        const tempo::Options &options) -> std::tuple<SolverPtr, ProblemInstance, std::optional<Time>, unsigned>;
+auto loadSchedulingProblem(const tempo::Options &options)
+    -> std::tuple<SolverPtr, ProblemInstance, std::optional<tempo::DefaultTime>, unsigned>;
 
 
 /**
@@ -106,7 +106,7 @@ auto loadSchedulingProblem(
  * @param solver solver to configure
  * @param branch branch to set the solver on
  */
-void loadBranch(tempo::Solver<int> &solver, const tempo::serialization::Branch<Time> &branch);
+void loadBranch(tempo::Solver<int> &solver, const tempo::serialization::Branch<tempo::DefaultTime> &branch);
 
 
 #endif //TEMPO_SCHEDULING_HELPERS_HPP

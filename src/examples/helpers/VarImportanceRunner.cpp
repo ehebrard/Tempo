@@ -10,14 +10,14 @@
 #include "VarImportanceRunner.hpp"
 #include "scheduling_helpers.hpp"
 
-VarImportanceRunner::VarImportanceRunner(ser::PartialProblem<Time> partialProblem, tempo::Options options,
-                                         const ser::Solution<Time> &optSol) : problem(std::move(partialProblem)),
+VarImportanceRunner::VarImportanceRunner(ser::PartialProblem<tempo::DefaultTime> partialProblem, tempo::Options options,
+                                         const ser::Solution<tempo::DefaultTime> &optSol) : problem(std::move(partialProblem)),
                                                                                  options(std::move(options)),
                                                                                  optimum(optSol.objective) {
     auto [s, p, _, _1] = loadSchedulingProblem(this->options);
     try {
         loadBranch(*s, problem.decisions);
-    } catch (const tempo::Failure<Time> &) {
+    } catch (const tempo::Failure<tempo::DefaultTime> &) {
         inconsistent = true;
         return;
     }
@@ -42,7 +42,7 @@ VarImportanceRunner::VarImportanceRunner(ser::PartialProblem<Time> partialProble
     }
 }
 
-auto VarImportanceRunner::getLiterals() const noexcept -> const std::vector<tempo::Literal<Time>> & {
+auto VarImportanceRunner::getLiterals() const noexcept -> const std::vector<tempo::Literal<tempo::DefaultTime>> & {
     return searchLiterals;
 }
 
@@ -62,7 +62,7 @@ double VarImportanceRunner::averageNumberOfDecisions() const noexcept {
     return static_cast<double>(totalNumDecisions) / numSearches;
 }
 
-auto VarImportanceRunner::run(tempo::Literal<Time> lit) -> Result {
+auto VarImportanceRunner::run(tempo::Literal<tempo::DefaultTime> lit) -> Result {
     using enum SchedulerState;
     if (isInconsistent()) {
         throw std::runtime_error("inconsistent sub problem");
@@ -80,7 +80,7 @@ auto VarImportanceRunner::run(tempo::Literal<Time> lit) -> Result {
 
     try {
         s->set(lit);
-    } catch(const tempo::Failure<Time> &) {
+    } catch(const tempo::Failure<tempo::DefaultTime> &) {
         return {Unsat, {}};
     }
 

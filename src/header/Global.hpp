@@ -42,6 +42,8 @@ using boolean_state = int;
 #define UnknownState -1
 // primitive type given to an explanation algorithm together with the literal to explain [used to encode the relevant info to be able to explain]
 using hint = int;
+
+using DefaultTime = int; // default timing type
 //#define NoHint -1
 //
 //#define DBG_BOUND num_choicepoints >= 0

@@ -7,12 +7,12 @@
 #ifndef TEMPO_VARIMPORTANCERUNNER_HPP
 #define TEMPO_VARIMPORTANCERUNNER_HPP
 
+#include "Global.hpp"
 #include "util/Options.hpp"
 #include "util/Matrix.hpp"
 #include "Model.hpp"
 #include "util/serialization.hpp"
 
-using Time = int;
 namespace ser = tempo::serialization;
 
 /**
@@ -29,16 +29,16 @@ enum class SchedulerState {
  */
 struct Result {
     SchedulerState state; ///< Outcome of the scheduler run
-    std::optional<Time> result; ///< makespan of the solution found or null if run did not complete
+    std::optional<tempo::DefaultTime> result; ///< makespan of the solution found or null if run did not complete
 };
 
 
 class VarImportanceRunner {
-    tempo::serialization::PartialProblem<Time> problem;
+    tempo::serialization::PartialProblem<tempo::DefaultTime> problem;
     tempo::Options options;
-    Time optimum;
+    tempo::DefaultTime optimum;
     std::vector<bool> literalCache;
-    std::vector<tempo::Literal<Time>> searchLiterals;
+    std::vector<tempo::Literal<tempo::DefaultTime>> searchLiterals;
     unsigned long totalNumDecisions = 0;
     unsigned numSearches = 0;
     bool inconsistent = false;
@@ -50,21 +50,21 @@ public:
      * @param options scheduler options for the search
      * @param optSol optimal solution known to this problem
      */
-    VarImportanceRunner(ser::PartialProblem<Time> partialProblem, tempo::Options options,
-                        const ser::Solution<Time> &optSol);
+    VarImportanceRunner(ser::PartialProblem<tempo::DefaultTime> partialProblem, tempo::Options options,
+                        const ser::Solution<tempo::DefaultTime> &optSol);
 
     /**
      * Get the positive literals for all boolean search variables
      * @return access to the search literals
      */
-    [[nodiscard]] auto getLiterals() const noexcept -> const std::vector<tempo::Literal<Time>> &;
+    [[nodiscard]] auto getLiterals() const noexcept -> const std::vector<tempo::Literal<tempo::DefaultTime>> &;
 
     /**
      * Runs the solver on the problem specified ad construction while enforcing the given literal
      * @param lit literal to enforce
      * @return result containing in run status and obtained makespan if problem + lit is SAT
      */
-    auto run(tempo::Literal<Time> lit) -> Result;
+    auto run(tempo::Literal<tempo::DefaultTime> lit) -> Result;
 
     /**
      * Get the average number of decisions over all searches
