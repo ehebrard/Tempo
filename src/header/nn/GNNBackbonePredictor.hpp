@@ -19,6 +19,8 @@
 #include "Literal.hpp"
 #include "GNNPrecedencePredictor.hpp"
 #include "util/Profiler.hpp"
+#include "util/enum.hpp"
+#include "util/Options.hpp"
 
 namespace tempo {
     template<typename T>
@@ -28,31 +30,33 @@ namespace tempo {
 namespace tempo::nn {
     namespace fs = std::filesystem;
 
+    PENUM(DecayMode, Constant, Linear, Exponential);
+
     struct PolicyConfig {
-        constexpr PolicyConfig() noexcept: relaxationRatio(1), relaxationDecay(0.5), minCertainty(0.5),
-                                           minFailRatio(-1), maxFailRatio(std::numeric_limits<double>::infinity()),
-                                           carefulAssumptions(false), retryLimit(0) {}
+        PolicyConfig() noexcept;
 
         /**
          * Ctor
          * @param relaxationRatio percentage of literals to fix [0, 1]
-         * @param relaxationDecay factor to apply to relaxation ratio on fail
+         * @param reactivity factor to apply to relaxation ratio on fail
          * @param minCertainty minimum GNN certainty [0, 1]
          * @param minFailRatio lower bound solver failure rate at which to increase relaxation ratio
          * @param maxFailRatio upper bound solver failure rate at which to decrease relaxation ratio
          * @param carefulAssumptions whether to propagate after each literal
          * @param retryLimit number of retries with same relaxation ration before decreasing relaxation ratio
+         * @param decayMode type of decay to apply on fail or after too many solver fails
          */
-        constexpr PolicyConfig(double relaxationRatio, double relaxationDecay, double minCertainty, double minFailRatio,
-                               double maxFailRatio, bool carefulAssumptions, unsigned int retryLimit) noexcept
-                : relaxationRatio(relaxationRatio), relaxationDecay(relaxationDecay), minCertainty(minCertainty),
-                  minFailRatio(minFailRatio), maxFailRatio(maxFailRatio), carefulAssumptions(carefulAssumptions),
-                  retryLimit(retryLimit) {}
+        PolicyConfig(double relaxationRatio, double reactivity, double minCertainty, double minFailRatio,
+                     double maxFailRatio, bool carefulAssumptions, unsigned int retryLimit,
+                     DecayMode decayMode) noexcept;
 
-        double relaxationRatio, relaxationDecay, minCertainty, minFailRatio, maxFailRatio;
+        double relaxationRatio, reactivity, minCertainty, minFailRatio, maxFailRatio;
         bool carefulAssumptions;
         unsigned retryLimit;
+        DecayMode decayMode;
     };
+
+    std::ostream &operator<<(std::ostream &os, const PolicyConfig &config);
 
     /**
      * @brief GNN based relaxation policy. Uses precedence predictor to fix most probable precedences
@@ -68,6 +72,24 @@ namespace tempo::nn {
         std::vector<Literal<T>> assumptionCache;
         unsigned failCount = 0;
         unsigned solverFailCount = 0;
+
+        auto calcFailRatio(auto fails) const noexcept {
+            return static_cast<double>(fails - solverFailCount) / predictor.numLiterals();
+        }
+
+        auto decayFactor(auto failRatio) const {
+            using enum DecayMode;
+            switch(config.decayMode) {
+                case Constant:
+                    return config.reactivity;
+                case Linear:
+                    return std::min(config.reactivity / failRatio, config.reactivity);
+                case Exponential:
+                    return std::min(std::pow(config.reactivity, failRatio / config.maxFailRatio), config.reactivity);
+                default:
+                    throw std::runtime_error("enum out of bounds");
+            }
+        }
 
     public:
         GNNBackbonePredictor(const GNNBackbonePredictor &) = default;
@@ -102,8 +124,12 @@ namespace tempo::nn {
                 throw std::runtime_error("invalid relaxation ratio");
             }
 
-            if (config.relaxationDecay < 0 or config.relaxationDecay > 1) {
+            if (config.reactivity < 0 or config.reactivity >= 1) {
                 throw std::runtime_error("invalid relaxation ratio");
+            }
+
+            if (solver.getOptions().verbosity >= Options::YACKING) {
+                std::cout << config << std::endl;
             }
 
             updateCache();
@@ -150,16 +176,16 @@ namespace tempo::nn {
          * Call this method when the last relaxation was a success. Currently does nothing
          */
         void notifySuccess(unsigned fails) {
-            const auto failRatio = static_cast<double>(fails - solverFailCount) / predictor.numLiterals();
+            const auto failRatio = calcFailRatio(fails);
             if (failRatio > config.maxFailRatio) {
-                config.relaxationRatio *= config.relaxationDecay;
+                config.relaxationRatio *= decayFactor(failRatio);
                 updateCache();
                 if (solver.getOptions().verbosity >= Options::YACKING) {
                     std::cout << "-- decreasing fix ratio to " << config.relaxationRatio * 100
                               << "% after too many solver fails" << std::endl;
                 }
             } else if (failRatio < config.minFailRatio) {
-                config.relaxationRatio = std::min(1.0, config.relaxationRatio / config.relaxationDecay);
+                config.relaxationRatio = std::min(1.0, config.relaxationRatio / config.reactivity);
                 if (solver.getOptions().verbosity >= Options::YACKING) {
                     std::cout << "-- increasing fix ratio to " << config.relaxationRatio * 100
                               << "%" << std::endl;
@@ -190,9 +216,9 @@ namespace tempo::nn {
          * Call this method when the last relaxation lead to an UNSAT problem. Updates the GNN prediction and decreases
          * the relaxation ratio
          */
-        void notifyFailure() {
+        void notifyFailure(unsigned fails) {
             if (++failCount > config.retryLimit) {
-                config.relaxationRatio *= config.relaxationDecay;
+                config.relaxationRatio *= decayFactor(calcFailRatio(fails));
                 auto numLiterals = static_cast<std::size_t>(predictor.numLiterals() * config.relaxationRatio);
                 if (numLiterals > 0 and solver.getOptions().verbosity >= Options::YACKING) {
                     std::cout << std::setprecision(2) << "-- setting fix ratio = "
@@ -205,7 +231,7 @@ namespace tempo::nn {
             }
 
             updateCache();
-            solverFailCount = solver.num_fails;
+            solverFailCount = fails;
         }
     };
 }

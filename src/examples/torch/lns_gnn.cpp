@@ -34,12 +34,14 @@ int main(int argc, char **argv) {
                                               config.maxFailRatio),
                                  cli::ArgSpec("ratio", "percentage of literals to relax", false,
                                               config.relaxationRatio),
-                                 cli::ArgSpec("decay", "relaxation ratio decay on failure", false,
-                                              config.relaxationDecay),
+                                 cli::ArgSpec("reactivity", "relaxation ratio reactivity on failure", false,
+                                              config.reactivity),
                                  cli::SwitchSpec("careful", "whether to make careful assumptions after failure",
                                                   config.carefulAssumptions, false),
                                  cli::ArgSpec("retry-limit", "number of fails before decreasing relaxation ratio", false,
                                               config.retryLimit),
+                                 cli::ArgSpec("decay-mode", "relaxation ratio decay mode on failure", false,
+                                              config.decayMode),
                                  cli::ArgSpec("threads", "GNN inference threads", false,
                                               numThreads));
     auto [solver, problem, optSol, _] = loadSchedulingProblem(opt);

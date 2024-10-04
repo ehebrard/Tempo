@@ -37,7 +37,7 @@ class BaseRelaxationPolicy {
 public:
     virtual void relax(heuristics::AssumptionProxy<T> &solver) = 0;
     virtual void notifySuccess(unsigned) {}
-    virtual void notifyFailure() {}
+    virtual void notifyFailure(unsigned) {}
 
     BaseRelaxationPolicy() = default;
     virtual ~BaseRelaxationPolicy() = default;
@@ -101,7 +101,7 @@ public:
             double ratio, double decay)
       : solver(solver), vars(vars), ratio(1.0 - ratio), decay(decay) {}
   void relax(heuristics::AssumptionProxy<T> &s) override;
-  void notifyFailure() override;
+  void notifyFailure(unsigned) override;
 
 private:
   Solver<T> &solver;
@@ -110,7 +110,7 @@ private:
 };
 
 template<typename T>
-void RandomSubset<T>::notifyFailure() {
+void RandomSubset<T>::notifyFailure(unsigned) {
     ratio *= decay;
 }
 
