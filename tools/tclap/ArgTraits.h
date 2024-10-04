@@ -26,6 +26,8 @@
 #ifndef TCLAP_ARGTRAITS_H
 #define TCLAP_ARGTRAITS_H
 
+#include <type_traits>
+
 namespace TCLAP {
 
 // We use two empty structs to get compile type specialization
@@ -69,6 +71,10 @@ struct ValueLikeTrait {
     virtual ~ValueLikeTrait() {}
 };
 
+struct EnumLike {
+    using ValueCategory = EnumLike;
+};
+
 /**
  * Arg traits are used to get compile type specialization when parsing
  * argument values. Using an ArgTraits you can specify the way that
@@ -79,6 +85,18 @@ template <typename T> struct ArgTraits {
   typedef typename T::ValueCategory ValueCategory;
   virtual ~ArgTraits() {}
   // typedef ValueLike ValueCategory;
+};
+
+template<typename T>
+concept enumc = std::is_enum_v<T>;
+
+/**
+ * @author Tim Luchterhand
+ * Arg trait specialization for enum class types
+ */
+template<enumc E>
+struct ArgTraits<E> {
+    using ValueCategory = EnumLike;
 };
 
 #endif
