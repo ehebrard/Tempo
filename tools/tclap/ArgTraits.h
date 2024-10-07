@@ -99,6 +99,5 @@ struct ArgTraits<E> {
     using ValueCategory = EnumLike;
 };
 
-#endif
-
 } // namespace
+#endif
