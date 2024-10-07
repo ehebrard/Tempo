@@ -30,7 +30,7 @@ namespace tempo {
 namespace tempo::nn {
     namespace fs = std::filesystem;
 
-    PENUM(DecayMode, Constant, Linear, Exponential);
+    PENUM(DecayMode, Constant, Reciprog, Exponential);
 
     struct PolicyConfig {
         PolicyConfig() noexcept;
@@ -42,16 +42,18 @@ namespace tempo::nn {
          * @param minCertainty minimum GNN certainty [0, 1]
          * @param minFailRatio lower bound solver failure rate at which to increase relaxation ratio
          * @param maxFailRatio upper bound solver failure rate at which to decrease relaxation ratio
+         * @param confidenceUpdateFailRatio fail ratio threshold at which the GNN confidence values are updated
          * @param carefulAssumptions whether to propagate after each literal
+         * @param decreaseOnSuccess whether to decrease fix rate even on success
          * @param retryLimit number of retries with same relaxation ration before decreasing relaxation ratio
          * @param decayMode type of decay to apply on fail or after too many solver fails
          */
         PolicyConfig(double relaxationRatio, double reactivity, double minCertainty, double minFailRatio,
-                     double maxFailRatio, bool carefulAssumptions, unsigned int retryLimit,
-                     DecayMode decayMode) noexcept;
+                     double maxFailRatio, double confidenceUpdateFailRatio, bool carefulAssumptions,
+                     bool decreaseOnSuccess, DecayMode decayMode, unsigned int retryLimit) noexcept;
 
-        double relaxationRatio, reactivity, minCertainty, minFailRatio, maxFailRatio;
-        bool carefulAssumptions;
+        double relaxationRatio, reactivity, minCertainty, minFailRatio, maxFailRatio, confidenceUpdateFailRatio;
+        bool carefulAssumptions, decreaseOnSuccess;
         unsigned retryLimit;
         DecayMode decayMode;
     };
@@ -82,8 +84,8 @@ namespace tempo::nn {
             switch(config.decayMode) {
                 case Constant:
                     return config.reactivity;
-                case Linear:
-                    return std::min(config.reactivity / failRatio, config.reactivity);
+                case Reciprog:
+                    return std::min(config.reactivity / failRatio * config.maxFailRatio, config.reactivity);
                 case Exponential:
                     return std::min(std::pow(config.reactivity, failRatio / config.maxFailRatio), config.reactivity);
                 default:
@@ -177,9 +179,8 @@ namespace tempo::nn {
          */
         void notifySuccess(unsigned fails) {
             const auto failRatio = calcFailRatio(fails);
-            if (failRatio > config.maxFailRatio) {
+            if (failRatio > config.maxFailRatio and config.decreaseOnSuccess) {
                 config.relaxationRatio *= decayFactor(failRatio);
-                updateCache();
                 if (solver.getOptions().verbosity >= Options::YACKING) {
                     std::cout << "-- decreasing fix ratio to " << config.relaxationRatio * 100
                               << "% after too many solver fails" << std::endl;
@@ -190,6 +191,10 @@ namespace tempo::nn {
                     std::cout << "-- increasing fix ratio to " << config.relaxationRatio * 100
                               << "%" << std::endl;
                 }
+            }
+
+            if (failRatio > config.confidenceUpdateFailRatio) {
+                updateCache();
             }
 
             solverFailCount = fails;
@@ -210,6 +215,9 @@ namespace tempo::nn {
             auto selection = lits | filter([m = config.minCertainty](auto &tpl) { return std::get<1>(tpl) > m; }) |
                              elements<0> | common;
             assumptionCache = std::vector(selection.begin(), selection.end());
+            if (solver.getOptions().verbosity >= Options::YACKING) {
+                std::cout << "-- Updating GNN confidence values" << std::endl;
+            }
         }
 
         /**
