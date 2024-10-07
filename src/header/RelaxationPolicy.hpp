@@ -178,7 +178,7 @@ public:
         ++idx;
     }
 
-    void notifyFailure() const noexcept {}
+    void notifyFailure(unsigned) const noexcept {}
     void notifySuccess(unsigned) const noexcept {}
 };
 
