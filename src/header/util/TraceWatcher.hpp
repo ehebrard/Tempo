@@ -16,6 +16,7 @@
 #include "util/traits.hpp"
 #include "util/SubscribableEvent.hpp"
 #include "util/serialization.hpp"
+#include "util/enum.hpp"
 #include "Model.hpp"
 
 namespace tempo {

@@ -184,7 +184,7 @@ protected:
     
     // [for each literal] the polarity in the best solution
     std::vector<bool> best_solution;
-    
+
     // the rank of the difference logic constraint in "edges" for each Boolean
     // variable
     std::vector<info_t> edge_index;
@@ -2830,7 +2830,7 @@ void Solver<T>::largeNeighborhoodSearch(S &objective, P &&relaxationPolicy) {
             if (surrogate.getState() == heuristics::AssumptionState::Empty) {
                 objective.setDual(objective.primalBound());
             } else {
-                std::forward<P>(relaxationPolicy).notifyFailure();
+                std::forward<P>(relaxationPolicy).notifyFailure(num_fails);
                 restoreState(0);
                 decisions.clear();
             }

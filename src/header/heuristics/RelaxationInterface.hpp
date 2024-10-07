@@ -284,7 +284,7 @@ namespace tempo::heuristics {
     concept RelaxationPolicy = requires(P policy, AssumptionProxy<T> interface, unsigned fails) {
         policy.relax(interface);
         policy.notifySuccess(fails);
-        policy.notifyFailure();
+        policy.notifyFailure(fails);
     };
 }
 

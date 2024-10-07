@@ -95,18 +95,6 @@ enum class Priority {
     High
 };
 
-/**
- * Converts enum to underlying type
- * @tparam E enum type
- * @param e enum to convert
- * @return value of underlying type
- * @note replace with std impl in c++23: https://en.cppreference.com/w/cpp/utility/to_underlying
- */
-template<typename E>
-constexpr auto to_underlying(E e) noexcept {
-    return static_cast<std::underlying_type_t<E>>(e);
-}
-
 //#define FTRANSEXPL 10
 //#define CUMULEXPL 9
 //#define CARDEXPL 8
