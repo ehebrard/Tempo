@@ -91,8 +91,12 @@ namespace tempo::concepts {
     concept task_dist_fun = callable_r<E, T, unsigned , unsigned>;
 
     template<typename E>
-    concept arbitrary_task_dist_fun = std::invocable<E, unsigned, unsigned> &&
-                                       scalar<std::remove_reference_t<std::invoke_result_t<E, unsigned, unsigned>>>;
+    concept arbitrary_task_dist_fun = requires(E fun, unsigned t) {
+        { fun.startStart(t, t) } -> scalar;
+        { fun.startEnd(t, t) } -> scalar;
+        { fun.endStart(t, t) } -> scalar;
+        { fun.endEnd(t, t) } -> scalar;
+    };
 
     template<typename R, typename T>
     concept typed_range = std::ranges::range<R> && std::same_as<std::ranges::range_value_t<R>, T>;

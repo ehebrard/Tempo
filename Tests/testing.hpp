@@ -64,13 +64,29 @@ namespace tempo::testing {
         explicit DummyScheduler(Args &&...args): numeric(std::forward<Args>(args)...) {}
     };
 
+    struct TaskDistFunction {
+        tempo::Matrix<int> ss, se, es, ee;
+
+        TaskDistFunction() = default;
+
+        TaskDistFunction(tempo::Matrix<int> ss, tempo::Matrix<int> se, tempo::Matrix<int> es, tempo::Matrix<int> ee) :
+                ss(std::move(ss)), se(std::move(se)), es(std::move(es)), ee(std::move(ee)) {}
+
+        [[nodiscard]] int startStart(unsigned from, unsigned to) const;
+
+        [[nodiscard]] int startEnd(unsigned from, unsigned to) const;
+
+        [[nodiscard]] int endStart(unsigned from, unsigned to) const;
+
+        [[nodiscard]] int endEnd(unsigned from, unsigned to) const;
+    };
 
     auto createTestProblem() -> std::pair<ProblemInstance, DummyScheduler>;
 
     auto createExtendedTestProblem() -> std::pair<ProblemInstance, DummyScheduler>;
 
-    auto createRandomProblem(std::size_t numTasks, std::size_t numResources,
-                             double precedenceChance = 0.3) -> std::tuple<ProblemInstance, DummyScheduler, Matrix<int>>;
+    auto createRandomProblem(std::size_t numTasks, std::size_t numResources, double precedenceChance = 0.3)
+        -> std::tuple<ProblemInstance, DummyScheduler, TaskDistFunction>;
 
     struct TaskSpec {
         int minDur, maxDur, earliestStart{0}, latestDeadline{0};

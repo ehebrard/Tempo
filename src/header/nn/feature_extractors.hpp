@@ -129,8 +129,8 @@ namespace tempo::nn {
             const auto edgeTo = util::getIndexSlice(topology.edgeIndices, 1);
             auto ret = torch::empty({static_cast<long>(edgeFrom.size()), 2}, dataTensorOptions());
             for (auto [idx, from, to] : iterators::zip_enumerate(edgeFrom, edgeTo, 0l)) {
-                const auto tempDiff = state.distance(from, to);
-                const auto tempDiffRev = state.distance(to, from);
+                const auto tempDiff = state.distance.startEnd(from, to);
+                const auto tempDiffRev = state.distance.startEnd(to, from);
                 const bool isPrecedence = tempDiff <= 0 or tempDiffRev <= 0;
                 util::sliceAssign(ret, {idx, util::SliceHere}, {static_cast<DataType>(isPrecedence),
                                                                 static_cast<DataType>(tempDiff) / ub});

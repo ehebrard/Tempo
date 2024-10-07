@@ -97,10 +97,35 @@ TEST(util, SchedulingProblemView_task_distances) {
     graph.emplace_edge(0, 3, 4);
     tempo::testing::BoundProvider bounds({6, 5, 3, 8, 4}, {3, 2, 0, 4, 1});
     auto distance = schedulingProb.getTaskDistances(graph, bounds);
-    EXPECT_EQ(distance(0, 1), 4);
-    EXPECT_EQ(distance(1, 0), 5);
-    EXPECT_EQ(distance(0, 2), 1);
-    EXPECT_EQ(distance(2, 0), 1);
-    EXPECT_EQ(distance(2, 1), 4);
-    EXPECT_EQ(distance(1, 2), -2);
+    EXPECT_EQ(distance.startEnd(0, 1), 4);
+    EXPECT_EQ(distance.startEnd(1, 0), 5);
+    EXPECT_EQ(distance.startEnd(0, 2), 1);
+    EXPECT_EQ(distance.startEnd(2, 0), 1);
+    EXPECT_EQ(distance.startEnd(2, 1), 4);
+    EXPECT_EQ(distance.startEnd(1, 2), -2);
+    EXPECT_EQ(distance.startEnd(1, 1), 0);
+
+    EXPECT_EQ(distance.startStart(0, 1), -1);
+    EXPECT_EQ(distance.startStart(1, 0), 6);
+    EXPECT_EQ(distance.startStart(0, 2), 4);
+    EXPECT_EQ(distance.startStart(2, 0), 2);
+    EXPECT_EQ(distance.startStart(2, 1), -1);
+    EXPECT_EQ(distance.startStart(1, 2), 8);
+    EXPECT_EQ(distance.startStart(2, 2), 0);
+
+    EXPECT_EQ(distance.endStart(0, 1), 1);
+    EXPECT_EQ(distance.endStart(1, 0), 1);
+    EXPECT_EQ(distance.endStart(0, 2), 6);
+    EXPECT_EQ(distance.endStart(2, 0), 5);
+    EXPECT_EQ(distance.endStart(2, 1), 2);
+    EXPECT_EQ(distance.endStart(1, 2), 3);
+    EXPECT_EQ(distance.endStart(0, 0), 0);
+
+    EXPECT_EQ(distance.endEnd(0, 1), 6);
+    EXPECT_EQ(distance.endEnd(1, 0), 0);
+    EXPECT_EQ(distance.endEnd(0, 2), 2);
+    EXPECT_EQ(distance.endEnd(2, 0), 4);
+    EXPECT_EQ(distance.endEnd(2, 1), 7);
+    EXPECT_EQ(distance.endEnd(1, 2), -7);
+    EXPECT_EQ(distance.endEnd(0, 0), 0);
 }

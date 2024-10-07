@@ -38,7 +38,7 @@ TEST(nn_feature_extractors, TaskTimingExtractor) {
     tasks.pop_back();
     ProblemInstance instance(std::move(tasks), {}, {}, sched);
     auto topology = MinimalTopologyBuilder(instance, false).getTopology();
-    auto taskFeatures = extractor(topology, makeSolverState(Matrix<int>{}, scheduler), instance);
+    auto taskFeatures = extractor(topology, makeSolverState(TaskDistFunction{}, scheduler), instance);
     for (auto [idx, task] : iterators::const_enumerate(instance.tasks())) {
         auto features = taskFeatures.slice(0, idx, idx + 1);
         EXPECT_EQ(features.numel(), 4);
@@ -62,14 +62,14 @@ TEST(nn_feature_extractors, TaskTimingExtractor_legacy) {
     tasks.pop_back();
     ProblemInstance instance(std::move(tasks), {}, {}, sched);
     auto topology = MinimalTopologyBuilder(instance, false).getTopology();
-    auto taskFeatures = extractor(topology, makeSolverState(Matrix<int>{}, scheduler), instance);
+    auto taskFeatures = extractor(topology, makeSolverState(TaskDistFunction{}, scheduler), instance);
     ASSERT_EQ(taskFeatures.numel(), 4);
     EXPECT_FLOAT_EQ(taskFeatures[0][0].item<DataType>(), 0.4);
     EXPECT_FLOAT_EQ(taskFeatures[0][1].item<DataType>(), 0.6);
     EXPECT_FLOAT_EQ(taskFeatures[0][2].item<DataType>(), 0.2);
     EXPECT_FLOAT_EQ(taskFeatures[0][3].item<DataType>(), 0.8);
     extractor.legacyFeatures = true;
-    taskFeatures = extractor(topology, makeSolverState(Matrix<int>{}, scheduler), instance);
+    taskFeatures = extractor(topology, makeSolverState(TaskDistFunction{}, scheduler), instance);
     EXPECT_FLOAT_EQ(taskFeatures[0][0].item<DataType>(), 0.4);
     EXPECT_FLOAT_EQ(taskFeatures[0][1].item<DataType>(), 0.6);
     EXPECT_FLOAT_EQ(taskFeatures[0][2].item<DataType>(), -0.2);
@@ -87,7 +87,7 @@ TEST(nn_feature_extractors, ResourceEnergyExtractor) {
     ProblemInstance instance(tasks, {{1, {0u, 1u, 2u}, {1, 1, 1}}}, {}, sched);
     const auto topology = MinimalTopologyBuilder(instance, false).getTopology();
     ResourceEnergyExtractor extractor;
-    auto resEnergies = extractor(topology, makeSolverState(Matrix<int>{}, scheduler), instance);
+    auto resEnergies = extractor(topology, makeSolverState(TaskDistFunction{}, scheduler), instance);
     ASSERT_EQ(resEnergies.size(0), 1);
     ASSERT_EQ(resEnergies.size(1), 1);
     EXPECT_EQ(resEnergies.item<DataType>(), 1);
@@ -104,7 +104,7 @@ TEST(nn_features_extractors, ResourceEnergyExtractor_complex_consumptions) {
     ProblemInstance instance(tasks, {{4, {0u, 1u, 2u}, {3, 2, 2}}}, {}, sched);
     const auto topology = MinimalTopologyBuilder(instance, false).getTopology();
     ResourceEnergyExtractor extractor;
-    auto resEnergies = extractor(topology, makeSolverState(Matrix<int>{}, scheduler), instance);
+    auto resEnergies = extractor(topology, makeSolverState(TaskDistFunction{}, scheduler), instance);
     ASSERT_EQ(resEnergies.size(0), 1);
     ASSERT_EQ(resEnergies.size(1), 1);
     EXPECT_EQ(resEnergies.item<DataType>(), 1);
@@ -114,9 +114,10 @@ TEST(nn_feature_extractors, TimingEdgeExtractor) {
     using namespace tempo::nn;
     using namespace tempo::testing;
     using namespace tempo;
-    tempo::Matrix<int> timings(3, 3, {0, 4, 0,
-                                      3, 0, 5,
-                                      0, -2, 0});
+    tempo::Matrix<int> seTimings(3, 3, {0, 4, 0,
+                                        3, 0, 5,
+                                        0, -2, 0});
+    TaskDistFunction timings({}, std::move(seTimings), {}, {});
     auto [schedule, scheduler] = createTasks({{0, 4, 0, 4}});
     Topology topology;
     EdgeVector edges{{0, 1}, {2, 1}};

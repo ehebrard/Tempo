@@ -66,7 +66,7 @@ namespace tempo::testing {
     }
 
     auto createRandomProblem(std::size_t numTasks, std::size_t numResources,
-                             double precedenceChance) -> std::tuple<ProblemInstance, DummyScheduler, Matrix<int>> {
+                             double precedenceChance) -> std::tuple<ProblemInstance, DummyScheduler, TaskDistFunction> {
         assert(precedenceChance >= 0 and precedenceChance <= 1);
         using namespace tempo;
         std::vector<DistanceConstraint<int>> precedences;
@@ -117,7 +117,7 @@ namespace tempo::testing {
         }
 
         return {ProblemInstance(std::move(tasks), std::move(resources), std::move(precedences), sched),
-                std::move(scheduler), std::move(taskDistances)};
+                std::move(scheduler), TaskDistFunction({}, std::move(taskDistances), {}, {})};
 
     }
 
@@ -172,5 +172,21 @@ namespace tempo::testing {
 
     heuristics::LitProvider::LitProvider(Literal<int> lit, std::vector<int> upper, std::vector<int> lower) :
             boolean(lit), numeric(std::move(upper), std::move(lower)) {}
+
+    int TaskDistFunction::startStart(unsigned int from, unsigned int to) const {
+        return ss.at(from, to);
+    }
+
+    int TaskDistFunction::startEnd(unsigned int from, unsigned int to) const {
+        return se.at(from, to);
+    }
+
+    int TaskDistFunction::endStart(unsigned int from, unsigned int to) const {
+        return es.at(from, to);
+    }
+
+    int TaskDistFunction::endEnd(unsigned int from, unsigned int to) const {
+        return ee.at(from, to);
+    }
 }
 

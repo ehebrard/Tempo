@@ -12,7 +12,7 @@
 namespace tempo::nn {
 
     auto MinimalTopologyBuilder::getTopology() const -> const Topology& {
-        return getTopology(makeSolverState(Matrix<int>{}, 0));
+        return cache;
     }
 
     void MinimalTopologyBuilder::addEdge(const Edge &e, bool isResourceEdge, IndexType maskVal, impl::TopologyData &topologyData) {

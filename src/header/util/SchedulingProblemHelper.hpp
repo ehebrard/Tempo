@@ -64,15 +64,51 @@ namespace tempo {
                 getDistances(graphDistances, varGraph.backward(), true);
             }
 
-            [[nodiscard]] T operator()(unsigned taskFrom, unsigned taskTo) const {
+            [[nodiscard]] T startStart(unsigned taskFrom, unsigned taskTo) const {
+                if (taskFrom == taskTo) {
+                    return 0;
+                }
+
+                const auto srcVar = tasks[taskFrom].start;
+                const auto destVar = tasks[taskTo].start;
+                return varDist(srcVar, destVar);
+            }
+
+            [[nodiscard]] T startEnd(unsigned taskFrom, unsigned taskTo) const {
                 if (taskFrom == taskTo) {
                     return 0;
                 }
 
                 const auto srcVar = tasks[taskFrom].start;
                 const auto destVar = tasks[taskTo].end;
+                return varDist(srcVar, destVar);
+            }
+
+            [[nodiscard]] T endStart(unsigned taskFrom, unsigned taskTo) const {
+                if (taskFrom == taskTo) {
+                    return 0;
+                }
+
+                const auto srcVar = tasks[taskFrom].end;
+                const auto destVar = tasks[taskTo].start;
+                return varDist(srcVar, destVar);
+            }
+
+            [[nodiscard]] T endEnd(unsigned taskFrom, unsigned taskTo) const {
+                if (taskFrom == taskTo) {
+                    return 0;
+                }
+
+                const auto srcVar = tasks[taskFrom].end;
+                const auto destVar = tasks[taskTo].end;
+                return varDist(srcVar, destVar);
+            }
+
+        private:
+            T varDist(auto srcVar, auto destVar) const {
                 const auto boundDistance = boundProvider.upper(destVar.id()) - boundProvider.lower(srcVar.id());
-                return std::min(graphDistances(srcVar.id(), destVar.id()), boundDistance) + destVar.offset();
+                return std::min(graphDistances(srcVar.id(), destVar.id()), boundDistance)
+                       + destVar.offset() - srcVar.offset();
             }
         };
     }
