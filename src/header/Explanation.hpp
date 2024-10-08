@@ -22,6 +22,7 @@
 #define _TEMPO_EXPLANATION_HPP
 
 #include <vector>
+#include <cassert>
 
 #include "Global.hpp"
 
