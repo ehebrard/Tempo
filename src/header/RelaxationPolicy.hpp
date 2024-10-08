@@ -105,6 +105,9 @@ private:
   Solver<T> &solver;
   std::vector<BooleanVar<T>> vars;
   double ratio, decay;
+
+  // helper
+  std::vector<Literal<T>> fixed;
 };
 
 template<typename T>
@@ -114,15 +117,14 @@ void RandomSubset<T>::notifyFailure() {
 
 template <typename T>
 void RandomSubset<T>::relax(heuristics::AssumptionInterface<T> &s) {
-  std::vector<Literal<T>> fixed;
-  fixed.reserve(vars.size());
+  fixed.clear();
   for (auto x : vars) {
     fixed.push_back(x == solver.boolean.value(x));
   }
 
   size_t n{static_cast<size_t>(ratio * static_cast<double>(vars.size()))};
   for (size_t i{0}; i < n; ++i) {
-    size_t r{i + static_cast<size_t>(random() % (n - i))};
+    size_t r{i + static_cast<size_t>(random() % (fixed.size() - i))};
     std::swap(fixed[i], fixed[r]);
   }
   fixed.resize(n);

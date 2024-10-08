@@ -48,7 +48,7 @@ using hint = int;
 //#define DBG_CBOUND solver.num_choicepoints >= 0
 //#define DBG_CLBOUND false //cl->id == 80 //solver.num_choicepoints >= 10527
 //#define DBG_BBOUND num_choicepoints >= 0
-//#define DBG_TRACE 49                      // 183 //1+2+4+32+128
+//#define DBG_TRACE 1                      // 183 //1+2+4+32+128
 #define SEARCH 1
 #define DOMAINS 2
 #define BRANCH 4

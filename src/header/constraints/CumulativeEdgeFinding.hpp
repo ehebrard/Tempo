@@ -657,8 +657,8 @@ void CumulativeEdgeFinding<T>::forwardAdjustment() {
         }
 #endif
 
-        m_solver.set(the_tasks[i].start.after(t), {this, Constant::FactHint});
-        
+        m_solver.set(the_tasks[i].start.after(t), {this, Constant::NoHint});
+
         in_conflict.pop_front();
     }
 }

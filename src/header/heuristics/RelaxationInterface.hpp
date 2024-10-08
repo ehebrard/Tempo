@@ -44,7 +44,7 @@ namespace tempo::heuristics {
         AssumptionInterface(AssumptionInterface &&) = delete;
         AssumptionInterface &operator=(const AssumptionInterface &) = delete;
         AssumptionInterface &operator=(AssumptionInterface &&) = delete;
-        ~AssumptionInterface() = default;
+        ~AssumptionInterface() { s.assumption_stamp = s.ground_stamp; };
 
         /**
          * Ctor
@@ -153,7 +153,7 @@ namespace tempo::heuristics {
         }
 
         void setAssumptionLevel() noexcept {
-            s.assumption_level = s.numLiteral() - 1;
+          s.assumption_stamp = s.numLiteral();
         }
 
     };

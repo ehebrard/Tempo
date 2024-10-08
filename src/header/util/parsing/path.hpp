@@ -123,14 +123,15 @@ void parse(const std::string &fn, M &solver, J &schedule,
             
             tempo::Interval<int> j;
             if (m == 0) {
-                auto s{solver.newNumeric()};
-                if(nowait[mach])
-                    j = solver.between(s, s+dur);
-                else {
-                    auto d{solver.newNumeric(dur, tempo::Constant::Infinity<int>)};
-                    j = solver.continuefor(s, d);
-                }
-              solver.post(j.start.after(schedule.start));
+              //                auto s{solver.newNumeric()};
+              if (nowait[mach])
+                j = solver.between(schedule.start, schedule.start + dur);
+              else {
+                auto d{solver.newNumeric(dur, tempo::Constant::Infinity<int>)};
+                j = solver.continuefor(schedule.start, d);
+              }
+              //              solver.post(j.start.after(schedule.start));
+              //                solver.post(j.start.before(schedule.start));
             } else {
                 if(nowait[mach])
                     j = solver.between(intervals.back().end, intervals.back().end+dur);

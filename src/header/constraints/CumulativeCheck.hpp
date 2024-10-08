@@ -364,9 +364,8 @@ template <typename T> void CumulativeCheck<T>::propagate() {
                 if (simplicial.before(*v, w))
                     fail_xpl.push_back(w);
             }
-            
-            
-            throw Failure<T>({this, Constant::FactHint});
+
+            throw Failure<T>({this, Constant::NoHint});
         } 
 //        else {
 //            std::cout << "do not fail because";
