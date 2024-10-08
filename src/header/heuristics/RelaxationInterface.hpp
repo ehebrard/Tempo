@@ -7,7 +7,12 @@
 #ifndef TEMPO_RELAXATIONINTERFACE_HPP
 #define TEMPO_RELAXATIONINTERFACE_HPP
 
+#include <concepts>
+#include <filesystem>
+#include <vector>
+
 #include "util/traits.hpp"
+#include "util/serialization.hpp"
 #include "Literal.hpp"
 #include "Failure.hpp"
 
@@ -33,24 +38,25 @@ namespace tempo::heuristics {
      * Ensures propagation and correct assumption level at all times
      * @tparam T timing type
      */
-    template<typename T>
-    class AssumptionInterface {
+    template<concepts::scalar T>
+    class AssumptionProxy {
         Solver<T> &s;
         int baseLevel;
         AssumptionState state = AssumptionState::Empty;
 
     public:
-        AssumptionInterface(const AssumptionInterface &) = delete;
-        AssumptionInterface(AssumptionInterface &&) = delete;
-        AssumptionInterface &operator=(const AssumptionInterface &) = delete;
-        AssumptionInterface &operator=(AssumptionInterface &&) = delete;
-        ~AssumptionInterface() { s.assumption_stamp = s.ground_stamp; };
+
+        AssumptionProxy(const AssumptionProxy &) = delete;
+        AssumptionProxy(AssumptionProxy &&) = delete;
+        AssumptionProxy &operator=(const AssumptionProxy &) = delete;
+        AssumptionProxy &operator=(AssumptionProxy &&) = delete;
+        ~AssumptionProxy() { s.assumption_stamp = s.ground_stamp; };
 
         /**
          * Ctor
          * @param solver
          */
-        AssumptionInterface(Solver<T> &solver): s(solver) {
+        AssumptionProxy(Solver<T> &solver): s(solver) {
             s.initializeSearch();
             baseLevel = s.saveState();
         }
@@ -158,16 +164,128 @@ namespace tempo::heuristics {
 
     };
 
+    enum class PolicyAction {
+        Reset,
+        TrySet,
+        Set
+    };
+
+    /**
+     * @brief Wrapper around AssumptionProxy that logs policy assumptions.
+     * @tparam T timing type
+     * @note This class is slower than the base AssumptionProxy because it flushes all decisions directly to a log file.
+     * It should only be used for debugging. Also, due to the way LNS is implemented, this class gets created and
+     * destroyed multiple times and is therefore unable to create valid json. You need to at least insert one
+     * opening '[' ath the beginning and one closing ']' at the end of the log file. If the program crashed, then most
+     * probably there are further missing ']' at the end of the file. But the rest should™ be valid json.
+     */
+    template<concepts::scalar T>
+    class LoggingAssumptionProxy {
+    public:
+        using PolicyTrace = std::vector<std::pair<PolicyAction, std::vector<Literal<T>>>>;
+    private:
+        AssumptionProxy<T> proxy;
+        std::ofstream logFile;
+        bool firstAction = true;
+
+        template<serialization::serializable S>
+        void flushToLog(const S &object) {
+            if (not firstAction) {
+                logFile << ",";
+            }
+
+            firstAction = false;
+            nlohmann::json j = object;
+            logFile << j.dump(__JSON_INDENT__) << std::flush;
+        }
+
+    public:
+        LoggingAssumptionProxy(const LoggingAssumptionProxy &) = default;
+        LoggingAssumptionProxy(LoggingAssumptionProxy &&) = default;
+        LoggingAssumptionProxy &operator=(const LoggingAssumptionProxy &) = default;
+        LoggingAssumptionProxy &operator=(LoggingAssumptionProxy &&) = default;
+
+        ~LoggingAssumptionProxy() {
+            logFile << "],";
+        }
+
+        /**
+         * Ctor
+         * @param logFile destination file
+         * @param solver solver instance
+         */
+        LoggingAssumptionProxy(const std::filesystem::path &logFile, Solver<T> &solver):
+                proxy(solver), logFile(logFile, std::ios_base::app) {
+            if (not this->logFile.is_open()) {
+                throw std::runtime_error("could not open log file for policy logging");
+            }
+
+            this->logFile << "[";
+        }
+
+        /**
+         * @copydoc AssumptionProxy::reset
+         */
+        void reset() {
+            auto data = std::make_pair(PolicyAction::Reset, std::vector<Literal<T>>{});
+            flushToLog(data);
+            proxy.reset();
+        }
+
+        /**
+         * @copydoc AssumptionProxy::makeAssumptions
+         */
+        template<concepts::typed_range<Literal<T>> L>
+        bool makeAssumptions(L &&literals) {
+            std::vector<Literal<T>> lits;
+            lits.reserve(std::ranges::size(literals));
+            std::ranges::copy(std::forward<L>(literals), std::back_inserter(lits));
+            auto data = std::make_pair(PolicyAction::Set, std::move(lits));
+            flushToLog(data);
+            return proxy.makeAssumptions(std::forward<L>(literals));
+        }
+
+        /**
+         * @copydoc AssumptionProxy::tryMakeAssumption
+         */
+        bool tryMakeAssumption(Literal<T> lit) {
+            auto data = std::make_pair(PolicyAction::TrySet, std::vector{lit});
+            flushToLog(data);
+            return proxy.tryMakeAssumption(lit);
+        }
+
+        /**
+         * @copydoc AssumptionProxy::getState
+         * @note this triggers the serialization
+         */
+        [[nodiscard]] AssumptionState getState() const {
+            return proxy.getState();
+        }
+    };
+
+    /**
+     * @brief Assumption interface
+     * @tparam I interface type
+     * @tparam T timing type
+     */
+    template<typename I, typename T>
+    concept AssumptionInterface = requires(I interface, Literal<T> l, std::vector<Literal<T>> lits) {
+        interface.reset();
+        { interface.makeAssumptions(lits) } -> std::convertible_to<bool>;
+        { interface.tryMakeAssumption(l) } -> std::convertible_to<bool>;
+        { interface.getState() } -> std::same_as<AssumptionState>;
+    };
+
     /**
      * @brief Relaxation policy interface
      * @tparam P policy type
      * @tparam T timing type
      */
     template<typename P, typename T>
-    concept RelaxationPolicy = requires(P policy, AssumptionInterface<T> interface, unsigned fails) {
+    concept RelaxationPolicy = requires(P policy, AssumptionProxy<T> interface, unsigned fails) {
         policy.relax(interface);
         policy.notifySuccess(fails);
-        policy.notifyFailure();
+        policy.notifyFailure(fails);
     };
 }
 

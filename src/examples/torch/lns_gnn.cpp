@@ -7,6 +7,7 @@
 
 #include <iostream>
 #include <string>
+#include <thread>
 
 #include "../helpers/scheduling_helpers.hpp"
 #include "../helpers/cli.hpp"
@@ -20,6 +21,7 @@ int main(int argc, char **argv) {
     std::string gnnLocation;
     std::string featureExtractorConf;
     nn::PolicyConfig config;
+    unsigned numThreads = std::max(1u, std::thread::hardware_concurrency() / 2);
     auto opt = cli::parseOptions(argc, argv,
                                  cli::ArgSpec("gnn-loc", "Location of the GNN model", false, gnnLocation),
                                  cli::ArgSpec("feat-config", "Location of the feature extractor config", false,
@@ -30,15 +32,24 @@ int main(int argc, char **argv) {
                                               config.minFailRatio),
                                  cli::ArgSpec("max-fail", "upper bound solver failure rate", false,
                                               config.maxFailRatio),
+                                 cli::ArgSpec("update-threshold", "failure rate threshold at which to update the GNN",
+                                              false, config.confidenceUpdateFailRatio),
                                  cli::ArgSpec("ratio", "percentage of literals to relax", false,
                                               config.relaxationRatio),
-                                 cli::ArgSpec("decay", "relaxation ratio decay on failure", false,
-                                              config.relaxationDecay),
+                                 cli::ArgSpec("reactivity", "relaxation ratio reactivity on failure", false,
+                                              config.reactivity),
                                  cli::SwitchSpec("careful", "whether to make careful assumptions after failure",
                                                   config.carefulAssumptions, false),
-                                 cli::ArgSpec("retry-limit", "number of fails before decreasing relaxation ratio", false,
-                                              config.retryLimit));
+                                 cli::SwitchSpec("decrease-on-success", "whether to decrease fix rate even on success",
+                                                 config.decreaseOnSuccess, false),
+                                 cli::ArgSpec("retry-limit", "number of fails before decreasing relaxation ratio",
+                                              false, config.retryLimit),
+                                 cli::ArgSpec("decay-mode", "relaxation ratio decay mode on failure", false,
+                                              config.decayMode),
+                                 cli::ArgSpec("threads", "GNN inference threads", false,
+                                              numThreads));
     auto [solver, problem, optSol, _] = loadSchedulingProblem(opt);
+    torch::set_num_threads(numThreads);
     nn::GNNBackbonePredictor policy(*solver, gnnLocation, featureExtractorConf, problem, config);
     MinimizationObjective objective(problem.schedule().duration);
     util::StopWatch sw;

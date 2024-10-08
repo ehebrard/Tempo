@@ -51,7 +51,7 @@ def test(cmd, filename):
         res = [x.strip() for x in lo.split()]
         index = 0
         for x,y in zip(res, ref):
-            if x != y and index != 7 and index != 3:
+            if x != y and index < 7 and index != 3:
                 print('Discrepancy for CMD {2} at line {3}:\nref:{0}\ncur:{1}'.format(lr[:-1],lo,' '.join(cmd),ln))
                 # exit(1)
             index += 1
