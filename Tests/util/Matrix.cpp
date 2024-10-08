@@ -27,22 +27,22 @@ TEST(util, Matrix_ctor) {
 
 TEST(util, Matrix_initial_value) {
     using namespace tempo;
-    Matrix<int> m(2, 3, 4);
+    Matrix m(2, 3, 4);
     m.for_each([](const auto &val) { EXPECT_EQ(val, 4); });
 }
 
 TEST(util, Matrix_Ctor_range) {
     using namespace tempo;
-    Matrix<int> mFromInitList(2, 3, {1, 2, 3, 4, 5, 6});
+    Matrix mFromInitList(2, 3, {1, 2, 3, 4, 5, 6});
     const std::array vals{1, 2, 3, 4, 5, 6};
-    Matrix<int> mFromRange(2, 3, vals);
+    auto mFromRange = matrixFromRange(2, 3, vals);
     EXPECT_EQ(mFromInitList.rawData(), mFromRange.rawData());
     EXPECT_TRUE(std::ranges::equal(mFromRange.rawData(), vals));
 }
 
 TEST(util, Matrix_Ctor_range_exception) {
     using namespace tempo;
-    EXPECT_THROW((Matrix<int>(2, 3, {1, 2, 3, 4, 5})), std::runtime_error);
+    EXPECT_THROW((Matrix(2, 3, {1, 2, 3, 4, 5})), std::runtime_error);
     const std::array vals{1, 2, 3, 4, 5};
     EXPECT_THROW((Matrix<int>(2, 3, vals)), std::runtime_error);
 }
@@ -60,7 +60,7 @@ TEST(util, Matrix_Ctor_functor) {
 
 TEST(util, Matrix_move) {
     using namespace tempo;
-    Matrix<int> matrix(2, 3, {1, 2, 3, 4, 5, 6});
+    Matrix matrix(2, 3, {1, 2, 3, 4, 5, 6});
     auto copy = matrix;
     copy.at(1, 2) = 17;
     EXPECT_NE(matrix, copy);
@@ -83,13 +83,13 @@ TEST(util, Matrix_move) {
 
 TEST(util, Matrix_layout) {
     using namespace tempo;
-    Matrix<int> m(2, 3, 4, Layout::ColMajor);
+    Matrix m(2, 3, 4, Layout::ColMajor);
     EXPECT_EQ(m.storageLayout(), Layout::ColMajor);
 }
 
 TEST(util, Matrix_value_access) {
     using namespace tempo;
-    Matrix<int> m(2, 3, 4);
+    Matrix m(2, 3, 4);
     EXPECT_EQ(m(1, 2), 4);
     m(0, 1) = -2;
     EXPECT_EQ(m(0, 1), -2);
@@ -99,8 +99,18 @@ TEST(util, Matrix_value_access) {
 
 TEST(util, Matrix_for_each) {
     using namespace tempo;
-    Matrix<int> m(2, 2, 4, tempo::Layout::RowMajor);
+    Matrix m(2, 2, 4, tempo::Layout::RowMajor);
     m.for_each([i = 0](auto &val) mutable { val = i++; });
+    EXPECT_EQ(m(0, 0), 0);
+    EXPECT_EQ(m(0, 1), 1);
+    EXPECT_EQ(m(1, 0), 2);
+    EXPECT_EQ(m(1, 1), 3);
+}
+
+TEST(util, Matrix_for_each2) {
+    using namespace tempo;
+    Matrix<int> m(2, 2);
+    m.for_each([](auto r, auto c, auto &val) {val = 2 * r + c; });
     EXPECT_EQ(m(0, 0), 0);
     EXPECT_EQ(m(0, 1), 1);
     EXPECT_EQ(m(1, 0), 2);
@@ -109,7 +119,7 @@ TEST(util, Matrix_for_each) {
 
 TEST(util, Matrix_resize) {
     using namespace tempo;
-    Matrix<int> m(2, 2, 4);
+    Matrix m(2, 2, 4);
     m.resize(3, 4);
     EXPECT_EQ(m.numRows(), 3);
     EXPECT_EQ(m.numColumns(), 4);
@@ -119,7 +129,7 @@ TEST(util, Matrix_resize) {
 
 TEST(util, Matrix_change_layout) {
     using namespace tempo;
-    Matrix<int> m(2, 3, 4, tempo::Layout::RowMajor);
+    Matrix m(2, 3, 4, tempo::Layout::RowMajor);
     m.for_each([i = 0](auto &val) mutable { val = i++; });
     EXPECT_EQ(m(0, 0), 0);
     EXPECT_EQ(m(0, 1), 1);
@@ -138,8 +148,8 @@ TEST(util, Matrix_change_layout) {
 
 TEST(util, Matrix_equality) {
     using namespace tempo;
-    Matrix<int> m1(2, 3, {1, 2, 3, 4, 5, 6});
-    Matrix<int> m2(2, 3, {1, 2, 3, 4, 5, 6});
+    Matrix m1(2, 3, {1, 2, 3, 4, 5, 6});
+    Matrix m2(2, 3, {1, 2, 3, 4, 5, 6});
     EXPECT_EQ(m1, m2);
     m2.at(1, 1) = 17;
     EXPECT_NE(m1, m2);

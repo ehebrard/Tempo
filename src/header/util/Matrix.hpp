@@ -14,6 +14,7 @@
 #include <string>
 #include <vector>
 #include <nlohmann/json.hpp>
+#include <Iterators.hpp>
 
 #include "util/traits.hpp"
 
@@ -108,7 +109,7 @@ namespace tempo {
          * @param values range of values to
          * @param layout storage layout (default is row major)
          */
-        template<std::ranges::range R>
+        template<concepts::ctyped_range<T> R>
         constexpr Matrix(std::size_t nRows, std::size_t nCols, const R &values, Layout layout = Layout::RowMajor):
                 data(std::ranges::begin(values), std::ranges::end(values)), nRows(nRows), nCols(nCols),
                 layout(layout) {
@@ -263,6 +264,30 @@ namespace tempo {
         }
 
         /**
+         * Applies a given functor to all elements of the matrix. Additionally passes the indices of the elements to
+         * the functor.
+         * @param functor Function object taking the row and column of an element and the element itself
+         */
+        constexpr void for_each(std::invocable<std::size_t, std::size_t, T&> auto &&functor) {
+            for (auto [idx, val] : iterators::enumerate(data)) {
+                auto row = layout == Layout::RowMajor ? idx / numColumns() : idx % numRows();
+                auto col = layout == Layout::RowMajor ? idx % numColumns() : idx / numRows();
+                std::forward<decltype(functor)>(functor)(row, col, val);
+            }
+        }
+
+        /**
+         * @copydoc for_each
+         */
+        constexpr void for_each(std::invocable<std::size_t, std::size_t, T&> auto &&functor) const {
+            for (auto [idx, val] : iterators::enumerate(data)) {
+                auto row = layout == Layout::RowMajor ? idx / numColumns() : idx % numRows();
+                auto col = layout == Layout::RowMajor ? idx % numColumns() : idx / numRows();
+                std::forward<decltype(functor)>(functor)(row, col, val);
+            }
+        }
+
+        /**
          * reference to underlying data structure
          * @return
          */
@@ -314,6 +339,38 @@ namespace tempo {
             return true;
         }
     };
+
+    /**
+     * Matrix helper function that creates a matrix from a range of values
+     * @tparam R range type
+     * @param numRows number of rows of the matrix
+     * @param numCols number of columns of the matrix
+     * @param values range with values
+     * @param layout matrix data layout
+     * @return matrix with deduced element type
+     * @note the values are copied directly into the matrix storage. The results depends on the given layout type
+     */
+    template<std::ranges::range R>
+    constexpr auto matrixFromRange(std::size_t numRows, std::size_t numCols, const R &values,
+                                   Layout layout = Layout::RowMajor) {
+        return Matrix<std::ranges::range_value_t<R>>(numRows, numCols, values, layout);
+    }
+
+    /**
+     * Matrix helper function that creates a matrix from a functor
+     * @tparam F functor type
+     * @param numRows number of rows of the matrix
+     * @param numCols number of columns of the matrix
+     * @param matrixLike functor that takes the row and column index and returns a value
+     * @param layout matrix data layout
+     * @return matrix with deduced element type
+     */
+    template<std::invocable<std::size_t, std::size_t> F>
+    constexpr auto matrixFromFunction(std::size_t numRows, std::size_t numCols, F &&matrixLike,
+                                      Layout layout = Layout::RowMajor) {
+        return Matrix<std::invoke_result_t<F, std::size_t, std::size_t>>(numRows, numCols,
+                                                                         std::forward<F>(matrixLike), layout);
+    }
 }
 
 namespace nlohmann {
