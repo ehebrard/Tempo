@@ -140,13 +140,89 @@ namespace tempo::nn {
         }
     };
 
+    /**
+     * @brief Calculates timing edge features for edges.
+     * @details @copybrief
+     * Includes more timing information than TimingEdgeExtractor
+     * that might be necessary when dealing with cumulative resources
+     */
+    struct CumulativeTimingEdgeExtractor {
+        static constexpr auto AllDistancesKey = "allDistances";
+        bool allDistances;
+
+        /**
+         * Indicates whether two tasks overlap, have a strict precedence relation or none of the former
+         * @tparam Dist task distance function type
+         * @param t1 index of task 1
+         * @param t2 index of task 2
+         * @param dist task distance function
+         * @return 1 if tasks have a strict precedence relation, 2 if tasks overlap, 0 otherwise
+         */
+        template<concepts::arbitrary_task_dist_fun Dist>
+        static DataType overlap(IndexType t1, IndexType t2, const Dist &dist) {
+            if (t1 == t2) {
+                return 2;
+            }
+
+            if (dist.startEnd(t1, t2) <= 0 or dist.startEnd(t2, t1) <= 0) {
+                return 1;
+            }
+
+            if ((dist.startStart(t1, t2) <= 0 and dist.endStart(t2, t1) <= 0) or
+                (dist.startStart(t2, t1) <= 0 and dist.endStart(t1, t2) <= 0)) {
+                return 2;
+            }
+
+            return 0;
+        }
+
+        /**
+         * Returns a tensor containing timing features for all edges.
+         * @tparam Dist type of distance function
+         * @tparam S Solver type that has a member that provides upper and lower bounds
+         * @tparam T timing type
+         * @tparam R scheduling resource type
+         * @param topology Graph topology for which to extract the features
+         * @param state current state of the solver
+         * @param problem scheduling problem description
+         * @return torch::Tensor containing edge features
+         */
+        template<concepts::arbitrary_task_dist_fun Dist, typename S, concepts::scalar T, SchedulingResource R>
+        auto operator()(const Topology &topology, const SolverState<Dist, S> &state,
+                        const SchedulingProblemHelper<T, R> &problem) const -> torch::Tensor {
+            const auto ub = static_cast<DataType>(problem.schedule().getLatestEnd(state.solver));
+            const auto edgeFrom = util::getIndexSlice(topology.edgeIndices, 0);
+            const auto edgeTo = util::getIndexSlice(topology.edgeIndices, 1);
+            auto ret = torch::empty({static_cast<long>(edgeFrom.size()), (allDistances ? 5 : 3)}, dataTensorOptions());
+            for (auto [idx, from, to] : iterators::zip_enumerate(edgeFrom, edgeTo, 0l)) {
+                const auto ss = state.distance.startStart(from, to) / ub;
+                const auto se = state.distance.startEnd(from, to) / ub;
+                const auto oFlag = overlap(from, to, state.distance);
+                if (allDistances) {
+                    const auto es = state.distance.endStart(from, to) / ub;
+                    const auto ee = state.distance.endEnd(from, to) / ub;
+                    util::sliceAssign(ret, {idx, util::SliceHere}, {oFlag, ss, se, es, ee});
+                } else {
+                    util::sliceAssign(ret, {idx, util::SliceHere}, {oFlag, ss, se});
+                }
+            }
+
+            return ret;
+        }
+    };
+
     MAKE_FACTORY(TaskTimingFeatureExtractor, const nlohmann::json &config) {
             return TaskTimingFeatureExtractor{.legacyFeatures = config.at(
                     TaskTimingFeatureExtractor::LegacyKey).get<bool>()};
-        }
-    };
+    }};
+
     MAKE_DEFAULT_FACTORY(ResourceEnergyExtractor, const nlohmann::json&)
     MAKE_DEFAULT_FACTORY(TimingEdgeExtractor, const nlohmann::json&)
+
+    MAKE_FACTORY(CumulativeTimingEdgeExtractor, const nlohmann::json &config) {
+            return CumulativeTimingEdgeExtractor{.allDistances = config.at(
+                    CumulativeTimingEdgeExtractor::AllDistancesKey).get<bool>()};
+    }};
 }
 
 

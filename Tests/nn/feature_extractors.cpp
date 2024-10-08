@@ -39,7 +39,7 @@ TEST(nn_feature_extractors, TaskTimingExtractor) {
     ProblemInstance instance(std::move(tasks), {}, {}, sched);
     auto topology = MinimalTopologyBuilder(instance, false).getTopology();
     auto taskFeatures = extractor(topology, makeSolverState(TaskDistFunction{}, scheduler), instance);
-    for (auto [idx, task] : iterators::const_enumerate(instance.tasks())) {
+    for (auto [idx, task]: iterators::const_enumerate(instance.tasks())) {
         auto features = taskFeatures.slice(0, idx, idx + 1);
         EXPECT_EQ(features.numel(), 4);
         EXPECT_EQ(features[0][0].item<DataType>(), task.minDuration(scheduler) / Ub);
@@ -131,4 +131,97 @@ TEST(nn_feature_extractors, TimingEdgeExtractor) {
     EXPECT_EQ(features[0][1].item<float>(), 1);
     EXPECT_EQ(features[1][0].item<float>(), 1);
     EXPECT_EQ(features[1][1].item<float>(), -0.5);
+}
+
+TEST(nn_feature_extractors, CumulativeTimingEdgeExtractor_overlap) {
+    using namespace tempo::nn;
+    using namespace tempo::testing;
+    using namespace tempo;
+    using Extractor = CumulativeTimingEdgeExtractor;
+    Matrix ss(3, 3, {0, -5, -4,
+                     5,  0,  2,
+                     6, -1,  0});
+    Matrix se(3, 3, {0, -2, 6,
+                     11, 0, 15,
+                     10, 2, 0});
+    Matrix es(3, 3, { 0, -9, -8,
+                      4,  0, -1,
+                     -6, -8,  0});
+    TaskDistFunction timings(std::move(ss), std::move(se), std::move(es), {});
+    EXPECT_EQ(Extractor::overlap(0, 1, timings), Extractor::overlap(1, 0, timings));
+    EXPECT_EQ(Extractor::overlap(0, 2, timings), Extractor::overlap(2, 0, timings));
+    EXPECT_EQ(Extractor::overlap(1, 2, timings), Extractor::overlap(2, 1, timings));
+    EXPECT_EQ(Extractor::overlap(0, 1, timings), 1);
+    EXPECT_EQ(Extractor::overlap(0, 2, timings), 2);
+    EXPECT_EQ(Extractor::overlap(1, 2, timings), 2);
+    EXPECT_EQ(Extractor::overlap(0, 0, timings), 2);
+    EXPECT_EQ(Extractor::overlap(1, 1, timings), 2);
+    EXPECT_EQ(Extractor::overlap(2, 2, timings), 2);
+
+    timings = {Matrix(2, 2, {0, 10, -2, 0}), Matrix(2, 2, {0, 10, 2, 0}), Matrix(2, 2, {0, 8, -6, 0}), {}};
+    EXPECT_EQ(Extractor::overlap(0, 1, timings), Extractor::overlap(1, 0, timings));
+    EXPECT_EQ(Extractor::overlap(0, 1, timings), 0);
+}
+
+TEST(nn_feature_extractors, CumulativeTimingEdgeExtractor_features) {
+    using namespace tempo::nn;
+    using namespace tempo::testing;
+    using namespace tempo;
+    Matrix ss(3, 3, {0, -5, -4,
+                     5,  0,  2,
+                     6, -1,  0});
+    Matrix se(3, 3, {0, -2, 6,
+                     11, 0, 15,
+                     10, 2, 0});
+    Matrix es(3, 3, { 0, -9, -8,
+                      4,  0, -1,
+                      -6, -8,  0});
+    Matrix ee(3, 3, { 0, -6, 2,
+                      8,  0, 10,
+                      0, -8,  0});
+    TaskDistFunction timings(std::move(ss), std::move(se), std::move(es), std::move(ee));
+    auto [schedule, scheduler] = createTasks({{0, 20, 0, 20}});
+    Topology topology;
+    EdgeVector edges{{0, 1}, {1, 2}, {2, 1}};
+    topology.edgeIndices = util::makeIndexTensor(edges);
+    torch::Tensor features = CumulativeTimingEdgeExtractor(true)(topology, makeSolverState(timings, scheduler),
+                                                                 ProblemInstance({}, {}, {}, schedule.front()));
+    ASSERT_EQ(features.size(0), edges.size());
+    ASSERT_EQ(features.size(1), 5);
+    ASSERT_EQ(features.sizes().size(), 2);
+    EXPECT_EQ(features[0][0].item<DataType>(), 1);
+    EXPECT_EQ(features[0][1].item<DataType>(), -0.25f);
+    EXPECT_EQ(features[0][2].item<DataType>(), -0.1f);
+    EXPECT_EQ(features[0][3].item<DataType>(), -0.45f);
+    EXPECT_EQ(features[0][4].item<DataType>(), -0.3f);
+
+    EXPECT_EQ(features[1][0].item<DataType>(), 2);
+    EXPECT_EQ(features[1][1].item<DataType>(), 0.1f);
+    EXPECT_EQ(features[1][2].item<DataType>(), 0.75f);
+    EXPECT_EQ(features[1][3].item<DataType>(), -0.05f);
+    EXPECT_EQ(features[1][4].item<DataType>(), 0.5f);
+
+    EXPECT_EQ(features[2][0].item<DataType>(), 2);
+    EXPECT_EQ(features[2][1].item<DataType>(), -0.05f);
+    EXPECT_EQ(features[2][2].item<DataType>(), 0.1f);
+    EXPECT_EQ(features[2][3].item<DataType>(), -0.4f);
+    EXPECT_EQ(features[2][4].item<DataType>(), -0.4f);
+
+    features = CumulativeTimingEdgeExtractor(false)(topology, makeSolverState(timings, scheduler),
+                                                    ProblemInstance({}, {}, {}, schedule.front()));
+    ASSERT_EQ(features.size(0), edges.size());
+    ASSERT_EQ(features.size(1), 3);
+    ASSERT_EQ(features.sizes().size(), 2);
+    EXPECT_EQ(features[0][0].item<DataType>(), 1);
+    EXPECT_EQ(features[0][1].item<DataType>(), -0.25f);
+    EXPECT_EQ(features[0][2].item<DataType>(), -0.1f);
+
+    EXPECT_EQ(features[1][0].item<DataType>(), 2);
+    EXPECT_EQ(features[1][1].item<DataType>(), 0.1f);
+    EXPECT_EQ(features[1][2].item<DataType>(), 0.75f);
+
+    EXPECT_EQ(features[2][0].item<DataType>(), 2);
+    EXPECT_EQ(features[2][1].item<DataType>(), -0.05f);
+    EXPECT_EQ(features[2][2].item<DataType>(), 0.1f);
+
 }

@@ -24,9 +24,10 @@
 
 namespace tempo::nn {
 
-    MAKE_POLYMORPHIC_TYPE(FeatureExtractor, TaskTimingFeatureExtractor, TimingEdgeExtractor, ResourceEnergyExtractor)
+    MAKE_POLYMORPHIC_TYPE(FeatureExtractor, TaskTimingFeatureExtractor, TimingEdgeExtractor, ResourceEnergyExtractor,
+                          CumulativeTimingEdgeExtractor)
     MAKE_FACTORY_PATTERN(FeatureExtractor, const nlohmann::json&, TaskTimingFeatureExtractor, TimingEdgeExtractor,
-                         ResourceEnergyExtractor)
+                         ResourceEnergyExtractor, CumulativeTimingEdgeExtractor)
 
     MAKE_POLYMORPHIC_TYPE(TopologyBuilder, MinimalTopologyBuilder)
     MAKE_T_FACTORY_PATTERN_RAW(TopologyBuilder, ESCAPE(template<typename T, typename R>),
