@@ -109,7 +109,7 @@ bool EdgeConstraint<T>::notify(const Literal<T>, const int) {
       }
 #endif
 
-      m_solver.set(p, {this, Constant::FactHint});
+      m_solver.set(p, {this, Constant::NoHint});
     }
   }
 //      else {

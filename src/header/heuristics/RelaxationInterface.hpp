@@ -45,11 +45,12 @@ namespace tempo::heuristics {
         AssumptionState state = AssumptionState::Empty;
 
     public:
+
         AssumptionProxy(const AssumptionProxy &) = delete;
         AssumptionProxy(AssumptionProxy &&) = delete;
         AssumptionProxy &operator=(const AssumptionProxy &) = delete;
         AssumptionProxy &operator=(AssumptionProxy &&) = delete;
-        ~AssumptionProxy() = default;
+        ~AssumptionProxy() { s.assumption_stamp = s.ground_stamp; };
 
         /**
          * Ctor
@@ -158,7 +159,7 @@ namespace tempo::heuristics {
         }
 
         void setAssumptionLevel() noexcept {
-            s.assumption_level = s.numLiteral() - 1;
+          s.assumption_stamp = s.numLiteral();
         }
 
     };

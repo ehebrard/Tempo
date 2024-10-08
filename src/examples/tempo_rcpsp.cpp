@@ -246,7 +246,7 @@ int main(int argc, char *argv[]) {
         
         try {
             
-            std::cout << "post ub = " << ub_makespan-1 << "\n";
+//            std::cout << "post ub = " << ub_makespan-1 << "\n";
             
             S.post(schedule.duration < ub_makespan);
         } catch(Failure<int>& f) {
@@ -260,12 +260,12 @@ int main(int argc, char *argv[]) {
     if (not optimal) {
         auto ub{std::min(opt.ub, ub_makespan)};
         
-        std::cout << "repost ub = " << ub << "\n";
+//        std::cout << "repost ub = " << ub << "\n";
         
         S.post(schedule.end.before(ub));
         
         
-        std::cout << "mininize\n";
+//        std::cout << "minimize\n";
         
         S.minimize(schedule.duration);
     }

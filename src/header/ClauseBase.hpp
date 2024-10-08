@@ -1329,13 +1329,13 @@ Clause<T> *ClauseBase<T>::add(const iter first, const iter last,
 
   Clause<T> *c = nullptr;
 
-  if (first == last) {
-      throw Failure<T>(Constant::GroundFact<T>);
-  }
-
+    if (first == last) {
+        throw Failure<T>({this, Constant::NoHint});
+    }
+    
   if (first + 1 == last) {
     //    assign(*first, Constant::NewNoReason<T>);
-    solver.set(*first, Constant::GroundFact<T>);
+    solver.set(*first); //, Constant::GroundFact<T>);
   } else {
     if (not free_cl_indices.empty()) {
       int id{free_cl_indices.back()};

@@ -29,10 +29,10 @@ namespace tempo {
 //! Global constants
 class Constant {
 public:
-  static constexpr auto DecisionHint = static_cast<hint>(0);
-  static constexpr auto FactHint = static_cast<hint>(-1);
-  static constexpr auto AssumptionHint = static_cast<hint>(-1);
-//  static constexpr auto NoHint = static_cast<hint>(-1);
+  //  static constexpr auto DecisionHint = static_cast<hint>(0);
+  static constexpr auto NoHint = static_cast<hint>(0);
+  //  static constexpr auto AssumptionHint = static_cast<hint>(-1);
+  //  static constexpr auto NoHint = static_cast<hint>(-1);
   static constexpr auto NoIndex = static_cast<index_t>(-1);
   static constexpr auto NoVar = static_cast<var_t>(-1);
   static constexpr index_t InfIndex = 0;
@@ -43,26 +43,25 @@ public:
 
   template <typename T> static constexpr T Infinity = std::numeric_limits<T>::max();
 
-  template <typename T> static Explanation<T> Decision;
-  template <typename T> static Explanation<T> GroundFact;
-  template <typename T> static Explanation<T> Assumption;
+  //  template <typename T> static Explanation<T> Decision;
+  template <typename T> static Explanation<T> NoReason;
+  //  template <typename T> static Explanation<T> Assumption;
   template<typename T> static constexpr DistanceConstraint<T> NoEdge =
           DistanceConstraint<T>(Constant::NoVar, Constant::NoVar, Constant::Infinity<T>);
 
 };
 
+// template <typename T>
+// Explanation<T> Constant::Decision =
+//     Explanation<T>(new Explainer<T>(), Constant::DecisionHint);
 
 template <typename T>
-Explanation<T> Constant::Decision =
-    Explanation<T>(new Explainer<T>(), Constant::DecisionHint);
+Explanation<T> Constant::NoReason = Explanation<T>(new Explainer<T>(),
+                                                   Constant::NoHint);
 
-template <typename T>
-Explanation<T> Constant::GroundFact =
-    Explanation<T>(new Explainer<T>(), Constant::FactHint);
-
-template <typename T>
-Explanation<T> Constant::Assumption =
-    Explanation<T>(new Explainer<T>(), Constant::AssumptionHint);
+// template <typename T>
+// Explanation<T> Constant::Assumption =
+//     Explanation<T>(new Explainer<T>(), Constant::AssumptionHint);
 
 } // namespace tempo
 

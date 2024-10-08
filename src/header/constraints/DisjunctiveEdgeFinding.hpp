@@ -549,9 +549,9 @@ template <typename T> void DisjunctiveEdgeFinding<T>::propagateForward() {
 
 
 template <typename T> void DisjunctiveEdgeFinding<T>::applyPruning() {
-    
-    hint ph{Constant::FactHint};
-    
+
+  hint ph{Constant::NoHint};
+
   // do the pruning
     while (not pruned_tasks.empty()) {
         auto r{pruned_tasks.back()};
@@ -564,7 +564,7 @@ template <typename T> void DisjunctiveEdgeFinding<T>::applyPruning() {
         bound_omegas.pop_back();
         
         auto &tl{the_tasks[r]};
-        ph = Constant::FactHint;
+        ph = Constant::NoHint;
         for (auto j{ai}; j != lct_order.rend(); ++j) {
             
             auto prec{(backward_flag ? disjunct[*j][r] : disjunct[r][*j])};
@@ -607,11 +607,11 @@ template <typename T> void DisjunctiveEdgeFinding<T>::applyPruning() {
                 
                 // the precedences where the precedence is already falsified will be handled by disjunctions
                 if (not m_solver.boolean.falsified(prec)) {
-                    if (ph == Constant::FactHint) {
-                        ph = boundExplanation(ai, lct_order.rend(), s);
-                        the_explanation_tasks[ph].push_back(&tl);
-                    }
-                    
+                  if (ph == Constant::NoHint) {
+                    ph = boundExplanation(ai, lct_order.rend(), s);
+                    the_explanation_tasks[ph].push_back(&tl);
+                  }
+
 #ifdef DBG_EDGEFINDING
                     if (DBG_EDGEFINDING) {
                         std::cout << " edge: " << m_solver.pretty(prec) << " b/c" ;
@@ -644,12 +644,12 @@ template <typename T> void DisjunctiveEdgeFinding<T>::applyPruning() {
         if (relevant) {
             
             Literal<T> bc{(backward_flag ? tl.start.before(-ect_omega) : tl.end.after(ect_omega))};
-            
-            if (ph == Constant::FactHint) {
-                ph = boundExplanation(ai, lct_order.rend(), s);
-                the_explanation_tasks[ph].push_back(&tl);
+
+            if (ph == Constant::NoHint) {
+              ph = boundExplanation(ai, lct_order.rend(), s);
+              the_explanation_tasks[ph].push_back(&tl);
             }
-            
+
 #ifdef DBG_EDGEFINDING
             if (DBG_EDGEFINDING) {
                 std::cout << " adjustment: " << m_solver.pretty(bc) << " b/c" ;

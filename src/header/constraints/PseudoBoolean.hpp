@@ -156,8 +156,8 @@ template <typename T> void PseudoBooleanInterface<T>::propagate() {
 #ifdef DBG_PB
     std::cout << " => pruning " << ~p << std::endl;
 #endif
-        
-      m_solver.set(~p, {this, Constant::FactHint});
+
+    m_solver.set(~p, {this, Constant::NoHint});
     }
     ++i;
   }
@@ -330,7 +330,7 @@ public:
   std::cout << "pruning " << p << std::endl;
 #endif
 
-      PseudoBooleanInterface<T>::m_solver.set(p, {this, Constant::FactHint});
+  PseudoBooleanInterface<T>::m_solver.set(p, {this, Constant::NoHint});
   };
 
   void post(const int idx) override;
@@ -375,7 +375,7 @@ public:
   std::cout << "pruning " << p << std::endl;
 #endif
 
-      PseudoBooleanInterface<T>::m_solver.set(p, {this, Constant::FactHint});
+  PseudoBooleanInterface<T>::m_solver.set(p, {this, Constant::NoHint});
   };
 
   void post(const int idx) override;
