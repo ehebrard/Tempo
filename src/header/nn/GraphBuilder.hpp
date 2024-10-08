@@ -122,6 +122,17 @@ namespace tempo::nn {
             return problemDefinition;
         }
 
+        const auto &getTaskFeatureExtractor() const noexcept {
+            return taskFeatureExtractor;
+        }
+
+        const auto &getEdgeFeatureExtractor() const noexcept {
+            return edgeFeatureExtractor;
+        }
+
+        const auto &getResourceFeatureExtractor() const noexcept {
+            return resourceFeatureExtractor;
+        }
 
     private:
         SchedulingProblemHelper<T, R> problemDefinition;

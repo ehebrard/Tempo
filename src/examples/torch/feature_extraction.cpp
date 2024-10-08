@@ -10,6 +10,7 @@
 #include <ranges>
 #include <nlohmann/json.hpp>
 #include <Iterators.hpp>
+#include <tuple>
 
 #include "data_generation.hpp"
 #include "nn/torch_types.hpp"
@@ -25,15 +26,17 @@
 namespace fs = std::filesystem;
 
 template<tempo::concepts::scalar T>
-bool distanceSanityCheck(const tempo::Matrix<T> &distances) {
+bool distanceSanityCheck(const tempo::Matrix<std::tuple<T, T, T, T>> &distances) {
     for (std::size_t i = 0; i < distances.numRows(); ++i) {
         for (std::size_t j = 0; j < distances.numColumns(); ++j) {
             if (i == j) {
                 continue;
             }
 
-            auto dist = distances(i, j) + distances(j, i);
-            if (dist < 0) {
+            const auto &fwd = distances(i, j);
+            const auto &rev = distances(j, i);
+            if (std::get<0>(fwd) + std::get<0>(rev) < 0 or std::get<3>(fwd) + std::get<3>(rev) < 0 or
+                std::get<1>(fwd) + std::get<2>(rev) < 0 or std::get<2>(fwd) + std::get<1>(rev) < 0) {
                 return false;
             }
         }
@@ -71,6 +74,8 @@ int main(int argc, char **argv) {
 
     auto [solver, problem, opt, _] = loadSchedulingProblem(options);
     nn::GraphBuilder builder(featConfig, problem);
+    const bool disjunctive = not std::holds_alternative<nn::CumulativeTimingEdgeExtractor>(
+            builder.getEdgeFeatureExtractor());
     fs::copy(featConfig, saveTo, fs::copy_options::overwrite_existing);
 
     // create root instance features
@@ -86,14 +91,23 @@ int main(int argc, char **argv) {
         s->set(leq(p.schedule().duration.id(), sol.objective));
         loadBranch(*s, sol.decisions);
         auto taskDistances = p.getTaskDistances(*s);
-        Matrix<int> network(p.tasks().size(), p.tasks().size(), taskDistances);
+        auto network = matrixFromFunction(p.tasks().size(), p.tasks().size(), [&taskDistances](auto i, auto j) {
+            return std::make_tuple(taskDistances.startStart(i, j), taskDistances.startEnd(i, j),
+                                   taskDistances.endStart(i, j), taskDistances.endEnd(i, j));
+        });
         if (not distanceSanityCheck(network)) {
             std::cerr << "solution " << id << " of problem '" << mainDir << "' has negative cycle" << std::endl;
             std::exit(-1);
         }
 
         nlohmann::json j;
-        j["taskNetwork"] = network;
+        if (disjunctive) {
+            auto n = matrixFromFunction(network.numRows(), network.numColumns(),
+                                        [&network](auto i, auto j) { return std::get<1>(network(i, j)); });
+            j["taskNetwork"] = n;
+        } else {
+            j["taskNetwork"] = network;
+        }
         j["objective"] = sol.objective;
         j["id"] = sol.id;
         solutionsPayloads.emplace_back(std::move(j));
