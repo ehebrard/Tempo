@@ -1068,25 +1068,24 @@ void BoundExplainer<T>::xplain(const Literal<T> l, const hint h,
     if (l == Solver<T>::Contradiction) {
         var_t x{static_cast<var_t>(h)};
 
-        //#ifdef DBG_TRACE
-        //        if (DBG_CBOUND and (DBG_TRACE & LEARNING)) {
-        //            std::cout << "explain contradiction: wipe out on numeric
-        //            var x" << x
-        //            << " in [" << solver.numeric.lower(x) << ".."
-        //            << solver.numeric.upper(x) << "]" << std::endl;
-        //        }
-        //#endif
+        #ifdef DBG_TRACE
+                if (DBG_CBOUND and (DBG_TRACE & LEARNING)) {
+                    std::cout << "explain contradiction: wipe out on numeric var x" << x
+                    << " in [" << solver.numeric.lower(x) << ".."
+                    << solver.numeric.upper(x) << "]" << std::endl;
+                }
+        #endif
 
         auto lidx{solver.numeric.lastLitIndex(bound::lower, x)};
         auto uidx{solver.numeric.lastLitIndex(bound::upper, x)};
 
-        //#ifdef DBG_TRACE
-        //        if (DBG_CBOUND and (DBG_TRACE & LEARNING)) {
-        //            std::cout << solver.getLiteral(lidx) << " AND " <<
-        //            solver.getLiteral(uidx)
-        //            << std::endl;
-        //        }
-        //#endif
+        #ifdef DBG_TRACE
+                if (DBG_CBOUND and (DBG_TRACE & LEARNING)) {
+                    std::cout << solver.getLiteral(lidx) << " AND " <<
+                    solver.getLiteral(uidx)
+                    << std::endl;
+                }
+        #endif
 
         Literal<T> le;
         Explanation<T> exp;
@@ -1099,11 +1098,11 @@ void BoundExplainer<T>::xplain(const Literal<T> l, const hint h,
             exp = solver.getReason(lidx);
         }
 
-        //#ifdef DBG_TRACE
-        //        if (DBG_CBOUND and (DBG_TRACE & LEARNING)) {
-        //            std::cout << " => " << le << " AND " << exp << std::endl;
-        //        }
-        //#endif
+        #ifdef DBG_TRACE
+                if (DBG_CBOUND and (DBG_TRACE & LEARNING)) {
+                    std::cout << " => " << le << " AND " << exp << std::endl;
+                }
+        #endif
 
         Cl.push_back(le);
         exp.explain(~le, Cl);
@@ -2261,19 +2260,19 @@ template <typename T> void Solver<T>::analyze(Explanation<T> &e) {
 #ifdef DBG_TRACE
     if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
       std::cout << "analyze conflict:\n";
-      //        displayBranches(std::cout);
-      for (index_t i{1}; i < numLiteral(); ++i) {
-        //                if(i == definition_stamp)
-        //                    std::cout << "**p** ";
-        if (i == ground_stamp)
-          std::cout << "**g** ";
-        if (i == assumption_stamp)
-          std::cout << "**a** ";
-        if (i == decision_stamp)
-          std::cout << "**d** ";
-        std::cout << std::setw(4) << i << " " << pretty(trail[i]) << " b/c "
-                  << reason[i] << std::endl;
-      }
+//      //        displayBranches(std::cout);
+//      for (index_t i{1}; i < numLiteral(); ++i) {
+//        //                if(i == definition_stamp)
+//        //                    std::cout << "**p** ";
+//        if (i == ground_stamp)
+//          std::cout << "**g** ";
+//        if (i == assumption_stamp)
+//          std::cout << "**a** ";
+//        if (i == decision_stamp)
+//          std::cout << "**d** ";
+//        std::cout << std::setw(4) << i << " " << pretty(trail[i]) << " b/c "
+//                  << reason[i] << std::endl;
+//      }
     }
 #endif
 
@@ -2365,6 +2364,12 @@ template <typename T> void Solver<T>::analyze(Explanation<T> &e) {
                     }
                     if (need_add) {
 
+                      if (not p.isNumeric())
+                        explored[p_lvl] = true;
+                      std::swap(conflict[csize], conflict[i]);
+                      ++csize;
+                      literal_lvl.push_back(p_lvl);
+                        
 #ifdef DBG_TRACE
                       if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
                         std::cout << " => add to confict [";
@@ -2375,12 +2380,7 @@ template <typename T> void Solver<T>::analyze(Explanation<T> &e) {
                         std::cout << " ]\n";
                       }
 #endif
-
-                      if (not p.isNumeric())
-                        explored[p_lvl] = true;
-                      std::swap(conflict[csize], conflict[i]);
-                      ++csize;
-                      literal_lvl.push_back(p_lvl);
+                        
                     } else {
                       --i;
 #ifdef DBG_TRACE
@@ -2413,7 +2413,7 @@ template <typename T> void Solver<T>::analyze(Explanation<T> &e) {
                     std::cout << " => to explore [ ";
                     for (index_t z{lit_pointer - 1}; z >= decision_stamp; --z) {
                       if (explored[z] or z == p_lvl) {
-                        std::cout << " " << trail[z];
+                        std::cout << " " << trail[z] << " (" << z << ")";
                         std::cout.flush();
                         ++count;
                       }
@@ -2476,6 +2476,9 @@ template <typename T> void Solver<T>::analyze(Explanation<T> &e) {
     //    std::cout << "NUM_LIT = " << num_lit << " LI = " <<
     //    (static_cast<int>(lit_pointer) - static_cast<int>(decision_stamp)) <<
     //    std::endl;
+      
+      
+      
 
     if (num_lit >= 0) {
       bool need_add{true};
@@ -2507,6 +2510,12 @@ template <typename T> void Solver<T>::analyze(Explanation<T> &e) {
 #endif
       }
     }
+      
+      
+//      if(lit_pointer < decision_stamp) {
+//          std::cout << "STOPE HERE\n";
+//          exit(1);
+//      }
 
     //    else {
     //        std::cout << "conflict.size() = " << conflict.size() << std::endl;
@@ -2564,13 +2573,13 @@ template <typename T> void Solver<T>::analyze(Explanation<T> &e) {
     }
 #endif
 
-    if (decisions.empty()) {
-      std::cout << "learnt_clause.size() = " << learnt_clause.size()
-                << std::endl;
-      for (auto l : learnt_clause)
-        std::cout << " " << pretty(l);
-      std::cout << std::endl;
-    }
+//    if (decisions.empty()) {
+//      std::cout << "learnt_clause.size() = " << learnt_clause.size()
+//                << std::endl;
+//      for (auto l : learnt_clause)
+//        std::cout << " " << pretty(l);
+//      std::cout << std::endl;
+//    }
 
     for (auto p : learnt_clause)
         if (p.isNumeric()) {
