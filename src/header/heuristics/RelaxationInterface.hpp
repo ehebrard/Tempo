@@ -266,10 +266,9 @@ namespace tempo::heuristics {
     /**
      * @brief Assumption interface
      * @tparam I interface type
-     * @tparam T timing type
      */
-    template<typename I, typename T>
-    concept AssumptionInterface = requires(I interface, Literal<T> l, std::vector<Literal<T>> lits) {
+    template<typename I>
+    concept AssumptionInterface = requires(I interface, Literal<int> l, std::vector<Literal<int>> lits) {
         interface.reset();
         { interface.makeAssumptions(lits) } -> std::convertible_to<bool>;
         { interface.tryMakeAssumption(l) } -> std::convertible_to<bool>;

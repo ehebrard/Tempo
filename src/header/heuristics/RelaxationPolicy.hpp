@@ -97,13 +97,13 @@ void FixRandomDisjunctiveResource<T>::relax(heuristics::AssumptionProxy<T> &s) {
 
 template <typename T> class RandomSubset : public BaseRelaxationPolicy<T> {
 public:
-  RandomSubset(Solver<T> &solver, std::vector<BooleanVar<T>> &vars,
+  RandomSubset(Solver<T> &solver, std::vector<BooleanVar<T>> vars,
             double ratio, double decay)
-      : solver(solver), vars(vars), ratio(1.0 - ratio), decay(decay) {}
+      : solver(solver), vars(std::move(vars)), ratio(1.0 - ratio), decay(decay) {}
   void relax(heuristics::AssumptionProxy<T> &s) override;
   void notifyFailure(unsigned) override;
 
-private:
+protected:
   Solver<T> &solver;
   std::vector<BooleanVar<T>> vars;
   double ratio, decay;

@@ -74,6 +74,15 @@ namespace tempo::nn {
         }
 
         /**
+         * Sets all confidence values to 0
+         */
+        void resetConfidences() noexcept {
+            for (auto [pos, neg] : iterators::zip(this->massesPos, this->massesNeg)) {
+                pos = neg = 0;
+            }
+        }
+
+        /**
          * Calculates prediction certainty from two evidence masses (not really theoretically motivated)
          * @param mPos positive evidence for a literal
          * @param mNeg negative evidence for a literal
