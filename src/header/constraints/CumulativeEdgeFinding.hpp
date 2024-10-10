@@ -649,20 +649,26 @@ void CumulativeEdgeFinding<T>::rmTask(const int i) {
 
 template <typename T> bool CumulativeEdgeFinding<T>::addPrime(const int i) {
 
+    auto _est{est(i)};
+    auto _lct{std::min(profile.rbegin()->time, ect(i))};
+    
+    if (_est >= _lct) {
+        
+#ifdef DBG_SEF
+  if (DBG_SEF) {
+    std::cout << "  * ignore " << i << "'\n";
+  }
+#endif
+        
+        return false;
+    }
+    
+    
 #ifdef DBG_SEF
   if (DBG_SEF) {
     std::cout << "  * add " << i << "'\n";
   }
 #endif
-
-    auto _est{est(i)};
-    auto _lct{std::min(profile.rbegin()->time, ect(i))};
-
-    if (i == 28)
-      std::cout << "here: " << _est << " -- " << _lct << std::endl;
-
-    if (_est >= _lct)
-      return false;
 
     auto maxcap{capacity.max(m_solver)};
     auto ip{the_tasks.size()};
@@ -1013,11 +1019,7 @@ template <typename T> void CumulativeEdgeFinding<T>::forwardDetection() {
                 }
               }
             }
-#ifdef DBG_SEF
-            else if (DBG_SEF) {
-              std::cout << "  * ignore " << i << "'\n";
-            }
-#endif
+
 
             ++is;
         }
