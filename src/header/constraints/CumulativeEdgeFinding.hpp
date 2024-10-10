@@ -111,7 +111,7 @@ private:
 
   std::vector<int> event_ordering;
   std::vector<int> lct_order;
-  int sentinel;
+  //  int sentinel;
   int alpha;
   int beta;
 
@@ -166,12 +166,16 @@ public:
   bool notify(const Literal<T>, const int rank) override;
   void post(const int idx) override;
   void propagate() override;
-  T scheduleOmega(const T C);
+  //  T scheduleOmega(const T C, const T max_lct);
   void computeBound(const int i);
 
   /* Tools for the adjustments */
-  T scheduleOmegaDetection(const T C, const int i);     // scheduling omega used for the detection
-  T scheduleOmegaAdjustment(const T C, const int i);    // scheduling omega used for the adjustment
+  T scheduleOmegaDetection(
+      const T C, const int i,
+      const T max_lct); // scheduling omega used for the detection
+  T scheduleOmegaAdjustment(
+      const T C, const int i,
+      const T max_lct); // scheduling omega used for the adjustment
   int computeEstPrime(const int i);                     // end of the scheduling in the upper part of the profile
   void computeMaximumOverflow(const int i);             // energy to spend at the upper part of the profile
   std::vector<T> consOverSlackAvail(const int time);    // retrive the attributes of the time points not belong to the profile
@@ -186,7 +190,7 @@ public:
 
   void leftCut(const int i);
 
-  void addPrime(const int i);
+  bool addPrime(const int i);
   void rmPrime();
 
   void horizontallyElasticEdgeFinderForward();
@@ -231,7 +235,7 @@ public:
   bool checkLeftCut() {
     int count{0};
     for (auto p{profile.begin()}; p != profile.end(); ++p) {
-      if (p.index != sentinel and p.index != est_.back() and
+      if (/*p.index != sentinel and*/ p.index != est_.back() and
           p.index != ect_.back() and p.index != lct_.back())
         ++count;
 
@@ -451,7 +455,8 @@ CumulativeEdgeFinding<T>::CumulativeEdgeFinding(
       lst_[i] =
         profile.create_element(lst(i), maxcap, mindemand(i), mindemand(i), 0, 0, 0, 0, 0);*/
   }
-  sentinel = profile.create_element(Constant::Infinity<T>, 0, 0, 0, 0, 0, 0, 0, 0);
+  //  sentinel = profile.create_element(Constant::Infinity<T>, 0, 0, 0, 0, 0, 0,
+  //  0, 0);
 
   auto ep{beg_disj};
   for (auto ip{beg_task}; ip != end_task; ++ip) {
@@ -642,9 +647,7 @@ void CumulativeEdgeFinding<T>::rmTask(const int i) {
 #endif
 }
 
-
-template <typename T>
-void CumulativeEdgeFinding<T>::addPrime(const int i) {
+template <typename T> bool CumulativeEdgeFinding<T>::addPrime(const int i) {
 
 #ifdef DBG_SEF
   if (DBG_SEF) {
@@ -654,6 +657,12 @@ void CumulativeEdgeFinding<T>::addPrime(const int i) {
 
     auto _est{est(i)};
     auto _lct{std::min(profile.rbegin()->time, ect(i))};
+
+    if (i == 28)
+      std::cout << "here: " << _est << " -- " << _lct << std::endl;
+
+    if (_est >= _lct)
+      return false;
 
     auto maxcap{capacity.max(m_solver)};
     auto ip{the_tasks.size()};
@@ -691,6 +700,8 @@ void CumulativeEdgeFinding<T>::addPrime(const int i) {
 #ifdef DBG_SEF
     assert(verify());
 #endif
+
+    return true;
 }
 
 template <typename T> void CumulativeEdgeFinding<T>::rmPrime() {
@@ -773,7 +784,7 @@ void CumulativeEdgeFinding<T>::forwardAdjustment() {
     auto j{prec[i]};
 
     leftCut(j);
-    auto ect_h{scheduleOmegaAdjustment(capacity.max(m_solver) , i)};
+    auto ect_h{scheduleOmegaAdjustment(capacity.max(m_solver), i, lct(j))};
     computeMaximumOverflow(i);
     auto estPrime{est(i)};
 
@@ -892,9 +903,9 @@ template <typename T> void CumulativeEdgeFinding<T>::forwardDetection() {
             auto i{*is};
 
             if (ect(i) < lct(i)) {
-              //std::cout<< profile[est_[the_tasks.size()]] << std::endl;
-              addPrime(i);
-              auto omega_ect{scheduleOmegaDetection(cap, i)};
+              // std::cout<< profile[est_[the_tasks.size()]] << std::endl;
+              if (addPrime(i)) {
+                auto omega_ect{scheduleOmegaDetection(cap, i, lct_j)};
 #ifdef DBG_SEF
                 if (DBG_SEF) {
                   std::cout << " ect^H = " << omega_ect
@@ -914,8 +925,9 @@ template <typename T> void CumulativeEdgeFinding<T>::forwardDetection() {
                   prec[i] = j;
                   in_conflict.add(i);
                   rmPrime();
+                }
 
-                } else {
+                else {
 
 #ifdef DBG_SEF
                   if (DBG_SEF) {
@@ -936,15 +948,10 @@ template <typename T> void CumulativeEdgeFinding<T>::forwardDetection() {
                       rmTask(*ti);
                       ++lc_ptr;
                     }
-
-                    //                    assert(lct(*beta))
-
                     addPrime(i);
-                    auto ect_i_H{scheduleOmegaDetection(cap, i)};
+                    auto ect_i_H{scheduleOmegaDetection(cap, i, lct(beta))};
                     rmPrime();
-
                     if (ect_i_H > lct(beta)) {
-
 #ifdef DBG_SEF
                       if (DBG_SEF) {
                         std::cout << " task " << i
@@ -970,7 +977,7 @@ template <typename T> void CumulativeEdgeFinding<T>::forwardDetection() {
                     }
 
                     addPrime(i);
-                    auto ect_i_H{scheduleOmegaDetection(cap, i)};
+                    auto ect_i_H{scheduleOmegaDetection(cap, i, lct(alpha))};
                     rmPrime();
 
                     if (ect_i_H > lct(alpha)) {
@@ -1001,12 +1008,16 @@ template <typename T> void CumulativeEdgeFinding<T>::forwardDetection() {
                 }
 #endif
 
-
-
                 for (auto p{profile.begin()}; p != profile.end(); ++p) {
                   p->capacity = cap;
                 }
+              }
             }
+#ifdef DBG_SEF
+            else if (DBG_SEF) {
+              std::cout << "  * ignore " << i << "'\n";
+            }
+#endif
 
             ++is;
         }
@@ -1122,6 +1133,26 @@ template <typename T> void CumulativeEdgeFinding<T>::forwardDetection() {
       maxOverflow[i] = overlap2 - overlap1 - (slackUnder2 - slackUnder1);
     }
   }
+
+  if (maxOverflow[i] < 0) {
+    std::cout << "bug\n";
+
+    for (auto j : lct_order) {
+      if (lct(j) > lct(k))
+        break;
+
+      std::cout << std::setw(3) << j << ": " << asciiArt(j) << std::endl;
+    }
+    std::cout << std::endl
+              << std::setw(3) << i << ": " << asciiArt(i) << std::endl;
+
+    std::cout << "capacity = " << capacity.max(m_solver)
+              << " id = " << this->id() << std::endl;
+
+    std::cout << profile << std::endl;
+
+    exit(1);
+  }
 }
 
 template <typename T>
@@ -1152,8 +1183,111 @@ void CumulativeEdgeFinding<T>::computeBound(const int i) {
     }
 }
 
-template <typename T> T CumulativeEdgeFinding<T>::scheduleOmega(const T C) {
+// template <typename T> T CumulativeEdgeFinding<T>::scheduleOmega(const T C,
+// const T max_lct) {
+//
+//
+//#ifdef DBG_SEF
+//   if (DBG_SEF) {
+//     std::cout << "[schedule tasks until " << *lc_ptr
+//               << "] profile=" << std::endl
+//               << profile;
+//   }
+//   assert(verify());
+//#endif
+//
+////
+//
+//  auto saved_size{profile.size()};
+////  auto sentinel{profile.end()};
+////  --sentinel;
+//
+//  auto next{profile.begin()};
+//  overflow = 0;
+//  T omega_ect{-Constant::Infinity<T>};
+//  T S{0};
+//  T h_req{0};
+//
+//  while (next->time < max_lct) {
+//    auto t{next};
+//    ++next;
+//
+//#ifdef DBG_SEF
+//    if (DBG_SEF) {
+//      std::cout << "jump to e_" << t.index << " = t_" << t->time << ":";
+//    }
+//#endif
+//
+//    t->overflow = overflow;
+//    auto l = next->time - t->time;
+//
+//    // S is the sum of demands of the tasks that could be processed at time
+//    S += t->incrementMax;
+//    // h_max is the min between the resource's capacity and the total of the
+//    // demands
+//    auto h_max{std::min(S, C)};
+//    // h_req is the total demand counting tasks processed at their earliest
+//    h_req += t->increment;
+//    // h_cons is the amount of resource actually used in the optimistic
+//    scenario
+//    // (min between what is required + due from earlier, and what is
+//    available) auto h_cons{std::min(h_req + overflow, h_max)};
+//
+//#ifdef DBG_SEF
+//    if (DBG_SEF) {
+//      std::cout << " h_max=" << h_max << ", h_req=" << h_req
+//                << ", h_cons=" << h_cons << ", ov=" << overflow;
+//      if (overflow > 0) {
+//        std::cout << "->" << overflow - ((h_cons - h_req) * l)
+//                  << " @t=" << next->time;
+//      }
+//    }
+//#endif
+//
+//    // there is some overflow, and it will be resorbed by the next time point
+//    if (overflow > 0 and overflow < ((h_cons - h_req) * l)) {
+//      // then we create a new time point for the moment it will be resorbed
+//      // l = std::max(Gap<T>::epsilon(), ceil_division<T>(overflow, (h_cons -
+//      // h_req)));
+//      l = std::max(Gap<T>::epsilon(), overflow / (h_cons - h_req));
+//      auto new_event{
+//          profile.create_element(t->time + l, t->capacity, 0, 0, 0, 0, 0, 0,
+//          0)};
+//      profile.add_after(t.index, new_event);
+//      next = profile.at(new_event);
+//    }
+//    // overflow is the deficit on resource for that period (because tasks are
+//    // set to their earliest)profile[est_[ip]].time = _est;
+//    overflow += (h_req - h_cons) * l;
+//    // once there
+//    t->capacity = C - h_cons;
+//    if (overflow > 0)
+//      omega_ect = Constant::Infinity<T>;
+//    else if (t->capacity < C)
+//      omega_ect = profile[profile.next(t.index)].time;
+//
+//#ifdef DBG_SEF
+//    if (DBG_SEF) {
+//      if (omega_ect != -Constant::Infinity<T>)
+//        std::cout << ", ect=" << omega_ect;
+//      std::cout << std::endl;
+//    }
+//#endif
+//  }
+//
+//  while (profile.size() > saved_size) {
+//    profile.pop_back();
+//  }
+//
+//  return omega_ect;
+//}
+//
+//
+//
 
+template <typename T>
+T CumulativeEdgeFinding<T>::scheduleOmegaDetection(const T C, const int i,
+                                                   const T max_lct) {
 
 #ifdef DBG_SEF
   if (DBG_SEF) {
@@ -1167,8 +1301,8 @@ template <typename T> T CumulativeEdgeFinding<T>::scheduleOmega(const T C) {
 //
 
   auto saved_size{profile.size()};
-  auto sentinel{profile.end()};
-  --sentinel;
+  //  auto sentinel{profile.end()};
+  //  --sentinel;
 
   auto next{profile.begin()};
   overflow = 0;
@@ -1176,7 +1310,7 @@ template <typename T> T CumulativeEdgeFinding<T>::scheduleOmega(const T C) {
   T S{0};
   T h_req{0};
 
-  while (next != sentinel) {
+  while (next->time != max_lct) {
     auto t{next};
     ++next;
 
@@ -1199,121 +1333,6 @@ template <typename T> T CumulativeEdgeFinding<T>::scheduleOmega(const T C) {
     // h_cons is the amount of resource actually used in the optimistic scenario
     // (min between what is required + due from earlier, and what is available)
     auto h_cons{std::min(h_req + overflow, h_max)};
-
-#ifdef DBG_SEF
-    if (DBG_SEF) {
-      std::cout << " h_max=" << h_max << ", h_req=" << h_req
-                << ", h_cons=" << h_cons << ", ov=" << overflow;
-      if (overflow > 0) {
-        std::cout << "->" << overflow - ((h_cons - h_req) * l)
-                  << " @t=" << next->time;
-      }
-    }
-#endif
-
-    // there is some overflow, and it will be resorbed by the next time point
-    if (overflow > 0 and overflow < ((h_cons - h_req) * l)) {
-      // then we create a new time point for the moment it will be resorbed
-      // l = std::max(Gap<T>::epsilon(), ceil_division<T>(overflow, (h_cons -
-      // h_req)));
-      l = std::max(Gap<T>::epsilon(), overflow / (h_cons - h_req));
-      auto new_event{
-          profile.create_element(t->time + l, t->capacity, 0, 0, 0, 0, 0, 0, 0)};
-      profile.add_after(t.index, new_event);
-      next = profile.at(new_event);
-    }
-    // overflow is the deficit on resource for that period (because tasks are
-    // set to their earliest)profile[est_[ip]].time = _est;
-    overflow += (h_req - h_cons) * l;
-    // once there
-    t->capacity = C - h_cons;
-    if (overflow > 0)
-      omega_ect = Constant::Infinity<T>;
-    else if (t->capacity < C)
-      omega_ect = profile[profile.next(t.index)].time;
-
-#ifdef DBG_SEF
-    if (DBG_SEF) {
-      if (omega_ect != -Constant::Infinity<T>)
-        std::cout << ", ect=" << omega_ect;
-      std::cout << std::endl;
-    }
-#endif
-  }
-
-  while (profile.size() > saved_size) {
-    profile.pop_back();
-  }
-
-  return omega_ect;
-}
-
-
-
-
-
-
-
-
-template <typename T> T CumulativeEdgeFinding<T>::scheduleOmegaDetection(const T C, const int i) {
-
-
-#ifdef DBG_SEF
-  if (DBG_SEF) {
-    std::cout << "[schedule tasks until " << *lc_ptr
-              << "] profile=" << std::endl
-              << profile;
-  }
-  assert(verify());
-#endif
-
-//
-
-  auto saved_size{profile.size()};
-  auto sentinel{profile.end()};
-  --sentinel;
-
-  auto next{profile.begin()};
-  overflow = 0;
-  T omega_ect{-Constant::Infinity<T>};
-  T S{0};
-  T h_req{0};
-
-
-  while (next != sentinel) {
-    auto t{next};
-    ++next;
-
-#ifdef DBG_SEF
-    if (DBG_SEF) {
-      std::cout << "jump to e_" << t.index << " = t_" << t->time << ":";
-    }
-#endif
-
-    t->overflow = overflow;
-    auto l = next->time - t->time;
-
-    // S is the sum of demands of the tasks that could be processed at time
-    S += t->incrementMax;
-    // h_max is the min between the resource's capacity and the total of the
-    // demands
-    auto h_max{std::min(S, C)};
-    // h_req is the total demand counting tasks processed at their earliest
-    h_req += t->increment;
-    // h_cons is the amount of resource actually used in the optimistic scenario
-    // (min between what is required + due from earlier, and what is available)
-    auto h_cons{std::min(h_req + overflow, h_max)};
-
-#ifdef DBG_SEF
-    if (DBG_SEF) {
-      std::cout << " h_max=" << h_max << ", h_req=" << h_req
-                << ", h_cons=" << h_cons << ", ov=" << overflow;
-      if (overflow > 0) {
-        std::cout << "->" << overflow - ((h_cons - h_req) * l)
-                  << " @t=" << next->time;
-      }
-    }
-#endif
 
     // there is some overflow, and it will be resorbed by the next time point
     if (overflow > 0 and overflow < ((h_cons - h_req) * l)) {
@@ -1339,6 +1358,15 @@ template <typename T> T CumulativeEdgeFinding<T>::scheduleOmegaDetection(const T
 
 #ifdef DBG_SEF
     if (DBG_SEF) {
+      std::cout << " h_max=" << h_max << ", h_req=" << h_req
+                << ", h_cons=" << h_cons << ", ov=" << (overflow - (h_req - h_cons) * l);
+      if (overflow > 0) {
+        std::cout << "->" << overflow
+                  << " @t=" << next->time;
+      }
+
+        
+        
       if (omega_ect != -Constant::Infinity<T>)
         std::cout << ", ect=" << omega_ect;
       std::cout << std::endl;
@@ -1373,9 +1401,9 @@ template <typename T> T CumulativeEdgeFinding<T>::scheduleOmegaDetection(const T
   return omega_ect;
 }
 
-
-template <typename T> T CumulativeEdgeFinding<T>::scheduleOmegaAdjustment(const T C, const int i) {
-
+template <typename T>
+T CumulativeEdgeFinding<T>::scheduleOmegaAdjustment(const T C, const int i,
+                                                    const T max_lct) {
 
 #ifdef DBG_SEF
   if (DBG_SEF) {
@@ -1389,8 +1417,8 @@ template <typename T> T CumulativeEdgeFinding<T>::scheduleOmegaAdjustment(const 
 //
 
   auto saved_size{profile.size()};
-  auto sentinel{profile.end()};
-  --sentinel;
+  //  auto sentinel{profile.end()};
+  //  --sentinel;
 
   auto next{profile.begin()};
   overflow = 0;
@@ -1403,7 +1431,7 @@ template <typename T> T CumulativeEdgeFinding<T>::scheduleOmegaAdjustment(const 
   T h{mindemand(i)};
   isFeasible[i] = true;
 
-  while (next != sentinel) {
+  while (next->time < max_lct) {
     auto t{next};
     ++next;
 
@@ -1492,7 +1520,7 @@ template <typename T> T CumulativeEdgeFinding<T>::scheduleOmegaAdjustment(const 
   return omega_ect;
 }
 template <typename T>
-void CumulativeEdgeFinding<T>::xplain(const Literal<T> l, const hint h,
+void CumulativeEdgeFinding<T>::xplain(const Literal<T>, const hint h,
                                       std::vector<Literal<T>> &Cl) {
 
   //      assert(l != Solver<T>::Contradiction);
