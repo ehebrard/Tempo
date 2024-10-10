@@ -33,6 +33,7 @@
 #include "util/Profiler.hpp"
 #include "helpers/shell.hpp"
 #include "helpers/git_sha.hpp"
+#include "heuristics/RelaxationPolicy.hpp"
 
 using namespace tempo;
 
@@ -300,7 +301,7 @@ int main(int argc, char *argv[]) {
             for(auto bi{resource.begDisjunct()}; bi!=resource.endDisjunct(); ++bi) {
                 vars.push_back(*bi);
             }
-        RandomSubset<int> policy(S, vars, .97, lnsDecay);
+        heuristics::RandomSubset<int> policy(S, vars, .97, lnsDecay);
         
         S.largeNeighborhoodSearch(objective, policy);
     }

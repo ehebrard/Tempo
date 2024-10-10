@@ -45,13 +45,12 @@
 #include "constraints/FullTransitivity.hpp"
 #include "heuristics/heuristic_factories.hpp"
 #include "heuristics/impl/DecayingEventActivityMap.hpp"
-#include "RelaxationPolicy.hpp"
+#include "heuristics/RelaxationInterface.hpp"
 #include "util/KillHandler.hpp"
 #include "util/traits.hpp"
 #include "util/Options.hpp"
 #include "util/SubscribableEvent.hpp"
 #include "util/Profiler.hpp"
-#include "heuristics/RelaxationInterface.hpp"
 
 
 namespace tempo {

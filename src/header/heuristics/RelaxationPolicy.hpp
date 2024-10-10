@@ -26,10 +26,10 @@
 #include <filesystem>
 
 #include "Model.hpp"
-#include "heuristics/RelaxationInterface.hpp"
+#include "RelaxationInterface.hpp"
 #include "util/serialization.hpp"
 
-namespace tempo {
+namespace tempo::heuristics {
 
 //! Relaxation Policies for LNS
 template<typename T>
