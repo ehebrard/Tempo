@@ -78,7 +78,7 @@ using hint = int;
 //#define DBG_FTRANS true //m_solver.num_choicepoints >= 900
 //#define DBG_BELLMAN_FT true
 //#define DBG_EXPL_FTRANS true
-#define DBG_SEF (this->id() == 3435) //(m_solver.num_choicepoints >= 9000)
+//#define DBG_SEF (this->id() == 3435) //(m_solver.num_choicepoints >= 9000)
 //#define DBG_EXTRACT true
 //#define DBG_SPANNING true
 //#define DBG_LIST true
