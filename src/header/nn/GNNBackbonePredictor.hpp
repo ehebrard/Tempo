@@ -42,17 +42,17 @@ namespace tempo::nn {
          * @param minCertainty minimum GNN certainty [0, 1]
          * @param minFailRatio lower bound solver failure rate at which to increase relaxation ratio
          * @param maxFailRatio upper bound solver failure rate at which to decrease relaxation ratio
-         * @param confidenceUpdateFailRatio fail ratio threshold at which the GNN confidence values are updated
+         * @param exhaustionThreshold lower bound on ratio of literals at which a new region should be explored
          * @param carefulAssumptions whether to propagate after each literal
          * @param decreaseOnSuccess whether to decrease fix rate even on success
          * @param retryLimit number of retries with same relaxation ration before decreasing relaxation ratio
          * @param decayMode type of decay to apply on fail or after too many solver fails
          */
         PolicyConfig(double fixRatio, double reactivity, double minCertainty, double minFailRatio,
-                     double maxFailRatio, double confidenceUpdateFailRatio, bool carefulAssumptions,
-                     bool decreaseOnSuccess, DecayMode decayMode, unsigned int retryLimit) noexcept;
+                     double maxFailRatio, double exhaustionThreshold, bool carefulAssumptions, bool decreaseOnSuccess,
+                     DecayMode decayMode, unsigned int retryLimit) noexcept;
 
-        double fixRatio, decay, minCertainty, minFailRatio, maxFailRatio, confidenceUpdateFailRatio;
+        double fixRatio, decay, minCertainty, minFailRatio, maxFailRatio, exhaustionThreshold;
         bool carefulAssumptions, decreaseOnSuccess;
         unsigned retryLimit;
         DecayMode decayMode;
@@ -69,9 +69,9 @@ namespace tempo::nn {
     class GNNBackbonePredictor {
         GNNPrecedencePredictor<T, R> predictor;
         const Solver<T> &solver;
-        mutable tempo::util::Profiler profiler;
+        mutable tempo::util::Profiler profiler{};
         const PolicyConfig config;
-        std::vector<Literal<T>> assumptionCache;
+        std::vector<Literal<T>> assumptionCache{};
         unsigned failCount = 0;
         unsigned solverFailCount = 0;
         double fixRatio;
@@ -135,13 +135,16 @@ namespace tempo::nn {
             if (solver.getOptions().verbosity >= Options::YACKING) {
                 std::cout << config << std::endl;
             }
-
-            updateCache();
         }
 
+        /**
+         * Repair interface. Fixes a number of literals based on the current fix ratio
+         * @tparam AssumptionInterface
+         * @param s
+         */
         template<heuristics::AssumptionInterface AssumptionInterface>
-        void relax(AssumptionInterface &s) {
-            const auto numLits = numLiterals();
+        void fix(AssumptionInterface &s) {
+            const auto numLits = maxNumLiterals();
             if (numLits == 0) {
                 return;
             }
@@ -195,17 +198,16 @@ namespace tempo::nn {
                 }
             }
 
-            if (failRatio > config.confidenceUpdateFailRatio) {
-                updateCache();
-            }
-
             solverFailCount = fails;
             failCount = 0;
         }
 
+        /**
+         * Runs the GNN inference and fills the assumption cache
+         */
         void updateCache() {
             using namespace std::views;
-            if (numLiterals() == 0) {
+            if (maxNumLiterals() == 0) {
                 assumptionCache.clear();
                 return;
             }
@@ -213,7 +215,7 @@ namespace tempo::nn {
             tempo::util::ScopeWatch sw(profiler, "gnn lns policy update");
             predictor.updateConfidence(solver);
             auto lits = predictor.getLiterals();
-            auto selection = lits | filter([m = config.minCertainty](auto &tpl) { return std::get<1>(tpl) > m; }) |
+            auto selection = lits | take_while([m = config.minCertainty](auto &tpl) { return std::get<1>(tpl) > m; }) |
                              elements<0> | common;
             assumptionCache = std::vector(selection.begin(), selection.end());
             if (solver.getOptions().verbosity >= Options::YACKING) {
@@ -225,26 +227,28 @@ namespace tempo::nn {
          * Maximum number of literals the predictor will try to fix
          * @return upper bound on number of literals to fix
          */
-        auto numLiterals() const noexcept {
+        auto maxNumLiterals() const noexcept {
            return static_cast<std::size_t>(predictor.numLiterals() * fixRatio);
         }
 
         /**
-         * Whether the GNN is unable to fix any literals
-         * @return true if no literals can be fixed, false else
+         * Call this function to reset confidences and caches and rerun inference. This is useful when the gnn will be
+         * applied to a new region in the search space
          */
-        bool exhausted() const noexcept {
-            return numLiterals() == 0 or assumptionCache.empty();
+        void notifyNewRegion() {
+            failCount = 0;
+            predictor.reinitialize(solver);
+            fixRatio = config.fixRatio;
+            updateCache();
         }
 
         /**
-         * Call this function to reset confidences and caches. This is useful when the gnn will be applied to a new
-         * region in the search space
+         * Indicates whether a new region should be explored
+         * @return true if ratio of literals to fix is lower than exhaustion threshold, false otherwise
          */
-        void notifyNewRegion() noexcept {
-            failCount = 0;
-            predictor.resetConfidences();
-            fixRatio = config.fixRatio;
+        bool exhausted() const noexcept {
+            return (std::min(assumptionCache.size(), maxNumLiterals()) /
+                   static_cast<double>(predictor.numLiterals())) < config.exhaustionThreshold;
         }
 
         /**
@@ -254,7 +258,7 @@ namespace tempo::nn {
         void notifyFailure(unsigned fails) {
             if (++failCount > config.retryLimit) {
                 fixRatio *= decayFactor(calcFailRatio(fails));
-                if (numLiterals() > 0 and solver.getOptions().verbosity >= Options::YACKING) {
+                if (maxNumLiterals() > 0 and solver.getOptions().verbosity >= Options::YACKING) {
                     std::cout << std::setprecision(2) << "-- setting fix ratio = "
                               << fixRatio * 100 << "%" << std::endl;
                 }
@@ -264,7 +268,6 @@ namespace tempo::nn {
                 }
             }
 
-            updateCache();
             solverFailCount = fails;
         }
     };
