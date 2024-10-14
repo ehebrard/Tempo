@@ -8,6 +8,7 @@
 #include <iostream>
 #include <string>
 #include <thread>
+#include <algorithm>
 
 #include "../helpers/scheduling_helpers.hpp"
 #include "../helpers/cli.hpp"
@@ -15,12 +16,14 @@
 #include "../helpers/git_sha.hpp"
 #include "nn/GNNBackbonePredictor.hpp"
 #include "util/Profiler.hpp"
+#include "heuristics/DRPolicy.hpp"
 
 int main(int argc, char **argv) {
     using namespace tempo;
     std::string gnnLocation;
     std::string featureExtractorConf;
     nn::PolicyConfig config;
+    double destroyRatio = 0.9;
     unsigned numThreads = std::max(1u, std::thread::hardware_concurrency() / 2);
     auto opt = cli::parseOptions(argc, argv,
                                  cli::ArgSpec("gnn-loc", "Location of the GNN model", false, gnnLocation),
@@ -32,9 +35,12 @@ int main(int argc, char **argv) {
                                               config.minFailRatio),
                                  cli::ArgSpec("max-fail", "upper bound solver failure rate", false,
                                               config.maxFailRatio),
-                                 cli::ArgSpec("update-threshold", "failure rate threshold at which to update the GNN",
-                                              false, config.confidenceUpdateFailRatio),
-                                 cli::ArgSpec("ratio", "percentage of literals to relax", false,
+                                 cli::ArgSpec("exhaustion-threshold",
+                                              "fix rate lower threshold at which a new region should be chosen",
+                                              false, config.exhaustionThreshold),
+                                 cli::ArgSpec("destroy-ratio", "percentage of literals to relax", false,
+                                              destroyRatio),
+                                 cli::ArgSpec("fix-ratio", "percentage of literals to relax", false,
                                               config.fixRatio),
                                  cli::ArgSpec("decay", "relaxation ratio reactivity on failure", false,
                                               config.decay),
@@ -50,8 +56,15 @@ int main(int argc, char **argv) {
                                               numThreads));
     auto problemInfo = loadSchedulingProblem(opt);
     torch::set_num_threads(numThreads);
-    nn::GNNBackbonePredictor policy(*problemInfo.solver, gnnLocation, featureExtractorConf, problemInfo.instance,
-                                    config);
+    nn::GNNBackbonePredictor gnnRepair(*problemInfo.solver, gnnLocation, featureExtractorConf, problemInfo.instance,
+                                       config);
+    std::vector<BooleanVar<Time>> vars;
+    for (const auto &resConstraint : problemInfo.constraints) {
+        std::copy(resConstraint.begDisjunct(), resConstraint.endDisjunct(), std::back_inserter(vars));
+    }
+
+    heuristics::RandomSubsetDestroy destroy(*problemInfo.solver, std::move(vars), destroyRatio);
+    auto policy = heuristics::make_RD_policy(destroy, gnnRepair);
     MinimizationObjective objective(problemInfo.instance.schedule().duration);
     util::StopWatch sw;
     problemInfo.solver->largeNeighborhoodSearch(objective, policy);

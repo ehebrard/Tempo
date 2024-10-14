@@ -149,7 +149,7 @@ namespace tempo::nn {
                 return;
             }
 
-            tempo::util::ScopeWatch sw(profiler, "make relaxation");
+            tempo::util::ScopeWatch sw(profiler, "repair");
             auto assumptions = assumptionCache | std::views::take(numLits);
             if (not config.carefulAssumptions or failCount == 0) {
                 s.makeAssumptions(assumptions);
