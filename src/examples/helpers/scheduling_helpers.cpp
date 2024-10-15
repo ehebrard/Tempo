@@ -31,7 +31,7 @@ static auto parseDisjunctive(const tempo::Options &options, tempo::Solver<Time> 
         return {};
     }
 
-    auto tview = resources | std::views::transform([](auto &&r) {return Resource(std::move(r));});
+    auto tview = resources | std::views::transform([](auto &r) {return Resource(std::move(r));});
     std::vector<Resource> res(tview.begin(), tview.end());
     return {{ProblemInstance(std::move(tasks), std::move(res), std::move(precedences), schedule), optSol}};
 }
@@ -69,20 +69,28 @@ static auto parseCumulative(const tempo::Options &options, tempo::Solver<Time> &
     return {{ProblemInstance(std::move(tasks), std::move(cResources), std::move(precedences), schedule), {}}};
 }
 
-static void postDisjunctive(tempo::Solver<Time> &solver, const ProblemInstance &problem) {
+static auto postDisjunctive(tempo::Solver<Time> &solver,
+                            const ProblemInstance &problem) -> std::vector<ResourceConstraint> {
     const auto &tasks = problem.tasks();
+    std::vector<ResourceConstraint> constraints;
+    constraints.reserve(problem.resources().size());
     for (const auto &consumingTasks: problem.resources()) {
         auto constraint = tempo::NoOverlap(problem.schedule(),
                                            consumingTasks.tasks() |
                                            std::views::transform([&tasks](auto taskId) { return tasks.at(taskId); }),
                                            std::vector<std::vector<Time>>{});
         solver.post(constraint);
+        constraints.emplace_back(constraint);
     }
+
+    return constraints;
 }
 
-void postCumulative(tempo::Solver<Time> &solver, const ProblemInstance &problem) {
+static auto postCumulative(tempo::Solver<Time> &solver, const ProblemInstance &problem) -> std::vector<ResourceConstraint> {
     using namespace std::views;
     using namespace tempo;
+    std::vector<ResourceConstraint> constraints;
+    constraints.reserve(problem.resources().size());
     for (const auto &resource: problem.resources()) {
         auto capacity = solver.newConstant(resource.resourceCapacity());
         auto tView = resource.tasks() | transform([&problem](auto taskId) { return problem.tasks().at(taskId); });
@@ -99,23 +107,28 @@ void postCumulative(tempo::Solver<Time> &solver, const ProblemInstance &problem)
             demands.emplace_back(d);
         }
 
-        solver.post(Cumulative(problem.schedule(), capacity, tasks, demands));
+        auto constraint = Cumulative(problem.schedule(), capacity, tasks, demands);
+        solver.post(constraint);
+        constraints.emplace_back(constraint);
     }
+
+    return constraints;
 }
 
 auto loadSchedulingProblem(const tempo::Options &options)
--> std::tuple<SolverPtr, ProblemInstance, std::optional<int>, unsigned> {
+-> Problem {
     using namespace tempo;
     using namespace std::views;
     auto solver = std::make_unique<Solver<>>(options);
     const auto schedule{solver->newInterval(0, Constant::Infinity<Time>, 0, 0, 0, Constant::Infinity<Time>)};
     auto res = parseDisjunctive(options, *solver, schedule);
+    std::vector<ResourceConstraint> constraints;
     if (res.has_value()) {
         auto &[problem, optSol] = *res;
-        postDisjunctive(*solver, problem);
+        constraints = postDisjunctive(*solver, problem);
     } else if ((res = parseCumulative(options, *solver, schedule)).has_value()) {
         auto [problem, _] = *res;
-        postCumulative(*solver, problem);
+        constraints = postCumulative(*solver, problem);
     } else {
         std::cerr << "problem type " << options.input_format << " is not (yet) supported" << std::endl;
         std::exit(1);
@@ -136,7 +149,8 @@ auto loadSchedulingProblem(const tempo::Options &options)
     trivialUb = std::min(trivialUb, options.ub);
     solver->set(schedule.end.before(trivialUb));
     auto numTasks = static_cast<unsigned>(problem.tasks().size());
-    return {std::move(solver), std::move(problem), optSol, numTasks};
+    return {.solver = std::move(solver), .instance = std::move(problem), .constraints = std::move(
+            constraints), .optimalSolution = optSol, .numTasks = numTasks};
 }
 
 void loadBranch(tempo::Solver<int> &solver, const tempo::serialization::Branch &branch) {

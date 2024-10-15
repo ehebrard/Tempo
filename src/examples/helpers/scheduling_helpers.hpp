@@ -85,11 +85,49 @@ public:
     }
 };
 
+template<typename E>
+concept resource_expression = tempo::concepts::ttyped_range<E, tempo::Interval> and
+requires(E expression) {
+    { *expression.begDisjunct() } -> tempo::concepts::same_template<tempo::BooleanVar>;
+    { *expression.endDisjunct() } -> tempo::concepts::same_template<tempo::BooleanVar>;
+};
+
+template<resource_expression ...E>
+class VariantResourceConstraint : public std::variant<E...> {
+    using std::variant<E...>::variant;
+    constexpr auto begin() const noexcept {
+        return std::visit([](const auto &e) { return e.begin(); }, *this);
+    }
+
+    constexpr auto end() const noexcept {
+        return std::visit([](const auto &e) { return e.end(); }, *this);
+    }
+
+    constexpr auto beginDisjunctive() const noexcept {
+        return std::visit([](const auto &e) { return e.begDisjunctive(); }, *this);
+    }
+
+    constexpr auto endDisjunctive() const noexcept {
+        return std::visit([](const auto &e) { return e.endDisjunctive(); }, *this);
+    }
+};
+
+
 using Time = int;
 using ResourceUnit = int;
 using Resource = VariantResource<DisjunctiveResource, CumulativeResource<ResourceUnit>>;
+using ResourceConstraint = VariantResourceConstraint<tempo::NoOverlapExpression<Time>,
+                                                     tempo::CumulativeExpression<Time>>;
 using SolverPtr = std::unique_ptr<tempo::Solver<Time>>;
 using ProblemInstance = tempo::SchedulingProblemHelper<Time, Resource>;
+
+struct Problem {
+    SolverPtr solver;
+    ProblemInstance instance;
+    std::vector<ResourceConstraint> constraints;
+    std::optional<Time> optimalSolution;
+    unsigned numTasks;
+};
 
 /**
  * loads a problem instance and instantiates the solver using the given options
@@ -97,8 +135,7 @@ using ProblemInstance = tempo::SchedulingProblemHelper<Time, Resource>;
  * @return ready to run scheduler (with default heuristics) and problem scheduling problem instance struct,
  * optionally the optimal solution and the number of tasks
  */
-auto loadSchedulingProblem(
-        const tempo::Options &options) -> std::tuple<SolverPtr, ProblemInstance, std::optional<int>, unsigned>;
+auto loadSchedulingProblem(const tempo::Options &options) -> Problem;
 
 
 /**
