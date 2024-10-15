@@ -47,7 +47,7 @@ enum class PredictorType {
     GNN, Tightest
 };
 
-using GNNPredictor = tempo::nn::GNNPrecedencePredictor<int, DisjunctiveResource<int>>;
+using GNNPredictor = tempo::nn::GNNPrecedencePredictor<int, Resource>;
 using TightestPredictor = tempo::heuristics::TightestPrecedencePredictor<int>;
 
 using Predictor = std::variant<TightestPredictor, GNNPredictor>;
@@ -71,12 +71,13 @@ int main(int argc, char **argv) {
                                               numberOfIterations),
                                  cli::ArgSpec("predictor-type", "predictor type to use", false, pType));
     const PredictorType predictorType{pType};
-    auto [solver, problem, optSol, _] = loadSchedulingProblem(opt);
-    auto schedule = problem.schedule();
-    auto literals = problem.getSearchLiterals(*solver);
+    auto problemInfo = loadSchedulingProblem(opt);
+    auto schedule = problemInfo.instance.schedule();
+    auto literals = problemInfo.instance.getSearchLiterals(*problemInfo.solver);
     std::optional<Predictor> predictor;
     if (predictorType == PredictorType::GNN) {
-        predictor.emplace(std::in_place_type<GNNPredictor>, gnnLocation, featureExtractorConf, problem, std::move(literals));
+        predictor.emplace(std::in_place_type<GNNPredictor>, gnnLocation, featureExtractorConf, problemInfo.instance,
+                          std::move(literals));
     } else if (predictorType == PredictorType::Tightest) {
         predictor.emplace(std::in_place_type<TightestPredictor>, std::move(literals));
     } else {
@@ -88,7 +89,7 @@ int main(int argc, char **argv) {
     if (numberOfIterations > 0 and numLiterals > 0) {
         auto o = opt;
         o.verbosity = Options::SILENT;
-        auto [s, p, _1, _2] = loadSchedulingProblem(o);
+        auto [s, p, _, _1, _2] = loadSchedulingProblem(o);
         s->setBranchingHeuristic(heuristics::make_compound_heuristic(heuristics::RandomVariableSelection{},
                                                                      heuristics::RandomBinaryValue{}));
         s->PropagationCompleted.subscribe_unhandled(
@@ -106,19 +107,19 @@ int main(int argc, char **argv) {
 
         using namespace std::views;
         auto allLits = std::visit([](const auto &pred) { return pred.getLiterals(); }, *predictor);
-        setLiterals(*solver,
+        setLiterals(*problemInfo.solver,
                     allLits |
                     filter([confidenceThresh](const auto &tpl) { return std::get<1>(tpl) > confidenceThresh; }) |
                     take(numLiterals) | elements<0>);
     }
 
-    solver->minimize(schedule.duration);
+    problemInfo.solver->minimize(schedule.duration);
     auto [start, end] = sw.getTiming();
-    if (solver->numeric.hasSolution()) {
-        auto makespan = solver->numeric.lower(schedule.duration);
+    if (problemInfo.solver->numeric.hasSolution()) {
+        auto makespan = problemInfo.solver->numeric.lower(schedule.duration);
         std::cout << "-- makespan " << makespan << std::endl;
-        if (optSol.has_value() and makespan > *optSol) {
-            std::cout << "-- suboptimal solution! Optimum is " << *optSol << std::endl;
+        if (problemInfo.optimalSolution.has_value() and makespan > *problemInfo.optimalSolution) {
+            std::cout << "-- suboptimal solution! Optimum is " << *problemInfo.optimalSolution << std::endl;
         }
     }
 

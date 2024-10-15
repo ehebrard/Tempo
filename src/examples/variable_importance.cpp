@@ -28,9 +28,9 @@ class EdgeMapper {
 
 public:
     explicit EdgeMapper(const tempo::Options &options) {
-        std::optional<Time> _;
-        unsigned _1;
-        std::tie(solver, problem, _, _1) = loadSchedulingProblem(options);
+        auto res = loadSchedulingProblem(options);
+        solver = std::move(res.solver);
+        problem = std::move(res.instance);
     }
 
     [[nodiscard]] auto getTaskEdge(tempo::Literal<Time> lit) const {

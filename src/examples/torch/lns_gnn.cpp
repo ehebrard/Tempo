@@ -48,18 +48,19 @@ int main(int argc, char **argv) {
                                               config.decayMode),
                                  cli::ArgSpec("threads", "GNN inference threads", false,
                                               numThreads));
-    auto [solver, problem, optSol, _] = loadSchedulingProblem(opt);
+    auto problemInfo = loadSchedulingProblem(opt);
     torch::set_num_threads(numThreads);
-    nn::GNNBackbonePredictor policy(*solver, gnnLocation, featureExtractorConf, problem, config);
-    MinimizationObjective objective(problem.schedule().duration);
+    nn::GNNBackbonePredictor policy(*problemInfo.solver, gnnLocation, featureExtractorConf, problemInfo.instance,
+                                    config);
+    MinimizationObjective objective(problemInfo.instance.schedule().duration);
     util::StopWatch sw;
-    solver->largeNeighborhoodSearch(objective, policy);
+    problemInfo.solver->largeNeighborhoodSearch(objective, policy);
     auto [start, end] = sw.getTiming();
-    if (solver->numeric.hasSolution()) {
-        auto makespan = solver->numeric.lower(problem.schedule().duration);
+    if (problemInfo.solver->numeric.hasSolution()) {
+        auto makespan = problemInfo.solver->numeric.lower(problemInfo.instance.schedule().duration);
         std::cout << "-- makespan " << makespan << std::endl;
-        if (optSol.has_value() and makespan > *optSol) {
-            std::cout << "-- suboptimal solution! Optimum is " << *optSol << std::endl;
+        if (problemInfo.optimalSolution.has_value() and makespan > *problemInfo.optimalSolution) {
+            std::cout << "-- suboptimal solution! Optimum is " << *problemInfo.optimalSolution << std::endl;
         }
     }
 
