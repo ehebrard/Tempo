@@ -24,6 +24,7 @@ int main(int argc, char **argv) {
     std::string featureExtractorConf;
     nn::PolicyConfig config;
     double destroyRatio = 0.9;
+    double sporadicIncrement = 0.001;
     unsigned numThreads = std::max(1u, std::thread::hardware_concurrency() / 2);
     auto opt = cli::parseOptions(argc, argv,
                                  cli::ArgSpec("gnn-loc", "Location of the GNN model", false, gnnLocation),
@@ -40,6 +41,8 @@ int main(int argc, char **argv) {
                                               false, config.exhaustionThreshold),
                                  cli::ArgSpec("destroy-ratio", "percentage of literals to relax", false,
                                               destroyRatio),
+                                 cli::ArgSpec("sporadic-increment", "probability increment on fail for root search",
+                                              false, sporadicIncrement),
                                  cli::ArgSpec("fix-ratio", "percentage of literals to relax", false,
                                               config.fixRatio),
                                  cli::ArgSpec("decay", "relaxation ratio reactivity on failure", false,
@@ -64,7 +67,8 @@ int main(int argc, char **argv) {
     }
 
     heuristics::RandomSubsetDestroy destroy(*problemInfo.solver, std::move(vars), destroyRatio);
-    auto policy = heuristics::make_RD_policy(destroy, gnnRepair);
+    auto policy = heuristics::make_sporadic_root_search(sporadicIncrement,
+                                                        heuristics::make_RD_policy(destroy, gnnRepair), opt.verbosity);
     MinimizationObjective objective(problemInfo.instance.schedule().duration);
     util::StopWatch sw;
     problemInfo.solver->largeNeighborhoodSearch(objective, policy);

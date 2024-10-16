@@ -25,6 +25,7 @@
 #include <ranges>
 #include <filesystem>
 
+#include "Global.hpp"
 #include "Model.hpp"
 #include "RelaxationInterface.hpp"
 #include "util/serialization.hpp"
@@ -132,6 +133,89 @@ void RandomSubset<T>::relax(heuristics::AssumptionProxy<T> &s) {
   fixed.resize(n);
 
   s.makeAssumptions(fixed);
+}
+
+/**
+ * @brief Relaxation policy wrapper that randomly triggers a search without relaxation
+ * @details @copybrief
+ * The root search is triggered with a probability that increases on failed relaxation runs
+ * @tparam P base relaxation policy type
+ */
+template<relaxation_policy P>
+class SporadicRootSearch {
+    static constexpr auto Resolution = 100000;
+    P basePolicy;
+    double rootSearchProbability = 0;
+    double probabilityIncrement;
+    int verbosity;
+public:
+    /**
+     * Ctor
+     * @tparam Pol base relaxation policy type
+     * @param probabilityIncrement increment to apply to the relaxation probability on failed relaxation
+     * @param policy base relaxation policy
+     * @param verbosity logging verbosity
+     */
+    template<relaxation_policy Pol>
+    SporadicRootSearch(double probabilityIncrement, Pol &&policy, int verbosity = Options::NORMAL) :
+            basePolicy(std::forward<Pol>(policy)), probabilityIncrement(probabilityIncrement), verbosity(verbosity) {
+        if (probabilityIncrement > 1 or probabilityIncrement < 0) {
+            throw std::runtime_error("invalid probability increment");
+        }
+    }
+
+    /**
+     * relaxation policy interface
+     * @tparam AI assumption interface type
+     * @param s solver proxy
+     */
+    template<assumption_interface AI>
+    void relax(AI &s) {
+        if (verbosity >= Options::YACKING) {
+            std::cout << "-- sporadic probability " << std::setprecision(2) << rootSearchProbability * 100 << "%"
+                      << std::endl;
+        }
+        const bool root = random() % Resolution < static_cast<unsigned long>(rootSearchProbability * Resolution);
+        if (root) {
+            if (verbosity >= Options::YACKING) {
+                std::cout << "-- root search" << std::endl;
+            }
+            return;
+        }
+
+        basePolicy.relax(s);
+    }
+
+    /**
+     * Notifies the underlying policy of a failure and increments the root search probability
+     * @param numFailures current number of failures of the solver
+     */
+    void notifyFailure(unsigned numFailures) {
+        rootSearchProbability += probabilityIncrement;
+        basePolicy.notifyFailure(numFailures);
+    }
+
+    /**
+     * Notifies the underlying policy of a successful relaxation and resets the root search probability to 0
+     * @param numFailures current number of failures of the solver
+     */
+    void notifySuccess(unsigned numFailures) {
+        rootSearchProbability = 0;
+        basePolicy.notifySuccess(numFailures);
+    }
+};
+
+/**
+ * Helper method for constructing sporadic root search policies facilitating template argument deduction
+ * @tparam P relaxation policy type
+ * @param rootProbabilityIncrement increment to apply to the relaxation probability on failed relaxation
+ * @param policy base relaxation policy
+ * @param verbosity logging verbosity
+ * @return constructed SporadicRootSearch policy
+ */
+template<relaxation_policy P>
+auto make_sporadic_root_search(double rootProbabilityIncrement, P &&policy, int verbosity = Options::NORMAL) {
+    return SporadicRootSearch<P>(rootProbabilityIncrement, std::forward<P>(policy), verbosity);
 }
 
 /**
