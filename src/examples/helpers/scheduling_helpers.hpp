@@ -93,7 +93,7 @@ requires(E expression) {
 };
 
 template<resource_expression ...E>
-class VariantResourceConstraint : public std::variant<E...> {
+struct VariantResourceConstraint : public std::variant<E...> {
     using std::variant<E...>::variant;
     constexpr auto begin() const noexcept {
         return std::visit([](const auto &e) { return e.begin(); }, *this);
@@ -103,12 +103,12 @@ class VariantResourceConstraint : public std::variant<E...> {
         return std::visit([](const auto &e) { return e.end(); }, *this);
     }
 
-    constexpr auto beginDisjunctive() const noexcept {
-        return std::visit([](const auto &e) { return e.begDisjunctive(); }, *this);
+    constexpr auto begDisjunct() const noexcept {
+        return std::visit([](const auto &e) { return e.begDisjunct(); }, *this);
     }
 
-    constexpr auto endDisjunctive() const noexcept {
-        return std::visit([](const auto &e) { return e.endDisjunctive(); }, *this);
+    constexpr auto endDisjunct() const noexcept {
+        return std::visit([](const auto &e) { return e.endDisjunct(); }, *this);
     }
 };
 

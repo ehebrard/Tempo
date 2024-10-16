@@ -1659,7 +1659,13 @@ public:
   std::vector<BooleanVar<T>>::iterator begDisjunct() {
     return disjunct.begin();
   }
+
+  std::vector<BooleanVar<T>>::const_iterator begDisjunct() const {
+    return disjunct.begin();
+  }
+
   std::vector<BooleanVar<T>>::iterator endDisjunct() { return disjunct.end(); }
+  std::vector<BooleanVar<T>>::const_iterator endDisjunct() const { return disjunct.end(); }
 
 private:
   Interval<T> schedule;
@@ -1673,7 +1679,7 @@ template <typename T> class NoOverlapExpression : public BooleanVar<T> {
 public:
   NoOverlapExpression(NoOverlapExpressionImpl<T> *i) : BooleanVar<T>(i) {}
 
-    size_t size() {
+    [[nodiscard]] size_t size() const {
       return static_cast<NoOverlapExpressionImpl<T> *>(BooleanVar<T>::implem)
           ->size();
     }
@@ -1682,18 +1688,36 @@ public:
     return static_cast<NoOverlapExpressionImpl<T> *>(BooleanVar<T>::implem)
         ->begin();
   }
+
+  std::vector<Interval<T>>::const_iterator begin() const {
+    return const_cast<NoOverlapExpression*>(this)->begin();
+  }
+
   std::vector<Interval<T>>::iterator end() {
     return static_cast<NoOverlapExpressionImpl<T> *>(BooleanVar<T>::implem)
         ->end();
   }
 
+    std::vector<Interval<T>>::const_iterator end() const {
+        return const_cast<NoOverlapExpression*>(this)->end();
+    }
+
   std::vector<BooleanVar<T>>::iterator begDisjunct() {
     return static_cast<NoOverlapExpressionImpl<T> *>(BooleanVar<T>::implem)
         ->begDisjunct();
   }
+
+  std::vector<BooleanVar<T>>::const_iterator begDisjunct() const {
+    return const_cast<NoOverlapExpression *>(this)->begDisjunct();
+  }
+
   std::vector<BooleanVar<T>>::iterator endDisjunct() {
     return static_cast<NoOverlapExpressionImpl<T> *>(BooleanVar<T>::implem)
         ->endDisjunct();
+  }
+
+  std::vector<BooleanVar<T>>::const_iterator endDisjunct() const {
+    return const_cast<NoOverlapExpression *>(this)->endDisjunct();
   }
 
   void provide(const Interval<T> &i) {
@@ -1838,10 +1862,18 @@ public:
   std::vector<BooleanVar<T>>::iterator begDisjunct() {
     return disjunct.begin();
   }
+
+  std::vector<BooleanVar<T>>::const_iterator begDisjunct() const {
+    return disjunct.begin();
+  }
+
   std::vector<BooleanVar<T>>::iterator endDisjunct() { return disjunct.end(); }
+  std::vector<BooleanVar<T>>::const_iterator endDisjunct() const { return disjunct.end(); }
 
   std::vector<NumericVar<T>>::iterator begDemand() { return demand.begin(); }
+  std::vector<NumericVar<T>>::const_iterator begDemand() const { return demand.begin(); }
   std::vector<NumericVar<T>>::iterator endDemand() { return demand.end(); }
+  std::vector<NumericVar<T>>::const_iterator endDemand() const { return demand.end(); }
 
 private:
   Interval<T> schedule;
@@ -1860,27 +1892,54 @@ public:
     return static_cast<CumulativeExpressionImpl<T> *>(BooleanVar<T>::implem)
         ->begin();
   }
+
+  std::vector<Interval<T>>::const_iterator begin() const {
+    return const_cast<CumulativeExpression*>(this)->begin();
+  }
+
   std::vector<Interval<T>>::iterator end() {
     return static_cast<CumulativeExpressionImpl<T> *>(BooleanVar<T>::implem)
         ->end();
+  }
+
+  std::vector<Interval<T>>::const_iterator end() const {
+    return const_cast<CumulativeExpression*>(this)->end();
   }
 
   std::vector<BooleanVar<T>>::iterator begDisjunct() {
     return static_cast<CumulativeExpressionImpl<T> *>(BooleanVar<T>::implem)
         ->begDisjunct();
   }
+
+  std::vector<BooleanVar<T>>::const_iterator begDisjunct() const {
+    return const_cast<CumulativeExpression*>(this)->begDisjunct();
+  }
+
   std::vector<BooleanVar<T>>::iterator endDisjunct() {
     return static_cast<CumulativeExpressionImpl<T> *>(BooleanVar<T>::implem)
         ->endDisjunct();
+  }
+
+  std::vector<BooleanVar<T>>::const_iterator endDisjunct() const {
+    return const_cast<CumulativeExpression*>(this)->endDisjunct();
   }
 
   std::vector<BooleanVar<T>>::iterator begDemand() {
     return static_cast<CumulativeExpressionImpl<T> *>(BooleanVar<T>::implem)
         ->begDemand();
   }
+
+  std::vector<BooleanVar<T>>::const_iterator begDemand() const {
+    const_cast<CumulativeExpression*>(this)->begDemand();
+  }
+
   std::vector<BooleanVar<T>>::iterator endDemand() {
     return static_cast<CumulativeExpressionImpl<T> *>(BooleanVar<T>::implem)
         ->endDemand();
+  }
+
+  std::vector<BooleanVar<T>>::const_iterator endDemand() const {
+    const_cast<CumulativeExpression*>(this)->endDemand();
   }
 
       void provide(const NumericVar<T> d, const Interval<T> i) {
