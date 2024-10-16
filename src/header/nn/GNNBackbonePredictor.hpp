@@ -142,7 +142,7 @@ namespace tempo::nn {
          * @tparam AssumptionInterface
          * @param s
          */
-        template<heuristics::AssumptionInterface AssumptionInterface>
+        template<heuristics::assumption_interface AssumptionInterface>
         void fix(AssumptionInterface &s) {
             const auto numLits = maxNumLiterals();
             if (numLits == 0) {

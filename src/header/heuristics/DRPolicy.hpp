@@ -90,7 +90,7 @@ namespace tempo::heuristics {
          * @tparam AI assumption interface
          * @param s solver proxy
          */
-        template<AssumptionInterface AI>
+        template<assumption_interface AI>
         void relax(AI &s) {
             if (repair.exhausted()) {
                 destroy.requestNewRegion();
@@ -156,7 +156,7 @@ namespace tempo::heuristics {
          * @tparam AI assumption interface
          * @param proxy solver proxy
          */
-        template<AssumptionInterface AI>
+        template<assumption_interface AI>
         void relax(AI &proxy) {
             if (this->fixed.empty()) {
                 static_cast<RandomSubset<T>&>(*this).relax(proxy);

@@ -623,7 +623,7 @@ public:
     
     template <typename S> void optimize(S &objective);
     
-    template <typename S, heuristics::RelaxationPolicy<T> P>
+    template <typename S, heuristics::relaxation_policy P>
     void largeNeighborhoodSearch(S &objective, P &&relaxationPolicy);
     
     boolean_state satisfiable();
@@ -2882,7 +2882,7 @@ void Solver<T>::optimize(S &objective) {
 }
 
 template <typename T>
-template <typename S, heuristics::RelaxationPolicy<T> P>
+template <typename S, heuristics::relaxation_policy P>
 void Solver<T>::largeNeighborhoodSearch(S &objective, P &&relaxationPolicy) {
     objective.X.extract(*this);
     objective_var = objective.X.id();

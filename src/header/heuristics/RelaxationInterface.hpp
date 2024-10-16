@@ -268,7 +268,7 @@ namespace tempo::heuristics {
      * @tparam I interface type
      */
     template<typename I>
-    concept AssumptionInterface = requires(I interface, Literal<int> l, std::vector<Literal<int>> lits) {
+    concept assumption_interface = requires(I interface, Literal<int> l, std::vector<Literal<int>> lits) {
         interface.reset();
         { interface.makeAssumptions(lits) } -> std::convertible_to<bool>;
         { interface.tryMakeAssumption(l) } -> std::convertible_to<bool>;
@@ -280,8 +280,8 @@ namespace tempo::heuristics {
      * @tparam P policy type
      * @tparam T timing type
      */
-    template<typename P, typename T>
-    concept RelaxationPolicy = requires(P policy, AssumptionProxy<T> interface, unsigned fails) {
+    template<typename P>
+    concept relaxation_policy = requires(P policy, AssumptionProxy<int> interface, unsigned fails) {
         policy.relax(interface);
         policy.notifySuccess(fails);
         policy.notifyFailure(fails);
