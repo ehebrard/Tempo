@@ -23,12 +23,14 @@
 
 #include <vector>
 #include <ranges>
+#include <variant>
 #include <filesystem>
 
 #include "Global.hpp"
 #include "Model.hpp"
 #include "RelaxationInterface.hpp"
 #include "util/serialization.hpp"
+#include "util/factory_pattern.hpp"
 
 namespace tempo::heuristics {
 
@@ -267,6 +269,20 @@ public:
 
     void notifyFailure(unsigned) const noexcept {}
     void notifySuccess(unsigned) const noexcept {}
+};
+
+
+template<relaxation_policy ...R>
+struct VariantPolicy : public std::variant<R...> {
+    using std::variant<R...>::variant;
+
+    template<assumption_interface AI>
+    DYNAMIC_DISPATCH(relax, AI& proxy, &, proxy, EMPTY)
+
+    DYNAMIC_DISPATCH(notifyFailure, unsigned numFail, =, numFail, EMPTY)
+
+    DYNAMIC_DISPATCH(notifySuccess, unsigned numFail, =, numFail, EMPTY)
+
 };
 
 } // namespace tempo
