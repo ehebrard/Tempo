@@ -18,6 +18,7 @@
 #include "util/Options.hpp"
 #include "util/SchedulingProblemHelper.hpp"
 #include "util/serialization.hpp"
+#include "util/factory_pattern.hpp"
 #include "Model.hpp"
 
 /**
@@ -72,37 +73,25 @@ template<tempo::SchedulingResource ...Rs>
 class VariantResource : public std::variant<Rs...> {
 public:
     using std::variant<Rs...>::variant;
-    [[nodiscard]] constexpr decltype(auto) tasks() const {
-        return std::visit([](const auto &r) -> decltype(auto) { return r.tasks(); }, *this);
-    }
 
-    [[nodiscard]] constexpr auto resourceCapacity() const {
-        return std::visit([](const auto &r) { return r.resourceCapacity(); }, *this);
-    }
+    [[nodiscard]] DYNAMIC_DISPATCH_VOID(tasks, const)
 
-    [[nodiscard]] constexpr auto getDemand(unsigned taskIndex) const {
-        return std::visit([taskIndex](const auto &r) { return r.getDemand(taskIndex); }, *this);
-    }
+    [[nodiscard]] DYNAMIC_DISPATCH_VOID(resourceCapacity, const)
+
+    [[nodiscard]] DYNAMIC_DISPATCH(getDemand, unsigned index, =, index, const)
 };
 
 template<tempo::resource_expression ...E>
 struct VariantResourceConstraint : public std::variant<E...> {
     using std::variant<E...>::variant;
-    constexpr auto begin() const noexcept {
-        return std::visit([](const auto &e) { return e.begin(); }, *this);
-    }
 
-    constexpr auto end() const noexcept {
-        return std::visit([](const auto &e) { return e.end(); }, *this);
-    }
+    [[nodiscard]] DYNAMIC_DISPATCH_VOID(begin, const)
 
-    constexpr auto begDisjunct() const noexcept {
-        return std::visit([](const auto &e) { return e.begDisjunct(); }, *this);
-    }
+    [[nodiscard]] DYNAMIC_DISPATCH_VOID(end, const)
 
-    constexpr auto endDisjunct() const noexcept {
-        return std::visit([](const auto &e) { return e.endDisjunct(); }, *this);
-    }
+    [[nodiscard]] DYNAMIC_DISPATCH_VOID(begDisjunct, const)
+
+    [[nodiscard]] DYNAMIC_DISPATCH_VOID(endDisjunct, const)
 };
 
 
