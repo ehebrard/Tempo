@@ -32,27 +32,15 @@
 
 namespace tempo::heuristics {
 
-//! Relaxation Policies for LNS
-template<typename T>
-class BaseRelaxationPolicy {
-public:
-    virtual void relax(heuristics::AssumptionProxy<T> &solver) = 0;
-    virtual void notifySuccess(unsigned) {}
-    virtual void notifyFailure(unsigned) {}
-
-    BaseRelaxationPolicy() = default;
-    virtual ~BaseRelaxationPolicy() = default;
-    BaseRelaxationPolicy(BaseRelaxationPolicy &&) = default;
-    BaseRelaxationPolicy &operator=(BaseRelaxationPolicy &&) = default;
-};
-
-
 
 template<typename T>
-class RelaxRandomDisjunctiveResource : public BaseRelaxationPolicy<T> {
+class RelaxRandomDisjunctiveResource {
 public:
     RelaxRandomDisjunctiveResource(Solver<T>& solver, std::vector<NoOverlapExpression<T>>& resources) : solver(solver), resources(resources) {}
-    void relax(heuristics::AssumptionProxy<T> &s) override;
+    template<assumption_interface AI>
+    void relax(AI &s);
+    void notifyFailure(unsigned ) noexcept {}
+    void notifySuccess(unsigned ) noexcept {}
 
 private:
     Solver<T>& solver;
@@ -61,7 +49,8 @@ private:
 
 
 template<typename T>
-void RelaxRandomDisjunctiveResource<T>::relax(heuristics::AssumptionProxy<T> &s) {
+template<assumption_interface AI>
+void RelaxRandomDisjunctiveResource<T>::relax(AI &s) {
     int r{static_cast<int>(random() % resources.size())};
 
     std::cout << "relax resource " << r << "/" << resources.size() << std::endl;
@@ -79,10 +68,15 @@ void RelaxRandomDisjunctiveResource<T>::relax(heuristics::AssumptionProxy<T> &s)
 
 
 template<typename T>
-class FixRandomDisjunctiveResource : public BaseRelaxationPolicy<T> {
+class FixRandomDisjunctiveResource {
 public:
-    FixRandomDisjunctiveResource(Solver<T>& solver, std::vector<NoOverlapExpression<T>>& resources) : solver(solver), resources(resources) {}
-    void relax(heuristics::AssumptionProxy<T> &s) override;
+    FixRandomDisjunctiveResource(Solver<T> &solver, std::vector<NoOverlapExpression<T>> resources) :
+            solver(solver), resources(std::move(resources)) {}
+    void notifyFailure(unsigned ) noexcept {}
+    void notifySuccess(unsigned ) noexcept {}
+
+    template<assumption_interface AI>
+    void relax(AI &s);
     
 private:
     Solver<T>& solver;
@@ -91,18 +85,22 @@ private:
 
 
 template<typename T>
-void FixRandomDisjunctiveResource<T>::relax(heuristics::AssumptionProxy<T> &s) {
+template<assumption_interface AI>
+void FixRandomDisjunctiveResource<T>::relax(AI &s) {
     int r{static_cast<int>(random() % resources.size())};
     s.makeAssumptions(std::ranges::subrange(resources[r].begDisjunct(), resources[r].endDisjunct()));
 }
 
-template <typename T> class RandomSubset : public BaseRelaxationPolicy<T> {
+template <typename T> class RandomSubset {
 public:
   RandomSubset(Solver<T> &solver, std::vector<BooleanVar<T>> vars,
             double ratio, double decay)
       : solver(solver), vars(std::move(vars)), ratio(1.0 - ratio), decay(decay) {}
-  void relax(heuristics::AssumptionProxy<T> &s) override;
-  void notifyFailure(unsigned) override;
+
+  template<assumption_interface AI>
+  void relax(AI &s);
+  void notifyFailure(unsigned ) noexcept;
+  void notifySuccess(unsigned ) noexcept {}
 
 protected:
   Solver<T> &solver;
@@ -114,12 +112,13 @@ protected:
 };
 
 template<typename T>
-void RandomSubset<T>::notifyFailure(unsigned) {
+void RandomSubset<T>::notifyFailure(unsigned) noexcept {
     ratio *= decay;
 }
 
 template <typename T>
-void RandomSubset<T>::relax(heuristics::AssumptionProxy<T> &s) {
+template<assumption_interface AI>
+void RandomSubset<T>::relax(AI &s) {
   fixed.clear();
   for (auto x : vars) {
     fixed.push_back(x == solver.boolean.value(x));
