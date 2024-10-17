@@ -67,10 +67,10 @@ void RelaxRandomDisjunctiveResource<T>::relax(AI &s) {
 }
 
 
-template<typename T>
+template<concepts::scalar T, resource_expression R>
 class FixRandomDisjunctiveResource {
 public:
-    FixRandomDisjunctiveResource(const Solver<T> &solver, std::vector<NoOverlapExpression<T>> resources) :
+    FixRandomDisjunctiveResource(const Solver<T> &solver, std::vector<R> resources) :
             solver(solver), resources(std::move(resources)) {}
     void notifyFailure(unsigned ) noexcept {}
     void notifySuccess(unsigned ) noexcept {}
@@ -80,13 +80,13 @@ public:
     
 private:
     const Solver<T>& solver;
-    std::vector<NoOverlapExpression<T>>& resources;
+    std::vector<R> resources;
 };
 
 
-template<typename T>
+template<concepts::scalar T, resource_expression R>
 template<assumption_interface AI>
-void FixRandomDisjunctiveResource<T>::relax(AI &s) {
+void FixRandomDisjunctiveResource<T, R>::relax(AI &s) {
     int r{static_cast<int>(random() % resources.size())};
     auto assumptions = std::ranges::subrange(resources[r].begDisjunct(), resources[r].endDisjunct()) |
                        std::views::transform([this](const auto &var) { return var == solver.boolean.value(var); });
