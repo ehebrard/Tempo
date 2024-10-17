@@ -85,14 +85,7 @@ public:
     }
 };
 
-template<typename E>
-concept resource_expression = tempo::concepts::ttyped_range<E, tempo::Interval> and
-requires(E expression) {
-    { *expression.begDisjunct() } -> tempo::concepts::same_template<tempo::BooleanVar>;
-    { *expression.endDisjunct() } -> tempo::concepts::same_template<tempo::BooleanVar>;
-};
-
-template<resource_expression ...E>
+template<tempo::resource_expression ...E>
 struct VariantResourceConstraint : public std::variant<E...> {
     using std::variant<E...>::variant;
     constexpr auto begin() const noexcept {

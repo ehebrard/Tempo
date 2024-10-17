@@ -1967,6 +1967,17 @@ CumulativeExpression<T> Cumulative(const Interval<T> &s, const NumericVar<T> c,
   return exp;
 }
 
+/**
+ * @brief concept for different resource expressions (NoOverlapExpression, CumulativeExpression, ...)
+ * @tparam E expression type
+ */
+template<typename E>
+concept resource_expression = tempo::concepts::ttyped_range<E, tempo::Interval> and requires(E expression) {
+    { *expression.begDisjunct() } -> tempo::concepts::same_template<tempo::BooleanVar>;
+    { *expression.endDisjunct() } -> tempo::concepts::same_template<tempo::BooleanVar>;
+};
+
+
 /*!
  NumericVar  impl
 */
