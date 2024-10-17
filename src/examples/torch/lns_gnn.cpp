@@ -17,13 +17,48 @@
 #include "nn/GNNBackbonePredictor.hpp"
 #include "util/Profiler.hpp"
 #include "heuristics/DRPolicy.hpp"
+#include "util/enum.hpp"
+
+namespace h = tempo::heuristics;
+
+PENUM(DestroyType, RandomSubset, RandomResource)
+
+struct DestroyParameters {
+    double destroyRatio;
+};
+
+using RelaxationPolicy = h::VariantPolicy<h::RandomSubset<Time>,
+        h::FixRandomDisjunctiveResource<Time, ResourceConstraint>>;
+
+auto create(DestroyType type, const Problem &problem,
+            const DestroyParameters &params) -> h::GenericDestroyPolicy<Time, RelaxationPolicy> {
+    switch (type) {
+        case DestroyType::RandomSubset: {
+            std::vector<tempo::BooleanVar<Time>> vars;
+            for (const auto &resConstraint: problem.constraints) {
+                std::copy(resConstraint.begDisjunct(), resConstraint.endDisjunct(), std::back_inserter(vars));
+            }
+
+            return h::RandomSubset<Time>(*problem.solver, std::move(vars), params.destroyRatio, 1);
+        }
+
+        case DestroyType::RandomResource:
+            return h::FixRandomDisjunctiveResource(*problem.solver, problem.constraints);
+
+        default:
+            throw std::runtime_error("unknown destroy policy");
+
+    }
+}
+
 
 int main(int argc, char **argv) {
     using namespace tempo;
     std::string gnnLocation;
     std::string featureExtractorConf;
     nn::PolicyConfig config;
-    double destroyRatio = 0.9;
+    DestroyParameters destroyParameters;
+    DestroyType destroyType;
     double sporadicIncrement = 0.001;
     unsigned numThreads = std::max(1u, std::thread::hardware_concurrency() / 2);
     auto opt = cli::parseOptions(argc, argv,
@@ -40,7 +75,7 @@ int main(int argc, char **argv) {
                                               "fix rate lower threshold at which a new region should be chosen",
                                               false, config.exhaustionThreshold),
                                  cli::ArgSpec("destroy-ratio", "percentage of literals to relax", false,
-                                              destroyRatio),
+                                              destroyParameters.destroyRatio, 0.9),
                                  cli::ArgSpec("sporadic-increment", "probability increment on fail for root search",
                                               false, sporadicIncrement),
                                  cli::ArgSpec("fix-ratio", "percentage of literals to relax", false,
@@ -48,26 +83,23 @@ int main(int argc, char **argv) {
                                  cli::ArgSpec("decay", "relaxation ratio reactivity on failure", false,
                                               config.decay),
                                  cli::SwitchSpec("careful", "whether to make careful assumptions after failure",
-                                                  config.carefulAssumptions, false),
+                                                 config.carefulAssumptions, false),
                                  cli::SwitchSpec("decrease-on-success", "whether to decrease fix rate even on success",
                                                  config.decreaseOnSuccess, false),
                                  cli::ArgSpec("retry-limit", "number of fails before decreasing relaxation ratio",
                                               false, config.retryLimit),
                                  cli::ArgSpec("decay-mode", "relaxation ratio decay mode on failure", false,
                                               config.decayMode),
+                                 cli::ArgSpec("destroy-mode", "destroy policy type", true, destroyType),
                                  cli::ArgSpec("threads", "GNN inference threads", false,
                                               numThreads));
     auto problemInfo = loadSchedulingProblem(opt);
     torch::set_num_threads(numThreads);
     nn::GNNBackbonePredictor gnnRepair(*problemInfo.solver, gnnLocation, featureExtractorConf, problemInfo.instance,
                                        config);
-    std::vector<BooleanVar<Time>> vars;
-    for (const auto &resConstraint : problemInfo.constraints) {
-        std::copy(resConstraint.begDisjunct(), resConstraint.endDisjunct(), std::back_inserter(vars));
-    }
 
-    heuristics::GenericDestroyPolicy<int, heuristics::RandomSubset<int>> destroy(*problemInfo.solver, std::move(vars),
-                                                                                 destroyRatio, 1);
+    auto destroy = create(destroyType, problemInfo, destroyParameters);
+    std::cout << "-- using destroy policy " << destroyType << std::endl;
     auto policy = heuristics::make_sporadic_root_search(sporadicIncrement,
                                                         heuristics::make_RD_policy(destroy, gnnRepair), opt.verbosity);
     MinimizationObjective objective(problemInfo.instance.schedule().duration);

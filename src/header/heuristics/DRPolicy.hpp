@@ -144,7 +144,7 @@ namespace tempo::heuristics {
          * @param args arguments to base policy
          */
         template<typename ...Args>
-        explicit GenericDestroyPolicy(Args &&...args): R(std::forward<Args>(args)...) {}
+        GenericDestroyPolicy(Args &&...args): R(std::forward<Args>(args)...) {}
 
         /**
          * Destroy policy interface. Calls the base policy to select a new region if a new region was requested.
