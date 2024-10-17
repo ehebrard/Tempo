@@ -123,48 +123,54 @@ namespace tempo::heuristics {
     }
 
     /**
-     * @brief Random subset destroy policy.
+     * @brief Generic destroy policy wrapper that transforms any relaxation policy into a destroy policy.
      * @details @copybrief
-     * Behaves like RandomSubset but only chooses a new region when asked to by the repair policy
+     * Caches and repeats the assumptions of the base relaxation policy and until a new region is requested
      * @tparam T timing type
+     * @tparam R base relaxation policy used to make assumptions
      */
-    template<concepts::scalar T>
-    class RandomSubsetDestroy : protected RandomSubset<T> {
-        bool exploreNewRegion = false;
+    template<concepts::scalar T, relaxation_policy R>
+    class GenericDestroyPolicy : protected R {
+        std::vector<Literal<T>> assumptionCache;
+        bool newRegionRequested = true;
+        bool isNewRegion = true;
     public:
-        using RandomSubset<T>::notifySuccess;
-        using RandomSubset<T>::notifyFailure;
+        using R::notifyFailure;
+        using R::notifySuccess;
 
         /**
          * Ctor
-         * @param solver reference to solver
-         * @param variables vector of boolean variables to choose from
-         * @param ratio percentage of variables to destroy
+         * @tparam Args argument types
+         * @param args arguments to base policy
          */
-        RandomSubsetDestroy(Solver<T> &solver, std::vector<BooleanVar<T>> variables, double ratio) : RandomSubset<T>(
-                solver, std::move(variables), ratio, 1.0) {}
+        template<typename ...Args>
+        explicit GenericDestroyPolicy(Args &&...args): R(std::forward<Args>(args)...) {}
 
         /**
-         * requests the policy to choose a new region
-         */
-        void requestNewRegion() {
-            this->fixed.clear();
-        }
-
-        /**
-         * Destroy policy interface. Relaxes variables proportional to current destroy ration
+         * Destroy policy interface. Calls the base policy to select a new region if a new region was requested.
+         * Otherwise uses the cached assumptions to repeatedly explore the same region
          * @tparam AI assumption interface
          * @param proxy solver proxy
          */
         template<assumption_interface AI>
         void relax(AI &proxy) {
-            if (this->fixed.empty()) {
-                static_cast<RandomSubset<T>&>(*this).relax(proxy);
-                exploreNewRegion = true;
+            if (newRegionRequested) {
+                newRegionRequested = false;
+                AssumptionCollector<T, AI> collector(proxy);
+                R::relax(collector);
+                assumptionCache = std::move(collector.getAssumptions());
+                isNewRegion = true;
             } else {
-                proxy.makeAssumptions(this->fixed);
-                exploreNewRegion = false;
+                proxy.makeAssumptions(assumptionCache);
+                isNewRegion = false;
             }
+        }
+
+        /**
+         * requests the policy to choose a new region
+         */
+        void requestNewRegion() {
+            newRegionRequested = true;
         }
 
         /**
@@ -172,7 +178,7 @@ namespace tempo::heuristics {
          * @return true if a new region was chosen in the last call to relax, false otherwise
          */
         [[nodiscard]] bool newRegion() const noexcept {
-            return exploreNewRegion;
+            return isNewRegion;
         }
     };
 }

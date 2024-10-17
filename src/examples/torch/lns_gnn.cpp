@@ -66,7 +66,8 @@ int main(int argc, char **argv) {
         std::copy(resConstraint.begDisjunct(), resConstraint.endDisjunct(), std::back_inserter(vars));
     }
 
-    heuristics::RandomSubsetDestroy destroy(*problemInfo.solver, std::move(vars), destroyRatio);
+    heuristics::GenericDestroyPolicy<int, heuristics::RandomSubset<int>> destroy(*problemInfo.solver, std::move(vars),
+                                                                                 destroyRatio, 1);
     auto policy = heuristics::make_sporadic_root_search(sporadicIncrement,
                                                         heuristics::make_RD_policy(destroy, gnnRepair), opt.verbosity);
     MinimizationObjective objective(problemInfo.instance.schedule().duration);
