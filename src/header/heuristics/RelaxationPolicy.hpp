@@ -70,7 +70,7 @@ void RelaxRandomDisjunctiveResource<T>::relax(AI &s) {
 template<typename T>
 class FixRandomDisjunctiveResource {
 public:
-    FixRandomDisjunctiveResource(Solver<T> &solver, std::vector<NoOverlapExpression<T>> resources) :
+    FixRandomDisjunctiveResource(const Solver<T> &solver, std::vector<NoOverlapExpression<T>> resources) :
             solver(solver), resources(std::move(resources)) {}
     void notifyFailure(unsigned ) noexcept {}
     void notifySuccess(unsigned ) noexcept {}
@@ -79,7 +79,7 @@ public:
     void relax(AI &s);
     
 private:
-    Solver<T>& solver;
+    const Solver<T>& solver;
     std::vector<NoOverlapExpression<T>>& resources;
 };
 
@@ -88,7 +88,9 @@ template<typename T>
 template<assumption_interface AI>
 void FixRandomDisjunctiveResource<T>::relax(AI &s) {
     int r{static_cast<int>(random() % resources.size())};
-    s.makeAssumptions(std::ranges::subrange(resources[r].begDisjunct(), resources[r].endDisjunct()));
+    auto assumptions = std::ranges::subrange(resources[r].begDisjunct(), resources[r].endDisjunct()) |
+                       std::views::transform([this](const auto &var) { return var == solver.boolean.value(var); });
+    s.makeAssumptions(assumptions);
 }
 
 template <typename T> class RandomSubset {
