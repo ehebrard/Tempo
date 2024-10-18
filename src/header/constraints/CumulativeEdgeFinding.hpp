@@ -123,6 +123,8 @@ private:
     std::vector<int> est_; // index of pointer in profile
     std::vector<int> ect_;
     std::vector<int> lct_;
+    std::vector<T> event_buffer;
+    std::vector<int> omega_buffer;
     // std::vector<int> lst_;
     
     std::vector<int> event_ordering;
@@ -224,9 +226,13 @@ public:
     void horizontallyElasticEdgeFinderForward();
     void forwardDetection();
     void forwardAdjustment();
-    
-    void overloadBound();
-    
+
+    void overloadCheck();
+    void overloadBound(const int i);
+    T energy(const int i, const T lb, const T ub);
+
+    void brute_force(const std::vector<int> &omega, T &lb, T &ub);
+
     // function used in explanation
     void xplain(const Literal<T> l, const hint h,
                 std::vector<Literal<T>> &Cl) override;
@@ -345,9 +351,9 @@ std::string CumulativeEdgeFinding<T>::asciiArt(const int i) const {
     if (lct(i) == Constant::Infinity<T>) {
         ss << "=... " << est(i) << "...";
     } else {
-        for (auto k{ect(i)}; k < lct(i) - 1; ++k) {
-            ss << ".";
-        }
+      for (auto k{ect(i)}; k < lct(i); ++k) {
+        ss << ".";
+      }
         ss << "] " << est(i) << ".." << lct(i);
     }
     return ss.str();
@@ -584,6 +590,34 @@ template <typename T> void CumulativeEdgeFinding<T>::buildFullProfile() {
     }
     for (auto i : lct_order) {
         inLeftCut[i] = true;
+    }
+
+    lc_ptr = lct_order.rbegin();
+
+    for (auto ii{lct_order.rbegin()}; ii != lct_order.rend(); ++ii) {
+      rmTask(*ii);
+      ++lc_ptr;
+    }
+
+    //    for(auto i : lct_order) {
+    //
+    //
+    //        addTask(i);
+    //        --lc_ptr;
+    //
+    ////        std::cout << *lc_ptr << " // " << i << std::endl;
+    //
+    //        overloadBound(i);
+    //    }
+
+    for (auto ii{lct_order.begin()}; ii != lct_order.end();) {
+      auto t{lct(*ii)};
+      while (ii != lct_order.end() and lct(*ii) == t) {
+        addTask(*ii);
+        --lc_ptr;
+        ++ii;
+      }
+      overloadBound(*(ii - 1));
     }
 }
 
@@ -834,9 +868,9 @@ void CumulativeEdgeFinding<T>::horizontallyElasticEdgeFinderForward() {
     
     std::sort(lct_order.begin(), lct_order.end(),
               [this](const int i, const int j) { return lct(i) < lct(j); });
-    
-    lc_ptr = lct_order.rbegin();
-    
+
+    //    lc_ptr = lct_order.rbegin();
+
 #ifdef DBG_SEF
     if (DBG_SEF) {
         std::cout << "\n\nstart propagation (" << capacity.max(m_solver) << ")\n";
@@ -847,13 +881,15 @@ void CumulativeEdgeFinding<T>::horizontallyElasticEdgeFinderForward() {
 #endif
     
     buildFullProfile();
-    
-    overloadBound();
-    
-    //std::cout<< " detection  " << std::endl;
-    forwardDetection();
-    //std::cout<< " adjustment  " << std::endl;
-    forwardAdjustment();
+
+    ////    overloadBound();
+    //
+    //    overloadCheck();
+    //
+    //    //std::cout<< " detection  " << std::endl;
+    //    forwardDetection();
+    //    //std::cout<< " adjustment  " << std::endl;
+    //    forwardAdjustment();
 }
 
 template <typename T>
@@ -1032,28 +1068,162 @@ int CumulativeEdgeFinding<T>::computeEstPrime(const int i) {
     return estPrime;
 }
 
-template <typename T> void CumulativeEdgeFinding<T>::overloadBound() {
-    
+template <typename T> void CumulativeEdgeFinding<T>::overloadCheck() {}
+
+template <typename T>
+T CumulativeEdgeFinding<T>::energy(const int i, const T lb, const T ub) {
+  //    auto overlap{ub - lb};
+
+  return std::min(ub - lb,
+                  std::max(0, std::min(std::min(ect(i) - lb, ub - lst(i)),
+                                       minduration(i)))) *
+         mindemand(i);
+}
+
+template <typename T>
+void CumulativeEdgeFinding<T>::brute_force(const std::vector<int> &omega, T &lb,
+                                           T &ub) {
+  auto C{capacity.max(m_solver)};
+  event_buffer.clear();
+  for (auto i : omega) {
+    if (est(i) >= lb)
+      event_buffer.push_back(est(i));
+    if (ect(i) >= lb)
+      event_buffer.push_back(ect(i));
+    if (lst(i) >= lb)
+      event_buffer.push_back(lst(i));
+    event_buffer.push_back(lct(i));
+  }
+  std::sort(event_buffer.begin(), event_buffer.end());
+  event_buffer.erase(unique(event_buffer.begin(), event_buffer.end()),
+                     event_buffer.end());
+
+  for (auto e : event_buffer) {
+    std::cout << " " << e;
+  }
+  std::cout << std::endl;
+
+  int n{static_cast<int>(event_buffer.size())};
+  for (int l{n}; l-- > 1;) {
+
+    std::cout << "check intervals of length " << (l + 1) << std::endl;
+
+    for (int a{0}; a < n - l; ++a) {
+      lb = event_buffer[a];
+      ub = event_buffer[a + l];
+
+      std::cout << "[" << lb << ".." << ub << "] =>";
+
+      T E{0};
+      for (auto t : omega) {
+        std::cout << " t" << the_tasks[t].id() << ":" << energy(t, lb, ub);
+        E += energy(t, lb, ub);
+      }
+      std::cout << " => " << E << " <> " << (C * (ub - lb)) << std::endl;
+      if (E > C * (ub - lb)) {
+        return;
+      }
+    }
+  }
+
+  lb = Constant::Infinity<T>;
+  ub = -Constant::Infinity<T>;
+}
+
+template <typename T>
+void CumulativeEdgeFinding<T>::overloadBound(const int i) {
+
 #ifdef DBG_SEF
     if (DBG_SEF) {
         std::cout << "compute overload bound\n";
         for (auto j : lct_order) {
             std::cout << "task " << j << ": " << asciiArt(j) << std::endl;
+            if (j == i)
+              break;
         }
     }
 #endif
-    
-    auto cap{capacity.max(m_solver)};
-    auto last{*lct_order.rbegin()};
-    auto omega_ect = scheduleOmegaDetection(cap, last
-                                            //                                            , lct(last)
-                                            );
-    
+
+    auto C{capacity.max(m_solver)};
+    //    auto last{*lct_order.rbegin()};
+    auto omega_ect = scheduleOmegaDetection(
+        C, i
+        //                                            , lct(last)
+    );
+
     if(omega_ect == Constant::Infinity<T>) {
-        
-        
-        std::cout << "overload fail!\n";
-        
+
+      auto e_idx{num_explanations};
+      if (explanation.size() <= e_idx) {
+        explanation.resize(e_idx + 1);
+      } else {
+        explanation[e_idx].omega.clear();
+      }
+
+      auto lb{contact_time[i]};
+      auto ub{lct(i)};
+
+      T E{0};
+      omega_buffer.clear();
+      for (auto j : lct_order) {
+        if (ect(j) > lb and lct(j) <= ub) {
+          omega_buffer.push_back(j);
+          E += energy(j, lb, ub);
+        }
+      }
+      auto A{capacity.max(m_solver) * (ub - lb)};
+
+      std::cout << "\noverload fail! on C" << this->id() << " @"
+                << m_solver.num_choicepoints
+                << " (capacity = " << capacity.max(m_solver) << "): " << E
+                << " <> " << A << "\n";
+      for (auto j : lct_order) {
+        if (ect(j) > lb and lct(j) <= ub)
+          std::cout << "task " << std::setw(3) << std::left << j << ": "
+                    << asciiArt(j) << " E(" << j << ")=" << energy(j, lb, ub)
+                    << std::endl;
+        if (j == i)
+          break;
+      }
+
+      brute_force(omega_buffer, lb, ub);
+
+      //        explanation[e_idx].omega.clear();
+      for (auto j : omega_buffer) {
+        if (ect(j) > lb and lst(j) <= ub) {
+          explanation[e_idx].omega.push_back(j);
+        }
+      }
+
+      explanation[e_idx].lb_omega = lb;
+      explanation[e_idx].ub_omega = ub;
+
+      if (E < A) {
+
+        std::cout << "\nOmega=\n";
+
+        E = 0;
+        for (auto j : explanation[e_idx].omega) {
+          E += energy(j, lb, ub);
+          std::cout << "task " << std::setw(3) << std::left << j << ": "
+                    << asciiArt(j) << " E(" << j << ")=" << energy(j, lb, ub)
+                    << std::endl;
+        }
+
+        A = capacity.max(m_solver) * (ub - lb);
+
+        std::cout << "omega = [" << lb << ".." << ub << "] A=" << A
+                  << " E = " << E << std::endl;
+
+        std::cout << "Overload interval = [" << lb << ".." << ub << "]\n";
+
+        if ((E - A) > C)
+          exit(1);
+
+        if (ub < lb)
+          exit(1);
+      }
+
         throw Failure<T>({this, Constant::NoHint});
     } else if(omega_ect > schedule.end.max(m_solver)) {
         
@@ -1095,7 +1265,9 @@ template <typename T> void CumulativeEdgeFinding<T>::forwardDetection() {
             std::cout << " - analyse tasks whose lct is " << lct(*ii) << std::endl;
         }
 #endif
-        
+
+        //        overloadBound(*ii);
+
         // remove all tasks whose lct is equal the current max
         do {
             
@@ -1303,6 +1475,7 @@ void CumulativeEdgeFinding<T>::computeMaximumOverflow(const int i) {
             ECT = std::min(ect(j), ECT);
             minEnergy = std::min(energy(j), minEnergy);
             lb = std::min(lb, est(j));
+
             explanation[e_idx].omega.push_back(j);
         }
     }
@@ -1549,16 +1722,7 @@ template <typename T>
 T CumulativeEdgeFinding<T>::scheduleOmegaDetection(const T C, const int i
 //                                                   ,const T max_lct
 ) {
-    
-#ifdef DBG_SEF
-    if (DBG_SEF) {
-        std::cout << "[schedule tasks until " << *lc_ptr
-        << "] profile=" << std::endl
-        << profile;
-    }
-    assert(verify());
-#endif
-    
+
     //
     
     auto saved_size{profile.size()};
@@ -1568,19 +1732,27 @@ T CumulativeEdgeFinding<T>::scheduleOmegaDetection(const T C, const int i
     for (auto p{profile.begin()}; p != stop; ++p) {
         p->reset(capacity.max(m_solver));
      }
-    
-    
-    auto next{profile.begin()};
-    overflow = 0;
-    T omega_ect{-Constant::Infinity<T>};
-    T S{0};
-    T h_req{0};
-    
-    // while (next->time <= max_lct and next != ) {
-    while (next != stop) {
-        auto t{next};
-        ++next;
-        
+
+#ifdef DBG_SEF
+     if (DBG_SEF) {
+       std::cout << "[schedule tasks until " << *lc_ptr
+                 << "] profile=" << std::endl
+                 << profile;
+     }
+     assert(verify());
+#endif
+
+     auto next{profile.begin()};
+     overflow = 0;
+     T omega_ect{-Constant::Infinity<T>};
+     T S{0};
+     T h_req{0};
+
+     // while (next->time <= max_lct and next != ) {
+     while (next != stop) {
+       auto t{next};
+       ++next;
+
 #ifdef DBG_SEF
         if (DBG_SEF) {
             std::cout << "jump to e_" << t.index << " = t_" << t->time << ":";
@@ -1692,8 +1864,8 @@ T CumulativeEdgeFinding<T>::scheduleOmegaDetection(const T C, const int i
             std::cout << std::endl;
         }
 #endif
-    }
-    
+     }
+
     if (overflow > 0) {
         //      contact[i] = -1;
         //      auto t{profile.reverse_at(next.index)};
@@ -1943,8 +2115,24 @@ void CumulativeEdgeFinding<T>::xplain(const Literal<T> l, const hint h,
 #endif
     
     if(l == Solver<T>::Contradiction) {
-        std::cout << "xplain contradiction: TODO\n";
-        exit(1);
+      //        std::cout << "xplain contradiction: TODO\n";
+      //        exit(1);
+
+      for (auto i : explanation[h].omega) {
+
+#ifdef DBG_EXPLCE
+        std::cout << " * "
+                  << m_solver.pretty(
+                         the_tasks[i].start.after(explanation_lb[h]))
+                  << " and "
+                  << m_solver.pretty(the_tasks[i].end.before(explanation_ub[h]))
+                  << std::endl;
+#endif
+
+        Cl.push_back(the_tasks[i].end.after(explanation[h].lb_omega));
+        Cl.push_back(the_tasks[i].end.before(explanation[h].ub_omega));
+      }
+
     } else if(l.variable() == schedule.end.id()) {
         std::cout << "xplain global bound: TODO\n";
         exit(1);

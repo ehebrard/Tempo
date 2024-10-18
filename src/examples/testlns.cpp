@@ -300,8 +300,8 @@ int main(int argc, char *argv[]) {
             for(auto bi{resource.begDisjunct()}; bi!=resource.endDisjunct(); ++bi) {
                 vars.push_back(*bi);
             }
-        RandomSubset<int> policy(S, vars, .97, lnsDecay);
-        
+        RandomSubset<int> policy(S, vars, .3, lnsDecay);
+
         S.largeNeighborhoodSearch(objective, policy);
     }
 

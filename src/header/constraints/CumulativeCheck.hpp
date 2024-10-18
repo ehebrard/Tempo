@@ -104,7 +104,7 @@ CumulativeCheck<T>::CumulativeCheck(Solver<T> &solver, const NumericVar<T> c,
     : m_solver(solver), capacity(c),
       relevant(std::distance(beg_task, end_task), &solver.getEnv()) {
 
-  Constraint<T>::priority = Priority::Low;
+  Constraint<T>::priority = Priority::Medium;
 
   auto dp{beg_dem};
   for (auto jp{beg_task}; jp != end_task; ++jp) {

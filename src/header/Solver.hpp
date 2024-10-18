@@ -34,25 +34,25 @@
 #include "Literal.hpp"
 #include "Model.hpp"
 #include "Objective.hpp"
+#include "RelaxationPolicy.hpp"
 #include "Restart.hpp"
 #include "constraints/Cardinality.hpp"
 #include "constraints/CumulativeCheck.hpp"
 #include "constraints/CumulativeEdgeFinding.hpp"
+#include "constraints/CumulativeTimetabling.hpp"
 #include "constraints/DisjunctiveEdgeFinding.hpp"
 #include "constraints/EdgeConstraint.hpp"
+#include "constraints/FullTransitivity.hpp"
 #include "constraints/PseudoBoolean.hpp"
 #include "constraints/Transitivity.hpp"
-#include "constraints/FullTransitivity.hpp"
+#include "heuristics/RelaxationInterface.hpp"
 #include "heuristics/heuristic_factories.hpp"
 #include "heuristics/impl/DecayingEventActivityMap.hpp"
-#include "RelaxationPolicy.hpp"
 #include "util/KillHandler.hpp"
-#include "util/traits.hpp"
 #include "util/Options.hpp"
-#include "util/SubscribableEvent.hpp"
 #include "util/Profiler.hpp"
-#include "heuristics/RelaxationInterface.hpp"
-
+#include "util/SubscribableEvent.hpp"
+#include "util/traits.hpp"
 
 namespace tempo {
 
@@ -557,6 +557,9 @@ public:
     void postStrongEdgeFinding(const Interval<T> s, const NumericVar<T> c,
                                const ItTask beg_task, const ItTask end_task,
                                const ItNVar beg_dem, const ItBVar beg_disj);
+    template <typename ItTask, typename ItNVar>
+    void postTimetabling(const NumericVar<T> c, const ItTask beg_task,
+                         const ItTask end_task, const ItNVar beg_dem);
     //@}
     
     /**
@@ -850,6 +853,10 @@ public:
     static constexpr Literal<T> Contradiction =
     makeBooleanLiteral<T>(false, Constant::NoVar, 0);
     
+    static constexpr Literal<T> Truism =
+    makeBooleanLiteral<T>(true, Constant::NoVar, 0);
+//    ~Contradiction;
+    
     /**
      * @name to collect the modeling construct in order to free memory up
      */
@@ -1079,22 +1086,37 @@ void BoundExplainer<T>::xplain(const Literal<T> l, const hint h,
         auto lidx{solver.numeric.lastLitIndex(bound::lower, x)};
         auto uidx{solver.numeric.lastLitIndex(bound::upper, x)};
 
+        
+//        std::cout << "lidx=" << lidx << " uidx=" << uidx << std::endl;
+        
         #ifdef DBG_TRACE
                 if (DBG_CBOUND and (DBG_TRACE & LEARNING)) {
-                    std::cout << solver.getLiteral(lidx) << " AND " <<
-                    solver.getLiteral(uidx)
-                    << std::endl;
+                    if(lidx > 0)
+                        std::cout << solver.getLiteral(lidx);
+                    else
+                        std::cout << "ground truth\n";
+                    
+                    std::cout << " AND ";
+                    
+                    if(uidx > 0)
+                        std::cout << solver.getLiteral(uidx);
+                    else
+                        std::cout << "ground truth\n";
+
+                    std::cout << std::endl;
                 }
         #endif
 
-        Literal<T> le;
+        Literal<T> le{Solver<T>::Truism};
         Explanation<T> exp;
         
         if (lidx < uidx) {
-            le = solver.getLiteral(lidx);
+            if(lidx > 0)
+                le = solver.getLiteral(lidx);
             exp = solver.getReason(uidx);
         } else {
-            le = solver.getLiteral(uidx);
+            if(uidx > 0)
+                le = solver.getLiteral(uidx);
             exp = solver.getReason(lidx);
         }
 
@@ -1104,7 +1126,9 @@ void BoundExplainer<T>::xplain(const Literal<T> l, const hint h,
                 }
         #endif
 
-        Cl.push_back(le);
+        if(le != Solver<T>::Truism) {
+            Cl.push_back(le);
+        }
         exp.explain(~le, Cl);
         
     } else {
@@ -2130,18 +2154,19 @@ template <typename T> void Solver<T>::minimize_clause() {
 template <typename T> void Solver<T>::decisionCut(Explanation<T> &e) {
 
 #ifdef DBG_TRACE
-    if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+    if (DBG_BOUND and (DBG_TRACE & DCUT)) {
       std::cout << "compute decision cut\n";
     }
 #endif
 
+    lit_buffer.clear();
     Literal<T> l{Contradiction};
     Explanation<T> &exp = e;
 
     while (exp != Constant::NoReason<T>) {
 
 #ifdef DBG_TRACE
-        if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+        if (DBG_BOUND and (DBG_TRACE & DCUT)) {
             std::cout << "resolve ";
             if (l == Contradiction) {
                 std::cout << "contradiction";
@@ -2152,11 +2177,15 @@ template <typename T> void Solver<T>::decisionCut(Explanation<T> &e) {
         }
 #endif
 
-        //        exp.explain(l, lit_buffer);
-        //        for(auto q : lit_buffer) {
-        //            std::cout << ", " << q ;
-        //        }
-        //        std::cout << std::endl;
+    
+//        std::cout << "lit_buffer.size() = " <<  lit_buffer.size() << std::endl;
+        exp.explain(l, lit_buffer);
+        
+//                for(auto q : lit_buffer) {
+//                    std::cout << ", " << q ;
+//                }
+//                std::cout << std::endl;
+        
         exp = Constant::NoReason<T>;
         while (not lit_buffer.empty()) {
           l = lit_buffer.back();
@@ -2173,7 +2202,7 @@ template <typename T> void Solver<T>::decisionCut(Explanation<T> &e) {
                 break;
               else {
 #ifdef DBG_TRACE
-                if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+                if (DBG_BOUND and (DBG_TRACE & DCUT)) {
                   std::cout << " -add " << pretty(l) << " to the cut "
                             << std::endl;
                 }
@@ -2184,7 +2213,7 @@ template <typename T> void Solver<T>::decisionCut(Explanation<T> &e) {
               }
             }
 #ifdef DBG_TRACE
-            else if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+            else if (DBG_BOUND and (DBG_TRACE & DCUT)) {
               std::cout << " " << pretty(l) << " is already explored "
                         << std::endl;
             }
@@ -2192,7 +2221,7 @@ template <typename T> void Solver<T>::decisionCut(Explanation<T> &e) {
           }
 
 #ifdef DBG_TRACE
-          else if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+          else if (DBG_BOUND and (DBG_TRACE & DCUT)) {
             std::cout << " " << pretty(l) << " is a ground fact " << std::endl;
           }
 #endif
@@ -2647,7 +2676,7 @@ template <typename T> void Solver<T>::learnConflict(Explanation<T> &e) {
 #ifdef DBG_TRACE
     if (DBG_BOUND and (DBG_TRACE & SEARCH)) {
       if (not learnt_clause.empty())
-        std::cout << "learn clause @lvl" << level() << " and deduce "
+        std::cout << "learn clause of size " << learnt_clause.size() << " @lvl" << level() << " and deduce "
                   << pretty(learnt_clause[0]) << std::endl;
       else
         std::cout << "learn empty clause!\n";
@@ -3476,6 +3505,13 @@ void Solver<T>::postCumulative(const NumericVar<T> c, const ItTask beg_task,
                                const ItTask end_task, const ItNVar beg_dem,
                                const ItBVar beg_disj) {
   post(new CumulativeCheck<T>(*this, c, beg_task, end_task, beg_dem, beg_disj));
+}
+
+template <typename T>
+template <typename ItTask, typename ItNVar>
+void Solver<T>::postTimetabling(const NumericVar<T> c, const ItTask beg_task,
+                                const ItTask end_task, const ItNVar beg_dem) {
+  post(new CumulativeTimetabling<T>(*this, c, beg_task, end_task, beg_dem));
 }
 
 template <typename T>
