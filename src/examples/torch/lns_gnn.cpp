@@ -28,7 +28,7 @@ struct DestroyParameters {
 };
 
 using RelaxationPolicy = h::VariantPolicy<h::RandomSubset<Time>,
-        h::FixRandomDisjunctiveResource<Time, ResourceConstraint>>;
+        h::FixRandomDisjunctiveResource<ResourceConstraint>>;
 
 auto create(DestroyType type, const Problem &problem,
             const DestroyParameters &params) -> h::GenericDestroyPolicy<Time, RelaxationPolicy> {
@@ -39,11 +39,11 @@ auto create(DestroyType type, const Problem &problem,
                 std::copy(resConstraint.begDisjunct(), resConstraint.endDisjunct(), std::back_inserter(vars));
             }
 
-            return h::RandomSubset<Time>(*problem.solver, std::move(vars), params.destroyRatio, 1);
+            return h::RandomSubset(std::move(vars), params.destroyRatio, 1);
         }
 
         case DestroyType::RandomResource:
-            return h::FixRandomDisjunctiveResource(*problem.solver, problem.constraints);
+            return h::FixRandomDisjunctiveResource(problem.constraints);
 
         default:
             throw std::runtime_error("unknown destroy policy");
