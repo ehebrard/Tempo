@@ -31,6 +31,8 @@
 #include "constraints/Constraint.hpp"
 #include "util/DisjointSet.hpp"
 #include "util/SparseSet.hpp"
+#include "util/traits.hpp"
+#include "util/Matrix.hpp"
 #include "Model.hpp"
 
 //#define DBG_LTRANS
@@ -54,7 +56,7 @@ private:
   DisjointSet<> forest;
   std::vector<std::vector<T>> distance_matrix;
 
-  std::vector<std::vector<Literal<T>>> disjunct;
+  Matrix<Literal<T>> disjunct;
   std::vector<int> scopex;
   std::vector<int> scopey;
 
@@ -86,9 +88,8 @@ private:
     T setup_time(const int i, const int j) const;
 
 public:
-  template <typename ItTask, typename ItVar>
-  Transitivity(Solver<T> &solver, Interval<T> &sched, const ItTask beg_task,
-               const ItTask end_task, const ItVar beg_var);
+  template <concepts::typed_range<Interval<T>> Tasks, typename ItVar> requires(std::ranges::sized_range<Tasks>)
+  Transitivity(Solver<T> &solver, Interval<T> &sched, Tasks &&taskRange, const ItVar beg_var);
   virtual ~Transitivity();
 
   void add_edge(const int x, const int y, const int r);
@@ -113,27 +114,26 @@ public:
 };
 
 template <typename T>
-template <typename ItTask, typename ItVar>
-Transitivity<T>::Transitivity(Solver<T> &solver, Interval<T> &sched,
-                              const ItTask beg_task, const ItTask end_task,
-                              const ItVar beg_var)
-    : m_solver(solver), schedule(sched),
-      transitive_reduction(std::distance(beg_task, end_task) *
-                               std::distance(beg_task, end_task),
-                           &m_solver.getEnv()) {
+template<concepts::typed_range<Interval<T>> Tasks, typename ItVar>
+requires(std::ranges::sized_range<Tasks>)
+Transitivity<T>::Transitivity(Solver<T> &solver, Interval<T> &sched, Tasks &&taskRange, const ItVar beg_var)
+        : m_solver(solver), schedule(sched),
+          transitive_reduction(std::forward<Tasks>(taskRange).size() * std::forward<Tasks>(taskRange).size(),
+                               &m_solver.getEnv()),
+          disjunct(std::forward<Tasks>(taskRange).size(), std::forward<Tasks>(taskRange).size()) {
 
   Constraint<T>::priority = Priority::Low;
 
-          task_map.resize(m_solver.numeric.size(), -1);
+  task_map.resize(m_solver.numeric.size(), -1);
+  decltype(auto) tasks = std::forward<Tasks>(taskRange);
+  the_tasks.reserve(tasks.size());
+  for (const auto &jp : tasks) {
+    int t{static_cast<int>(the_tasks.size())};
+    task_map[jp.start.id()] = t;
+    task_map[jp.end.id()] = t;
+    the_tasks.push_back(jp);
+  }
 
-          for (auto jp{beg_task}; jp != end_task; ++jp) {
-            int t{static_cast<int>(the_tasks.size())};
-            task_map[jp->start.id()] = t;
-            task_map[jp->end.id()] = t;
-            the_tasks.push_back(*jp);
-          }
-
-  disjunct.resize(the_tasks.size());
   sorted_tasks.resize(the_tasks.size());
   offset.resize(the_tasks.size());
 
@@ -141,9 +141,6 @@ Transitivity<T>::Transitivity(Solver<T> &solver, Interval<T> &sched,
   forest.resize(the_tasks.size());
 
   for (size_t i{0}; i < the_tasks.size(); ++i) {
-
-    disjunct[i].resize(the_tasks.size());
-
     DAG.emplace_back(the_tasks.size(), &m_solver.getEnv());
     DAG.back().fill();
 
@@ -151,25 +148,18 @@ Transitivity<T>::Transitivity(Solver<T> &solver, Interval<T> &sched,
   }
 
   auto ep{beg_var};
-  for (auto ip{beg_task}; ip != end_task; ++ip) {
-    for (auto jp{ip + 1}; jp != end_task; ++jp) {
-      auto x{*ep};
-
-      auto i{std::distance(beg_task, ip)};
-      auto j{std::distance(beg_task, jp)};
-      disjunct[i][j] = m_solver.boolean.getLiteral(false, x);
-      disjunct[j][i] = m_solver.boolean.getLiteral(true, x);
-
-            if (not transition_flag) {
-              transition_flag |=
-                  ((setup_time(i, j) > 0) or (setup_time(j, i) >
-                  0));
-            }
-        
+  for (unsigned i = 0; i < tasks.size(); ++i) {
+      for (unsigned j = i + 1; j < tasks.size(); ++j) {
+          auto x{*ep};
+          disjunct(i, j) = m_solver.boolean.getLiteral(false, x);
+          disjunct(j, i) = m_solver.boolean.getLiteral(true, x);
+          if (not transition_flag) {
+              transition_flag |= ((setup_time(i, j) > 0) or (setup_time(j, i) > 0));
+          }
 //        std::cout << *ip << " -- " << *jp << ": " << transition_time(i, j) << "-" << ip->minDuration(m_solver) << ":" << setup_time(i,j) << "/" << transition_time(j, i) << "-" << jp->minDuration(m_solver) << ":" << setup_time(j,i) << std::endl;
-//        
-      ++ep;
-    }
+//
+          ++ep;
+      }
   }
 
 ////           TODO: get "back edges" in the core graph to detect negative cycles
@@ -196,7 +186,7 @@ template <typename T> Transitivity<T>::~Transitivity() {}
 
 template <typename T>
 T Transitivity<T>::transition_time(const int i, const int j) const {
-  return -m_solver.boolean.getEdge(disjunct[i][j]).distance;
+  return -m_solver.boolean.getEdge(disjunct(i, j)).distance;
 }
 
 template <typename T>
@@ -204,7 +194,7 @@ T Transitivity<T>::setup_time(const int i, const int j) const {
     
 //    std::cout << "trans from " << prettyTask(i) << " to " << prettyTask(j) << std::endl;
     
-    auto eij{m_solver.boolean.getEdge(disjunct[i][j])};
+    auto eij{m_solver.boolean.getEdge(disjunct(i, j))};
     
 //    std::cout << eij << std::endl;
     
@@ -235,7 +225,7 @@ template <typename T> void Transitivity<T>::post(const int idx) {
     for (size_t j{0}; j < the_tasks.size(); ++j)
       if (i != j) {
 
-        m_solver.wake_me_on(disjunct[i][j], this->id());
+        m_solver.wake_me_on(disjunct(i, j), this->id());
         scopex.push_back(i);
         scopey.push_back(j);
       }
@@ -260,7 +250,7 @@ void Transitivity<T>::add_edge(const int x, const int y, const int r) {
   }
 #endif
 
-  m_solver.set(disjunct[x][y], {this, r});
+  m_solver.set(disjunct(x, y), {this, r});
 
   assert(DAG[x].has(y));
   assert(DAG[y].has(x));
@@ -759,7 +749,7 @@ void Transitivity<T>::xplain(const Literal<T> l, const hint h,
                 << " dur=" << the_tasks[x].minDuration(m_solver) << std::endl;
 #endif
       for (auto yp{DAG[x].bbegin()}; yp != DAG[x].bend(); ++yp) {
-        auto p{disjunct[*yp][x]};
+        auto p{disjunct(*yp, x)};
           auto b{the_tasks[*yp].start.after(h)};
         if (m_solver.propagationLevel(p) < l_lvl and m_solver.numeric.satisfied(b)) {
           
@@ -782,7 +772,7 @@ void Transitivity<T>::xplain(const Literal<T> l, const hint h,
                 << " dur=" << the_tasks[x].minDuration(m_solver) << std::endl;
 #endif
       for (auto yp{DAG[x].fbegin()}; yp != DAG[x].fend(); ++yp) {
-        auto p{disjunct[x][*yp]};
+        auto p{disjunct(x, *yp)};
           auto b{the_tasks[*yp].end.before(h)};
         if (m_solver.propagationLevel(p) < l_lvl and m_solver.numeric.satisfied(b)) {
           
@@ -813,7 +803,7 @@ void Transitivity<T>::xplain(const Literal<T> l, const hint h,
 
     int i{scopex[h]};
     int j{scopey[h]};
-    auto r{disjunct[i][j]};
+    auto r{disjunct(i, j)};
 
 #ifdef DBG_EXPL_TRANS
     std::cout << " reason was d[" << i << "][" << j
@@ -834,9 +824,9 @@ void Transitivity<T>::xplain(const Literal<T> l, const hint h,
 
       auto x{task_map[lc.from]};
       auto y{task_map[rc.from]};
-      Cl.push_back(disjunct[y][x]);
+      Cl.push_back(disjunct(y, x));
         
-        assert(m_solver.propagationLevel(disjunct[y][x]) < l_lvl);
+        assert(m_solver.propagationLevel(disjunct(y, x)) < l_lvl);
 
 #ifdef DBG_EXPL_TRANS
       std::cout << " & " << lc.from << " -> " << rc.from << " (" << the_tasks[x]
@@ -849,9 +839,9 @@ void Transitivity<T>::xplain(const Literal<T> l, const hint h,
 
       auto x{task_map[lc.to]};
       auto y{task_map[rc.to]};
-      Cl.push_back(disjunct[x][y]);
+      Cl.push_back(disjunct(x, y));
         
-        assert(m_solver.propagationLevel(disjunct[x][y]) < l_lvl);
+        assert(m_solver.propagationLevel(disjunct(x, y)) < l_lvl);
 
 #ifdef DBG_EXPL_TRANS
       std::cout << " & " << rc.to << " -> " << lc.to << " (" << the_tasks[x]

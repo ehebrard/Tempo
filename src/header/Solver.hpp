@@ -539,9 +539,8 @@ public:
     void postEdgeFinding(Interval<T> &schedule, Tasks &&taskRange, const ItVar beg_var);
     
     // create and post a new precedence reasoning propagator
-    template <typename ItTask, typename ItVar>
-    void postTransitivity(Interval<T> &schedule, const ItTask beg_task,
-                          const ItTask end_task, const ItVar beg_var);
+    template <concepts::typed_range<Interval<T>> Tasks, typename ItVar>
+    void postTransitivity(Interval<T> &schedule, Tasks &&taskRange, const ItVar beg_var);
     
     // create and post a new full transitivity propagator
     template <typename ItRes>
@@ -3476,12 +3475,9 @@ void Solver<T>::postEdgeFinding(Interval<T> &schedule, Tasks &&taskRange, const 
 }
 
 template <typename T>
-template <typename ItTask, typename ItVar>
-void Solver<T>::postTransitivity(Interval<T> &schedule, ItTask beg_task,
-                                 ItTask end_task, const ItVar beg_var) {
-  post(new Transitivity<T>(*this, schedule, beg_task, end_task,
-                                  beg_var
-                                  ));
+template <concepts::typed_range<Interval<T>> Tasks, typename ItVar>
+void Solver<T>::postTransitivity(Interval<T> &schedule, Tasks &&taskRange, const ItVar beg_var) {
+  post(new Transitivity<T>(*this, schedule, std::forward<Tasks>(taskRange), beg_var));
 }
 
 template <typename T>

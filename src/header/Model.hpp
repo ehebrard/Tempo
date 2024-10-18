@@ -1634,8 +1634,7 @@ public:
             exit(0);
           }
 
-          solver.postEdgeFinding(schedule, std::ranges::subrange(this->begin(), this->end()),
-                                 this->begDisjunct());
+          solver.postEdgeFinding(schedule, std::ranges::subrange(this->begin(), this->end()), this->begDisjunct());
         }
 
         if (solver.getOptions().transitivity) {
@@ -1647,8 +1646,7 @@ public:
             exit(0);
           }
 
-          solver.postTransitivity(schedule, this->begin(), this->end(),
-                                  this->begDisjunct());
+          solver.postTransitivity(schedule, std::ranges::subrange(this->begin(), this->end()), this->begDisjunct());
         }
       }
   }
