@@ -69,20 +69,21 @@ int main(int argc, char **argv) {
     fs::create_directories(rootInputDir);
     fs::create_directory(labelDir);
 
-    auto [solver, problem, opt, _] = loadSchedulingProblem(options);
-    nn::GraphBuilder builder(featConfig, problem);
+    Problem problemInfo = loadSchedulingProblem(options);
+    nn::GraphBuilder builder(featConfig, problemInfo.instance);
     fs::copy(featConfig, saveTo, fs::copy_options::overwrite_existing);
 
     // create root instance features
-    solver->propagate();
-    nn::util::saveGraph(builder.getGraph(nn::makeSolverState(problem.getTaskDistances(*solver), *solver)),
+    problemInfo.solver->propagate();
+    nn::util::saveGraph(builder.getGraph(
+                                nn::makeSolverState(problemInfo.instance.getTaskDistances(*problemInfo.solver), *problemInfo.solver)),
                         rootInputDir);
 
     // Serialize solutions
     auto solutions = getSolutions(mainDir);
     std::vector<nlohmann::json> solutionsPayloads;
     for (const auto &[id, sol]: solutions) {
-        auto [s, p, _, _1] = loadSchedulingProblem(options);
+        auto [s, p, _, _1, _2] = loadSchedulingProblem(options);
         s->set(leq(p.schedule().duration.id(), sol.objective));
         loadBranch(*s, sol.decisions);
         auto taskDistances = p.getTaskDistances(*s);
@@ -104,7 +105,7 @@ int main(int argc, char **argv) {
     unsigned numDuplicates = 0;
     for (const auto &[subId, subProblem] : getProblems(mainDir)) {
         using std::views::elements;
-        auto [s, p, _, _1] = loadSchedulingProblem(options);
+        auto [s, p, _, _1, _2] = loadSchedulingProblem(options);
         const auto &sol = solutions.at(subProblem.associatedSolution);
         s->set(leq(p.schedule().duration.id(), sol.objective));
         loadBranch(*s, subProblem.decisions);
@@ -156,7 +157,7 @@ int main(int argc, char **argv) {
         serialization::serializeToFile(solPayload, destination / LabelFileName);
     }
 
-    auto bestSolution = opt.value_or(solutions.rbegin()->second.objective);
+    auto bestSolution = problemInfo.optimalSolution.value_or(solutions.rbegin()->second.objective);
     nlohmann::json meta;
     meta["bestSolutionKnown"] = bestSolution;
     meta["numSubProblems"] = problemGraphs.size();

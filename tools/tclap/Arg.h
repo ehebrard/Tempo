@@ -452,6 +452,18 @@ void ExtractValue(T &destVal, const std::string &strVal, StringLike sl) {
   SetString(destVal, strVal);
 }
 
+/**
+ * @author Tim Luchterhand
+ * ExtractValue overload for enum class types
+ */
+template<typename T>
+void ExtractValue(T &destVal, const std::string &strVal, EnumLike) {
+    std::underlying_type_t<T> val;
+    ExtractValue(val, strVal, ValueLike{});
+    destVal = static_cast<T>(val);
+}
+
+
 //////////////////////////////////////////////////////////////////////
 // BEGIN Arg.cpp
 //////////////////////////////////////////////////////////////////////

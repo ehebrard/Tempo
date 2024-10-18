@@ -40,18 +40,17 @@
 #include "constraints/CumulativeEdgeFinding.hpp"
 #include "constraints/DisjunctiveEdgeFinding.hpp"
 #include "constraints/EdgeConstraint.hpp"
-//#include "constraints/OptionalEdgeConstraint.hpp"
 #include "constraints/PseudoBoolean.hpp"
 #include "constraints/Transitivity.hpp"
 #include "constraints/FullTransitivity.hpp"
 #include "heuristics/heuristic_factories.hpp"
 #include "heuristics/impl/DecayingEventActivityMap.hpp"
-#include "RelaxationPolicy.hpp"
+#include "heuristics/RelaxationInterface.hpp"
 #include "util/KillHandler.hpp"
 #include "util/traits.hpp"
 #include "util/Options.hpp"
 #include "util/SubscribableEvent.hpp"
-#include "heuristics/RelaxationInterface.hpp"
+#include "util/Profiler.hpp"
 
 
 namespace tempo {
@@ -184,7 +183,7 @@ protected:
     
     // [for each literal] the polarity in the best solution
     std::vector<bool> best_solution;
-    
+
     // the rank of the difference logic constraint in "edges" for each Boolean
     // variable
     std::vector<info_t> edge_index;
@@ -483,7 +482,7 @@ public:
     bool entailedByConflict(Literal<T>, const index_t) const;
     
     // set literal l true with explanation e
-    void set(Literal<T> l, const Explanation<T> &e = Constant::Decision<T>);
+    void set(Literal<T> l, const Explanation<T> &e = Constant::NoReason<T>);
     void post(Literal<T> l) {
         set(l);
         propagate();
@@ -581,21 +580,30 @@ public:
     template<heuristics::heuristic<T> H>
     void setBranchingHeuristic(H &&h);
     // record the backtrack-environment level when calling 'initializeSearch()'
+    // level 0 is for ground truth
+    // if there are assumptions, level 1 is for assumptions and level 2 and
+    // above are for search else level 1 and above are for search
     int init_level{0};
-    // init_level + 1 if there are assumptions, init_level otherwise
-    //    int assumption_level{0};
-    // index of the first decision in the trail
-    index_t ground_level{0};
-    index_t assumption_level{0};
-//<<<<<<< HEAD
-//    // list of assumptions
-//    std::vector<Literal<T>> assumptions;
-//    // apply the assumptions
-//    template <typename IterLit>
-//    void makeAssumptions(IterLit beg_a, IterLit end_a);
-    //
+
+    // index of the first literal that is not in the problem definition
+    //    index_t definition_stamp{0};
+    // index of the first literal that is not a ground truth
+    index_t ground_stamp{0};
+    // index of the first literal that is not an assumption nor a ground truth
+    index_t assumption_stamp{0};
+
+    //    bool underAssumption() { return assumption_stamp > ground_stamp; }
+    void updateGroundTruth() {
+
+      //        std::cout << "HELLO THERE " << ground_stamp << "/" <<
+      //        assumption_stamp << std::endl;
+      //
+      if (env.level() == 0) {
+        ground_stamp = assumption_stamp = numLiteral();
+      }
+    }
+
     void saveSolution();
-//=======
 
     /**
      * set literals without any checks. May throw
@@ -605,7 +613,6 @@ public:
     template <concepts::typed_range<Literal<T>> L>
     void makeAssumptions(const L &literals);
 
-//>>>>>>> 5e3de6be79b5753044226efba9642bcd0164d56f
     //@}
     
     /**
@@ -616,7 +623,7 @@ public:
     
     template <typename S> void optimize(S &objective);
     
-    template <typename S, heuristics::RelaxationPolicy<T> P>
+    template <typename S, heuristics::relaxation_policy P>
     void largeNeighborhoodSearch(S &objective, P &&relaxationPolicy);
     
     boolean_state satisfiable();
@@ -628,6 +635,7 @@ public:
     void branchRight();
     void learnConflict(Explanation<T> &e);
     void analyze(Explanation<T> &e);
+    void decisionCut(Explanation<T> &e);
     void minimize_clause();
     
     const SparseSet<var_t, Reversible<size_t>> &getBranch() const {
@@ -776,7 +784,9 @@ private:
     std::vector<index_t> literal_lvl;
     std::vector<Literal<T>> learnt_clause;
     std::vector<Literal<T>> minimal_clause;
-    
+
+    util::StopWatch stopWatch;
+
 public:
     std::vector<Literal<T>>::iterator begin_learnt() {
         return learnt_clause.begin();
@@ -788,15 +798,13 @@ public:
     
 private:
     // specialisation to numeric literals
-    void setNumeric(Literal<T> l,
-                    const Explanation<T> &e = Constant::Decision<T>,
-                    const bool do_update = true);
-    
-    // specialisation to Boolean literals
-    void setBoolean(Literal<T> l,
-                    const Explanation<T> &e = Constant::Decision<T>);
-    
-    
+  void setNumeric(Literal<T> l, const Explanation<T> &e = Constant::NoReason<T>,
+                  const bool do_update = true);
+
+  // specialisation to Boolean literals
+  void setBoolean(Literal<T> l,
+                  const Explanation<T> &e = Constant::NoReason<T>);
+
 #ifdef DBG_TRACE
     void printTrace() const;
 #endif
@@ -805,7 +813,7 @@ private:
     
     // to restack assumptions after initial propagation
     //    SubscriberHandle assumptionHandler;
-    
+
 public:
     void setActivityMap(heuristics::impl::EventActivityMap *map) {
         activityMap = map;
@@ -1058,25 +1066,26 @@ void BoundExplainer<T>::xplain(const Literal<T> l, const hint h,
     
     if (l == Solver<T>::Contradiction) {
         var_t x{static_cast<var_t>(h)};
-        
-#ifdef DBG_TRACE
-        if (DBG_CBOUND and (DBG_TRACE & LEARNING)) {
-            std::cout << "explain contradiction: wipe out on numeric var x" << x
-            << " in [" << solver.numeric.lower(x) << ".."
-            << solver.numeric.upper(x) << "]" << std::endl;
-        }
-#endif
-        
+
+        #ifdef DBG_TRACE
+                if (DBG_CBOUND and (DBG_TRACE & LEARNING)) {
+                    std::cout << "explain contradiction: wipe out on numeric var x" << x
+                    << " in [" << solver.numeric.lower(x) << ".."
+                    << solver.numeric.upper(x) << "]" << std::endl;
+                }
+        #endif
+
         auto lidx{solver.numeric.lastLitIndex(bound::lower, x)};
         auto uidx{solver.numeric.lastLitIndex(bound::upper, x)};
-        
-#ifdef DBG_TRACE
-        if (DBG_CBOUND and (DBG_TRACE & LEARNING)) {
-            std::cout << solver.getLiteral(lidx) << " AND " << solver.getLiteral(uidx)
-            << std::endl;
-        }
-#endif
-        
+
+        #ifdef DBG_TRACE
+                if (DBG_CBOUND and (DBG_TRACE & LEARNING)) {
+                    std::cout << solver.getLiteral(lidx) << " AND " <<
+                    solver.getLiteral(uidx)
+                    << std::endl;
+                }
+        #endif
+
         Literal<T> le;
         Explanation<T> exp;
         
@@ -1087,13 +1096,13 @@ void BoundExplainer<T>::xplain(const Literal<T> l, const hint h,
             le = solver.getLiteral(uidx);
             exp = solver.getReason(lidx);
         }
-        
-#ifdef DBG_TRACE
-        if (DBG_CBOUND and (DBG_TRACE & LEARNING)) {
-            std::cout << " => " << le << " AND " << exp << std::endl;
-        }
-#endif
-        
+
+        #ifdef DBG_TRACE
+                if (DBG_CBOUND and (DBG_TRACE & LEARNING)) {
+                    std::cout << " => " << le << " AND " << exp << std::endl;
+                }
+        #endif
+
         Cl.push_back(le);
         exp.explain(~le, Cl);
         
@@ -1485,18 +1494,15 @@ bool NumericStore<T>::satisfied(const Literal<T> l) const {
  */
 template <typename T>
 Solver<T>::Solver()
-: ReversibleObject(&env), boolean(*this), numeric(*this), clauses(*this),
-core(&env), boolean_search_vars(0, &env), numeric_search_vars(0, &env),
-propag_pointer(1, &env), propagation_queue(constraints),
-boolean_constraints(&env), numeric_constraints(&env),
-restartPolicy(*this), graph_exp(*this), bound_exp(*this)
-//, assumptionHandler(PropagationCompleted.subscribe_handled([this](const auto
-//&) { this->makeAssumptions();}))
-{
-    trail.emplace_back(Constant::NoVar, Constant::Infinity<T>, detail::Numeric{});
-    reason.push_back(Constant::GroundFact<T>);
-    core.newVertex(0);
-    seed(options.seed);
+    : ReversibleObject(&env), boolean(*this), numeric(*this), clauses(*this),
+      core(&env), boolean_search_vars(0, &env), numeric_search_vars(0, &env),
+      propag_pointer(1, &env), propagation_queue(constraints),
+      boolean_constraints(&env), numeric_constraints(&env),
+      restartPolicy(*this), graph_exp(*this), bound_exp(*this) {
+  trail.emplace_back(Constant::NoVar, Constant::Infinity<T>, detail::Numeric{});
+  reason.push_back(Constant::NoReason<T>);
+  core.newVertex(0);
+  seed(options.seed);
 }
 
 template <typename T> Solver<T>::~Solver() {
@@ -1517,20 +1523,17 @@ template <typename T> Solver<T>::~Solver() {
  */
 template <typename T>
 Solver<T>::Solver(Options opt)
-: ReversibleObject(&env), boolean(*this), numeric(*this), clauses(*this),
-core(&env), boolean_search_vars(0, &env), numeric_search_vars(0, &env),
-options(std::move(opt)), propag_pointer(1, &env),
-propagation_queue(constraints), boolean_constraints(&env),
-numeric_constraints(&env), restartPolicy(*this), graph_exp(*this),
-bound_exp(*this)
-//, assumptionHandler(PropagationCompleted.subscribe_handled([this](const auto
-//&) { this->makeAssumptions(); }))
-{
-    trail.emplace_back(Constant::NoVar, Constant::Infinity<T>, detail::Numeric{});
-    reason.push_back(Constant::Decision<T>);
-    core.newVertex(0);
-    seed(options.seed);
-    
+    : ReversibleObject(&env), boolean(*this), numeric(*this), clauses(*this),
+      core(&env), boolean_search_vars(0, &env), numeric_search_vars(0, &env),
+      options(std::move(opt)), propag_pointer(1, &env),
+      propagation_queue(constraints), boolean_constraints(&env),
+      numeric_constraints(&env), restartPolicy(*this), graph_exp(*this),
+      bound_exp(*this) {
+  trail.emplace_back(Constant::NoVar, Constant::Infinity<T>, detail::Numeric{});
+  reason.push_back(Constant::NoReason<T>);
+  core.newVertex(0);
+  seed(options.seed);
+
 #ifdef DBG_CL
     if (options.dbg_file != "")
         cl_file = new std::ofstream(options.dbg_file, std::ofstream::out);
@@ -1636,7 +1639,7 @@ NumericVar<T> Solver<T>::newNumeric(const T lb, const T ub) {
     //    auto x{numeric.newVar(-lb, ub)};
     
     if (lb > ub) {
-        throw Failure<T>({&bound_exp, Constant::FactHint});
+      throw Failure<T>({&bound_exp, Constant::NoHint});
     } else if (lb == ub) {
         return NumericVar(Constant::K, lb);
     } else {
@@ -1815,7 +1818,8 @@ void Solver<T>::setNumeric(Literal<T> l, const Explanation<T> &e,
         
 #ifdef DBG_TRACE
         if (DBG_BOUND and (DBG_TRACE & PROPAGATION)) {
-            std::cout << "set " << pretty(l) << " @" << trail.size() << " b/c " << e << std::endl;
+          std::cout << "set " << pretty(l) << " @" << numLiteral() << " b/c "
+                    << e << std::endl;
         }
 #endif
         
@@ -1860,14 +1864,15 @@ void Solver<T>::setBoolean(Literal<T> l, const Explanation<T> &e) {
         
 #ifdef DBG_TRACE
         if (DBG_BOUND and (DBG_TRACE & PROPAGATION)) {
-            std::cout << "failure on " << pretty(l) << " @" << trail.size() << " b/c " << e << std::endl;
+          std::cout << "failure on " << pretty(l) << " @" << numLiteral()
+                    << " b/c " << e << std::endl;
         }
 #endif
         
 #ifdef DBG_FAIL
         if (DBG_FAIL) {
-            std::cout << "failure on " << pretty(l) << " @" << trail.size()
-            << " b/c " << e << std::endl;
+          std::cout << "failure on " << pretty(l) << " @" << numLiteral()
+                    << " b/c " << e << std::endl;
         }
 #endif
         
@@ -1876,7 +1881,8 @@ void Solver<T>::setBoolean(Literal<T> l, const Explanation<T> &e) {
     
 #ifdef DBG_TRACE
     if (DBG_BOUND and (DBG_TRACE & PROPAGATION)) {
-        std::cout << "set " << pretty(l) << " @" << trail.size() << " b/c " << e << std::endl;
+      std::cout << "set " << pretty(l) << " @" << numLiteral() << " b/c " << e
+                << std::endl;
     }
 #endif
     
@@ -1895,8 +1901,8 @@ void Solver<T>::boundClosure(const var_t x, const var_t y, const T d,
     
     Explanation<T> e{&graph_exp, static_cast<hint>(r)};
     if (r == Constant::NoIndex)
-        e = Constant::Decision<T>;
-    
+      e = Constant::NoReason<T>;
+
     if (numeric.lower(y) != -Constant::Infinity<T>) {
         setNumeric(geq<T>(x, numeric.lower(y) - d), e);
     }
@@ -1912,19 +1918,19 @@ template <typename T> void Solver<T>::restart(const bool on_solution) {
     
     env.restore(init_level);
     decisions.clear();
-    
-    //    auto sb{trail.size()};
+
+    //    auto sb{numLiteral()};
     //
     //    std::cout << env.level() << std::endl;
-    //    std::cout << trail.size() << std::endl;
+    //    std::cout << numLiteral() << std::endl;
     //  undo();
-    //    std::cout << trail.size() << std::endl;
+    //    std::cout << numLiteral() << std::endl;
     //
-    //    if(trail.size() != sb) {
-    //        std::cout << "here " << trail.size() << "/" << sb << "\n";
+    //    if(numLiteral() != sb) {
+    //        std::cout << "here " << numLiteral() << "/" << sb << "\n";
     //        exit(1);
     //    }
-    
+
     if (on_solution) {
         restartPolicy.initialize();
     } else {
@@ -1998,19 +2004,19 @@ bool Solver<T>::entailedByConflict(Literal<T> p, const index_t p_lvl) const {
 }
 
 template <typename T> void Solver<T>::minimize_clause() {
-    //  auto fact_lvl{propagationLevel(decisions[0])};
-    //
-    //    if(fact_lvl != ground_level)
-    //    {
-    //        std::cout << ground_level << "/" << fact_lvl << std::endl;
-    //        exit(1);
-    //    }
-    
-    if (learnt_clause.empty())
-        return;
-    
-    minimal_clause.clear();
-    
+  //  auto fact_lvl{propagationLevel(decisions[0])};
+  //
+  //    if(fact_lvl != ground_stamp)
+  //    {
+  //        std::cout << ground_stamp << "/" << fact_lvl << std::endl;
+  //        exit(1);
+  //    }
+
+  if (learnt_clause.empty())
+    return;
+
+  minimal_clause.clear();
+
 #ifdef DBG_MINIMIZATION
     if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
         std::cout << std::endl << ~learnt_clause[0] << " (UIP:" << decisionLevel(~learnt_clause[0]) << "/" << propagationLevel(~learnt_clause[0]) << "\n";
@@ -2039,22 +2045,21 @@ template <typename T> void Solver<T>::minimize_clause() {
             std::cout << ~learnt_clause[i] << "(" << decisionLevel(~learnt_clause[i]) << "/" << propagationLevel(~learnt_clause[i]) << ")" << ":";
         }
 #endif
-        
-        if(r != Constant::Decision<T> and r != Constant::Assumption<T>) {
-            auto p{~learnt_clause[i]};
-            
-            if(learnt_clause[i].isNumeric())
-                numeric.setConflictIndex(p, Constant::NoIndex);
-            explored[p_lvl] = false;
-            
-            
-            relevant = false;
-            
-            lit_buffer.clear();
-            r.explain(p, lit_buffer);
-            
-            for(auto q : lit_buffer) {
-                
+
+        if (r != Constant::NoReason<T>) {
+          auto p{~learnt_clause[i]};
+
+          if (learnt_clause[i].isNumeric())
+            numeric.setConflictIndex(p, Constant::NoIndex);
+          explored[p_lvl] = false;
+
+          relevant = false;
+
+          lit_buffer.clear();
+          r.explain(p, lit_buffer);
+
+          for (auto q : lit_buffer) {
+
 #ifdef DBG_MINIMIZATION
                 if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
                     std::cout << " " << q;
@@ -2062,25 +2067,25 @@ template <typename T> void Solver<T>::minimize_clause() {
 #endif
                 
                 auto q_lvl{propagationLevel(q)};
-                
-                if (q_lvl >= ground_level and
+
+                if (q_lvl >= ground_stamp and
                     not entailedByConflict(q, q_lvl)) {
-                    relevant = true;
-                    break;
+                  relevant = true;
+                  break;
                 }
 #ifdef DBG_MINIMIZATION
                 else if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
                     std::cout << " (";
-                    if (q_lvl < ground_level)
-                        std::cout << "f";
+                    if (q_lvl < ground_stamp)
+                      std::cout << "f";
                     if(entailedByConflict(q, q_lvl))
                         std::cout << "e";
                     std::cout << ")";
                 }
 #endif
-            }
+          }
         }
-        
+
 #ifdef DBG_MINIMIZATION
         else if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
             std::cout << " (decision)";
@@ -2121,275 +2126,401 @@ template <typename T> void Solver<T>::minimize_clause() {
 #endif
 }
 
-template <typename T> void Solver<T>::analyze(Explanation<T> &e) {
-    explored.resize(trail.size(), false);
-    conflict.clear();
-    literal_lvl.clear();
-    learnt_clause.clear();
-    auto decision_lvl{(decisions.empty() ? assumption_level
-                       : propagationLevel(decisions.back()))};
-    //    auto fact_lvl{propagationLevel(decisions[0])};
-    
-    //    if(fact_lvl != ground_level)
-    //    {
-    //        std::cout << ground_level << "/" << fact_lvl << std::endl;
-    //        exit(1);
-    //    }
-    
-    int num_lit{0};
-    index_t li{static_cast<index_t>(trail.size() - 1)};
-    Literal<T> l{Contradiction};
-    
+template <typename T> void Solver<T>::decisionCut(Explanation<T> &e) {
+
 #ifdef DBG_TRACE
     if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
-        std::cout << "analyze conflict:\n";
-        //        displayBranches(std::cout);
-        for(auto i{ground_level}; i<trail.size(); ++i) {
-            if(i == assumption_level)
-                std::cout << "** ";
-            std::cout << std::setw(4) << i << " " << pretty(trail[i]) << std::endl;
-        }
+      std::cout << "compute decision cut\n";
     }
 #endif
-    
+
+    Literal<T> l{Contradiction};
     Explanation<T> &exp = e;
-    do {
-        int csize{static_cast<int>(conflict.size())};
-        
+
+    while (exp != Constant::NoReason<T>) {
+
 #ifdef DBG_TRACE
         if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
             std::cout << "resolve ";
             if (l == Contradiction) {
                 std::cout << "contradiction";
             } else {
-                std::cout << pretty(l) << " @" << propagationLevel(l);
+              std::cout << pretty(l); //<< " @" << propagationLevel(l);
             }
             std::cout << " by " << exp << std::endl;
         }
 #endif
-        
-        exp.explain(l, conflict);
-        
-        
-#ifdef DBG_CLPLUS
-        if (cl_file != NULL) {
-            *cl_file << "1 " << (conflict.size() - csize + 1 + (l != Contradiction)) << " 0 1 " << numeric.upper(1);
-            for (int i{static_cast<int>(conflict.size()) - 1}; i >= csize; --i) {
-                writeLiteral(conflict[i]);
-            }
-            if(l != Contradiction)
-                writeLiteral(~l);
-            *cl_file << std::endl;
-        }
-#endif
-        
-        for (int i{static_cast<int>(conflict.size()) - 1}; i >= csize;) {
-            
-            auto p{conflict[i]};
-            
-#ifdef DBG_TRACE
-            if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
-                std::cout << " ** " << pretty(p) << " ";
-                std::cout.flush();
-            }
-#endif
-            
-            //@TODO: remove
-            auto p_lvl{propagationLevel(p)};
-            
-            //            if (l != Contradiction and p_lvl > propagationLevel(l)) {
-            //              std::cout << "bug here " << num_choicepoints << "\n";
-            //
-            //              std::cout << env.level() << std::endl;
-            //
-            //              std::cout << " explain " f<< pretty(l) << " @"
-            //                        << propagationLevel(l) << " with " << pretty(p) << " @"
-            //                        << p_lvl << std::endl;
-            //
-            //              std::cout << *(clauses[exp.the_hint]) << std::endl;
-            //              //                << ": " << *(exp.expl)
-            //              //                << std::endl;
-            //
-            //              exit(1);
-            //            }
-            
-#ifdef DBG_TRACE
-            if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
-                std::cout << " ** " << pretty(p) << " (" << ground_level << "/"
-                << p_lvl << "/" << decision_lvl << ") i.e., "
-                << getLiteral(p_lvl);
-                std::cout.flush();
-            }
-#endif
-            
-            //@TODO: need to separate decisions from ground facts in Explanation
-            if (p_lvl < ground_level) {
+
+        //        exp.explain(l, lit_buffer);
+        //        for(auto q : lit_buffer) {
+        //            std::cout << ", " << q ;
+        //        }
+        //        std::cout << std::endl;
+        exp = Constant::NoReason<T>;
+        while (not lit_buffer.empty()) {
+          l = lit_buffer.back();
+          lit_buffer.pop_back();
+          auto lvl{propagationLevel(l)};
+          if (lvl >= ground_stamp) {
+
+            if (not explored[lvl]) {
+
+              explored[lvl] = true;
+
+              exp = reason[lvl];
+              if (exp != Constant::NoReason<T>)
+                break;
+              else {
 #ifdef DBG_TRACE
                 if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
-                    std::cout << " => ground fact\n";
+                  std::cout << " -add " << pretty(l) << " to the cut "
+                            << std::endl;
                 }
 #endif
-                --i;
-            } else if (p_lvl < decision_lvl) {
-                if (entailedByConflict(p, p_lvl)) {
-#ifdef DBG_TRACE
-                    if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
-                        std::cout << " => entailed by cut\n";
-                    }
-#endif
-                    --i;
-                } else {
-                    bool need_add{true};
-                    if (p.isNumeric()) {
-                        auto idx_p{numeric.getConflictIndex(p)};
-                        if (idx_p != Constant::NoIndex) {
-                            if (conflict[idx_p].value() > p.value()) {
-                                conflict[idx_p].setValue(p.value());
-                                literal_lvl[idx_p] = p_lvl;
-                            }
-                            need_add = false;
-                        } else {
-                            numeric.setConflictIndex(p, csize);
-                        }
-                    }
-                    if (need_add) {
-                        
-#ifdef DBG_TRACE
-                        if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
-                            std::cout << " => add to confict [";
-                            for (int z{0}; z < csize; ++z) {
-                                std::cout << " " << conflict[z];
-                                std::cout.flush();
-                            }
-                            std::cout << " ]\n";
-                        }
-#endif
-                        
-                        if(not p.isNumeric())
-                            explored[p_lvl] = true;
-                        std::swap(conflict[csize], conflict[i]);
-                        ++csize;
-                        literal_lvl.push_back(p_lvl);
-                    } else {
-                        --i;
-#ifdef DBG_TRACE
-                        if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
-                            std::cout << " => update confict [";
-                            for (int z{0}; z < csize; ++z) {
-                                std::cout << " " << conflict[z];
-                            }
-                            std::cout << " ]\n";
-                        }
-#endif
-                    }
-                }
-            } else if (explored[p_lvl]) {
-#ifdef DBG_TRACE
-                if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
-                    std::cout << " => already explored\n";
-                }
-#endif
-                --i;
-            } else {
-                
-                explored[p_lvl] = true;
-                ++num_lit;
-                --i;
-                
-#ifdef DBG_TRACE
-                if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
-                    auto count{0};
-                    std::cout << " => to explore [ ";
-                    for (index_t z{li}; z >= decision_lvl; --z) {
-                        if (explored[z] or z == p_lvl) {
-                            std::cout << " " << trail[z];
-                            std::cout.flush();
-                            ++count;
-                        }
-                    }
-                    std::cout << "]\n";
-                    if (count != num_lit) {
-                        std::cout << "bug " << count << "/" << num_lit << "\n";
-                        //                      exit(1);
-                    }
-                }
-#endif
+
+                literal_lvl.push_back(lvl);
+                conflict.push_back(l);
+              }
             }
-        }
-        
-#ifdef DBG_CLPLUS
-        if (++num_clauses > DBG_CL) {
-            std::cout << "exit because of dbg clause limit (#fails = " << num_fails << ", #cpts = " << num_choicepoints << ")\n";
-            exit(1);
-        }
-#endif
-        
-        conflict.resize(csize);
-        
 #ifdef DBG_TRACE
-        if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
-            std::cout << "num_lit: " << num_lit << std::endl;
-        }
-#endif
-        
-        if(num_lit > 0) {
-            while (not explored[li--])
-                ;
-            
-            l = trail[li + 1];
-            exp = reason[li + 1];
-            
-            explored[li + 1] = false;
-            
-#ifdef DBG_TRACE
-            if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
-                std::cout << (li + 1) << "//" << decision_lvl << std::endl;
+            else if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+              std::cout << " " << pretty(l) << " is already explored "
+                        << std::endl;
             }
 #endif
-        }
-        
-        --num_lit;
-        
-    } while (num_lit > 0 and li >= ground_level); // or l.isNumeric());
-    
-    //    std::cout << "conflict.size() = " << conflict.size() << " numlit = " << num_lit << std::endl;
-    
-    
-    if(num_lit >= 0) {
-        bool need_add{true};
-        if (l.isNumeric()) {
-            auto idx_l{numeric.getConflictIndex(l)};
-            if (idx_l != Constant::NoIndex) {
-                if (conflict[idx_l].value() > l.value_unsafe()) {
-                    conflict[idx_l].setValue(l.value_unsafe());
-                    literal_lvl[idx_l] = li + 1;
-                }
-                need_add = false;
-                
+          }
+
 #ifdef DBG_TRACE
-                if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
-                    std::cout << " UIP (updated): " << conflict[idx_l] << std::endl;
-                }
-#endif
-            }
-        }
-        
-        if (need_add) {
-            conflict.push_back(l);
-            literal_lvl.push_back(li + 1);
-            
-#ifdef DBG_TRACE
-            if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
-                std::cout << " UIP (added): " << l << std::endl;
-            }
+          else if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+            std::cout << " " << pretty(l) << " is a ground fact " << std::endl;
+          }
 #endif
         }
     }
-    
+
+    std::sort(literal_lvl.begin(), literal_lvl.end(),
+              [&](const index_t a, const index_t b) { return a > b; });
+
+    for (size_t i{0}; i < literal_lvl.size(); ++i) {
+      auto p{trail[literal_lvl[i]]};
+      learnt_clause.push_back(~p);
+    }
+
+    for (auto i{ground_stamp}; i < numLiteral(); ++i) {
+      explored[i] = false;
+    }
+
+    //    std::cout << "THE END\n";
+}
+
+template <typename T> void Solver<T>::analyze(Explanation<T> &e) {
+
+  explored.resize(numLiteral(), false);
+  conflict.clear();
+  literal_lvl.clear();
+  learnt_clause.clear();
+
+  int UIP{1};
+
+  //    std::cout << "analyze conflict from decisions:";
+  //    for(auto i{ground_stamp}; i<numLiteral(); ++i) {
+  //        if(reason[i] == Constant::NoReason<T>) {
+  //            std::cout << " " << trail[i];
+  //        }
+  //    }
+  //    std::cout << std::endl;
+
+  index_t decision_stamp;
+  if (decisions.empty()) {
+
+    if (env.level() == 0 or assumption_stamp == ground_stamp) {
+      assumption_stamp = ground_stamp = 1;
+      decision_stamp = numLiteral();
+    }
+
+    decisionCut(e);
+
+    //        std::cout << "clause =";
+    //        for(auto l : learnt_clause) {
+    //            std::cout << " " << pretty(l) ;
+    //        }
+    //        std::cout << std::endl ;
+
+    return;
+
+  } else {
+    //        std::cout << "search conflict\n";
+    decision_stamp = propagationLevel(decisions.back());
+
+    int num_lit{0};
+    index_t lit_pointer{static_cast<index_t>(numLiteral())};
+    Literal<T> l{Contradiction};
+
+#ifdef DBG_TRACE
+    if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+      std::cout << "analyze conflict:\n";
+//      //        displayBranches(std::cout);
+//      for (index_t i{1}; i < numLiteral(); ++i) {
+//        //                if(i == definition_stamp)
+//        //                    std::cout << "**p** ";
+//        if (i == ground_stamp)
+//          std::cout << "**g** ";
+//        if (i == assumption_stamp)
+//          std::cout << "**a** ";
+//        if (i == decision_stamp)
+//          std::cout << "**d** ";
+//        std::cout << std::setw(4) << i << " " << pretty(trail[i]) << " b/c "
+//                  << reason[i] << std::endl;
+//      }
+    }
+#endif
+
+    Explanation<T> &exp = e;
+    do {
+      int csize{static_cast<int>(conflict.size())};
+
+#ifdef DBG_TRACE
+            if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+              std::cout << "resolve ";
+              if (l == Contradiction) {
+                std::cout << "contradiction";
+              } else {
+                std::cout << pretty(l) << " @" << propagationLevel(l);
+              }
+              std::cout << " by " << exp << std::endl;
+            }
+#endif
+
+            exp.explain(l, conflict);
+
+#ifdef DBG_CLPLUS
+            if (cl_file != NULL) {
+              *cl_file << "1 "
+                       << (conflict.size() - csize + 1 + (l != Contradiction))
+                       << " 0 1 " << numeric.upper(1);
+              for (int i{static_cast<int>(conflict.size()) - 1}; i >= csize;
+                   --i) {
+                writeLiteral(conflict[i]);
+              }
+              if (l != Contradiction)
+                writeLiteral(~l);
+              *cl_file << std::endl;
+            }
+#endif
+
+            for (int i{static_cast<int>(conflict.size()) - 1}; i >= csize;) {
+
+              auto p{conflict[i]};
+
+              //#ifdef DBG_TRACE
+              //            if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+              //                std::cout << " ** " << pretty(p) << " ";
+              //                std::cout.flush();
+              //            }
+              //#endif
+
+              //@TODO: remove
+              auto p_lvl{propagationLevel(p)};
+
+#ifdef DBG_TRACE
+                if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+                  std::cout << " ** " << pretty(p) << " (" << ground_stamp
+                            << "/" << p_lvl << "/" << decision_stamp << ")";
+                  std::cout.flush();
+                }
+#endif
+
+                //@TODO: need to separate decisions from ground facts in
+                // Explanation
+                if (p_lvl < ground_stamp) {
+#ifdef DBG_TRACE
+                    if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+                      std::cout << " => ground fact\n";
+                    }
+#endif
+                    --i;
+                } else if (p_lvl < decision_stamp) {
+                  if (entailedByConflict(p, p_lvl)) {
+#ifdef DBG_TRACE
+                    if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+                      std::cout << " => entailed by cut\n";
+                    }
+#endif
+                    --i;
+                  } else {
+                    bool need_add{true};
+                    if (p.isNumeric()) {
+                      auto idx_p{numeric.getConflictIndex(p)};
+                      if (idx_p != Constant::NoIndex) {
+                        if (conflict[idx_p].value() > p.value()) {
+                          conflict[idx_p].setValue(p.value());
+                          literal_lvl[idx_p] = p_lvl;
+                        }
+                        need_add = false;
+                      } else {
+                        numeric.setConflictIndex(p, csize);
+                      }
+                    }
+                    if (need_add) {
+
+                      if (not p.isNumeric())
+                        explored[p_lvl] = true;
+                      std::swap(conflict[csize], conflict[i]);
+                      ++csize;
+                      literal_lvl.push_back(p_lvl);
+                        
+#ifdef DBG_TRACE
+                      if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+                        std::cout << " => add to confict [";
+                        for (int z{0}; z < csize; ++z) {
+                          std::cout << " " << conflict[z];
+                          std::cout.flush();
+                        }
+                        std::cout << " ]\n";
+                      }
+#endif
+                        
+                    } else {
+                      --i;
+#ifdef DBG_TRACE
+                      if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+                        std::cout << " => update confict [";
+                        for (int z{0}; z < csize; ++z) {
+                          std::cout << " " << conflict[z];
+                        }
+                        std::cout << " ]\n";
+                      }
+#endif
+                    }
+                  }
+                } else if (explored[p_lvl]) {
+#ifdef DBG_TRACE
+                  if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+                    std::cout << " => already explored\n";
+                  }
+#endif
+                  --i;
+                } else {
+
+                  explored[p_lvl] = true;
+                  ++num_lit;
+                  --i;
+
+#ifdef DBG_TRACE
+                  if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+                    auto count{0};
+                    std::cout << " => to explore [ ";
+                    for (index_t z{lit_pointer - 1}; z >= decision_stamp; --z) {
+                      if (explored[z] or z == p_lvl) {
+                        std::cout << " " << trail[z] << " (" << z << ")";
+                        std::cout.flush();
+                        ++count;
+                      }
+                    }
+                    std::cout << "]\n";
+                    if (count != num_lit) {
+                      std::cout << "bug " << count << "/" << num_lit << "\n";
+                      //                      exit(1);
+                    }
+                  }
+#endif
+                }
+            }
+
+#ifdef DBG_CLPLUS
+            if (++num_clauses > DBG_CL) {
+              std::cout << "exit because of dbg clause limit (#fails = "
+                        << num_fails << ", #cpts = " << num_choicepoints
+                        << ")\n";
+              exit(1);
+            }
+#endif
+
+            conflict.resize(csize);
+
+#ifdef DBG_TRACE
+            if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+              std::cout << "num_lit: " << num_lit << std::endl;
+            }
+#endif
+
+            if (num_lit >= UIP) {
+              while (not explored[--lit_pointer])
+                ;
+
+              l = trail[lit_pointer];
+              exp = reason[lit_pointer];
+
+              explored[lit_pointer] = false;
+
+#ifdef DBG_TRACE
+                if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+                  std::cout << (lit_pointer) << "//" << decision_stamp
+                            << std::endl;
+                }
+#endif
+            }
+
+            --num_lit;
+
+            //        std::cout << "CONTINUELOOP : " << (num_lit >= UIP) << "
+            //        and " << (lit_pointer >= decision_stamp) << std::endl;
+
+    } while (num_lit >= UIP and
+             lit_pointer >= decision_stamp); // or l.isNumeric());
+
+    //    std::cout << "conflict.size() = " << conflict.size() << " numlit = "
+    //    << num_lit << std::endl;
+
+    //    std::cout << "NUM_LIT = " << num_lit << " LI = " <<
+    //    (static_cast<int>(lit_pointer) - static_cast<int>(decision_stamp)) <<
+    //    std::endl;
+      
+      
+      
+
+    if (num_lit >= 0) {
+      bool need_add{true};
+      if (l.isNumeric()) {
+        auto idx_l{numeric.getConflictIndex(l)};
+        if (idx_l != Constant::NoIndex) {
+          if (conflict[idx_l].value() > l.value_unsafe()) {
+            conflict[idx_l].setValue(l.value_unsafe());
+            literal_lvl[idx_l] = lit_pointer;
+          }
+          need_add = false;
+
+#ifdef DBG_TRACE
+          if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+            std::cout << " UIP (updated): " << conflict[idx_l] << std::endl;
+          }
+#endif
+        }
+      }
+
+      if (need_add) {
+        conflict.push_back(l);
+        literal_lvl.push_back(lit_pointer);
+
+#ifdef DBG_TRACE
+        if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+          std::cout << " UIP (added): " << l << std::endl;
+        }
+#endif
+      }
+    }
+      
+      
+//      if(lit_pointer < decision_stamp) {
+//          std::cout << "STOPE HERE\n";
+//          exit(1);
+//      }
+
     //    else {
     //        std::cout << "conflict.size() = " << conflict.size() << std::endl;
     //    }
-    
+  }
+
     assert(conflict.size() == literal_lvl.size());
     
     std::sort(literal_lvl.begin(), literal_lvl.end(),
@@ -2408,16 +2539,16 @@ template <typename T> void Solver<T>::analyze(Explanation<T> &e) {
     
 #ifdef DBG_TRACE
     if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
-        
-        displayDomains(std::cout);
-        
-        std::cout << "\nlearn clause\n";
-        for (auto l : learnt_clause) {
-            std::cout << " " << pretty(l) << " @" << propagationLevel(~l) << ": "
-            << (l.isNumeric() ? numeric.falsified(l)
-                : boolean.falsified(l));
-            std::cout << std::endl;
-        }
+
+      //        displayDomains(std::cout);
+
+      std::cout << "\nlearn clause (" << learnt_clause.size() << ")\n";
+      for (auto l : learnt_clause) {
+        std::cout << " " << pretty(l) << " @" << propagationLevel(~l) << ": "
+                  << (l.isNumeric() ? numeric.falsified(l)
+                                    : boolean.falsified(l));
+        std::cout << std::endl;
+      }
         std::cout << std::endl;
     }
 #endif
@@ -2441,9 +2572,13 @@ template <typename T> void Solver<T>::analyze(Explanation<T> &e) {
     }
 #endif
 
-    //    for (auto l : learnt_clause)
-    //      std::cout << " " << pretty(l);
-    //    std::cout << std::endl;
+//    if (decisions.empty()) {
+//      std::cout << "learnt_clause.size() = " << learnt_clause.size()
+//                << std::endl;
+//      for (auto l : learnt_clause)
+//        std::cout << " " << pretty(l);
+//      std::cout << std::endl;
+//    }
 
     for (auto p : learnt_clause)
         if (p.isNumeric()) {
@@ -2510,11 +2645,18 @@ template <typename T> void Solver<T>::learnConflict(Explanation<T> &e) {
     
 #ifdef DBG_TRACE
     if (DBG_BOUND and (DBG_TRACE & SEARCH)) {
-        std::cout << "learn clause @lvl" << level() << ":";
-        for (auto l : learnt_clause) {
-            std::cout << " " << pretty(l) << " (" << propagationLevel(l) << ")";
-        }
-        std::cout << std::endl; //<< *this << std::endl;
+      if (not learnt_clause.empty())
+        std::cout << "learn clause @lvl" << level() << " and deduce "
+                  << pretty(learnt_clause[0]) << std::endl;
+      else
+        std::cout << "learn empty clause!\n";
+
+      //        << ":";
+      //        for (auto l : learnt_clause) {
+      //            std::cout << " " << pretty(l) << " (" << propagationLevel(l)
+      //            << ")";
+      //        }
+      //        std::cout << std::endl; //<< *this << std::endl;
     }
 #endif
     //        std::cout << "jump to " << (env.level() - jump) << std::endl;
@@ -2524,32 +2666,14 @@ template <typename T> void Solver<T>::learnConflict(Explanation<T> &e) {
     if ((env.level() - jump) < init_level)
         throw SearchExhausted();
     restoreState(env.level() - jump);
-    
-    
+
     decisions.resize(decisions.size() - jump);
-    
-    
+
     //    ClauseAdded.trigger(conflict);
     ClauseAdded.trigger(learnt_clause);
-    
-    
-    
-    
-    //    assert(isAssertive(learnt_clause));
-    
-    //#ifdef DBG_TRACE
-    //    auto cl =
-    //#endif
+
     clauses.add(learnt_clause.begin(), learnt_clause.end(), true);
-    
-    //#ifdef DBG_TRACE
-    //    if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
-    //        if (clauses.size() > 0 and cl != NULL) {
-    //            std::cout << "learn conflict" << *cl << std::endl;
-    //        }
-    //    }
-    //#endif
-    
+
 #ifdef DBG_CL
     if (++num_clauses > DBG_CL) {
         std::cout << "exit because of dbg clause limit (#fails = " << num_fails << ", #cpts = " << num_choicepoints << ")\n";
@@ -2588,6 +2712,7 @@ template <typename T> void Solver<T>::branchRight() {
 template <typename T> void Solver<T>::initializeSearch() {
     if(not initialized) {
         start_time = cpu_time();
+        stopWatch.start();
         post(&clauses);
         
         restartPolicy.initialize();
@@ -2600,11 +2725,11 @@ template <typename T> void Solver<T>::initializeSearch() {
         }
         
         propag_pointer = 1;
-        
+
+        //        definition_stamp = numLiteral();
+
         propagate();
-        
-        assumption_level = ground_level = trail.size();
-        
+
         initialized = true;
     }
 }
@@ -2757,50 +2882,51 @@ void Solver<T>::optimize(S &objective) {
 }
 
 template <typename T>
-template <typename S, heuristics::RelaxationPolicy<T> P>
+template <typename S, heuristics::relaxation_policy P>
 void Solver<T>::largeNeighborhoodSearch(S &objective, P &&relaxationPolicy) {
     objective.X.extract(*this);
     objective_var = objective.X.id();
     initializeSearch();
-    
-    //    Solution<T> current_best;
-    
+
     if (not boolean.hasSolution()) {
         auto satisfiability{search()};
         if (satisfiability == TrueState) {
-            
-//            std::cout << "INIT SOL\n";
-            
-            auto best{objective.value(*this)};
-            if (options.verbosity >= Options::NORMAL) {
-                std::cout << std::setw(10) << best;
-                displayProgress(std::cout);
-            }
-//            boolean.saveSolution();
-//            numeric.saveSolution();
-//            ++num_solutions;
-//            SolutionFound.trigger(*this);
-            saveSolution();
-            restart(true);
-            try {
-                objective.setPrimal(best, *this);
-            } catch (Failure<T> &f) {
-                objective.setDual(objective.primalBound());
-            }
+          auto best{objective.value(*this)};
+          if (options.verbosity >= Options::NORMAL) {
+            std::cout << std::setw(10) << best;
+            displayProgress(std::cout);
+          }
+          saveSolution();
+          restart(true);
+          try {
+            objective.setPrimal(best, *this);
+          } catch (Failure<T> &f) {
+            objective.setDual(objective.primalBound());
+          }
         } else {
-            if(options.verbosity >= Options::QUIET)
-                displaySummary(std::cout, "unsatisfiable");
-            return;
+          if (options.verbosity >= Options::QUIET)
+            displaySummary(std::cout, "unsatisfiable");
+          return;
         }
     }
     
 
     while (objective.gap() and not KillHandler::instance().signalReceived()) {
-        heuristics::AssumptionInterface surrogate = *this;
+        heuristics::AssumptionProxy surrogate = *this;
         std::forward<P>(relaxationPolicy).relax(surrogate);
+
+        // return to level 0 if there is no relaxation
+        if (surrogate.getState() == heuristics::AssumptionState::Empty) {
+          restoreState(0);
+        }
+
         auto satisfiability = UnknownState;
         if (surrogate.getState() != heuristics::AssumptionState::Fail) {
-            satisfiability = search();
+
+          //            std::cout << "FIXED " << (assumption_stamp -
+          //            ground_stamp) << " LITERALS\n";
+
+          satisfiability = search();
         }
 
         if (satisfiability == TrueState) {
@@ -2810,7 +2936,7 @@ void Solver<T>::largeNeighborhoodSearch(S &objective, P &&relaxationPolicy) {
                 displayProgress(std::cout);
             }
             saveSolution();
-            std::forward<P>(relaxationPolicy).notifySuccess();
+            std::forward<P>(relaxationPolicy).notifySuccess(num_fails);
             restoreState(0);
             decisions.clear();
         
@@ -2820,14 +2946,13 @@ void Solver<T>::largeNeighborhoodSearch(S &objective, P &&relaxationPolicy) {
             } catch (Failure<T> &f) {
                 objective.setDual(objective.primalBound());
             }
-            ground_level = trail.size();
         } else {
 
             // no assumptions made and still failure => no improving solution exists
             if (surrogate.getState() == heuristics::AssumptionState::Empty) {
                 objective.setDual(objective.primalBound());
             } else {
-                std::forward<P>(relaxationPolicy).notifyFailure();
+                std::forward<P>(relaxationPolicy).notifyFailure(num_fails);
                 restoreState(0);
                 decisions.clear();
             }
@@ -2877,19 +3002,31 @@ void Solver<T>::largeNeighborhoodSearch(S &objective, P &&relaxationPolicy) {
 template <typename T>
 template <concepts::typed_range<Literal<T>> L>
  void Solver<T>::makeAssumptions(const L &literals) {
-    initializeSearch();
-    saveState();
-    for (auto lit : literals) {
-        set(lit);
-    }
+
+  //     std::cout << "hi\n";
+  //     exit(1);
+  //
+  //
+  initializeSearch();
+  saveState();
+  for (auto lit : literals) {
+
+    //        std::cout << "assume " << pretty(lit) << std::endl;
+
+    set(lit);
+  }
 
     propagate();
-    assumption_level = numLiteral()-1;
+    assumption_stamp = numLiteral();
+
+    //     std::cout << "set assumption ptr to " << assumption_stamp <<
+    //     std::endl; std::cout << pretty(trail[assumption_stamp-1]) <<
+    //     std::endl;
 }
 
 template <typename T> boolean_state Solver<T>::search() {
 
-  //    assumption_level =
+  //    assumption_stamp =
   init_level = env.level();
   boolean_state satisfiability{UnknownState};
   while (satisfiability == UnknownState and
@@ -2932,7 +3069,8 @@ template <typename T> boolean_state Solver<T>::search() {
 #ifdef DBG_TRACE
         if (DBG_BOUND) {
           std::cout << "--- search node (lvl=" << env.level() << "/"
-                    << init_level << ") [i=" << num_choicepoints << "] (|trail|=" << trail.size() << ")---\n";
+                    << init_level << ") [i=" << num_choicepoints
+                    << "] (|trail|=" << numLiteral() << ")---\n";
           std::cout << " ** take decision " << d << ": " << pretty(d)
                     << " **\n";
           printTrace();
@@ -2973,9 +3111,9 @@ template <typename T> void tempo::Solver<T>::propagate() {
 
 #ifdef DBG_TRACE
   if (DBG_BOUND and (DBG_TRACE & PROPAGATION) and
-      static_cast<index_t>(propag_pointer) < trail.size()) {
+      static_cast<index_t>(propag_pointer) < numLiteral()) {
     std::cout << "propagate\n";
-    for (index_t i{propag_pointer}; i < trail.size(); ++i)
+    for (index_t i{propag_pointer}; i < numLiteral(); ++i)
       std::cout << " * " << pretty(trail[i]) << std::endl;
     std::cout << std::endl;
   }
@@ -2985,9 +3123,9 @@ template <typename T> void tempo::Solver<T>::propagate() {
 
   clauses.clearTriggers();
 
-  while (not propagation_queue.empty() or trail.size() > p_index) {
+  while (not propagation_queue.empty() or numLiteral() > p_index) {
 
-    while (trail.size() > p_index) {
+    while (numLiteral() > p_index) {
       ++num_literals;
       Literal<T> l{trail[p_index]};
       auto culprit{reason[p_index].expl};
@@ -3068,17 +3206,19 @@ template <typename T> void tempo::Solver<T>::propagate() {
       cons->propagate();
     }
     //      if(need_up_num and not up_done and propagation_queue.empty() and
-    //      trail.size() == p_index) {
+    //      numLiteral() == p_index) {
     //          clauses.propagate();
     //          up_done = true;
     //      }
   }
 
   propag_pointer = p_index;
+
+  updateGroundTruth();
 }
 
 template <typename T> int Solver<T>::saveState() {
-  assert(propag_pointer == static_cast<index_t>(trail.size()));
+  assert(propag_pointer == static_cast<index_t>(numLiteral()));
 
   int lvl{env.level()};
   env.save();
@@ -3096,7 +3236,7 @@ template <typename T> void Solver<T>::restoreState(const int l) {
 
 template <typename T> void Solver<T>::undo() {
   size_t n{propag_pointer};
-  while (trail.size() > n) {
+  while (numLiteral() > n) {
     auto l{trail.back()};
     if (l.isNumeric()) {
       numeric.undo(l);
@@ -3382,7 +3522,7 @@ std::ostream &Solver<T>::displayHeader(std::ostream &os,
                                           const int width) const {
   os << std::right << std::setw(width)
      << " objective   failures   branches    nds/s    lvl   clauses  size";
-  os << "   cpu\n";
+  os << "   cpu         wall time\n";
   return os;
 }
 
@@ -3398,6 +3538,8 @@ template <typename T>
 std::ostream &Solver<T>::displayProgress(std::ostream &os) const {
 
   auto cpu{(cpu_time() - start_time)};
+  auto [start, stop] = stopWatch.getTiming();
+  const auto wallTime = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start).count();
 
   os << "  " << std::setw(9) << num_fails << "  " << std::setw(9)
      << num_choicepoints << "  " << std::setw(7)
@@ -3412,7 +3554,7 @@ std::ostream &Solver<T>::displayProgress(std::ostream &os) const {
                                 static_cast<double>(clauses.size()));
 
 
-  os << "   " << std::left << cpu << std::right << std::endl;
+  os << "   " << std::left << std::setw(9) << cpu << "   " << wallTime << std::right << std::endl;
 
   return os;
 }

@@ -22,6 +22,7 @@
 #define _TEMPO_EXPLANATION_HPP
 
 #include <vector>
+#include <cassert>
 
 #include "Global.hpp"
 
@@ -58,13 +59,14 @@ public:
   int id() const { return cons_id; }
 };
 
-template <typename T> class AssumptionExplainer : public Explainer<T> {
-    
-public:
-     void xplain(const Literal<T>, const hint, std::vector<Literal<T>> &) override;
-
-     std::ostream &print_reason(std::ostream &, const hint) const override;
-};
+// template <typename T> class AssumptionExplainer : public Explainer<T> {
+//
+// public:
+//      void xplain(const Literal<T>, const hint, std::vector<Literal<T>> &)
+//      override;
+//
+//      std::ostream &print_reason(std::ostream &, const hint) const override;
+// };
 
 //! Explanation class
 /*!
@@ -98,19 +100,18 @@ std::ostream &Explainer<T>::print_reason(std::ostream &os,
   return os;
 }
 
+// template <typename T>
+// void AssumptionExplainer<T>::xplain(const Literal<T> l, const hint,
+//                              std::vector<Literal<T>> &Cl) {
+//     Cl.push_back(l);
+// }
 
-template <typename T>
-void AssumptionExplainer<T>::xplain(const Literal<T> l, const hint,
-                             std::vector<Literal<T>> &Cl) {
-    Cl.push_back(l);
-}
-
-template <typename T>
-std::ostream &AssumptionExplainer<T>::print_reason(std::ostream &os,
-                                            const hint) const {
-  os << "assumption";
-  return os;
-}
+// template <typename T>
+// std::ostream &AssumptionExplainer<T>::print_reason(std::ostream &os,
+//                                             const hint) const {
+//   os << "assumption";
+//   return os;
+// }
 
 //template <typename T> int Explainer<T>::getType() const { return NOEXPL; }
 

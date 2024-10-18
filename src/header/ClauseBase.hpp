@@ -1327,13 +1327,15 @@ Clause<T> *ClauseBase<T>::add(const iter first, const iter last,
   //  }
   //  std::cout << std::endl;
 
-  Clause<T> *c{NULL};
+  Clause<T> *c = nullptr;
 
-  assert(first != last);
-
+    if (first == last) {
+        throw Failure<T>({this, Constant::NoHint});
+    }
+    
   if (first + 1 == last) {
     //    assign(*first, Constant::NewNoReason<T>);
-    solver.set(*first, Constant::GroundFact<T>);
+    solver.set(*first); //, Constant::GroundFact<T>);
   } else {
     if (not free_cl_indices.empty()) {
       int id{free_cl_indices.back()};

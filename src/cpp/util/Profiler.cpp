@@ -15,7 +15,7 @@ namespace tempo::util {
         startTp = std::chrono::high_resolution_clock::now();
     }
 
-    TimingEvent StopWatch::getTiming() {
+    TimingEvent StopWatch::getTiming() const {
         return {startTp, std::chrono::high_resolution_clock::now()};
     }
 

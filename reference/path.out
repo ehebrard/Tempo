@@ -1,13 +1,12 @@
 -- using variable selection strategy 'VSIDS'
 -- using value selection strategy 'TightestValue'
- objective   failures   branches    nds/s    lvl   clauses  size   cpu
-       280         14        292   261648     91        21     2   0.001116
-       255         38        474    35971     53        46     2   0.013177
-       252         41        530    27401     51        49     2   0.019342
-       250         41        591    27173     51        49     2   0.021749
-       249         45        650    29423     47        53     2   0.022091
-       237         45        708    31741     47        53     2   0.022305
-   optimal         45        708    31636     47        53     2   0.022379
+ objective   failures   branches    nds/s    lvl   clauses  size   cpu         wall time
+       280         14        292   212672     91        21     2   0.001373    1
+       255         37        462    44555     53        45     2   0.010369    11
+       252         40        514    34134     50        48     2   0.015058    17
+       250         41        578    34353     50        49     2   0.016825    19
+       237         47        651    37651     45        57     2   0.01729     19
+   optimal         47        651    37504     45        57     2   0.017358    19
 -- makespan 237
--- date: 2024-09-16
--- commit: b6408ed2f8fe54177594777097a7caa8fcfd8569
+-- date: 2024-10-08
+-- commit: f1874e48e7646243f65e46bd7389b1e51b7deecc

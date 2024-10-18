@@ -239,7 +239,7 @@ namespace tempo::util {
          * @return TimingEvent with start point set to the last call to start() and end
          * event the current time
          */
-        TimingEvent getTiming();
+        TimingEvent getTiming() const;
     };
 
 

@@ -221,7 +221,7 @@ template <typename T> void SumConstraint<T>::propagate() {
     std::cout << " --> " << blit << std::endl;
 #endif
 
-    m_solver.set(blit, {this, Constant::FactHint});
+    m_solver.set(blit, {this, Constant::NoHint});
   } else {
     for (unsigned j{0}; j < scope.size(); ++j) {
       if (weight[j] > 0) {
@@ -336,7 +336,7 @@ bool SumConstraint<T>::notify(const Literal<T>, const int) {
   //
   //    T increment = (l.value() - p.value()) * ai;
   //    if(static_cast<T>(current_lower_bound) + increment > upper_bound) {
-  //        throw Failure<T>({this, Constant::FactHint});
+  //        throw Failure<T>({this, Constant::NoHint});
   //    }
   //    current_lower_bound += increment;
   //

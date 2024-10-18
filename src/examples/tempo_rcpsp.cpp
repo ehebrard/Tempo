@@ -229,6 +229,9 @@ int main(int argc, char *argv[]) {
             sgs.clear();
             
             if(makespan < ub_makespan) {
+                
+                std::cout << "load improving sgs solution " << makespan << std::endl;
+                
                 sgs.load();
                 ub_makespan = makespan;
                 S.num_choicepoints += sgs.num_insertions;
@@ -242,6 +245,9 @@ int main(int argc, char *argv[]) {
 //        ub_makespan = sgs.best_makespan;
         
         try {
+            
+//            std::cout << "post ub = " << ub_makespan-1 << "\n";
+            
             S.post(schedule.duration < ub_makespan);
         } catch(Failure<int>& f) {
             optimal = true;
@@ -254,7 +260,12 @@ int main(int argc, char *argv[]) {
     if (not optimal) {
         auto ub{std::min(opt.ub, ub_makespan)};
         
+//        std::cout << "repost ub = " << ub << "\n";
+        
         S.post(schedule.end.before(ub));
+        
+        
+//        std::cout << "minimize\n";
         
         S.minimize(schedule.duration);
     }

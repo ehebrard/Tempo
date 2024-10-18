@@ -143,11 +143,11 @@ bool CardinalityInterface<T>::notify(const Literal<T> l, const int) {
 
     if(l.isNumeric()) {
         if(current_bound > ub) {
-            throw Failure<T>({this, Constant::FactHint});
+          throw Failure<T>({this, Constant::NoHint});
         } else if(current_bound == ub) {
             for(auto p : literals) {
                 if(m_solver.boolean.isUndefined(p.variable()))
-                    m_solver.set(~p, {this, Constant::FactHint});
+                  m_solver.set(~p, {this, Constant::NoHint});
             }
         }
     } else {
@@ -157,7 +157,7 @@ bool CardinalityInterface<T>::notify(const Literal<T> l, const int) {
 
             T lb{static_cast<T>(current_bound)};
             if(lb > ub) {
-                throw Failure<T>({this, Constant::FactHint});
+              throw Failure<T>({this, Constant::NoHint});
             } else {
               if (lb > lowerBound()) {
                 setLowerBound(lb);
@@ -165,7 +165,7 @@ bool CardinalityInterface<T>::notify(const Literal<T> l, const int) {
               if (lb == ub) {
                 for (auto p : literals) {
                   if (m_solver.boolean.isUndefined(p.variable()))
-                    m_solver.set(~p, {this, Constant::FactHint});
+                    m_solver.set(~p, {this, Constant::NoHint});
                 }
               }
             }

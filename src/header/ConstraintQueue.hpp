@@ -24,6 +24,7 @@
 #include "Explanation.hpp"
 #include "constraints/Constraint.hpp"
 #include "util/SparseSet.hpp"
+#include "util/enum.hpp"
 
 namespace tempo {
 
