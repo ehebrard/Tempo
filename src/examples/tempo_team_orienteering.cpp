@@ -31,33 +31,40 @@ using namespace tempo;
 template <typename T>
 void warmstart(Solver<T> &S, Interval<T> &schedule,
                std::vector<Interval<T>> intervals,
-               std::vector<NoOverlapExpression<>> &resources, T &ub) {
+               std::vector<NoOverlapExpression<>> &resources,
+               std::vector<std::vector<T>> transitions,
+               std::vector<T> weights,
+               NumericVar<T> obj) {
+  // std::cout << "Warm start" << std::endl;
   // try to get a better ub with an initial upper bound insertion heuristic
   Greedy greedy_insertion(S);
+  T lb{0};
   greedy_insertion.addIntervals(intervals);
   for (auto &R : resources) {
+    for (auto xi{R.begDisjunct()}; xi != R.endDisjunct(); ++xi) {
+      auto l{S.boolean.getLiteral(true, xi->id())};
+    }
     greedy_insertion.addResource(R.begDisjunct(), R.endDisjunct());
   }
 
   // the insertion heuristic is randomized so multiple runs can be useful
   S.initializeSearch();
-  S.propagate();
+  S.propagate();  
   for (auto i{0}; i < S.getOptions().greedy_runs; ++i) {
     auto st{S.saveState()};
-    auto sat{greedy_insertion.runEarliestStart()};
+    auto sat{greedy_insertion.runOrienteering(weights, transitions)};
     if (sat) {
-      if (schedule.getEarliestEnd(S) <= ub) {
         S.boolean.saveSolution();
-        ub = schedule.getEarliestEnd(S) - 1;
-        std::cout << std::setw(10) << (ub + 1);
+        S.numeric.saveSolution();
+        if(lb <= S.numeric.lower(obj))
+          lb = S.numeric.lower(obj) + 1;
         S.displayProgress(std::cout);
-      }
     }
     S.restoreState(st);
   }
-
   // set the ub (again)
-  S.set(schedule.end.before(ub));
+  std::cout << "Initial lower bound is " << lb << std::endl;
+  S.set(obj.after(lb));
 }
 
 template<typename T>
@@ -160,7 +167,7 @@ int main(int argc, char *argv[]) {
 
   std::vector<NoOverlapExpression<>> resources;
   std::vector<std::vector<size_t>> resource_tasks;
-  std::vector<Interval<>> intervals;
+  std::vector<Interval<int>> intervals;
   std::vector<int> weights;
   std::vector<std::vector<std::vector<int>>> resource_transitions;
 
@@ -178,31 +185,39 @@ int main(int argc, char *argv[]) {
     S.post(no_overlap);
     scope.clear();
   }
-    
-    
-    
+  
+  std::vector<BooleanVar<int>> selection;
+  for(auto i : intervals) {
+      selection.push_back(i.exist);
+      S.addToSearch(i.exist);
+  }
+  
 
-    std::vector<BooleanVar<int>> selection;
-    for(auto i : intervals) {
-        selection.push_back(i.exist);
-        S.addToSearch(i.exist);
-    }
-    
+  auto obj{S.newNumeric()};
 
-    auto obj{S.newNumeric()};
-
-    
-    S.post(obj == Sum(selection, weights));
+  
+  S.post(obj == Sum(selection, weights));
     
     
     
   if (opt.print_mod) {
     std::cout << S << std::endl;
   }
-
-  // search
-  //  S.maximize(schedule.duration);
-  S.maximize(obj);
+  
+  bool optimal{false};
+  try {    
+    warmstart(S, schedule, intervals, resources, resource_transitions[0], weights, obj);
+  } catch (Failure<int> &f) {
+    std::cout << "Greedy found optimal solution" << std::endl;
+    optimal = true;
+  }  
+  
+  if(!optimal){
+    // search
+    //  S.maximize(schedule.duration);
+    std::cout << "Start maximisation" << std::endl;
+    S.maximize(obj);
+  }
 
   if (opt.print_sol) {
     printJobs(S, intervals);

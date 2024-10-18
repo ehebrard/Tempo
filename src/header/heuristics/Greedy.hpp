@@ -24,6 +24,12 @@
 
 #include "Solver.hpp"
 #include "Model.hpp"
+#include <algorithm>
+#include <cstddef>
+#include <limits>
+#include <numeric>
+#include <Global.hpp>
+#include <vector>
 
 
 namespace tempo {
@@ -557,52 +563,22 @@ template <typename T> class Greedy  {
 public:
     
     Greedy(Solver<T>& s) : solver(s) {
-//      Interval_map.resize(solver.numeric.size(), -1);
-        precedences.resize(solver.numeric.size());
+        precedences.resize(solver.numeric.size());        
+        prec_map_ptrs.resize(solver.numeric.size());
     }
 
     void addIntervals(std::vector<Interval<T>> &J) {
       Intervals = J;
       unscheduled_Intervals.reserve(Intervals.size());
       unscheduled_Intervals.fill();
-//      precedences.resize(Intervals.size());
-//      int i{0};
-//      for (auto &j : Intervals) {
-//        Interval_map[j.start.id()] = i;
-//        Interval_map[j.end.id()] = i;
-//        ++i;
-//      }
-        
-//        for (auto &j : Intervals) {
-//            std::cout << j << std::endl;
-//        }
     }
 
-    //    void addResource(const std::vector<DisjunctVar<T>>::iterator bx,
-    //                     const std::vector<DisjunctVar<T>>::iterator ex) {
-    //
-    //      for (auto xi{bx}; xi != ex; ++xi) {
-    //
-    //        auto l{solver.boolean.getLiteral(true, *xi)};
-    //        auto c{solver.boolean.getEdge(l)};
-    //
-    //        precedences[Interval_map[c.to]].push_back(l);
-    //        precedences[Interval_map[c.from]].push_back(~l);
-    //      }
-    //    }
 
     void addResource(const std::vector<BooleanVar<T>>::iterator bx,
                      const std::vector<BooleanVar<T>>::iterator ex) {
 
-      for (auto xi{bx}; xi != ex; ++xi) {
-          
+      for (auto xi{bx}; xi != ex; ++xi) {          
           addDisjunct(*xi);
-
-//        auto l{solver.boolean.getLiteral(true, *xi)};
-//        auto c{solver.boolean.getEdge(l)};
-//
-//        precedences[Interval_map[c.to]].push_back(l);
-//        precedences[Interval_map[c.from]].push_back(~l);
       }
     }
     
@@ -611,35 +587,52 @@ public:
     }
 
     void addVar(const var_t b) {
-      auto l{solver.boolean.getLiteral(true, b)};
-      auto pc{solver.boolean.getEdge(l)};
-        auto nc{solver.boolean.getEdge(~l)};
-        
-//        std::cout << pc << " OR " << nc << std::endl;
-        
-        
-//      precedences[Interval_map[c.to]].push_back(l);
-//      precedences[Interval_map[c.from]].push_back(~l);
-        precedences[pc.to].push_back(l);
-        precedences[nc.to].push_back(~l);
-        
-//        exit(1);
+
+        // std::cout << "--" << b << "--" << std::endl;
+        auto l{solver.boolean.getLiteral(true, b)};
+        // std::cout << l << std::endl;
+        // std::cout << solver.boolean.getEdge(l) << std::endl;
+        auto pc{solver.boolean.getEdge(l)};
+
+        // std::cout << precedences.size() << " - " << pc.to << std::endl;
+        // std::cout << "("<< solver.numeric.size() << ")" << std::endl;
+        precedences[pc.to].push_back(l);  
+        // precedences[nc.to].push_back((~l));
+
+        // std::cout << "prec maps " <<  pc.to << " - " << pc.from << std::endl;
+
+        if(prec_map_ptrs[pc.to].size() <= pc.from){
+            prec_map_ptrs[pc.to].resize(pc.from+1, nullptr);
+        }
+        prec_map_ptrs[pc.to][pc.from] = &precedences[pc.to].back();
+        // std::cout << *prec_map_ptrs[pc.to][pc.from] << " - " << precedences[pc.to].back() << std::endl;
+
+        // std::cout << "-----------" << std::endl;
+        // for(auto k{0u}; k < prec_map_ptrs.size(); ++k){
+        //     for(auto l{0u}; l < prec_map_ptrs[k].size(); ++l){
+        //         if(prec_map_ptrs[k][l] != nullptr){
+        //             std::cout << *prec_map_ptrs[k][l] << " ";
+        //         }else{
+        //             std::cout << prec_map_ptrs[k][l] << " ";
+        //         }
+        //     }
+        //     std::cout << std::endl;
+        // }
+        // std::cout << "-----------" << std::endl;
     }
 
     bool runEarliestStart();
     bool runLatestEnd();
     bool runLex();
+    bool runOrienteering(std::vector<int> profits, std::vector<std::vector<T>> transition);
     
 private:
     Solver<T>& solver;
     std::vector<Interval<T>> Intervals;
     SparseSet<> unscheduled_Intervals;
-//    std::vector<int> Interval_map;
+    std::vector<std::list<Literal<T>>> precedences;
+    std::vector<std::vector<Literal<T>*>> prec_map_ptrs;
 
-    // for each numeric var, all its conditional precedences
-    std::vector<std::vector<Literal<T>>> precedences;
-
-    //    std::vector<SparseSet<>> unscheduled_Intervals_of;
 };
 
 
@@ -648,7 +641,6 @@ bool Greedy<T>::runLex() {
  
     solver.propagate();
 
-    //    std::cout << solver << std::endl;
 
     while (not unscheduled_Intervals.empty()) {
       ++solver.num_choicepoints;
@@ -657,9 +649,6 @@ bool Greedy<T>::runLex() {
       unscheduled_Intervals.pop_front();
 
       try {
-
-        //          std::cout << std::endl << "next="<< Intervals[next] <<
-        //          std::endl;
 
         unscheduled_Intervals.remove_back(next);
         for (auto p : precedences[Intervals[next].start.id()]) {
@@ -675,9 +664,6 @@ bool Greedy<T>::runLex() {
               solver.set(p);
             }
           }
-//        if (unscheduled_Intervals.backsize() == 1)
-//          solver.set(Intervals[next].end.before(
-//              Intervals[next].getEarliestEnd(solver)));
 
         solver.propagate();
 
@@ -734,11 +720,7 @@ bool Greedy<T>::runEarliestStart() {
         //                    Intervals[next] << std::endl;
 
         unscheduled_Intervals.remove_back(next);
-//        for (auto p : precedences[next]) {
-//          if (solver.boolean.isUndefined(p.variable())) {
-//            solver.set(p);
-//          }
-//        }
+
           for (auto p : precedences[Intervals[next].start.id()]) {
             if (solver.boolean.isUndefined(p.variable())) {
 
@@ -815,11 +797,7 @@ bool Greedy<T>::runLatestEnd() {
         //            std::endl;
 
         unscheduled_Intervals.remove_back(next);
-//        for (auto p : precedences[next]) {
-//          if (solver.boolean.isUndefined(p.variable())) {
-//            solver.set(p);
-//          }
-//        }
+
           for (auto p : precedences[Intervals[next].start.id()]) {
             if (solver.boolean.isUndefined(p.variable())) {
               solver.set(p);
@@ -850,7 +828,275 @@ bool Greedy<T>::runLatestEnd() {
     return r;
 }
 
+template<typename T>
+bool Greedy<T>::runOrienteering(std::vector<int> profits, std::vector<std::vector<T>> transition) {    
+    // std::cout << "In greedy" << std::endl;
+    // Sort intervalls by profit
+    assert(profits.size() == Intervals.size());
+    std::vector<T> releases;
+    releases.reserve(profits.size());
+    std::vector<T> dues;
+    dues.reserve(profits.size());
+    std::vector<T> _est;
+    _est.resize(profits.size());
+    for(auto elt : Intervals) {
+        releases.push_back(elt.getEarliestStart(solver));
+        dues.push_back(elt.getLatestEnd(solver));
+    }
 
+    std::vector<index_t> idxs(profits.size());
+    std::iota(idxs.begin(), idxs.end(), 0);
+
+    std::sort(idxs.begin(), idxs.end(), [&profits](const int &a, const int &b){return profits[a] > profits[b];});
+
+    std::vector<index_t> next(idxs.size()+2);
+    std::vector<index_t> prev(idxs.size()+2);
+    std::vector<T> cumul_gap_after(idxs.size()+2, 0);
+    std::vector<T> min_marge_after(idxs.size()+2, 0);    
+    const index_t FIRST{static_cast<index_t>(next.size()-1)};
+    const index_t LAST{static_cast<index_t>(next.size()-2)};
+    
+    for(auto  i{0u}; i < next.size()-2; ++i) {
+        next[i] = i;
+        prev[i] = i;
+    }
+    next[FIRST] = LAST;
+    next[LAST] = FIRST;
+    prev[FIRST] = LAST;
+    prev[FIRST] = LAST;
+    min_marge_after[FIRST] = std::numeric_limits<T>::max();
+    min_marge_after[LAST] = std::numeric_limits<T>::max();
+
+    auto est = [&_est] (index_t idx) { return _est[idx]; };
+    auto ect = [&_est, this] (index_t idx) { return _est[idx] + Intervals[idx].minDuration(solver); };
+    auto slack = [&next, &dues, &ect] (index_t idx) { return next[idx] != idx ? dues[idx] - ect(idx) : 0; };
+    auto gap = [&next, &prev, &FIRST, &LAST, &transition, &est, &ect] (index_t idx) { 
+        if(next[idx] == idx || prev[idx] == FIRST || idx == FIRST || idx == LAST) {
+            return 0;
+        }
+        //std::cout << " Gap of " << idx << " : " << est(idx) << " - " << ect(prev[idx]) << " - " << transition[prev[idx]][idx] << " = " << (est(idx) - ect(prev[idx]) - transition[prev[idx]][idx]) << std::endl;
+        return est(idx) - ect(prev[idx]) - transition[prev[idx]][idx];
+    };
+    auto gap_between = [&next, &cumul_gap_after] (index_t idx1, index_t idx2) {
+        if(next[idx1] == idx1 ||  next[idx2] == idx2) {
+            return 0;
+        }
+        return cumul_gap_after[idx1] - cumul_gap_after[idx2];
+    };
+
+    auto marge_insertion_after = [&next, &gap_between, &slack](index_t idx1, index_t idx2) {
+        if(next[idx1] == idx1 ||  next[idx2] == idx2) {
+            return 0;
+        }
+        return gap_between(idx1, idx2) + slack(idx2);
+    };
+    // std::cout << "End initialisation" << std::endl;
+
+    // std::cout << "Insertion of first element" << std::endl;
+    // exist to true + propagate and choice point        
+    // first element    
+    next[FIRST] = idxs.front();
+    prev[LAST] = idxs.front();
+    next[idxs.front()] = LAST;
+    prev[idxs.front()] = FIRST;
+    cumul_gap_after[idxs.front()] = 0;
+    min_marge_after[FIRST] = slack(idxs.front());
+    min_marge_after[idxs.front()] = min_marge_after[LAST];
+    _est[idxs.front()] = releases[idxs.front()];
+
+    // {
+    //     auto k = next[FIRST];
+    //     std::cout << "Sequence is" << std::endl;
+    //     std::cout << "[" << cumul_gap_after[FIRST] << " - " << min_marge_after[FIRST] << "]" << std::endl;
+    //     while(k != LAST){
+    //         std::cout << k << "(" << est(k) << ") - " << slack(k) << std::endl;
+    //         std::cout << cumul_gap_after[k] << " - " << min_marge_after[k] << std::endl;
+    //         k = next[k];
+    //     }
+    //     std::cout << "[" << cumul_gap_after[LAST] << " - " << min_marge_after[LAST] << "]" << std::endl;
+
+    // }
+    
+
+
+    // std::cout << "Start loop" << std::endl;
+    // std::cout << "First = " << FIRST << std::endl;
+    // std::cout << "Last = " << LAST << std::endl;
+
+    auto i{1u};
+    while(i < idxs.size() && profits[idxs[i]] > 0) {
+        // find insertion
+        auto idx{idxs[i]};
+        std::vector<index_t> best_insertion_idxs;
+        T best_insertion_value{std::numeric_limits<T>::max()};
+
+        // std::cout << "Try to insert " << idx << std::endl;
+
+        // Test insert front
+        
+        auto new_est{std::max(releases[next[FIRST]], releases[idx] + Intervals[idx].minDuration(solver) + transition[idx][next[FIRST]])};
+        auto shift{new_est - releases[next[FIRST]]};
+        if(shift < min_marge_after[next[FIRST]]) {
+            best_insertion_value = transition[idx][next[FIRST]];
+            best_insertion_idxs.push_back(FIRST);
+        }
+        
+        
+
+        // std::cout << "Front insertion is " << (best_insertion_value<std::numeric_limits<T>::max()) << std::endl;
+
+
+
+        for(auto idx_before{next[FIRST]}; idx_before != LAST; ){
+            bool valid{true};
+
+            // std::cout << "Try inserting after " << idx_before << std::endl;
+
+            auto actual_end_transition{ect(idx_before)};            
+            if(next[idx_before] != LAST){ //last element
+                actual_end_transition += transition[idx_before][next[idx_before]];                
+            }
+
+            // std::cout << " Actual end_transition is " << actual_end_transition << std::endl;
+            auto est_inserted{std::max(releases[idx], ect(idx_before) + transition[idx_before][idx])};
+
+            auto new_end_transition{est_inserted + Intervals[idx].minDuration(solver)};
+            if(next[idx_before] != LAST){
+                new_end_transition += transition[idx][next[idx_before]];
+            }
+            // std::cout << " New end transition is " << new_end_transition << std::endl;
+            auto shift{new_end_transition - actual_end_transition};
+
+            // std::cout << "Marge after is " <<  min_marge_after[idx_before] << std::endl;
+            valid = est_inserted + Intervals[idx].minDuration(solver) < dues[idx] && shift <= min_marge_after[idx_before];
+            
+            if(valid) {
+                // std::cout << "Is valid" << std::endl;
+                auto delta_trans{transition[idx_before][idx]};
+                if(next[idx_before] != LAST){
+                    delta_trans += transition[idx][next[idx_before]] - transition[idx_before][next[idx_before]];
+                }
+                // std::cout << "Delta is " << delta_trans << std::endl;
+                if(delta_trans <= best_insertion_value){
+                    // std::cout << "Best" << std::endl;
+                    if(delta_trans < best_insertion_value){
+                        // std::cout << "  -> New best" << std::endl;
+                        best_insertion_idxs.clear();
+                        best_insertion_value = delta_trans;
+                    }                                        
+                    best_insertion_idxs.push_back(idx_before);
+                }
+            } 
+            // else{
+            //     std::cout << "Is not valid" << std::endl;
+            // }
+            idx_before = next[idx_before];
+        }
+
+        // insert and update
+        if(best_insertion_value < std::numeric_limits<T>::max()) {            
+            auto best_idx{best_insertion_idxs[random()%best_insertion_idxs.size()]};
+            // std::cout << "Insertion in sequence after " << best_idx << std::endl;
+            next[idx] = next[best_idx];
+            next[best_idx] = idx;
+            prev[idx] = prev[next[idx]];
+            prev[next[idx]] = idx;
+
+            auto k = next[FIRST];            
+            _est[k] = releases[k];
+            while(next[k] != LAST) {
+                _est[next[k]] = std::max(releases[next[k]], ect(k) + transition[k][next[k]]);
+                k = next[k];
+            }
+
+
+            k = prev[LAST];
+            cumul_gap_after[k] = 0;
+            min_marge_after[k] = std::numeric_limits<T>::max();
+            while(k != FIRST) {
+                cumul_gap_after[prev[k]] = cumul_gap_after[k] + gap(k);
+                // std::cout << k << " : " << std::endl;
+                // std::cout << "Min marg after  " << min_marge_after[k] << ", gap is " << gap(k) << ", marge insertion after " << marge_insertion_after(prev[k], k) << "(" << slack(k) << ", " << est(k) << "/" << ect(k)  <<")" << std::endl;;
+                if(min_marge_after[k] == std::numeric_limits<int>::max()){
+                    min_marge_after[prev[k]] = marge_insertion_after(prev[k], k);
+                }else{
+                    min_marge_after[prev[k]] = std::min(min_marge_after[k] + gap(k), marge_insertion_after(prev[k], k));
+                }
+                
+                
+                k = prev[k];
+            }            
+            // {
+            //     k = next[FIRST];
+            //     std::cout << "Sequence is" << std::endl;
+            //     std::cout << "[" << cumul_gap_after[FIRST] << " - " << min_marge_after[FIRST] << "]" << std::endl;
+            //     while(k != LAST){
+            //         std::cout << k << "(" << est(k) << ", " << ect(k) << ") - " << slack(k) << std::endl;
+            //         std::cout << "[" << cumul_gap_after[k] << " - " << min_marge_after[k] << "]" << std::endl;
+            //         k = next[k];
+            //     }
+            //     std::cout << "[" << cumul_gap_after[LAST] << " - " << min_marge_after[LAST] << "]" << std::endl;
+            // }
+        }
+        ++i;
+        // std::cout << " ------- " << std::endl;
+    }
+
+    
+    
+    
+    auto k{next[FIRST]};
+    // {
+    //     auto obj{0};
+    //     while(k != LAST) {
+    //         obj+= profits[k];
+    //         std::cout << k << " [" << releases[k] << "," << dues[k] << "]-" << Intervals[k].minDuration(solver);
+    //         if(next[k] != LAST)
+    //             std::cout << " => " << transition[k][next[k]];
+    //         std::cout << std::endl;
+    //         std::cout << est(k) << std::endl;
+    //         k = next[k];
+    //     }
+    //     std::cout << "Profit = " << obj << std::endl;
+    // }
+
+    k = next[FIRST];
+    while(k != LAST) {
+        // std::cout << "Interval " << k << std::endl;
+        solver.set(solver.boolean.getLiteral(true, Intervals[k].exist));
+        auto sid{Intervals[k].start.id()};
+        // auto eid{Intervals[k].end.id()};
+        auto l{next[k]};
+        while(l != LAST) {
+            auto sid2{Intervals[l].start.id()};
+            // auto eid2{Intervals[l].end.id()};
+            // std::cout << " -> " << l << std::endl;
+            // std::cout << "      prec  " <<  sid << " - " << sid2  << " : ";
+            // if(prec_map_ptrs[sid][sid2] != nullptr)
+            //     std::cout << *prec_map_ptrs[sid][sid2] << " - " << solver.boolean.isUndefined(prec_map_ptrs[sid][sid2]->variable()) << std::endl;
+            // else
+            //     std::cout << "None" << std::endl;
+
+            if(prec_map_ptrs[sid][sid2] != nullptr && solver.boolean.isUndefined(prec_map_ptrs[sid][sid2]->variable())){
+                // std::cout << "      Set the precedence " << solver.boolean.getEdge(*prec_map_ptrs[sid][sid2]) << std::endl;
+                // std::cout << "      " <<  Intervals[k].getEarliestStart(solver) << "-" << Intervals[k].getLatestStart(solver) << "   ---   " << Intervals[l].getEarliestStart(solver) << "-" << Intervals[l].getLatestStart(solver) << std::endl;
+                solver.set(*prec_map_ptrs[sid][sid2]);
+            }
+            l = next[l];
+        }
+        k = next[k];
+    }
+    solver.propagate();
+
+
+    // k = next[FIRST];
+    // while(k != LAST) {
+    //     std::cout << k <<"[" << releases[k] << ","<<dues[k] << "]-" << Intervals[k].minDuration(solver) <<"  =>   " <<  Intervals[k].getEarliestStart(solver) << "-" << Intervals[k].getLatestStart(solver) << std::endl;
+    //     k = next[k];
+    // }
+
+    return true;
+}
 
 
 }
