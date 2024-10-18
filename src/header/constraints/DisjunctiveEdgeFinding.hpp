@@ -24,12 +24,16 @@
 #include <cassert>
 #include <map>
 #include <vector>
+#include <ranges>
+#include <Iterators.hpp>
 
 #include "Explanation.hpp"
 #include "Global.hpp"
 #include "constraints/Constraint.hpp"
 #include "util/SparseSet.hpp"
 #include "util/ThetaTree.hpp"
+#include "util/Matrix.hpp"
+#include "util/traits.hpp"
 #include "Model.hpp"
 
 
@@ -43,7 +47,7 @@ private:
   Solver<T> &m_solver;
   Interval<T> schedule;
   std::vector<Interval<T>> the_tasks;
-  std::vector<std::vector<Literal<T>>> disjunct;
+  Matrix<Literal<T>> disjunct;
     
     std::vector<T> est_buffer;
     std::vector<T> lct_buffer;
@@ -85,9 +89,8 @@ private:
     void applyPruning();
 
 public:
-  template <typename ItTask, typename ItVar>
-  DisjunctiveEdgeFinding(Solver<T> &solver, Interval<T> &sched, ItTask beg_task,
-                         ItTask end_task, ItVar beg_var);
+  template <concepts::typed_range<Interval<T>> Tasks, typename ItVar> requires(std::ranges::sized_range<Tasks>)
+  DisjunctiveEdgeFinding(Solver<T> &solver, Interval<T> &sched, Tasks &&tasks, ItVar beg_var);
   virtual ~DisjunctiveEdgeFinding();
 
   // helpers
@@ -263,43 +266,30 @@ T DisjunctiveEdgeFinding<T>::maxduration(const unsigned i) const {
 }
 
 template <typename T>
-template <typename ItTask, typename ItVar>
-DisjunctiveEdgeFinding<T>::DisjunctiveEdgeFinding(Solver<T> &solver,
-                                                  Interval<T> &sched,
-                                                  ItTask beg_task,
-                                                  ItTask end_task,
-                                                  ItVar beg_var)
-    : m_solver(solver), TT(std::distance(beg_task, end_task)),
-      num_explanations(0, &(m_solver.getEnv()))
-{
-  schedule = sched,
-
+template <concepts::typed_range<Interval<T>> Tasks, typename ItVar> requires(std::ranges::sized_range<Tasks>)
+DisjunctiveEdgeFinding<T>::DisjunctiveEdgeFinding(Solver<T> &solver, Interval<T> &sched, Tasks &&tasks,
+                                                  ItVar beg_var) : m_solver(solver), schedule(sched),
+                                                                   the_tasks(std::forward<Tasks>(tasks).begin(),
+                                                                             std::forward<Tasks>(tasks).end()),
+                                                                   disjunct(the_tasks.size(), the_tasks.size()),
+                                                                   est_buffer(the_tasks.size()),
+                                                                   lct_buffer(the_tasks.size()), TT(the_tasks.size()),
+                                                                   num_explanations(0, &(m_solver.getEnv())) {
+  using iterators::const_enumerate;
+  using std::views::drop;
   Constraint<T>::priority = Priority::Medium;
-
-  for (auto j{beg_task}; j != end_task; ++j) {
-    the_tasks.push_back(*j);
-  }
-
-  disjunct.resize(the_tasks.size());
-          est_buffer.resize(the_tasks.size());
-          lct_buffer.resize(the_tasks.size());
 
   for (unsigned i = 0; i < the_tasks.size(); ++i) {
     lct_order.push_back(i);
     est_order.push_back(i);
-    disjunct[i].resize(the_tasks.size());
   }
 
   auto ep{beg_var};
-  for (auto ip{beg_task}; ip != end_task; ++ip) {
-    for (auto jp{ip + 1}; jp != end_task; ++jp) {
+  for(auto [i, ip]: const_enumerate(the_tasks)) {
+    for (auto [j, jp]: const_enumerate(the_tasks | drop(i + 1), i + 1)) {
       auto x{*ep};
-
-      auto i{std::distance(beg_task, ip)};
-      auto j{std::distance(beg_task, jp)};
-      disjunct[i][j] = m_solver.boolean.getLiteral(true, x);
-      disjunct[j][i] = m_solver.boolean.getLiteral(false, x);
-
+      disjunct(i, j) = m_solver.boolean.getLiteral(true, x);
+      disjunct(j, i) = m_solver.boolean.getLiteral(false, x);
       ++ep;
     }
   }
@@ -567,7 +557,7 @@ template <typename T> void DisjunctiveEdgeFinding<T>::applyPruning() {
         ph = Constant::NoHint;
         for (auto j{ai}; j != lct_order.rend(); ++j) {
             
-            auto prec{(backward_flag ? disjunct[*j][r] : disjunct[r][*j])};
+            auto prec{(backward_flag ? disjunct(*j, r) : disjunct(r, *j))};
             
 #ifdef DBG_EDGEFINDING
             if (DBG_EDGEFINDING) {

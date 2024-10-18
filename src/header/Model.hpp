@@ -1634,7 +1634,7 @@ public:
             exit(0);
           }
 
-          solver.postEdgeFinding(schedule, this->begin(), this->end(),
+          solver.postEdgeFinding(schedule, std::ranges::subrange(this->begin(), this->end()),
                                  this->begDisjunct());
         }
 

@@ -535,9 +535,8 @@ public:
                            const T bound);
     
     // create and post a new edge-finding propagator
-    template <typename ItTask, typename ItVar>
-    void postEdgeFinding(Interval<T> &schedule, const ItTask beg_task,
-                         const ItTask end_task, const ItVar beg_var);
+    template <concepts::typed_range<Interval<T>> Tasks, typename ItVar>
+    void postEdgeFinding(Interval<T> &schedule, Tasks &&taskRange, const ItVar beg_var);
     
     // create and post a new precedence reasoning propagator
     template <typename ItTask, typename ItVar>
@@ -3471,12 +3470,9 @@ void Solver<T>::postPseudoBoolean(const ItLit beg_lit, const ItLit end_lit,
 }
 
 template <typename T>
-template <typename ItTask, typename ItVar>
-void Solver<T>::postEdgeFinding(Interval<T> &schedule, ItTask beg_task,
-                                ItTask end_task, const ItVar beg_var) {
-  post(new DisjunctiveEdgeFinding<T>(*this, schedule, beg_task, end_task,
-                                  beg_var
-                                  ));
+template <concepts::typed_range<Interval<T>> Tasks, typename ItVar>
+void Solver<T>::postEdgeFinding(Interval<T> &schedule, Tasks &&taskRange, const ItVar beg_var) {
+  post(new DisjunctiveEdgeFinding<T>(*this, schedule, std::forward<Tasks>(taskRange), beg_var));
 }
 
 template <typename T>
