@@ -25,6 +25,8 @@
 //#define DBG_EXTRACT_SUM
 
 #include <utility>
+#include <ranges>
+#include <Iterators.hpp>
 
 #include "util/traits.hpp"
 #include "util/distance.hpp"
@@ -1536,51 +1538,51 @@ public:
   }
 
   void post(Solver<T> &solver) override {
+    using iterators::const_enumerate;
+    using namespace std::views;
     size_t k{0};
 
     bool opt_flag{false};
-    for (auto a{this->begin()}; a != this->end(); ++a) {
+    for (auto [intervalIdxA, intervalA]: const_enumerate(*this)) {
         
 //      if(a->isOptional(solver))
 //          std::cout << " ===> " << a->id() << ": " << a->exist << std::endl;
-        
-      for (auto b{a + 1}; b != this->end(); ++b) {
+
+        for (auto [intervalIdxB, intervalB]: const_enumerate(*this | drop(intervalIdxA + 1), intervalIdxA + 1)) {
         
         auto t_ab{0};
         auto t_ba{0};
-        auto ai{static_cast<size_t>(a - this->begin())};
-        auto bi{static_cast<size_t>(b - this->begin())};
-        if (ai < transitions.size() and bi < transitions[ai].size()) {
-          t_ab = transitions[ai][bi];
+        if (intervalIdxA < transitions.size() and intervalIdxB < transitions[intervalIdxA].size()) {
+          t_ab = transitions[intervalIdxA][intervalIdxB];
         }
-        if (bi < transitions.size() and ai < transitions[bi].size()) {
-          t_ba = transitions[bi][ai];
+        if (intervalIdxB < transitions.size() and intervalIdxA < transitions[intervalIdxB].size()) {
+          t_ba = transitions[intervalIdxB][intervalIdxA];
         }
 
-        auto a_before_b{a->end.before(b->start, t_ab)};
-        auto b_before_a{b->end.before(a->start, t_ba)};
+        auto a_before_b{intervalA.end.before(intervalB.start, t_ab)};
+        auto b_before_a{intervalB.end.before(intervalA.start, t_ba)};
           
-        if (a->isOptional(solver) or b->isOptional(solver)) {
+        if (intervalA.isOptional(solver) or intervalB.isOptional(solver)) {
 
           auto x_ab{solver.newDisjunct(Constant::NoEdge<T>, a_before_b)};
           auto x_ba{solver.newDisjunct(Constant::NoEdge<T>, b_before_a)};
             
-            // (a->exist and b->exist) -> (x_ab or x_ba)
-            // ~a->exist or ~b->exist or x_ab or x_ba
+            // (intervalA.exist and intervalB.exist) -> (x_ab or x_ba)
+            // ~intervalA.exist or ~intervalB.exist or x_ab or x_ba
             std::vector<Literal<T>> cl{x_ab == true, x_ba == true};
-            if (a->isOptional(solver))
-              cl.push_back(a->exist == false);
-            if (b->isOptional(solver))
-              cl.push_back(b->exist == false);
+            if (intervalA.isOptional(solver))
+              cl.push_back(intervalA.exist == false);
+            if (intervalB.isOptional(solver))
+              cl.push_back(intervalB.exist == false);
             solver.clauses.add(cl.begin(), cl.end());
             
             
             // to avoid setting useless constraints
-            // (~a->exist -> ~x_ab) and (~a->exist -> ~x_ba)
-            // a->exist or ~x_ab
+            // (~intervalA.exist -> ~x_ab) and (~intervalA.exist -> ~x_ba)
+            // intervalA.exist or ~x_ab
             cl.clear();
-            if (a->isOptional(solver)) {
-                cl.push_back(a->exist == true);
+            if (intervalA.isOptional(solver)) {
+                cl.push_back(intervalA.exist == true);
                 cl.push_back(x_ab == false);
                 solver.clauses.add(cl.begin(), cl.end());
                 
@@ -1590,8 +1592,8 @@ public:
             }
             
             cl.clear();
-            if (b->isOptional(solver)) {
-                cl.push_back(b->exist == true);
+            if (intervalB.isOptional(solver)) {
+                cl.push_back(intervalB.exist == true);
                 cl.push_back(x_ab == false);
                 solver.clauses.add(cl.begin(), cl.end());
                 
@@ -1628,7 +1630,7 @@ public:
           if (opt_flag) {
             std::cout
                 << "edge-finding for optional intervals is not implemented, "
-                   "please use '--no-edge-finding'. Aborthing\n";
+                   "please use '--no-edge-finding'. Aborting\n";
             exit(0);
           }
 
@@ -1641,7 +1643,7 @@ public:
           if (opt_flag) {
             std::cout
                 << "transitivity for optional intervals is not implemented, "
-                   "please use '--no-transitivity'. Aborthing\n";
+                   "please use '--no-transitivity'. Aborting\n";
             exit(0);
           }
 
