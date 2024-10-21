@@ -163,11 +163,39 @@ namespace tempo {
          * Resize the matrix. Does not change the stored items. Depending on the new size, old items might be lost
          * @param numRows new number of rows
          * @param numCols new number of columns
+         * @param value value to insert in case of insertion
          */
-        constexpr void resize(std::size_t numRows, std::size_t numCols) {
-            data.resize(numRows * numCols);
+        constexpr void resize(std::size_t numRows, std::size_t numCols, const T& value = T{}) {
+            data.resize(numRows * numCols, value);
             nRows = numRows;
             nCols = numCols;
+        }
+
+        /**
+         * Fill the matrix with the given value
+         * @param value value to insert at every position
+         */
+        constexpr void fill(const T &value) {
+            for_each([&value](auto &val) { val = value; });
+        }
+
+        /**
+         * Set the size of the matrix and insert the given value at every position
+         * @param numRows number of rows
+         * @param numCols number of columns
+         * @param value value to insert at every position
+         * @note in contrast to resize this method overwrites existing elements
+         */
+        constexpr void fill(std::size_t numRows, std::size_t numCols, const T &value) {
+            std::size_t newSize = numRows * numCols;
+            nRows = numRows;
+            nCols = numCols;
+            if (newSize > data.size()) {
+                data = std::vector<T>(newSize, value);
+            } else {
+                data.resize(newSize);
+                fill(value);
+            }
         }
 
         /**
