@@ -593,11 +593,12 @@ public:
         // std::cout << l << std::endl;
         // std::cout << solver.boolean.getEdge(l) << std::endl;
         auto pc{solver.boolean.getEdge(l)};
+        auto nc{solver.boolean.getEdge(~l)};
 
         // std::cout << precedences.size() << " - " << pc.to << std::endl;
         // std::cout << "("<< solver.numeric.size() << ")" << std::endl;
         precedences[pc.to].push_back(l);  
-        // precedences[nc.to].push_back((~l));
+         precedences[nc.to].push_back((~l));
 
         // std::cout << "prec maps " <<  pc.to << " - " << pc.from << std::endl;
 
