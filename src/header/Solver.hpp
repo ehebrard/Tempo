@@ -44,7 +44,6 @@
 #include "constraints/FullTransitivity.hpp"
 #include "constraints/PseudoBoolean.hpp"
 #include "constraints/Transitivity.hpp"
-//#include "heuristics/RelaxationPolicy.hpp"
 #include "heuristics/RelaxationInterface.hpp"
 #include "heuristics/heuristic_factories.hpp"
 #include "heuristics/impl/DecayingEventActivityMap.hpp"
@@ -847,15 +846,7 @@ public:
     double avg_fail_level{0};
     
     //@}
-    
-    // Global constant for failures
-    static constexpr Literal<T> Contradiction =
-    makeBooleanLiteral<T>(false, Constant::NoVar, 0);
-    
-    static constexpr Literal<T> Truism =
-    makeBooleanLiteral<T>(true, Constant::NoVar, 0);
-//    ~Contradiction;
-    
+
     /**
      * @name to collect the modeling construct in order to free memory up
      */
@@ -1018,7 +1009,7 @@ template <typename T>
 void GraphExplainer<T>::xplain(const Literal<T> l, const hint h,
                                std::vector<Literal<T>> &Cl) {
     
-    if (l == Solver<T>::Contradiction) {
+    if (l == Contradiction<T>) {
         auto s{Literal<T>::sgn(h)};
         auto x{Literal<T>::var(h)};
         auto end_cycle{x};
@@ -1071,7 +1062,7 @@ template <typename T>
 void BoundExplainer<T>::xplain(const Literal<T> l, const hint h,
                                std::vector<Literal<T>> &Cl) {
     
-    if (l == Solver<T>::Contradiction) {
+    if (l == Contradiction<T>) {
         var_t x{static_cast<var_t>(h)};
 
         #ifdef DBG_TRACE
@@ -1085,18 +1076,18 @@ void BoundExplainer<T>::xplain(const Literal<T> l, const hint h,
         auto lidx{solver.numeric.lastLitIndex(bound::lower, x)};
         auto uidx{solver.numeric.lastLitIndex(bound::upper, x)};
 
-        
+
 //        std::cout << "lidx=" << lidx << " uidx=" << uidx << std::endl;
-        
+
         #ifdef DBG_TRACE
                 if (DBG_CBOUND and (DBG_TRACE & LEARNING)) {
                     if(lidx > 0)
                         std::cout << solver.getLiteral(lidx);
                     else
                         std::cout << "ground truth\n";
-                    
+
                     std::cout << " AND ";
-                    
+
                     if(uidx > 0)
                         std::cout << solver.getLiteral(uidx);
                     else
@@ -1106,7 +1097,7 @@ void BoundExplainer<T>::xplain(const Literal<T> l, const hint h,
                 }
         #endif
 
-        Literal<T> le{Solver<T>::Truism};
+        Literal<T> le{Truism<T>};
         Explanation<T> exp;
         
         if (lidx < uidx) {
@@ -1125,7 +1116,7 @@ void BoundExplainer<T>::xplain(const Literal<T> l, const hint h,
                 }
         #endif
 
-        if(le != Solver<T>::Truism) {
+        if(le != Truism<T>) {
             Cl.push_back(le);
         }
         exp.explain(~le, Cl);
@@ -2159,7 +2150,7 @@ template <typename T> void Solver<T>::decisionCut(Explanation<T> &e) {
 #endif
 
     lit_buffer.clear();
-    Literal<T> l{Contradiction};
+    Literal<T> l{Contradiction<T>};
     Explanation<T> &exp = e;
 
     while (exp != Constant::NoReason<T>) {
@@ -2176,15 +2167,15 @@ template <typename T> void Solver<T>::decisionCut(Explanation<T> &e) {
         }
 #endif
 
-    
+
 //        std::cout << "lit_buffer.size() = " <<  lit_buffer.size() << std::endl;
         exp.explain(l, lit_buffer);
-        
+
 //                for(auto q : lit_buffer) {
 //                    std::cout << ", " << q ;
 //                }
 //                std::cout << std::endl;
-        
+
         exp = Constant::NoReason<T>;
         while (not lit_buffer.empty()) {
           l = lit_buffer.back();
@@ -2283,7 +2274,7 @@ template <typename T> void Solver<T>::analyze(Explanation<T> &e) {
 
     int num_lit{0};
     index_t lit_pointer{static_cast<index_t>(numLiteral())};
-    Literal<T> l{Contradiction};
+    Literal<T> l{Contradiction<T>};
 
 #ifdef DBG_TRACE
     if (DBG_BOUND and (DBG_TRACE & LEARNING)) {

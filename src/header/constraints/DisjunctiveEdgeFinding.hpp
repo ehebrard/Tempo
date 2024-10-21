@@ -679,7 +679,7 @@ void DisjunctiveEdgeFinding<T>::xplain(const Literal<T> l, const hint h,
   //    exit(1);
   //  }
 
-  if (l == Solver<T>::Contradiction) {
+  if (l == Contradiction<T>) {
 #ifdef DBG_EXPLEF
     std::cout << "explain failure from edge-finding: overload on interval ["
               << explanation_lb[h] << ".." << explanation_ub[h] << "]\n";

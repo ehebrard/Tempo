@@ -1465,7 +1465,7 @@ void ClauseBase<T>::xplain(const Literal<T> l, const hint h,
 
   //    assert(reason.id == h);
 
-  if (l == Solver<T>::Contradiction) {
+  if (l == Contradiction<T>) {
 
     //      std::cout << "explain contradiction\n";
 

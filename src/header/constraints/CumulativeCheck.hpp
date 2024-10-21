@@ -453,7 +453,7 @@ template <typename T> void CumulativeCheck<T>::propagate() {
 template <typename T>
 void CumulativeCheck<T>::xplain(const Literal<T> l, const hint,
                                 std::vector<Literal<T>> &Cl) {
-  if (l != Solver<T>::Contradiction) {
+  if (l != Contradiction<T>) {
     std::cout << "bug xplain cumulative!\n";
     exit(1);
   } else {
