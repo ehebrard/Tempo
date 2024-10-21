@@ -86,8 +86,8 @@ public:
   void clear();
 
   // add a set of disjuncts
-  template <typename Iter>
-  void addResource(const Iter beg_disjunct, const Iter end_disjunct);
+  template <concepts::typed_range<Literal<T>> Literals>
+  void addResource(Literals &&disjunctiveLiterals);
 
   bool notify(const Literal<T>, const int rank) override;
   void post(const int idx) override;
@@ -379,10 +379,9 @@ template <typename T> void FullTransitivity<T>::clear() {
 }
 
 template <typename T>
-template <typename Iter>
-void FullTransitivity<T>::addResource(const Iter beg_disjunct, const Iter end_disjunct) {
-  for (auto disjunct{beg_disjunct}; disjunct != end_disjunct; ++disjunct) {
-    auto l{m_solver.boolean.getLiteral(true, disjunct->id())};
+template <concepts::typed_range<Literal<T>> Literals>
+void FullTransitivity<T>::addResource(Literals &&disjunctiveLiterals) {
+  for (auto l : std::forward<Literals>(disjunctiveLiterals)) {
     auto prec_true{m_solver.boolean.getEdge(l)};
     auto prec_false{m_solver.boolean.getEdge(~l)};
 

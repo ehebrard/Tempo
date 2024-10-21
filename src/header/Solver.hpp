@@ -534,12 +534,12 @@ public:
                            const T bound);
     
     // create and post a new edge-finding propagator
-    template <concepts::typed_range<Interval<T>> Tasks, typename ItVar>
-    void postEdgeFinding(Interval<T> &schedule, Tasks &&taskRange, const ItVar beg_var);
+    template <concepts::typed_range<Interval<T>> Tasks>
+    void postEdgeFinding(Interval<T> &schedule, Tasks &&taskRange, Matrix<Literal<T>> lits);
     
     // create and post a new precedence reasoning propagator
-    template <concepts::typed_range<Interval<T>> Tasks, typename ItVar>
-    void postTransitivity(Interval<T> &schedule, Tasks &&taskRange, const ItVar beg_var);
+    template <concepts::typed_range<Interval<T>> Tasks>
+    void postTransitivity(Interval<T> &schedule, Tasks &&taskRange, Matrix<Literal<T>> lits);
     
     // create and post a new full transitivity propagator
     template <typename ItRes>
@@ -3460,15 +3460,15 @@ void Solver<T>::postPseudoBoolean(const ItLit beg_lit, const ItLit end_lit,
 }
 
 template <typename T>
-template <concepts::typed_range<Interval<T>> Tasks, typename ItVar>
-void Solver<T>::postEdgeFinding(Interval<T> &schedule, Tasks &&taskRange, const ItVar beg_var) {
-  post(new DisjunctiveEdgeFinding<T>(*this, schedule, std::forward<Tasks>(taskRange), beg_var));
+template <concepts::typed_range<Interval<T>> Tasks>
+void Solver<T>::postEdgeFinding(Interval<T> &schedule, Tasks &&taskRange, Matrix<Literal<T>> lits) {
+  post(new DisjunctiveEdgeFinding<T>(*this, schedule, std::forward<Tasks>(taskRange), std::move(lits)));
 }
 
 template <typename T>
-template <concepts::typed_range<Interval<T>> Tasks, typename ItVar>
-void Solver<T>::postTransitivity(Interval<T> &schedule, Tasks &&taskRange, const ItVar beg_var) {
-  post(new Transitivity<T>(*this, schedule, std::forward<Tasks>(taskRange), beg_var));
+template <concepts::typed_range<Interval<T>> Tasks>
+void Solver<T>::postTransitivity(Interval<T> &schedule, Tasks &&taskRange, Matrix<Literal<T>> lits) {
+  post(new Transitivity<T>(*this, schedule, std::forward<Tasks>(taskRange), std::move(lits)));
 }
 
 template <typename T>
@@ -3477,7 +3477,10 @@ FullTransitivity<T> *Solver<T>::postFullTransitivity(const ItRes beg_res,
                                                      const ItRes end_res) {
     auto c = new FullTransitivity<T>(*this);
   for (auto res{beg_res}; res != end_res; ++res) {
-    c->addResource(res->begDisjunct(), res->endDisjunct());
+    using namespace std::views;
+    auto disjunctive = res->getDisjunctiveLiterals().rawData() |
+                       filter([](auto lit) { return lit != Contradiction<T>; }) | common;
+    c->addResource(disjunctive);
   }
   post(c);
   return c;

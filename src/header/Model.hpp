@@ -30,6 +30,7 @@
 
 #include "util/traits.hpp"
 #include "util/distance.hpp"
+#include "util/Matrix.hpp"
 #include "Literal.hpp"
 #include "constraints/Cardinality.hpp"
 #include "constraints/PseudoBoolean.hpp"
@@ -1540,9 +1541,9 @@ public:
   void post(Solver<T> &solver) override {
     using iterators::const_enumerate;
     using namespace std::views;
-    size_t k{0};
 
     bool opt_flag{false};
+    disjunctiveLiterals.fill(this->size(), this->size(), Contradiction<T>);
     for (auto [intervalIdxA, intervalA]: const_enumerate(*this)) {
         
 //      if(a->isOptional(solver))
@@ -1610,18 +1611,18 @@ public:
             
             
 
-          disjunct.push_back(x_ab);
-          disjunct.push_back(x_ba);
-
+          disjunctiveLiterals(intervalIdxA, intervalIdxB) = solver.boolean.getLiteral(true, x_ab);
+          disjunctiveLiterals(intervalIdxB, intervalIdxA) = solver.boolean.getLiteral(true, x_ba);
+          solver.addToSearch(x_ab); solver.addToSearch(x_ba);
           opt_flag = true;
         }
 
         else {
-          disjunct.push_back(solver.newDisjunct(a_before_b, b_before_a));
+          auto var = solver.newDisjunct(a_before_b, b_before_a);
+          disjunctiveLiterals(intervalIdxA, intervalIdxB) = solver.boolean.getLiteral(true, var);
+          disjunctiveLiterals(intervalIdxB, intervalIdxA) = solver.boolean.getLiteral(false, var);
+          solver.addToSearch(var);
         }
-
-        while (k < disjunct.size())
-          solver.addToSearch(disjunct[k++]);
       }
     }
 
@@ -1634,7 +1635,7 @@ public:
             exit(0);
           }
 
-          solver.postEdgeFinding(schedule, std::ranges::subrange(this->begin(), this->end()), this->begDisjunct());
+          solver.postEdgeFinding(schedule, std::ranges::subrange(this->begin(), this->end()), disjunctiveLiterals);
         }
 
         if (solver.getOptions().transitivity) {
@@ -1646,7 +1647,7 @@ public:
             exit(0);
           }
 
-          solver.postTransitivity(schedule, std::ranges::subrange(this->begin(), this->end()), this->begDisjunct());
+          solver.postTransitivity(schedule, std::ranges::subrange(this->begin(), this->end()), disjunctiveLiterals);
         }
       }
   }
@@ -1662,20 +1663,13 @@ public:
     }
   }
 
-  std::vector<BooleanVar<T>>::iterator begDisjunct() {
-    return disjunct.begin();
+  const auto &getDisjunctiveLiterals() const noexcept {
+      return disjunctiveLiterals;
   }
-
-  std::vector<BooleanVar<T>>::const_iterator begDisjunct() const {
-    return disjunct.begin();
-  }
-
-  std::vector<BooleanVar<T>>::iterator endDisjunct() { return disjunct.end(); }
-  std::vector<BooleanVar<T>>::const_iterator endDisjunct() const { return disjunct.end(); }
 
 private:
   Interval<T> schedule;
-  std::vector<BooleanVar<T>> disjunct;
+  Matrix<Literal<T>> disjunctiveLiterals;
 //  std::vector<BooleanVar<T>> relevant;
   std::vector<std::vector<T>> transitions;
 };
@@ -1708,22 +1702,8 @@ public:
         return const_cast<NoOverlapExpression*>(this)->end();
     }
 
-  std::vector<BooleanVar<T>>::iterator begDisjunct() {
-    return static_cast<NoOverlapExpressionImpl<T> *>(BooleanVar<T>::implem)
-        ->begDisjunct();
-  }
-
-  std::vector<BooleanVar<T>>::const_iterator begDisjunct() const {
-    return const_cast<NoOverlapExpression *>(this)->begDisjunct();
-  }
-
-  std::vector<BooleanVar<T>>::iterator endDisjunct() {
-    return static_cast<NoOverlapExpressionImpl<T> *>(BooleanVar<T>::implem)
-        ->endDisjunct();
-  }
-
-  std::vector<BooleanVar<T>>::const_iterator endDisjunct() const {
-    return const_cast<NoOverlapExpression *>(this)->endDisjunct();
+  const auto &getDisjunctiveLiterals() const noexcept {
+      return static_cast<NoOverlapExpressionImpl<T>*>(BooleanVar<T>::implem)->getDisjunctiveLiterals();
   }
 
   void provide(const Interval<T> &i) {

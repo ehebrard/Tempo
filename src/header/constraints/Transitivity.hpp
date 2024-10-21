@@ -88,8 +88,8 @@ private:
     T setup_time(const int i, const int j) const;
 
 public:
-  template <concepts::typed_range<Interval<T>> Tasks, typename ItVar> requires(std::ranges::sized_range<Tasks>)
-  Transitivity(Solver<T> &solver, Interval<T> &sched, Tasks &&taskRange, const ItVar beg_var);
+  template <concepts::typed_range<Interval<T>> Tasks> requires(std::ranges::sized_range<Tasks>)
+  Transitivity(Solver<T> &solver, Interval<T> &sched, Tasks &&taskRange, Matrix<Literal<T>> disjunctive);
   virtual ~Transitivity();
 
   void add_edge(const int x, const int y, const int r);
@@ -114,13 +114,13 @@ public:
 };
 
 template <typename T>
-template<concepts::typed_range<Interval<T>> Tasks, typename ItVar>
+template<concepts::typed_range<Interval<T>> Tasks>
 requires(std::ranges::sized_range<Tasks>)
-Transitivity<T>::Transitivity(Solver<T> &solver, Interval<T> &sched, Tasks &&taskRange, const ItVar beg_var)
+Transitivity<T>::Transitivity(Solver<T> &solver, Interval<T> &sched, Tasks &&taskRange, Matrix <Literal<T>> disjunctive)
         : m_solver(solver), schedule(sched),
           transitive_reduction(std::forward<Tasks>(taskRange).size() * std::forward<Tasks>(taskRange).size(),
                                &m_solver.getEnv()),
-          disjunct(std::forward<Tasks>(taskRange).size(), std::forward<Tasks>(taskRange).size()) {
+          disjunct(std::move(disjunctive)) {
 
   Constraint<T>::priority = Priority::Low;
 
@@ -147,18 +147,14 @@ Transitivity<T>::Transitivity(Solver<T> &solver, Interval<T> &sched, Tasks &&tas
     transitive_reduction.remove_back(edge(i, i));
   }
 
-  auto ep{beg_var};
   for (unsigned i = 0; i < tasks.size(); ++i) {
       for (unsigned j = i + 1; j < tasks.size(); ++j) {
-          auto x{*ep};
-          disjunct(i, j) = m_solver.boolean.getLiteral(false, x);
-          disjunct(j, i) = m_solver.boolean.getLiteral(true, x);
+          disjunct(i, j) = ~disjunct(i, j); //@TODO: need to inverse all literals because NoOverlapExpression
+          disjunct(j, i) = ~disjunct(j, i); //defines them the other way around @Emmanuel
           if (not transition_flag) {
               transition_flag |= ((setup_time(i, j) > 0) or (setup_time(j, i) > 0));
           }
 //        std::cout << *ip << " -- " << *jp << ": " << transition_time(i, j) << "-" << ip->minDuration(m_solver) << ":" << setup_time(i,j) << "/" << transition_time(j, i) << "-" << jp->minDuration(m_solver) << ":" << setup_time(j,i) << std::endl;
-//
-          ++ep;
       }
   }
 

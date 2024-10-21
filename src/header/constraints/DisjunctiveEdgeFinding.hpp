@@ -89,8 +89,8 @@ private:
     void applyPruning();
 
 public:
-  template <concepts::typed_range<Interval<T>> Tasks, typename ItVar> requires(std::ranges::sized_range<Tasks>)
-  DisjunctiveEdgeFinding(Solver<T> &solver, Interval<T> &sched, Tasks &&tasks, ItVar beg_var);
+  template <concepts::typed_range<Interval<T>> Tasks> requires(std::ranges::sized_range<Tasks>)
+  DisjunctiveEdgeFinding(Solver<T> &solver, Interval<T> &sched, Tasks &&tasks, Matrix<Literal<T>> disjunctive);
   virtual ~DisjunctiveEdgeFinding();
 
   // helpers
@@ -266,15 +266,14 @@ T DisjunctiveEdgeFinding<T>::maxduration(const unsigned i) const {
 }
 
 template <typename T>
-template <concepts::typed_range<Interval<T>> Tasks, typename ItVar> requires(std::ranges::sized_range<Tasks>)
+template<concepts::typed_range<Interval<T>> Tasks>
+requires(std::ranges::sized_range<Tasks>)
 DisjunctiveEdgeFinding<T>::DisjunctiveEdgeFinding(Solver<T> &solver, Interval<T> &sched, Tasks &&tasks,
-                                                  ItVar beg_var) : m_solver(solver), schedule(sched),
-                                                                   the_tasks(std::forward<Tasks>(tasks).begin(),
-                                                                             std::forward<Tasks>(tasks).end()),
-                                                                   disjunct(the_tasks.size(), the_tasks.size()),
-                                                                   est_buffer(the_tasks.size()),
-                                                                   lct_buffer(the_tasks.size()), TT(the_tasks.size()),
-                                                                   num_explanations(0, &(m_solver.getEnv())) {
+                                                  Matrix<Literal<T>> disjunctive) :
+        m_solver(solver), schedule(sched),
+        the_tasks(std::forward<Tasks>(tasks).begin(), std::forward<Tasks>(tasks).end()),
+        disjunct(std::move(disjunctive)), est_buffer(the_tasks.size()), lct_buffer(the_tasks.size()),
+        TT(the_tasks.size()), num_explanations(0, &(m_solver.getEnv())) {
   using iterators::const_enumerate;
   using std::views::drop;
   Constraint<T>::priority = Priority::Medium;
@@ -282,16 +281,6 @@ DisjunctiveEdgeFinding<T>::DisjunctiveEdgeFinding(Solver<T> &solver, Interval<T>
   for (unsigned i = 0; i < the_tasks.size(); ++i) {
     lct_order.push_back(i);
     est_order.push_back(i);
-  }
-
-  auto ep{beg_var};
-  for(auto [i, ip]: const_enumerate(the_tasks)) {
-    for (auto [j, jp]: const_enumerate(the_tasks | drop(i + 1), i + 1)) {
-      auto x{*ep};
-      disjunct(i, j) = m_solver.boolean.getLiteral(true, x);
-      disjunct(j, i) = m_solver.boolean.getLiteral(false, x);
-      ++ep;
-    }
   }
 
   theta_rank.resize(the_tasks.size(), 0);
