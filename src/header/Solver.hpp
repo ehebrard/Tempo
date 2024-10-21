@@ -547,10 +547,9 @@ public:
                                               const ItRes end_res);
     
     // create and post a new precedence reasoning propagator
-    template <typename ItTask, typename ItNVar, typename ItBVar>
-    void postCumulative(const NumericVar<T> c, const ItTask beg_task,
-                        const ItTask end_task, const ItNVar beg_dem,
-                        const ItBVar beg_disj);
+    template <concepts::typed_range<Interval<T>> Tasks, concepts::typed_range<NumericVar<T>> Demands>
+    void postCumulative(const NumericVar<T> c, Tasks &&tasks, Demands &&demands, Matrix<Literal<T>> lits);
+
     template <typename ItTask, typename ItNVar, typename ItBVar>
     void postStrongEdgeFinding(const Interval<T> s, const NumericVar<T> c,
                                const ItTask beg_task, const ItTask end_task,
@@ -3487,11 +3486,9 @@ FullTransitivity<T> *Solver<T>::postFullTransitivity(const ItRes beg_res,
 }
 
 template <typename T>
-template <typename ItTask, typename ItNVar, typename ItBVar>
-void Solver<T>::postCumulative(const NumericVar<T> c, const ItTask beg_task,
-                               const ItTask end_task, const ItNVar beg_dem,
-                               const ItBVar beg_disj) {
-  post(new CumulativeCheck<T>(*this, c, beg_task, end_task, beg_dem, beg_disj));
+template <concepts::typed_range<Interval<T>> Tasks, concepts::typed_range<NumericVar<T>> Demands>
+void Solver<T>::postCumulative(const NumericVar<T> c, Tasks &&tasks, Demands &&demands, Matrix<Literal<T>> lits) {
+  post(new CumulativeCheck<T>(*this, c, std::forward<Tasks>(tasks), std::forward<Demands>(demands), std::move(lits)));
 }
 
 template <typename T>

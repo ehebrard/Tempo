@@ -31,6 +31,7 @@
 #include "util/DisjointSet.hpp"
 #include "util/SparseSet.hpp"
 #include "util/LexBFS.hpp"
+#include "util/Matrix.hpp"
 #include "Model.hpp"
 
 //#define CHECK_CLIQUE
@@ -53,7 +54,7 @@ private:
   // j in relevant[i] <=> arc (i,j) <=> task[i] and task[j] are in relevant
   std::vector<SparseSet<int, Reversible<size_t>>> parallel;
   // precedence[i][j] <=> (e_i <= s_j or e_i > s_j)
-  std::vector<std::vector<Literal<T>>> precedence;
+  Matrix<Literal<T>> precedence;
   std::vector<int> scopex;
   std::vector<int> scopey;
 
@@ -67,10 +68,9 @@ private:
     bool pruning_flag{false};
 
 public:
-  template <typename ItTask, typename ItNVar, typename ItBVar>
-  CumulativeCheck(Solver<T> &solver, const NumericVar<T> c,
-                  const ItTask beg_task, const ItTask end_task,
-                  const ItNVar beg_dem, const ItBVar beg_disj);
+  template <concepts::typed_range<Interval<T>> Tasks, concepts::typed_range<NumericVar<T>> Demands>
+  CumulativeCheck(Solver<T> &solver, const NumericVar<T> c, Tasks &&tasks,
+                  Demands &&demands, Matrix<Literal<T>> disjunctive);
   virtual ~CumulativeCheck();
 
   bool notify(const Literal<T>, const int rank) override;
@@ -96,48 +96,20 @@ public:
 };
 
 template <typename T>
-template <typename ItTask, typename ItNVar, typename ItBVar>
+template <concepts::typed_range<Interval<T>> Tasks, concepts::typed_range<NumericVar<T>> Demands>
 CumulativeCheck<T>::CumulativeCheck(Solver<T> &solver, const NumericVar<T> c,
-                                    const ItTask beg_task,
-                                    const ItTask end_task, const ItNVar beg_dem,
-                                    ItBVar beg_disj)
-    : m_solver(solver), capacity(c),
-      relevant(std::distance(beg_task, end_task), &solver.getEnv()) {
+                                    Tasks &&tasks, Demands &&demands, Matrix<Literal<T>> disjunctive)
+    : m_solver(solver), capacity(c), the_tasks(std::forward<Tasks>(tasks).begin(), std::forward<Tasks>(tasks).end()),
+      demand(std::forward<Demands>(demands).begin(), std::forward<Demands>(demands).end()),
+      relevant(the_tasks.size(), &solver.getEnv()), precedence(std::move(disjunctive)) {
 
   Constraint<T>::priority = Priority::High;
 
-  auto dp{beg_dem};
-  for (auto jp{beg_task}; jp != end_task; ++jp) {
-    the_tasks.push_back(*jp);
-    demand.push_back(*dp);
-    ++dp;
-  }
-
   clique.reserve(the_tasks.size());
-  precedence.resize(the_tasks.size());
-
   relevant.clear();
-
   for (size_t i{0}; i < the_tasks.size(); ++i) {
-
-    precedence[i].resize(the_tasks.size());
-
     parallel.emplace_back(the_tasks.size(), &m_solver.getEnv());
     parallel.back().clear();
-  }
-
-  auto ep{beg_disj};
-  for (auto ip{beg_task}; ip != end_task; ++ip) {
-    for (auto jp{ip + 1}; jp != end_task; ++jp) {
-      auto x{*ep};
-
-      auto i{std::distance(beg_task, ip)};
-      auto j{std::distance(beg_task, jp)};
-      precedence[i][j] = m_solver.boolean.getLiteral(false, x);
-      x = *(++ep);
-      precedence[j][i] = m_solver.boolean.getLiteral(true, x);
-      ++ep;
-    }
   }
 }
 
@@ -148,12 +120,12 @@ template <typename T> CumulativeCheck<T>::~CumulativeCheck() {}
 //}
 
 template <typename T> bool CumulativeCheck<T>::start_before_end(const int i, const int j) const {
-  return m_solver.boolean.satisfied(precedence[j][i]);
+  return m_solver.boolean.satisfied(precedence(j, i));
 }
 
 template <typename T>
 bool CumulativeCheck<T>::end_before_start(const int i, const int j) const {
-  return m_solver.boolean.falsified(precedence[i][j]);
+  return m_solver.boolean.falsified(precedence(i, j));
 }
 
 template <typename T> void CumulativeCheck<T>::post(const int idx) {
@@ -170,7 +142,7 @@ template <typename T> void CumulativeCheck<T>::post(const int idx) {
   for (size_t i{0}; i < the_tasks.size(); ++i) {
     for (size_t j{0}; j < the_tasks.size(); ++j)
       if (i != j) {
-        m_solver.wake_me_on(precedence[i][j], this->id());
+        m_solver.wake_me_on(precedence(i, j), this->id());
         scopex.push_back(i);
         scopey.push_back(j);
       }
@@ -459,8 +431,8 @@ void CumulativeCheck<T>::xplain(const Literal<T> l, const hint,
   } else {
     for (auto v{fail_xpl.begin()}; v != fail_xpl.end(); ++v) {
       for (auto w{v + 1}; w != fail_xpl.end(); ++w) {
-        Cl.push_back(precedence[*v][*w]);
-        Cl.push_back(precedence[*w][*v]);
+        Cl.push_back(precedence(*v, *w));
+        Cl.push_back(precedence(*w, *v));
       }
     }
   }

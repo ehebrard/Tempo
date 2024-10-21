@@ -1784,17 +1784,18 @@ public:
   }
 
   void post(Solver<T> &solver) override {
+    using iterators::const_zip_enumerate;
+    using std::views::drop;
     size_t k{0};
 
-    auto da{this->begDemand()};
-    for (auto a{this->begin()}; a != this->end(); ++a) {
-      auto db{da + 1};
-      for (auto b{a + 1}; b != this->end(); ++b) {
+    disjunctiveLiterals.fill(this->size(), this->size(), Contradiction<T>);
+    for(auto [taskIdxA, taskA, demandA] : const_zip_enumerate(*this, demand)) {
+        for (auto [taskIdxB, taskB, demandB]: const_zip_enumerate(*this | drop(taskIdxA + 1),
+                                                                  demand | drop(taskIdxA + 1), taskIdxA + 1)) {
+        auto ea_before_sb{taskA.end.before(taskB.start)};
+        auto eb_before_sa{taskB.end.before(taskA.start)};
 
-        auto ea_before_sb{a->end.before(b->start)};
-        auto eb_before_sa{b->end.before(a->start)};
-
-        if (da->min(solver) + db->min(solver) > capacity.max(solver)) {
+        if (demandA.min(solver) + demandB.min(solver) > capacity.max(solver)) {
           //              std::cout << "disjunct " << *a << " / " << *b <<
           //              std::endl;
 
@@ -1805,6 +1806,11 @@ public:
 
           disjunct.push_back(d);
           disjunct.push_back(d);
+          //@TODO this is the inverse order of what happens in NoOverlapExpressionImpl (line 1616) but it is required
+          //like this in the CumulativeCheck Ctor
+          //@Emmanuel thoughts?
+          disjunctiveLiterals(taskIdxA, taskIdxB) = solver.boolean.getLiteral(false, d);
+          disjunctiveLiterals(taskIdxB, taskIdxA) = solver.boolean.getLiteral(true, d);
 
         } else {
 
@@ -1818,20 +1824,19 @@ public:
 
           disjunct.push_back(ba);
           disjunct.push_back(bb);
+          //@TODO same order applies here too?
+          disjunctiveLiterals(taskIdxA, taskIdxB) = solver.boolean.getLiteral(false, ba);
+          disjunctiveLiterals(taskIdxB, taskIdxA) = solver.boolean.getLiteral(true, bb);
         }
 
         while (k < disjunct.size())
           solver.addToSearch(disjunct[k++]);
 
-        ++db;
       }
-
-      ++da;
     }
 
     if (std::distance(this->begin(), this->end()) > 1) {
-      solver.postCumulative(capacity, this->begin(), this->end(),
-                            this->begDemand(), this->begDisjunct());
+      solver.postCumulative(capacity, *this, demand, disjunctiveLiterals);
 
 //        if (solver.getOptions().edge_finding) {
 //                  solver.postStrongEdgeFinding(schedule, capacity,
@@ -1866,6 +1871,7 @@ private:
   Interval<T> schedule;
   NumericVar<T> capacity;
   std::vector<BooleanVar<T>> disjunct;
+  Matrix<Literal<T>> disjunctiveLiterals;
   std::vector<NumericVar<T>> demand;
 };
 
