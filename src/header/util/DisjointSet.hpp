@@ -61,7 +61,7 @@ void DisjointSet<E>::resize(const size_t n) {
   while (parent.size() < n) {
       parent.push_back(static_cast<E>(parent.size()));
   }
-    size.resize(n,1);
+  size.resize(n,1);
 }
 
 template<typename E>
