@@ -40,7 +40,7 @@
 #include "util/List.hpp"
 
 
-#define OLD_EXPL
+//#define OLD_EXPL
 
 
 namespace tempo {
@@ -470,15 +470,17 @@ template <typename T> void CumulativeTimetabling<T>::pushTask(const int i, int p
         // compute the usage at the start min, we need to remove the last delta.
         const T usage_at_start_min = usage - first_prof_delta.delta;
         if (usage_at_start_min > residual_capacity) {
-            h = newExplanation();
+//
             
 #ifndef OLD_EXPL
+            h = newExplanation();
             auto prev_start_min{new_start_min};
 #endif
             
             new_start_min = profile_unique_time_[profile_index].time;
             
 #ifndef OLD_EXPL
+//            computeExplanation(h, i, prev_start_min, new_start_min);
             computeExplanation(h, i, prev_start_min, new_start_min);
             if(sign == bound::lower) {
                 pruning.push_back(task[i].start.after(new_start_min));
@@ -550,16 +552,16 @@ template <typename T> void CumulativeTimetabling<T>::pushTask(const int i, int p
     }
 #endif
             
-            if(h == Constant::NoHint) {
-                h = newExplanation();
-            }
+//            if(h == Constant::NoHint) {
+//                h = newExplanation();
+//            }
             
 //            beenthere = true;
             
 //            computeExplanation(h, i, ect(i)-Gap<T>::epsilon(), new_start_min);
             
             
-//            computeExplanation(h, i, std::max(new_start_min,ect(i))-Gap<T>::epsilon(), new_start_min);
+//            computeExplanation(h, i, std::min(new_start_min,ect(i))-Gap<T>::epsilon(), new_start_min);
             
 #ifndef OLD_EXPL
             h = newExplanation();
@@ -569,7 +571,8 @@ template <typename T> void CumulativeTimetabling<T>::pushTask(const int i, int p
             new_start_min = profile_unique_time_[profile_index].time;
             
 #ifndef OLD_EXPL
-            computeExplanation(h, i, prev_start_min, new_start_min);
+            computeExplanation(h, i, std::min(new_start_min,prev_start_min+minduration(i))-Gap<T>::epsilon(), new_start_min);
+//            computeExplanation(h, i, prev_start_min, new_start_min);
             if(sign == bound::lower) {
                 pruning.push_back(task[i].start.after(new_start_min));
                 explanation[h].push_back(task[i].start.after(prev_start_min));
@@ -610,6 +613,7 @@ template <typename T> void CumulativeTimetabling<T>::pushTask(const int i, int p
 //        std::cout << est(i) << " -> " << (std::max(new_start_min,ect(i))-Gap<T>::epsilon()) << " to " << new_start_min << std::endl;
         
 //        computeExplanation(h, i, std::max(new_start_min,ect(i))-Gap<T>::epsilon(), new_start_min);
+        h = newExplanation();
         computeExplanation(h, i, est(i), new_start_min);
         
         if(sign == bound::lower) {
