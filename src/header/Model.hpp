@@ -1999,9 +1999,19 @@ concept resource_expression = tempo::concepts::ttyped_range<E, tempo::Interval> 
     { expression.getDisjunctiveLiterals() } -> detail::literal_matrix;
 };
 
+/**
+ * @brief concept modelling a range of resource expressions
+ * @tparam T range type
+ */
 template<typename T>
 concept resource_range = std::ranges::range<T> and resource_expression<std::ranges::range_value_t<T>>;
 
+/**
+ * Extracts the unique boolean varaibles from a range of resource expressions
+ * @tparam Resources resource expression range type
+ * @param resources range of resources
+ * @return vector of unique boolean variables
+ */
 template<resource_range Resources>
 auto booleanVarsFromResources(const Resources &resources) {
     using LitT = std::remove_cvref_t<decltype(std::ranges::begin(resources)->getDisjunctiveLiterals())>::value_type;
@@ -2022,9 +2032,15 @@ auto booleanVarsFromResources(const Resources &resources) {
     return variables;
 }
 
+/**
+ * overload of booleanVarsFromResources accepting a single resource
+ * @tparam R resource type
+ * @param resource resource
+ * @return vector of unique boolean variables
+ */
 template<resource_expression R>
-auto booleanVarsFromResources(const R &resources) {
-    auto range = {resources};
+auto booleanVarsFromResources(const R &resource) {
+    auto range = {resource};
     return booleanVarsFromResources(range);
 }
 
