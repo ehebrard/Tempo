@@ -36,7 +36,8 @@ void warmstart(Solver<T> &S, Interval<T> &schedule,
   Greedy greedy_insertion(S);
   greedy_insertion.addIntervals(intervals);
   for (auto &R : resources) {
-    greedy_insertion.addResource(R.begDisjunct(), R.endDisjunct());
+    auto variables = booleanVarsFromResources(resources);
+    greedy_insertion.addResource(variables.begin(), variables.end());
   }
 
   // the insertion heuristic is randomized so multiple runs can be useful

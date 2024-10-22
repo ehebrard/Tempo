@@ -41,10 +41,8 @@ void warmstart(Solver<T> &S, Interval<T> &schedule,
   T lb{0};
   greedy_insertion.addIntervals(intervals);
   for (auto &R : resources) {
-    for (auto xi{R.begDisjunct()}; xi != R.endDisjunct(); ++xi) {
-      auto l{S.boolean.getLiteral(true, xi->id())};
-    }
-    greedy_insertion.addResource(R.begDisjunct(), R.endDisjunct());
+    auto variables = booleanVarsFromResources(R);
+    greedy_insertion.addResource(variables.begin(), variables.end());
   }
 
   // the insertion heuristic is randomized so multiple runs can be useful

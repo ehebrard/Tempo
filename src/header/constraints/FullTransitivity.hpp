@@ -39,7 +39,7 @@ class Solver;
 
 template<typename T>
 struct PathExplanation {
-  Literal<T> literal{Solver<T>::Contradiction};
+  Literal<T> literal{Contradiction<T>};
   index_t prefix{Constant::NoIndex};
   index_t suffix{Constant::NoIndex};
 };
@@ -86,8 +86,8 @@ public:
   void clear();
 
   // add a set of disjuncts
-  template <typename Iter>
-  void addResource(const Iter beg_disjunct, const Iter end_disjunct);
+  template <concepts::typed_range<Literal<T>> Literals>
+  void addResource(Literals &&disjunctiveLiterals);
 
   bool notify(const Literal<T>, const int rank) override;
   void post(const int idx) override;
@@ -99,9 +99,9 @@ public:
   void undo() override;
 
   void propagateForward(const DistanceConstraint<T> e,
-                        const Literal<T> l = Solver<T>::Contradiction);
+                        const Literal<T> l = Contradiction<T>);
   void propagateBackward(const DistanceConstraint<T> e,
-                         const Literal<T> l = Solver<T>::Contradiction);
+                         const Literal<T> l = Contradiction<T>);
 
   template <typename G>
   void update(const int x, const int y, const G &neighbors,
@@ -163,7 +163,7 @@ bool FullTransitivity<T>::addEdge(const int x, const int y, const T d, const Pat
   edges.emplace_back(x, y, d);
   reason.push_back(r);
 
-  if (literal[x][y] != Solver<T>::Contradiction) {
+  if (literal[x][y] != Contradiction<T>) {
     auto ne{m_solver.boolean.getEdge(~literal[x][y])};
     if (ne.distance + distance_from[x][y] < 0) {
 #ifdef DBG_FTRANS
@@ -255,7 +255,7 @@ FullTransitivity<T>::FullTransitivity(Solver<T> &solver)
       row.emplace_back(Constant::Infinity<T>);
 
   for (auto &row : literal)
-    row.resize(n, Solver<T>::Contradiction);
+    row.resize(n, Contradiction<T>);
 
   for (size_t x{0}; x < _index_.size(); ++x) {
     _index_[x][x] = Constant::NoIndex;
@@ -379,10 +379,9 @@ template <typename T> void FullTransitivity<T>::clear() {
 }
 
 template <typename T>
-template <typename Iter>
-void FullTransitivity<T>::addResource(const Iter beg_disjunct, const Iter end_disjunct) {
-  for (auto disjunct{beg_disjunct}; disjunct != end_disjunct; ++disjunct) {
-    auto l{m_solver.boolean.getLiteral(true, disjunct->id())};
+template <concepts::typed_range<Literal<T>> Literals>
+void FullTransitivity<T>::addResource(Literals &&disjunctiveLiterals) {
+  for (auto l : std::forward<Literals>(disjunctiveLiterals)) {
     auto prec_true{m_solver.boolean.getEdge(l)};
     auto prec_false{m_solver.boolean.getEdge(~l)};
 
@@ -414,7 +413,7 @@ template <typename T> void FullTransitivity<T>::post(const int idx) {
     m_solver.wake_me_on(lb<T>(x), this->id());
     m_solver.wake_me_on(ub<T>(x), this->id());
     for (int y{0}; y < n; ++y) {
-      if (literal[x][y] != Solver<T>::Contradiction)
+      if (literal[x][y] != Contradiction<T>)
         m_solver.wake_me_on(literal[x][y], this->id());
     }
   }
@@ -503,7 +502,7 @@ void FullTransitivity<T>::propagateForward(const DistanceConstraint<T> e,
                 distance_from[e.from][y] < Constant::Infinity<T>) and
             (distance_from[x][e.from] + distance_from[e.from][y] <
              distance_to[y][x])) {
-          if (l == Solver<T>::Contradiction)
+          if (l == Contradiction<T>)
             addEdge(x, y, distance_from[x][e.from] + distance_from[e.from][y]);
           else
             addEdge(x, y, distance_from[x][e.from] + distance_from[e.from][y],
@@ -547,7 +546,7 @@ void FullTransitivity<T>::propagateBackward(const DistanceConstraint<T> e,
                 distance_to[y][e.to] < Constant::Infinity<T>) and
             (distance_to[e.to][x] + distance_to[y][e.to] <
              distance_from[x][y])) {
-          if (l == Solver<T>::Contradiction)
+          if (l == Contradiction<T>)
             addEdge(x, y, distance_to[e.to][x] + distance_to[y][e.to]);
           else
             addEdge(x, y, distance_to[e.to][x] + distance_to[y][e.to],
@@ -700,7 +699,7 @@ void FullTransitivity<T>::getPath(const index_t h,
 
   auto pr{reason[h]};
 
-  if (pr.literal == Solver<T>::Contradiction) {
+  if (pr.literal == Contradiction<T>) {
 
 #ifdef DBG_EXPL_FTRANS
     std::cout << edges[h];
@@ -708,7 +707,7 @@ void FullTransitivity<T>::getPath(const index_t h,
 
     auto e{edges[h]};
     auto l{literal[e.from][e.to]};
-    if (l != Solver<T>::Contradiction) {
+    if (l != Contradiction<T>) {
       Cl.push_back(l);
 
 #ifdef DBG_EXPL_FTRANS
@@ -740,7 +739,7 @@ template <typename T>
 void FullTransitivity<T>::xplain(const Literal<T> l, const hint h,
                                  std::vector<Literal<T>> &Cl) {
     
-  if (l == Solver<T>::Contradiction) {
+  if (l == Contradiction<T>) {
 
 #ifdef DBG_EXPL_FTRANS
     std::cout << "explain failure (negative cycle) with FullTransitivity "

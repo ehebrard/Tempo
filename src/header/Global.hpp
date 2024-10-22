@@ -182,8 +182,8 @@ public:
   }
 };
 
-template<typename Integer>
-Integer ceil_division(const Integer x, const Integer y) {
+template<std::integral Integer>
+constexpr Integer ceil_division(Integer x, Integer y) {
     return (x + y - 1) / y;
 }
 

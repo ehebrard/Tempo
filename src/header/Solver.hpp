@@ -44,7 +44,6 @@
 #include "constraints/FullTransitivity.hpp"
 #include "constraints/PseudoBoolean.hpp"
 #include "constraints/Transitivity.hpp"
-//#include "heuristics/RelaxationPolicy.hpp"
 #include "heuristics/RelaxationInterface.hpp"
 #include "heuristics/heuristic_factories.hpp"
 #include "heuristics/impl/DecayingEventActivityMap.hpp"
@@ -535,14 +534,12 @@ public:
                            const T bound);
     
     // create and post a new edge-finding propagator
-    template <typename ItTask, typename ItVar>
-    void postEdgeFinding(Interval<T> &schedule, const ItTask beg_task,
-                         const ItTask end_task, const ItVar beg_var);
+    template <concepts::typed_range<Interval<T>> Tasks>
+    void postEdgeFinding(Interval<T> &schedule, Tasks &&taskRange, Matrix<Literal<T>> lits);
     
     // create and post a new precedence reasoning propagator
-    template <typename ItTask, typename ItVar>
-    void postTransitivity(Interval<T> &schedule, const ItTask beg_task,
-                          const ItTask end_task, const ItVar beg_var);
+    template <concepts::typed_range<Interval<T>> Tasks>
+    void postTransitivity(Interval<T> &schedule, Tasks &&taskRange, Matrix<Literal<T>> lits);
     
     // create and post a new full transitivity propagator
     template <typename ItRes>
@@ -550,10 +547,9 @@ public:
                                               const ItRes end_res);
     
     // create and post a new precedence reasoning propagator
-    template <typename ItTask, typename ItNVar, typename ItBVar>
-    void postCumulative(const NumericVar<T> c, const ItTask beg_task,
-                        const ItTask end_task, const ItNVar beg_dem,
-                        const ItBVar beg_disj);
+    template <concepts::typed_range<Interval<T>> Tasks, concepts::typed_range<NumericVar<T>> Demands>
+    void postCumulative(const NumericVar<T> c, Tasks &&tasks, Demands &&demands, Matrix<Literal<T>> lits);
+
     template <typename ItTask, typename ItNVar, typename ItBVar>
     void postStrongEdgeFinding(const Interval<T> s, const NumericVar<T> c,
                                const ItTask beg_task, const ItTask end_task,
@@ -849,15 +845,7 @@ public:
     double avg_fail_level{0};
     
     //@}
-    
-    // Global constant for failures
-    static constexpr Literal<T> Contradiction =
-    makeBooleanLiteral<T>(false, Constant::NoVar, 0);
-    
-    static constexpr Literal<T> Truism =
-    makeBooleanLiteral<T>(true, Constant::NoVar, 0);
-//    ~Contradiction;
-    
+
     /**
      * @name to collect the modeling construct in order to free memory up
      */
@@ -1020,7 +1008,7 @@ template <typename T>
 void GraphExplainer<T>::xplain(const Literal<T> l, const hint h,
                                std::vector<Literal<T>> &Cl) {
     
-    if (l == Solver<T>::Contradiction) {
+    if (l == Contradiction<T>) {
         auto s{Literal<T>::sgn(h)};
         auto x{Literal<T>::var(h)};
         auto end_cycle{x};
@@ -1073,7 +1061,7 @@ template <typename T>
 void BoundExplainer<T>::xplain(const Literal<T> l, const hint h,
                                std::vector<Literal<T>> &Cl) {
     
-    if (l == Solver<T>::Contradiction) {
+    if (l == Contradiction<T>) {
         var_t x{static_cast<var_t>(h)};
 
         #ifdef DBG_TRACE
@@ -1087,18 +1075,18 @@ void BoundExplainer<T>::xplain(const Literal<T> l, const hint h,
         auto lidx{solver.numeric.lastLitIndex(bound::lower, x)};
         auto uidx{solver.numeric.lastLitIndex(bound::upper, x)};
 
-        
+
 //        std::cout << "lidx=" << lidx << " uidx=" << uidx << std::endl;
-        
+
         #ifdef DBG_TRACE
                 if (DBG_CBOUND and (DBG_TRACE & LEARNING)) {
                     if(lidx > 0)
                         std::cout << solver.getLiteral(lidx);
                     else
                         std::cout << "ground truth\n";
-                    
+
                     std::cout << " AND ";
-                    
+
                     if(uidx > 0)
                         std::cout << solver.getLiteral(uidx);
                     else
@@ -1108,7 +1096,7 @@ void BoundExplainer<T>::xplain(const Literal<T> l, const hint h,
                 }
         #endif
 
-        Literal<T> le{Solver<T>::Truism};
+        Literal<T> le{Truism<T>};
         Explanation<T> exp;
         
         if (lidx < uidx) {
@@ -1127,7 +1115,7 @@ void BoundExplainer<T>::xplain(const Literal<T> l, const hint h,
                 }
         #endif
 
-        if(le != Solver<T>::Truism) {
+        if(le != Truism<T>) {
             Cl.push_back(le);
         }
         exp.explain(~le, Cl);
@@ -2161,7 +2149,7 @@ template <typename T> void Solver<T>::decisionCut(Explanation<T> &e) {
 #endif
 
     lit_buffer.clear();
-    Literal<T> l{Contradiction};
+    Literal<T> l{Contradiction<T>};
     Explanation<T> &exp = e;
 
     while (exp != Constant::NoReason<T>) {
@@ -2178,15 +2166,15 @@ template <typename T> void Solver<T>::decisionCut(Explanation<T> &e) {
         }
 #endif
 
-    
+
 //        std::cout << "lit_buffer.size() = " <<  lit_buffer.size() << std::endl;
         exp.explain(l, lit_buffer);
-        
+
 //                for(auto q : lit_buffer) {
 //                    std::cout << ", " << q ;
 //                }
 //                std::cout << std::endl;
-        
+
         exp = Constant::NoReason<T>;
         while (not lit_buffer.empty()) {
           l = lit_buffer.back();
@@ -2285,7 +2273,7 @@ template <typename T> void Solver<T>::analyze(Explanation<T> &e) {
 
     int num_lit{0};
     index_t lit_pointer{static_cast<index_t>(numLiteral())};
-    Literal<T> l{Contradiction};
+    Literal<T> l{Contradiction<T>};
 
 #ifdef DBG_TRACE
     if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
@@ -3471,21 +3459,15 @@ void Solver<T>::postPseudoBoolean(const ItLit beg_lit, const ItLit end_lit,
 }
 
 template <typename T>
-template <typename ItTask, typename ItVar>
-void Solver<T>::postEdgeFinding(Interval<T> &schedule, ItTask beg_task,
-                                ItTask end_task, const ItVar beg_var) {
-  post(new DisjunctiveEdgeFinding<T>(*this, schedule, beg_task, end_task,
-                                  beg_var
-                                  ));
+template <concepts::typed_range<Interval<T>> Tasks>
+void Solver<T>::postEdgeFinding(Interval<T> &schedule, Tasks &&taskRange, Matrix<Literal<T>> lits) {
+  post(new DisjunctiveEdgeFinding<T>(*this, schedule, std::forward<Tasks>(taskRange), std::move(lits)));
 }
 
 template <typename T>
-template <typename ItTask, typename ItVar>
-void Solver<T>::postTransitivity(Interval<T> &schedule, ItTask beg_task,
-                                 ItTask end_task, const ItVar beg_var) {
-  post(new Transitivity<T>(*this, schedule, beg_task, end_task,
-                                  beg_var
-                                  ));
+template <concepts::typed_range<Interval<T>> Tasks>
+void Solver<T>::postTransitivity(Interval<T> &schedule, Tasks &&taskRange, Matrix<Literal<T>> lits) {
+  post(new Transitivity<T>(*this, schedule, std::forward<Tasks>(taskRange), std::move(lits)));
 }
 
 template <typename T>
@@ -3494,18 +3476,19 @@ FullTransitivity<T> *Solver<T>::postFullTransitivity(const ItRes beg_res,
                                                      const ItRes end_res) {
     auto c = new FullTransitivity<T>(*this);
   for (auto res{beg_res}; res != end_res; ++res) {
-    c->addResource(res->begDisjunct(), res->endDisjunct());
+    using namespace std::views;
+    auto disjunctive = res->getDisjunctiveLiterals().rawData() |
+                       filter([](auto lit) { return lit != Contradiction<T>; }) | common;
+    c->addResource(disjunctive);
   }
   post(c);
   return c;
 }
 
 template <typename T>
-template <typename ItTask, typename ItNVar, typename ItBVar>
-void Solver<T>::postCumulative(const NumericVar<T> c, const ItTask beg_task,
-                               const ItTask end_task, const ItNVar beg_dem,
-                               const ItBVar beg_disj) {
-  post(new CumulativeCheck<T>(*this, c, beg_task, end_task, beg_dem, beg_disj));
+template <concepts::typed_range<Interval<T>> Tasks, concepts::typed_range<NumericVar<T>> Demands>
+void Solver<T>::postCumulative(const NumericVar<T> c, Tasks &&tasks, Demands &&demands, Matrix<Literal<T>> lits) {
+  post(new CumulativeCheck<T>(*this, c, std::forward<Tasks>(tasks), std::forward<Demands>(demands), std::move(lits)));
 }
 
 template <typename T>

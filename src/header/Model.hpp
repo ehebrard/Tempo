@@ -25,9 +25,13 @@
 //#define DBG_EXTRACT_SUM
 
 #include <utility>
+#include <ranges>
+#include <algorithm>
+#include <Iterators.hpp>
 
 #include "util/traits.hpp"
 #include "util/distance.hpp"
+#include "util/Matrix.hpp"
 #include "Literal.hpp"
 #include "constraints/Cardinality.hpp"
 #include "constraints/PseudoBoolean.hpp"
@@ -218,11 +222,13 @@ public:
 };
 
 template <typename T = int> struct BoolInfo {
-  BoolInfo() {}
-  BoolInfo(const var_t i, const info_t f) : _id_(i), _edge_id_(f) {}
+  constexpr BoolInfo() noexcept = default;
+  constexpr BoolInfo(const var_t i, const info_t f) noexcept : _id_(i), _edge_id_(f) {}
+  constexpr bool operator==(const BoolInfo &) const noexcept = default;
 
   var_t _id_{Constant::NoIndex};
   index_t _edge_id_{Constant::NoIndex};
+
 };
 
 //! Wrapper/pointer for Boolean variables and expressions
@@ -237,8 +243,21 @@ public:
   BooleanVar(ExpressionImpl<T> *i) : ExpressionFlag(true), implem(i) {}
   BooleanVar(const var_t i, const index_t f = 0)
       : ExpressionFlag(false), data(i, f) {}
+  constexpr explicit BooleanVar(Literal<T> l) : ExpressionFlag(false), data(l.variable(), l.semantic()) {}
 
   Literal<T> operator==(const bool t) const;
+
+  constexpr bool operator==(const BooleanVar &other) const {
+      if (_is_expression != other._is_expression) {
+          return false;
+      }
+
+      if (_is_expression) {
+          return implem->id() == other.implem->id() and implem->semantic() == other.implem->semantic();
+      }
+
+      return data == other.data;
+  }
 
   BooleanVar<T> implies(const BooleanVar<T> x) const;
 
@@ -1536,51 +1555,51 @@ public:
   }
 
   void post(Solver<T> &solver) override {
-    size_t k{0};
+    using iterators::const_enumerate;
+    using namespace std::views;
 
     bool opt_flag{false};
-    for (auto a{this->begin()}; a != this->end(); ++a) {
+    disjunctiveLiterals.fill(this->size(), this->size(), Contradiction<T>);
+    for (auto [intervalIdxA, intervalA]: const_enumerate(*this)) {
         
 //      if(a->isOptional(solver))
 //          std::cout << " ===> " << a->id() << ": " << a->exist << std::endl;
-        
-      for (auto b{a + 1}; b != this->end(); ++b) {
+
+        for (auto [intervalIdxB, intervalB]: const_enumerate(*this | drop(intervalIdxA + 1), intervalIdxA + 1)) {
         
         auto t_ab{0};
         auto t_ba{0};
-        auto ai{static_cast<size_t>(a - this->begin())};
-        auto bi{static_cast<size_t>(b - this->begin())};
-        if (ai < transitions.size() and bi < transitions[ai].size()) {
-          t_ab = transitions[ai][bi];
+        if (intervalIdxA < transitions.size() and intervalIdxB < transitions[intervalIdxA].size()) {
+          t_ab = transitions[intervalIdxA][intervalIdxB];
         }
-        if (bi < transitions.size() and ai < transitions[bi].size()) {
-          t_ba = transitions[bi][ai];
+        if (intervalIdxB < transitions.size() and intervalIdxA < transitions[intervalIdxB].size()) {
+          t_ba = transitions[intervalIdxB][intervalIdxA];
         }
 
-        auto a_before_b{a->end.before(b->start, t_ab)};
-        auto b_before_a{b->end.before(a->start, t_ba)};
+        auto a_before_b{intervalA.end.before(intervalB.start, t_ab)};
+        auto b_before_a{intervalB.end.before(intervalA.start, t_ba)};
           
-        if (a->isOptional(solver) or b->isOptional(solver)) {
+        if (intervalA.isOptional(solver) or intervalB.isOptional(solver)) {
 
           auto x_ab{solver.newDisjunct(Constant::NoEdge<T>, a_before_b)};
           auto x_ba{solver.newDisjunct(Constant::NoEdge<T>, b_before_a)};
             
-            // (a->exist and b->exist) -> (x_ab or x_ba)
-            // ~a->exist or ~b->exist or x_ab or x_ba
+            // (intervalA.exist and intervalB.exist) -> (x_ab or x_ba)
+            // ~intervalA.exist or ~intervalB.exist or x_ab or x_ba
             std::vector<Literal<T>> cl{x_ab == true, x_ba == true};
-            if (a->isOptional(solver))
-              cl.push_back(a->exist == false);
-            if (b->isOptional(solver))
-              cl.push_back(b->exist == false);
+            if (intervalA.isOptional(solver))
+              cl.push_back(intervalA.exist == false);
+            if (intervalB.isOptional(solver))
+              cl.push_back(intervalB.exist == false);
             solver.clauses.add(cl.begin(), cl.end());
             
             
             // to avoid setting useless constraints
-            // (~a->exist -> ~x_ab) and (~a->exist -> ~x_ba)
-            // a->exist or ~x_ab
+            // (~intervalA.exist -> ~x_ab) and (~intervalA.exist -> ~x_ba)
+            // intervalA.exist or ~x_ab
             cl.clear();
-            if (a->isOptional(solver)) {
-                cl.push_back(a->exist == true);
+            if (intervalA.isOptional(solver)) {
+                cl.push_back(intervalA.exist == true);
                 cl.push_back(x_ab == false);
                 solver.clauses.add(cl.begin(), cl.end());
                 
@@ -1590,8 +1609,8 @@ public:
             }
             
             cl.clear();
-            if (b->isOptional(solver)) {
-                cl.push_back(b->exist == true);
+            if (intervalB.isOptional(solver)) {
+                cl.push_back(intervalB.exist == true);
                 cl.push_back(x_ab == false);
                 solver.clauses.add(cl.begin(), cl.end());
                 
@@ -1608,18 +1627,18 @@ public:
             
             
 
-          disjunct.push_back(x_ab);
-          disjunct.push_back(x_ba);
-
+          disjunctiveLiterals(intervalIdxA, intervalIdxB) = solver.boolean.getLiteral(true, x_ab);
+          disjunctiveLiterals(intervalIdxB, intervalIdxA) = solver.boolean.getLiteral(true, x_ba);
+          solver.addToSearch(x_ab); solver.addToSearch(x_ba);
           opt_flag = true;
         }
 
         else {
-          disjunct.push_back(solver.newDisjunct(a_before_b, b_before_a));
+          auto var = solver.newDisjunct(a_before_b, b_before_a);
+          disjunctiveLiterals(intervalIdxA, intervalIdxB) = solver.boolean.getLiteral(true, var);
+          disjunctiveLiterals(intervalIdxB, intervalIdxA) = solver.boolean.getLiteral(false, var);
+          solver.addToSearch(var);
         }
-
-        while (k < disjunct.size())
-          solver.addToSearch(disjunct[k++]);
       }
     }
 
@@ -1628,12 +1647,11 @@ public:
           if (opt_flag) {
             std::cout
                 << "edge-finding for optional intervals is not implemented, "
-                   "please use '--no-edge-finding'. Aborthing\n";
+                   "please use '--no-edge-finding'. Aborting\n";
             exit(0);
           }
 
-          solver.postEdgeFinding(schedule, this->begin(), this->end(),
-                                 this->begDisjunct());
+          solver.postEdgeFinding(schedule, std::ranges::subrange(this->begin(), this->end()), disjunctiveLiterals);
         }
 
         if (solver.getOptions().transitivity) {
@@ -1641,12 +1659,11 @@ public:
           if (opt_flag) {
             std::cout
                 << "transitivity for optional intervals is not implemented, "
-                   "please use '--no-transitivity'. Aborthing\n";
+                   "please use '--no-transitivity'. Aborting\n";
             exit(0);
           }
 
-          solver.postTransitivity(schedule, this->begin(), this->end(),
-                                  this->begDisjunct());
+          solver.postTransitivity(schedule, std::ranges::subrange(this->begin(), this->end()), disjunctiveLiterals);
         }
       }
   }
@@ -1662,20 +1679,13 @@ public:
     }
   }
 
-  std::vector<BooleanVar<T>>::iterator begDisjunct() {
-    return disjunct.begin();
+  const auto &getDisjunctiveLiterals() const noexcept {
+      return disjunctiveLiterals;
   }
-
-  std::vector<BooleanVar<T>>::const_iterator begDisjunct() const {
-    return disjunct.begin();
-  }
-
-  std::vector<BooleanVar<T>>::iterator endDisjunct() { return disjunct.end(); }
-  std::vector<BooleanVar<T>>::const_iterator endDisjunct() const { return disjunct.end(); }
 
 private:
   Interval<T> schedule;
-  std::vector<BooleanVar<T>> disjunct;
+  Matrix<Literal<T>> disjunctiveLiterals;
 //  std::vector<BooleanVar<T>> relevant;
   std::vector<std::vector<T>> transitions;
 };
@@ -1708,22 +1718,8 @@ public:
         return const_cast<NoOverlapExpression*>(this)->end();
     }
 
-  std::vector<BooleanVar<T>>::iterator begDisjunct() {
-    return static_cast<NoOverlapExpressionImpl<T> *>(BooleanVar<T>::implem)
-        ->begDisjunct();
-  }
-
-  std::vector<BooleanVar<T>>::const_iterator begDisjunct() const {
-    return const_cast<NoOverlapExpression *>(this)->begDisjunct();
-  }
-
-  std::vector<BooleanVar<T>>::iterator endDisjunct() {
-    return static_cast<NoOverlapExpressionImpl<T> *>(BooleanVar<T>::implem)
-        ->endDisjunct();
-  }
-
-  std::vector<BooleanVar<T>>::const_iterator endDisjunct() const {
-    return const_cast<NoOverlapExpression *>(this)->endDisjunct();
+  const auto &getDisjunctiveLiterals() const noexcept {
+      return static_cast<NoOverlapExpressionImpl<T>*>(BooleanVar<T>::implem)->getDisjunctiveLiterals();
   }
 
   void provide(const Interval<T> &i) {
@@ -1804,17 +1800,17 @@ public:
   }
 
   void post(Solver<T> &solver) override {
-    size_t k{0};
+    using iterators::const_zip_enumerate;
+    using std::views::drop;
 
-    auto da{this->begDemand()};
-    for (auto a{this->begin()}; a != this->end(); ++a) {
-      auto db{da + 1};
-      for (auto b{a + 1}; b != this->end(); ++b) {
+    disjunctiveLiterals.fill(this->size(), this->size(), Contradiction<T>);
+    for(auto [taskIdxA, taskA, demandA] : const_zip_enumerate(*this, demand)) {
+        for (auto [taskIdxB, taskB, demandB]: const_zip_enumerate(*this | drop(taskIdxA + 1),
+                                                                  demand | drop(taskIdxA + 1), taskIdxA + 1)) {
+        auto ea_before_sb{taskA.end.before(taskB.start)};
+        auto eb_before_sa{taskB.end.before(taskA.start)};
 
-        auto ea_before_sb{a->end.before(b->start)};
-        auto eb_before_sa{b->end.before(a->start)};
-
-        if (da->min(solver) + db->min(solver) > capacity.max(solver)) {
+        if (demandA.min(solver) + demandB.min(solver) > capacity.max(solver)) {
           //              std::cout << "disjunct " << *a << " / " << *b <<
           //              std::endl;
 
@@ -1823,8 +1819,9 @@ public:
           //              std::cout << "**disjunct " << solver.pretty(d==true)
           //              << " <> " << solver.pretty(d==false) << std::endl;
 
-          disjunct.push_back(d);
-          disjunct.push_back(d);
+          disjunctiveLiterals(taskIdxA, taskIdxB) = solver.boolean.getLiteral(false, d);
+          disjunctiveLiterals(taskIdxB, taskIdxA) = solver.boolean.getLiteral(true, d);
+          solver.addToSearch(d);
 
         } else {
 
@@ -1836,22 +1833,16 @@ public:
           //              std::cout << "disjunct " << solver.pretty(bb==true) <<
           //              " <> " << solver.pretty(bb==false) << std::endl;
 
-          disjunct.push_back(ba);
-          disjunct.push_back(bb);
+          disjunctiveLiterals(taskIdxA, taskIdxB) = solver.boolean.getLiteral(false, ba);
+          disjunctiveLiterals(taskIdxB, taskIdxA) = solver.boolean.getLiteral(true, bb);
+          solver.addToSearch(ba);
+          solver.addToSearch(bb);
         }
-
-        while (k < disjunct.size())
-          solver.addToSearch(disjunct[k++]);
-
-        ++db;
       }
-
-      ++da;
     }
 
     if (std::distance(this->begin(), this->end()) > 1) {
-      solver.postCumulative(capacity, this->begin(), this->end(),
-                            this->begDemand(), this->begDisjunct());
+      solver.postCumulative(capacity, *this, demand, disjunctiveLiterals);
 
 //        if (solver.getOptions().edge_finding) {
 //                  solver.postStrongEdgeFinding(schedule, capacity,
@@ -1866,16 +1857,9 @@ public:
     }
   }
 
-  std::vector<BooleanVar<T>>::iterator begDisjunct() {
-    return disjunct.begin();
+  const auto &getDisjunctiveLiterals() const noexcept {
+      return disjunctiveLiterals;
   }
-
-  std::vector<BooleanVar<T>>::const_iterator begDisjunct() const {
-    return disjunct.begin();
-  }
-
-  std::vector<BooleanVar<T>>::iterator endDisjunct() { return disjunct.end(); }
-  std::vector<BooleanVar<T>>::const_iterator endDisjunct() const { return disjunct.end(); }
 
   std::vector<NumericVar<T>>::iterator begDemand() { return demand.begin(); }
   std::vector<NumericVar<T>>::const_iterator begDemand() const { return demand.begin(); }
@@ -1885,7 +1869,7 @@ public:
 private:
   Interval<T> schedule;
   NumericVar<T> capacity;
-  std::vector<BooleanVar<T>> disjunct;
+  Matrix<Literal<T>> disjunctiveLiterals;
   std::vector<NumericVar<T>> demand;
 };
 
@@ -1912,22 +1896,8 @@ public:
     return const_cast<CumulativeExpression*>(this)->end();
   }
 
-  std::vector<BooleanVar<T>>::iterator begDisjunct() {
-    return static_cast<CumulativeExpressionImpl<T> *>(BooleanVar<T>::implem)
-        ->begDisjunct();
-  }
-
-  std::vector<BooleanVar<T>>::const_iterator begDisjunct() const {
-    return const_cast<CumulativeExpression*>(this)->begDisjunct();
-  }
-
-  std::vector<BooleanVar<T>>::iterator endDisjunct() {
-    return static_cast<CumulativeExpressionImpl<T> *>(BooleanVar<T>::implem)
-        ->endDisjunct();
-  }
-
-  std::vector<BooleanVar<T>>::const_iterator endDisjunct() const {
-    return const_cast<CumulativeExpression*>(this)->endDisjunct();
+  const auto &getDisjunctiveLiterals() const noexcept {
+      return static_cast<const CumulativeExpressionImpl<T>*>(BooleanVar<T>::implem)->getDisjunctiveLiterals();
   }
 
   std::vector<BooleanVar<T>>::iterator begDemand() {
@@ -1973,15 +1943,66 @@ CumulativeExpression<T> Cumulative(const Interval<T> &s, const NumericVar<T> c,
   return exp;
 }
 
+namespace detail {
+    template<typename T>
+    concept literal_matrix = concepts::same_template<T, Matrix> and
+                             concepts::same_template<typename std::remove_cvref_t<T>::value_type, Literal>;
+
+}
+
 /**
  * @brief concept for different resource expressions (NoOverlapExpression, CumulativeExpression, ...)
  * @tparam E expression type
  */
 template<typename E>
 concept resource_expression = tempo::concepts::ttyped_range<E, tempo::Interval> and requires(E expression) {
-    { *expression.begDisjunct() } -> tempo::concepts::same_template<tempo::BooleanVar>;
-    { *expression.endDisjunct() } -> tempo::concepts::same_template<tempo::BooleanVar>;
+    { expression.getDisjunctiveLiterals() } -> detail::literal_matrix;
 };
+
+/**
+ * @brief concept modelling a range of resource expressions
+ * @tparam T range type
+ */
+template<typename T>
+concept resource_range = std::ranges::range<T> and resource_expression<std::ranges::range_value_t<T>>;
+
+/**
+ * Extracts the unique boolean varaibles from a range of resource expressions
+ * @tparam Resources resource expression range type
+ * @param resources range of resources
+ * @return vector of unique boolean variables
+ */
+template<resource_range Resources>
+auto booleanVarsFromResources(const Resources &resources) {
+    using LitT = std::remove_cvref_t<decltype(std::ranges::begin(resources)->getDisjunctiveLiterals())>::value_type;
+    using T = decltype(std::declval<LitT>().value());
+    using namespace std::views;
+    std::vector<BooleanVar<T>> variables;
+    for (const auto &resource: resources) {
+        auto resVars = resource.getDisjunctiveLiterals().rawData() |
+                filter([](auto lit) { return lit != Contradiction<T>; }) |
+                transform([](auto lit) { return tempo::BooleanVar<T>(lit); });
+        std::ranges::unique_copy(resVars, std::back_inserter(variables));
+    }
+
+    std::ranges::sort(variables, {}, [](const auto &var) { return var.id(); });
+    auto res = std::ranges::unique(variables);
+    variables.erase(res.begin(), res.end());
+    variables.shrink_to_fit();
+    return variables;
+}
+
+/**
+ * overload of booleanVarsFromResources accepting a single resource
+ * @tparam R resource type
+ * @param resource resource
+ * @return vector of unique boolean variables
+ */
+template<resource_expression R>
+auto booleanVarsFromResources(const R &resource) {
+    auto range = {resource};
+    return booleanVarsFromResources(range);
+}
 
 
 /*!

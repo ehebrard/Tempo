@@ -204,8 +204,7 @@ void PseudoBooleanInterface<T>::xplain(const Literal<T> l, const hint,
     
 //    std::cout << "explain " << l << std::endl;
 
-  auto l_lvl{(l == Solver<T>::Contradiction ? m_solver.numLiteral()
-                                            : m_solver.propagationLevel(l))};
+  auto l_lvl{(l == Contradiction<T> ? m_solver.numLiteral() : m_solver.propagationLevel(l))};
   for (auto p : literals) {
       
 //      if(not m_solver.boolean.satisfied(p)) {

@@ -296,13 +296,8 @@ int main(int argc, char *argv[]) {
         MinimizationObjective<int> objective(schedule.duration);
 //        RelaxRandomDisjunctiveResource<int> policy(S, resources);
 //                FixRandomDisjunctiveResource<int> policy(S, resources);
-        std::vector<BooleanVar<int>> vars;
-        for(auto& resource : resources)
-            for(auto bi{resource.begDisjunct()}; bi!=resource.endDisjunct(); ++bi) {
-                vars.push_back(*bi);
-            }
 
-        heuristics::RandomSubset<int> policy(S, vars, .5, lnsDecay);
+        heuristics::RandomSubset<int> policy(booleanVarsFromResources(resources), .5, lnsDecay);
         S.largeNeighborhoodSearch(objective, policy);
     }
 

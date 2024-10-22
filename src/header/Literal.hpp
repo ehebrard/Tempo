@@ -404,6 +404,13 @@ constexpr Literal<T> neg(const var_t x, const info_t d=0) noexcept {
     return makeBooleanLiteral<T>(false, x, d);
 }
 
+// Global constant for failures
+template<concepts::scalar T>
+inline constexpr Literal<T> Contradiction = makeBooleanLiteral<T>(false, Constant::NoVar, 0);
+
+// Global constant ~Contradiction
+template<concepts::scalar T>
+inline constexpr Literal<T> Truism = makeBooleanLiteral<T>(true, Constant::NoVar, 0);
 
 }
 

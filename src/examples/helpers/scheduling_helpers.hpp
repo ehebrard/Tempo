@@ -89,9 +89,7 @@ struct VariantResourceConstraint : public std::variant<E...> {
 
     [[nodiscard]] DYNAMIC_DISPATCH_VOID(end, const)
 
-    [[nodiscard]] DYNAMIC_DISPATCH_VOID(begDisjunct, const)
-
-    [[nodiscard]] DYNAMIC_DISPATCH_VOID(endDisjunct, const)
+    [[nodiscard]] DYNAMIC_DISPATCH_VOID(getDisjunctiveLiterals, const)
 };
 
 
