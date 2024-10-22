@@ -237,6 +237,8 @@ public:
   BooleanVar(ExpressionImpl<T> *i) : ExpressionFlag(true), implem(i) {}
   BooleanVar(const var_t i, const index_t f = 0)
       : ExpressionFlag(false), data(i, f) {}
+    explicit BooleanVar(const Literal<T> l) : ExpressionFlag(false), data(l.variable(), l.semantic()) {}
+    
 
   Literal<T> operator==(const bool t) const;
 

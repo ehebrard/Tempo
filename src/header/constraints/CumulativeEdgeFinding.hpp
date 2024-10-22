@@ -84,24 +84,14 @@ std::ostream &operator<<(std::ostream &os, const Timepoint<T> &x) {
 }
 
 template<typename T>
-struct ExplanationData {
-    std::vector<int> omega;
-    T lb_omega;
-    T ub_omega;
-    int i;
-    T lb_i;
-};
-
-
-template<typename T>
 class Solver;
 
 template <typename T> class CumulativeEdgeFinding : public Constraint<T> {
 private:
-    Solver<T> &m_solver;
+    Solver<T> &solver;
     NumericVar<T> capacity;
     Interval<T> schedule;
-    std::vector<Interval<T>> the_tasks;
+    std::vector<Interval<T>> task;
     std::vector<NumericVar<T>> demand;
     std::vector<std::vector<Literal<T>>> precedence;
     
@@ -109,60 +99,25 @@ private:
     // the corresponding left-cut interval
     std::vector<int>
     contact; // mapping the lower bound of the set explaining the adjustment
-    std::vector<T> contact_time; // mapping the lower bound of the set explaining
     // the adjustment
     SparseSet<> in_conflict; // tasks that have been found to be in conflict with
     // an left-cut interval
-    std::vector<bool> inLeftCut;
-    std::vector<int>::reverse_iterator
-    lc_ptr; // right side of the left-cut interval
-    std::vector<T> tp_attributes_est_i;
-    std::vector<T> tp_attributes_ect_i;
-    // helpers
+
     List<Timepoint<T>> profile;
     std::vector<int> est_; // index of pointer in profile
     std::vector<int> ect_;
     std::vector<int> lct_;
-    std::vector<T> event_buffer;
-    std::vector<int> omega_buffer;
-    // std::vector<int> lst_;
     
     std::vector<int> event_ordering;
     std::vector<int> lct_order;
-    //  int sentinel;
     int alpha;
     int beta;
-    
-    //  std::vector<std::vector<int>> explanation_task;
-    //  std::vector<T> explanation_lb;
-    //  std::vector<T> explanation_ub;
-    //  std::vector<int> explanation_i;
-    //  std::vector<T> explanation_contact;
-    
-    std::vector<ExplanationData<T>> explanation;
-    
+ 
+    std::vector<std::vector<Literal<T>>> explanation;
     Reversible<size_t> num_explanations;
     
-    //    int start_interval;
-    
-    // tools for adjustments
-    std::vector<int>
-    minEct; // the minimum ect among tasks of the set use for explanation
-    std::vector<int> maxOverflow; // the number of energy units to schedule on the
-    // upper part of the profile
-    std::vector<bool> isFeasible; // use to check if the correctonding scheduling
-    // is feasible (without preemption)
-    
-    T overflow;
-    
-    std::vector<std::vector<int>> triggers;
     
 public:
-    static int est_flag;
-    static int ect_flag;
-    static int lct_flag;
-    // static int lst_flag;
-    static int dem_flag;
     
     template <typename ItTask, typename ItNVar, typename ItBVar>
     CumulativeEdgeFinding(Solver<T> &solver, const Interval<T> sched,
@@ -248,7 +203,7 @@ public:
     bool verify() {
         return true;
         inprof.clear();
-        inprof.resize(the_tasks.size() + 4, false);
+        inprof.resize(task.size() + 4, false);
         auto prev_t{-Constant::Infinity<T>};
         for (auto p{profile.begin()}; p != profile.end(); ++p) {
             if (inprof[p.index]) {
@@ -279,12 +234,12 @@ public:
             //        sentinel << ")\n";
         }
         bool ok{true};
-        for (unsigned i{0}; ok and i < the_tasks.size(); ++i) {
+        for (unsigned i{0}; ok and i < task.size(); ++i) {
             if (inLeftCut[i]) {
                 count -= 3;
                 if (not(inprof[est_[i]] and inprof[ect_[i]] and inprof[lct_[i]])) {
                     
-                    std::cout << "not all ptrs of task " << the_tasks[i]
+                    std::cout << "not all ptrs of task " << task[i]
                     << " are in the profile (est[" << i
                     << "]:" << inprof[est_[i]] << ", ect[" << i
                     << "]:" << inprof[ect_[i]] << ", lct[" << i
@@ -331,7 +286,7 @@ int CumulativeEdgeFinding<T>::dem_flag = 3;
 template <typename T>
 std::string CumulativeEdgeFinding<T>::prettyTask(const int i) const {
     std::stringstream ss;
-    ss << the_tasks[i] << ": [" << est(i) << ".." << lct(i) << "] ("
+    ss << task[i] << ": [" << est(i) << ".." << lct(i) << "] ("
     << mindemand(i) << "x" << minduration(i) << ")";
     return ss.str();
 }
@@ -360,39 +315,39 @@ std::string CumulativeEdgeFinding<T>::asciiArt(const int i) const {
 }
 
 template <typename T> T CumulativeEdgeFinding<T>::est(const unsigned i) const {
-    return the_tasks[i].getEarliestStart(m_solver);
+    return task[i].getEarliestStart(solver);
 }
 
 template <typename T> T CumulativeEdgeFinding<T>::lst(const unsigned i) const {
-    return the_tasks[i].getLatestStart(m_solver);
+    return task[i].getLatestStart(solver);
 }
 
 template <typename T> T CumulativeEdgeFinding<T>::ect(const unsigned i) const {
-    return the_tasks[i].getEarliestEnd(m_solver);
+    return task[i].getEarliestEnd(solver);
 }
 
 template <typename T> T CumulativeEdgeFinding<T>::lct(const unsigned i) const {
-    return the_tasks[i].getLatestEnd(m_solver);
+    return task[i].getLatestEnd(solver);
 }
 
 template <typename T>
 T CumulativeEdgeFinding<T>::minduration(const unsigned i) const {
-    return the_tasks[i].minDuration(m_solver);
+    return task[i].minDuration(solver);
 }
 
 template <typename T>
 T CumulativeEdgeFinding<T>::maxduration(const unsigned i) const {
-    return the_tasks[i].maxDuration(m_solver);
+    return task[i].maxDuration(solver);
 }
 
 template <typename T>
 T CumulativeEdgeFinding<T>::mindemand(const unsigned i) const {
-    return demand[i].min(m_solver);
+    return demand[i].min(solver);
 }
 
 template <typename T>
 T CumulativeEdgeFinding<T>::maxdemand(const unsigned i) const {
-    return demand[i].max(m_solver);
+    return demand[i].max(solver);
 }
 
 template <typename T>
@@ -417,14 +372,14 @@ T CumulativeEdgeFinding<T>::overlapedFixedPartEnergy(const unsigned i, const uns
 template <typename T>
 std::vector<T> CumulativeEdgeFinding<T>::overlapedFixedPartEnergy() {
     std::vector<T> energy;
-    energy.resize(the_tasks.size());
+    energy.resize(task.size());
     for (auto j : lct_order) {
         auto E{0};
-        for (auto i = j + 1; i < the_tasks.size(); ++i) {
+        for (auto i = j + 1; i < task.size(); ++i) {
             E += overlapedFixedPartEnergy(i, j);
         }
         energy[j] = E;
-        while (j + 1 < the_tasks.size() and lct(j + 1) == lct(j)) {
+        while (j + 1 < task.size() and lct(j + 1) == lct(j)) {
             energy[j + 1] = energy[j];
             ++j;
         }
@@ -438,19 +393,19 @@ CumulativeEdgeFinding<T>::CumulativeEdgeFinding(
                                                 Solver<T> &solver, const Interval<T> sched, const NumericVar<T> cap,
                                                 const ItTask beg_task, const ItTask end_task, const ItNVar beg_dem,
                                                 const ItBVar beg_disj)
-: m_solver(solver), num_explanations(0, &(m_solver.getEnv())) {
+: solver(solver), num_explanations(0, &(solver.getEnv())) {
     schedule = sched, capacity = cap;
     
     Constraint<T>::priority = Priority::Low;
     
     auto dp{beg_dem};
     for (auto jp{beg_task}; jp != end_task; ++jp) {
-        the_tasks.push_back(*jp);
+        task.push_back(*jp);
         demand.push_back(*dp);
         ++dp;
     }
     
-    auto ip{the_tasks.size()};
+    auto ip{task.size()};
     inLeftCut.resize(ip, false);
     
     in_conflict.reserve(ip);
@@ -469,12 +424,12 @@ CumulativeEdgeFinding<T>::CumulativeEdgeFinding(
     tp_attributes_est_i.resize(3);
     tp_attributes_ect_i.resize(3);
     
-    auto maxcap{capacity.max(m_solver)};
+    auto maxcap{capacity.max(solver)};
     for (unsigned i = 0; i < ip; ++i) {
-        precedence[i].resize(the_tasks.size());
+        precedence[i].resize(task.size());
     }
     for (unsigned i = 0; i < ip; ++i) {
-        precedence[i].resize(the_tasks.size());
+        precedence[i].resize(task.size());
         est_[i] = profile.create_element(est(i), maxcap, mindemand(i), mindemand(i),
                                          0, 0, 0, 0, 0);
         ect_[i] =
@@ -496,16 +451,16 @@ CumulativeEdgeFinding<T>::CumulativeEdgeFinding(
             
             auto i{std::distance(beg_task, ip)};
             auto j{std::distance(beg_task, jp)};
-            precedence[i][j] = m_solver.boolean.getLiteral(false, x);
+            precedence[i][j] = solver.boolean.getLiteral(false, x);
             
             x = *(++ep);
             
-            precedence[j][i] = m_solver.boolean.getLiteral(false, x);
+            precedence[j][i] = solver.boolean.getLiteral(false, x);
             ++ep;
         }
     }
     
-    lct_order.resize(the_tasks.size());
+    lct_order.resize(task.size());
     std::iota(lct_order.begin(), lct_order.end(), 0);
     
     event_ordering.resize(profile.size());
@@ -530,32 +485,32 @@ template <typename T> void CumulativeEdgeFinding<T>::post(const int idx) {
     }
 #endif
     
-    for (size_t i{0}; i < the_tasks.size(); ++i) {
-        auto k{m_solver.wake_me_on(lb<T>(the_tasks[i].start.id()), this->id())};
+    for (size_t i{0}; i < task.size(); ++i) {
+        auto k{solver.wake_me_on(lb<T>(task[i].start.id()), this->id())};
         if (triggers.size() <= k)
             triggers.resize(k + 1);
         triggers[k].push_back(est_flag + 4 * i);
     }
-    for (size_t i{0}; i < the_tasks.size(); ++i) {
-        auto k{m_solver.wake_me_on(lb<T>(the_tasks[i].end.id()), this->id())};
+    for (size_t i{0}; i < task.size(); ++i) {
+        auto k{solver.wake_me_on(lb<T>(task[i].end.id()), this->id())};
         if (triggers.size() <= k)
             triggers.resize(k + 1);
         triggers[k].push_back(ect_flag + 4 * i);
     }
-    for (size_t i{0}; i < the_tasks.size(); ++i) {
-        auto k{m_solver.wake_me_on(ub<T>(the_tasks[i].end.id()), this->id())};
+    for (size_t i{0}; i < task.size(); ++i) {
+        auto k{solver.wake_me_on(ub<T>(task[i].end.id()), this->id())};
         if (triggers.size() <= k)
             triggers.resize(k + 1);
         triggers[k].push_back(lct_flag + 4 * i);
     }
-    /*for (size_t i{0}; i < the_tasks.size(); ++i) {
-     auto k{m_solver.wake_me_on(ub<T>(the_tasks[i].start.id()), this->id())};
+    /*for (size_t i{0}; i < task.size(); ++i) {
+     auto k{solver.wake_me_on(ub<T>(task[i].start.id()), this->id())};
      if (triggers.size() <= k)
      triggers.resize(k + 1);
      triggers[k].push_back(lst_flag + 4 * i);
      }*/
-    for (size_t i{0}; i < the_tasks.size(); ++i) {
-        auto k{m_solver.wake_me_on(lb<T>(demand[i].id()), this->id())};
+    for (size_t i{0}; i < task.size(); ++i) {
+        auto k{solver.wake_me_on(lb<T>(demand[i].id()), this->id())};
         if (triggers.size() <= k)
             triggers.resize(k + 1);
         triggers[k].push_back(dem_flag + 4 * i);
@@ -682,7 +637,7 @@ void CumulativeEdgeFinding<T>::rmTask(const int i) {
     if (not verify()) {
         std::cout << profile << std::endl;
         for (unsigned k{0}; k < inLeftCut.size(); ++k) {
-            std::cout << the_tasks[k] << " " << est_[k] << "/" << ect_[k] << "/"
+            std::cout << task[k] << " " << est_[k] << "/" << ect_[k] << "/"
             << lct_[k] << std::endl;
         }
         exit(1);
@@ -726,8 +681,8 @@ template <typename T> bool CumulativeEdgeFinding<T>::addTimePoint_i(const int i)
     }
 #endif
     
-    auto maxcap{capacity.max(m_solver)};
-    auto ip{the_tasks.size()};
+    auto maxcap{capacity.max(solver)};
+    auto ip{task.size()};
     
     profile[est_[ip]].capacity = profile[ect_[ip]].capacity = maxcap;
     profile[est_[ip]].time = _est;
@@ -790,8 +745,8 @@ template <typename T> bool CumulativeEdgeFinding<T>::addPrime(const int i) {
     }
 #endif
     
-    auto maxcap{capacity.max(m_solver)};
-    auto ip{the_tasks.size()};
+    auto maxcap{capacity.max(solver)};
+    auto ip{task.size()};
     
     profile[est_[ip]].capacity = profile[ect_[ip]].capacity =
     profile[lct_[ip]].capacity = maxcap;
@@ -873,7 +828,7 @@ void CumulativeEdgeFinding<T>::horizontallyElasticEdgeFinderForward() {
 
 #ifdef DBG_SEF
     if (DBG_SEF) {
-        std::cout << "\n\nstart propagation (" << capacity.max(m_solver) << ")\n";
+        std::cout << "\n\nstart propagation (" << capacity.max(solver) << ")\n";
         for (auto j : lct_order) {
             std::cout << "task " << j << ": " << asciiArt(j) << std::endl;
         }
@@ -945,7 +900,7 @@ void CumulativeEdgeFinding<T>::forwardAdjustment() {
         if (addTimePoint_i(i))
         {
             //        auto ect_h{
-            scheduleOmegaAdjustment(capacity.max(m_solver), i
+            scheduleOmegaAdjustment(capacity.max(solver), i
                                     //, lct(j)
                                     )
             //        }
@@ -959,7 +914,7 @@ void CumulativeEdgeFinding<T>::forwardAdjustment() {
             if (estPrime > est(i)) {
                 pruning_flag = true;
                 
-                m_solver.set(the_tasks[i].start.after(est(i)+1),
+                solver.set(task[i].start.after(est(i)+1),
                              {this, static_cast<hint>(explanation.size() - 1)});
             }
             rmTimePoint_i();
@@ -970,7 +925,7 @@ void CumulativeEdgeFinding<T>::forwardAdjustment() {
          bool pruning_flag{false};
          if (addTimePoint_i(i))
          {
-         auto ect_h{scheduleOmegaAdjustment(capacity.max(m_solver), i, lct(j))};
+         auto ect_h{scheduleOmegaAdjustment(capacity.max(solver), i, lct(j))};
          computeMaximumOverflow(i);
          auto estPrime{est(i)};
          if (maxOverflow[i] > 0) {
@@ -979,16 +934,16 @@ void CumulativeEdgeFinding<T>::forwardAdjustment() {
          
          #ifdef DBG_SEF
          if (DBG_SEF) {
-         std::cout << "\n ==> adjust est(" << the_tasks[i].id() << ") to "
+         std::cout << "\n ==> adjust est(" << task[i].id() << ") to "
          << estPrime << " (was " << est(i) << ") :: "
-         << m_solver.pretty(the_tasks[i].start.after(estPrime))
+         << solver.pretty(task[i].start.after(estPrime))
          << std::endl;
          }
          #endif
          
          pruning_flag = true;
          
-         m_solver.set(the_tasks[i].start.after(estPrime),
+         solver.set(task[i].start.after(estPrime),
          {this, static_cast<hint>(explanation.size() - 1)});
          }
          }
@@ -1016,7 +971,7 @@ int CumulativeEdgeFinding<T>::computeEstPrime(const int i) {
     //std::cout<< " compute est prime " << std::endl;
     auto cont{contact_time[i]};
     auto Ov{maxOverflow[i]};
-    auto ip{static_cast<int>(the_tasks.size())};
+    auto ip{static_cast<int>(task.size())};
     auto next{profile.at(contact[i])};
     if (cont < est(i))
         next = profile.at(est_[ip]);
@@ -1027,18 +982,18 @@ int CumulativeEdgeFinding<T>::computeEstPrime(const int i) {
         auto overl{next->overlap - t->overlap};
         assert(overl >= 0);
         //std::cout<< " ------> compute est prime: overlap " << overl  << " Ov " << Ov << " consomption " << (next->consumption)
-        //<< " time point " << *next << " C-h " <<  ((capacity.max(m_solver) - mindemand(i)))<<  std::endl;
+        //<< " time point " << *next << " C-h " <<  ((capacity.max(solver) - mindemand(i)))<<  std::endl;
         if (Ov > overl) {
             assert(Ov >= overl);
             Ov -= overl;
         } else {
             /*std::cout<< " compute est prime " << (ceil_division(Ov, (t->consumption -
-             (capacity.max(m_solver) -
+             (capacity.max(solver) -
              mindemand(i))))) << " consomption " << (t->consumption) << std::endl;*/
-            /*if (t->consumption <= capacity.max(m_solver) - mindemand(i))
+            /*if (t->consumption <= capacity.max(solver) - mindemand(i))
              {
              std::cout<< "Task_i : est = " << est(i) << " -- lct = " << lct(i) << " -- d_i = " << minduration(i)
-             << " -- c_i = " << mindemand(i) << " -- " << " Capa " << capacity.max(m_solver) <<
+             << " -- c_i = " << mindemand(i) << " -- " << " Capa " << capacity.max(solver) <<
              " max Ov " << maxOverflow[i] <<   std::endl;
              for (auto j:lct_order)
              {
@@ -1055,11 +1010,11 @@ int CumulativeEdgeFinding<T>::computeEstPrime(const int i) {
              
              
              }*/
-            if (t->consumption > capacity.max(m_solver) -mindemand(i))
+            if (t->consumption > capacity.max(solver) -mindemand(i))
             {
                 estPrime = std::min(next->time,
                                     t->time + ceil_division(Ov, (t->consumption -
-                                                                 (capacity.max(m_solver) -
+                                                                 (capacity.max(solver) -
                                                                   mindemand(i)))));
                 return estPrime;
             }
@@ -1083,7 +1038,7 @@ T CumulativeEdgeFinding<T>::energy(const int i, const T lb, const T ub) {
 template <typename T>
 void CumulativeEdgeFinding<T>::brute_force(const std::vector<int> &omega, T &lb,
                                            T &ub) {
-  auto C{capacity.max(m_solver)};
+  auto C{capacity.max(solver)};
   event_buffer.clear();
   for (auto i : omega) {
     if (est(i) >= lb)
@@ -1116,7 +1071,7 @@ void CumulativeEdgeFinding<T>::brute_force(const std::vector<int> &omega, T &lb,
 
       T E{0};
       for (auto t : omega) {
-        std::cout << " t" << the_tasks[t].id() << ":" << energy(t, lb, ub);
+        std::cout << " t" << task[t].id() << ":" << energy(t, lb, ub);
         E += energy(t, lb, ub);
       }
       std::cout << " => " << E << " <> " << (C * (ub - lb)) << std::endl;
@@ -1144,7 +1099,7 @@ void CumulativeEdgeFinding<T>::overloadBound(const int i) {
     }
 #endif
 
-    auto C{capacity.max(m_solver)};
+    auto C{capacity.max(solver)};
     //    auto last{*lct_order.rbegin()};
     auto omega_ect = scheduleOmegaDetection(
         C, i
@@ -1171,11 +1126,11 @@ void CumulativeEdgeFinding<T>::overloadBound(const int i) {
           E += energy(j, lb, ub);
         }
       }
-      auto A{capacity.max(m_solver) * (ub - lb)};
+      auto A{capacity.max(solver) * (ub - lb)};
 
       std::cout << "\noverload fail! on C" << this->id() << " @"
-                << m_solver.num_choicepoints
-                << " (capacity = " << capacity.max(m_solver) << "): " << E
+                << solver.num_choicepoints
+                << " (capacity = " << capacity.max(solver) << "): " << E
                 << " <> " << A << "\n";
       for (auto j : lct_order) {
         if (ect(j) > lb and lct(j) <= ub)
@@ -1210,7 +1165,7 @@ void CumulativeEdgeFinding<T>::overloadBound(const int i) {
                     << std::endl;
         }
 
-        A = capacity.max(m_solver) * (ub - lb);
+        A = capacity.max(solver) * (ub - lb);
 
         std::cout << "omega = [" << lb << ".." << ub << "] A=" << A
                   << " E = " << E << std::endl;
@@ -1225,11 +1180,11 @@ void CumulativeEdgeFinding<T>::overloadBound(const int i) {
       }
 
         throw Failure<T>({this, Constant::NoHint});
-    } else if(omega_ect > schedule.end.max(m_solver)) {
+    } else if(omega_ect > schedule.end.max(solver)) {
         
         std::cout << "makespan pruning!\n";
         
-        m_solver.set(schedule.end.after(omega_ect), {this, Constant::NoHint});
+        solver.set(schedule.end.after(omega_ect), {this, Constant::NoHint});
     } else {
 #ifdef DBG_SEF
         if (DBG_SEF) {
@@ -1252,7 +1207,7 @@ template <typename T> void CumulativeEdgeFinding<T>::forwardDetection() {
     
     //    std::cout << " first = " << *(lct_order.rend()) << std::endl;
     
-    auto cap{capacity.max(m_solver)};
+    auto cap{capacity.max(solver)};
     auto stop{lct_order.rend()};
     --stop;
     
@@ -1298,7 +1253,7 @@ template <typename T> void CumulativeEdgeFinding<T>::forwardDetection() {
             auto i{*is};
             
             if (ect(i) < lct(i)) {
-                // std::cout<< profile[est_[the_tasks.size()]] << std::endl;
+                // std::cout<< profile[est_[task.size()]] << std::endl;
                 for (auto p{profile.begin()}; p != profile.end(); ++p) {
                     p->capacity = cap;
                 }
@@ -1489,7 +1444,7 @@ void CumulativeEdgeFinding<T>::computeMaximumOverflow(const int i) {
     
     
     auto cont{contact_time[i]};
-    auto ip{static_cast<int> (the_tasks.size())};
+    auto ip{static_cast<int> (task.size())};
     
     if (ect(i) < lct(k)) {
         //std::cout << "i:" << i << " // " << cont << " <> " << est(i) << std::endl;
@@ -1565,8 +1520,8 @@ void CumulativeEdgeFinding<T>::computeMaximumOverflow(const int i) {
         }
     }
     
-    if (maxOverflow[i] < 0 /*or m_solver.num_cons_propagations == 70*/) {
-        std::cout << "bug (" << m_solver.num_cons_propagations <<  " est_i " << est(i) <<  " ect_i " << ect(i)  << ")\n";
+    if (maxOverflow[i] < 0 /*or solver.num_cons_propagations == 70*/) {
+        std::cout << "bug (" << solver.num_cons_propagations <<  " est_i " << est(i) <<  " ect_i " << ect(i)  << ")\n";
         
         std::cout << "max_Overflow_is_equal = " << maxOverflow[i]  << " contact time " << contact_time[i] << profile[contact[i]] << " --- " << profile[est_[ip]] << ")\n";
         
@@ -1579,7 +1534,7 @@ void CumulativeEdgeFinding<T>::computeMaximumOverflow(const int i) {
         std::cout << std::endl
         << std::setw(3) << i << ": " << asciiArt(i) << std::endl;
         
-        std::cout << "capacity = " << capacity.max(m_solver)
+        std::cout << "capacity = " << capacity.max(solver)
         << " id = " << this->id() << std::endl;
         
         std::cout << profile << std::endl;
@@ -1599,7 +1554,7 @@ void CumulativeEdgeFinding<T>::computeBound(const int i) {
             break;
         E += energy(j);
         if (lct(j) <= ect(i) and est(i) < lct(j)) {
-            auto slack{(capacity.max(m_solver) - mindemand(i)) * lct(j) - E};
+            auto slack{(capacity.max(solver) - mindemand(i)) * lct(j) - E};
             if (slack < minSlack[0] and profile[lct_[j]].overflow > 0) {
                 minSlack[0] = slack;
                 alpha = j;
@@ -1607,7 +1562,7 @@ void CumulativeEdgeFinding<T>::computeBound(const int i) {
         }
         // else
         if (lct(j) > ect(i)) {
-            auto slack{capacity.max(m_solver) * lct(j) - E};
+            auto slack{capacity.max(solver) * lct(j) - E};
             if (slack < minSlack[1] and profile[lct_[j]].overflow > 0) {
                 minSlack[1] = slack;
                 beta = j;
@@ -1730,7 +1685,7 @@ T CumulativeEdgeFinding<T>::scheduleOmegaDetection(const T C, const int i
 
     auto stop{profile.end()};
     for (auto p{profile.begin()}; p != stop; ++p) {
-        p->reset(capacity.max(m_solver));
+        p->reset(capacity.max(solver));
      }
 
 #ifdef DBG_SEF
@@ -1886,7 +1841,7 @@ T CumulativeEdgeFinding<T>::scheduleOmegaDetection(const T C, const int i
                 
                 contact_time[i] = t->time;
                 
-                while (t.index > 3 * static_cast<int>(the_tasks.size()))
+                while (t.index > 3 * static_cast<int>(task.size()))
                     --t;
                 
                 contact[i] = t.index;
@@ -1939,7 +1894,7 @@ T CumulativeEdgeFinding<T>::scheduleOmegaAdjustment(const T C, const int i
     
     auto stop{profile.end()};
     for (auto p{profile.begin()}; p != stop; ++p) {
-        p->reset(capacity.max(m_solver));
+        p->reset(capacity.max(solver));
      }
     
     auto next{profile.begin()};
@@ -2111,7 +2066,7 @@ void CumulativeEdgeFinding<T>::xplain(const Literal<T> l, const hint h,
 
 #ifdef DBG_EXPLCE
   std::cout << "explain (" << explanation[h].size() << ") "
-            << m_solver.pretty(l) << ":\n";
+            << solver.pretty(l) << ":\n";
 #endif
     
     if(l == Solver<T>::Contradiction) {
@@ -2122,15 +2077,15 @@ void CumulativeEdgeFinding<T>::xplain(const Literal<T> l, const hint h,
 
 #ifdef DBG_EXPLCE
         std::cout << " * "
-                  << m_solver.pretty(
-                         the_tasks[i].start.after(explanation_lb[h]))
+                  << solver.pretty(
+                         task[i].start.after(explanation_lb[h]))
                   << " and "
-                  << m_solver.pretty(the_tasks[i].end.before(explanation_ub[h]))
+                  << solver.pretty(task[i].end.before(explanation_ub[h]))
                   << std::endl;
 #endif
 
-        Cl.push_back(the_tasks[i].end.after(explanation[h].lb_omega));
-        Cl.push_back(the_tasks[i].end.before(explanation[h].ub_omega));
+        Cl.push_back(task[i].end.after(explanation[h].lb_omega));
+        Cl.push_back(task[i].end.before(explanation[h].ub_omega));
       }
 
     } else if(l.variable() == schedule.end.id()) {
@@ -2142,24 +2097,24 @@ void CumulativeEdgeFinding<T>::xplain(const Literal<T> l, const hint h,
             
 #ifdef DBG_EXPLCE
             std::cout << " * "
-            << m_solver.pretty(the_tasks[i].start.after(explanation_lb[h]))
+            << solver.pretty(task[i].start.after(explanation_lb[h]))
             << " and "
-            << m_solver.pretty(the_tasks[i].end.before(explanation_ub[h]))
+            << solver.pretty(task[i].end.before(explanation_ub[h]))
             << std::endl;
 #endif
             
-            Cl.push_back(the_tasks[i].start.after(explanation[h].lb_omega));
-            Cl.push_back(the_tasks[i].end.before(explanation[h].ub_omega));
+            Cl.push_back(task[i].start.after(explanation[h].lb_omega));
+            Cl.push_back(task[i].end.before(explanation[h].ub_omega));
         }
         
 #ifdef DBG_EXPLCE
         std::cout << " AND "
-        << m_solver.pretty(
-                           the_tasks[explanation[h].i].end.after(explanation[h].lb_i))
+        << solver.pretty(
+                           task[explanation[h].i].end.after(explanation[h].lb_i))
         << std::endl;
 #endif
         
-        Cl.push_back(the_tasks[explanation[h].i].start.after(explanation[h].lb_i));
+        Cl.push_back(task[explanation[h].i].start.after(explanation[h].lb_i));
     }
 
   //      Cl.push_back(geq<T>(l.variable(), explanation_lb[h]));
@@ -2174,7 +2129,7 @@ std::ostream &CumulativeEdgeFinding<T>::display(std::ostream &os) const {
 #endif
 
   os << "(";
-  for (auto &t : the_tasks) {
+  for (auto &t : task) {
     std::cout << " t" << t.id();
   }
   std::cout << " )";
