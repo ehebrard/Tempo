@@ -1802,7 +1802,6 @@ public:
   void post(Solver<T> &solver) override {
     using iterators::const_zip_enumerate;
     using std::views::drop;
-    size_t k{0};
 
     disjunctiveLiterals.fill(this->size(), this->size(), Contradiction<T>);
     for(auto [taskIdxA, taskA, demandA] : const_zip_enumerate(*this, demand)) {
@@ -1820,13 +1819,12 @@ public:
           //              std::cout << "**disjunct " << solver.pretty(d==true)
           //              << " <> " << solver.pretty(d==false) << std::endl;
 
-          disjunct.push_back(d);
-          disjunct.push_back(d);
           //@TODO this is the inverse order of what happens in NoOverlapExpressionImpl (line 1616) but it is required
           //like this in the CumulativeCheck Ctor
           //@Emmanuel thoughts?
           disjunctiveLiterals(taskIdxA, taskIdxB) = solver.boolean.getLiteral(false, d);
           disjunctiveLiterals(taskIdxB, taskIdxA) = solver.boolean.getLiteral(true, d);
+          solver.addToSearch(d);
 
         } else {
 
@@ -1838,16 +1836,12 @@ public:
           //              std::cout << "disjunct " << solver.pretty(bb==true) <<
           //              " <> " << solver.pretty(bb==false) << std::endl;
 
-          disjunct.push_back(ba);
-          disjunct.push_back(bb);
           //@TODO same order applies here too?
           disjunctiveLiterals(taskIdxA, taskIdxB) = solver.boolean.getLiteral(false, ba);
           disjunctiveLiterals(taskIdxB, taskIdxA) = solver.boolean.getLiteral(true, bb);
+          solver.addToSearch(ba);
+          solver.addToSearch(bb);
         }
-
-        while (k < disjunct.size())
-          solver.addToSearch(disjunct[k++]);
-
       }
     }
 
@@ -1867,17 +1861,6 @@ public:
     }
   }
 
-  std::vector<BooleanVar<T>>::iterator begDisjunct() {
-    return disjunct.begin();
-  }
-
-  std::vector<BooleanVar<T>>::const_iterator begDisjunct() const {
-    return disjunct.begin();
-  }
-
-  std::vector<BooleanVar<T>>::iterator endDisjunct() { return disjunct.end(); }
-  std::vector<BooleanVar<T>>::const_iterator endDisjunct() const { return disjunct.end(); }
-
   const auto &getDisjunctiveLiterals() const noexcept {
       return disjunctiveLiterals;
   }
@@ -1890,7 +1873,6 @@ public:
 private:
   Interval<T> schedule;
   NumericVar<T> capacity;
-  std::vector<BooleanVar<T>> disjunct;
   Matrix<Literal<T>> disjunctiveLiterals;
   std::vector<NumericVar<T>> demand;
 };
@@ -1916,24 +1898,6 @@ public:
 
   std::vector<Interval<T>>::const_iterator end() const {
     return const_cast<CumulativeExpression*>(this)->end();
-  }
-
-  std::vector<BooleanVar<T>>::iterator begDisjunct() {
-    return static_cast<CumulativeExpressionImpl<T> *>(BooleanVar<T>::implem)
-        ->begDisjunct();
-  }
-
-  std::vector<BooleanVar<T>>::const_iterator begDisjunct() const {
-    return const_cast<CumulativeExpression*>(this)->begDisjunct();
-  }
-
-  std::vector<BooleanVar<T>>::iterator endDisjunct() {
-    return static_cast<CumulativeExpressionImpl<T> *>(BooleanVar<T>::implem)
-        ->endDisjunct();
-  }
-
-  std::vector<BooleanVar<T>>::const_iterator endDisjunct() const {
-    return const_cast<CumulativeExpression*>(this)->endDisjunct();
   }
 
   const auto &getDisjunctiveLiterals() const noexcept {
