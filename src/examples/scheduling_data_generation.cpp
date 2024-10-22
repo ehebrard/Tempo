@@ -28,7 +28,7 @@ int main(int argc, char **argv) {
     std::string saveTo;
     auto options = cli::parseOptions(argc, argv,
                                      cli::ArgSpec("save-to", "Where to save the data points", true, saveTo));
-    auto [solver, problem, opt, nTasks] = loadSchedulingProblem(options);
+    auto [solver, problem, _, opt, nTasks] = loadSchedulingProblem(options);
     auto schedule = problem.schedule();
     auto heuristic = make_compound_heuristic(make_variable_heuristic(*solver), TightestSolutionGuided(0, 0));
     solver->setBranchingHeuristic(std::move(heuristic));

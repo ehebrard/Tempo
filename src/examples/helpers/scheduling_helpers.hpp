@@ -11,29 +11,105 @@
 #include <memory>
 #include <tuple>
 #include <optional>
+#include <ranges>
+#include <variant>
 
 #include "Solver.hpp"
 #include "util/Options.hpp"
 #include "util/SchedulingProblemHelper.hpp"
 #include "util/serialization.hpp"
+#include "util/factory_pattern.hpp"
 #include "Model.hpp"
 
 /**
  * @brief represents a disjunctive resource in scheduling problems
- * @tparam T timing type
  */
-template<typename T = int>
 class DisjunctiveResource : public std::vector<unsigned> {
 public:
     using std::vector<unsigned>::vector;
+
+    [[nodiscard]] constexpr auto tasks() const -> const std::vector<unsigned>& {
+        return *this;
+    }
 
     static constexpr auto resourceCapacity() noexcept { return 1; }
 
     static constexpr auto getDemand(unsigned) noexcept { return 1; }
 };
 
-using SolverPtr = std::unique_ptr<tempo::Solver<>>;
-using ProblemInstance = tempo::SchedulingProblemHelper<int, DisjunctiveResource<int>>;
+/**
+ * @brief represents a cumulative resource in scheduling problems
+ * @tparam R resource unit type
+ */
+template<tempo::concepts::scalar R = int>
+class CumulativeResource {
+    std::vector<unsigned> ts;
+    std::vector<R> demands;
+    R capacity;
+public:
+    constexpr CumulativeResource() noexcept: ts(), demands(), capacity(0) {}
+
+    CumulativeResource(std::vector<unsigned> tasks, std::vector<R> demands, R capacity) noexcept:
+            ts(std::move(tasks)), demands(std::move(demands)), capacity(capacity) {}
+
+    [[nodiscard]] constexpr auto tasks() const noexcept -> const std::vector<unsigned> &{
+        return ts;
+    }
+
+    [[nodiscard]] constexpr auto resourceCapacity() const noexcept {
+        return capacity;
+    }
+
+    [[nodiscard]] constexpr auto getDemand(std::size_t taskIndex) const noexcept {
+        return demands[taskIndex];
+    }
+};
+
+/**
+ * @brief Variant wrapper around different types of resources
+ * @tparam Rs resource types
+ */
+template<tempo::SchedulingResource ...Rs>
+class VariantResource : public std::variant<Rs...> {
+public:
+    using std::variant<Rs...>::variant;
+
+    [[nodiscard]] DYNAMIC_DISPATCH_VOID(tasks, const)
+
+    [[nodiscard]] DYNAMIC_DISPATCH_VOID(resourceCapacity, const)
+
+    [[nodiscard]] DYNAMIC_DISPATCH(getDemand, unsigned index, =, index, const)
+};
+
+template<tempo::resource_expression ...E>
+struct VariantResourceConstraint : public std::variant<E...> {
+    using std::variant<E...>::variant;
+
+    [[nodiscard]] DYNAMIC_DISPATCH_VOID(begin, const)
+
+    [[nodiscard]] DYNAMIC_DISPATCH_VOID(end, const)
+
+    [[nodiscard]] DYNAMIC_DISPATCH_VOID(begDisjunct, const)
+
+    [[nodiscard]] DYNAMIC_DISPATCH_VOID(endDisjunct, const)
+};
+
+
+using Time = int;
+using ResourceUnit = int;
+using Resource = VariantResource<DisjunctiveResource, CumulativeResource<ResourceUnit>>;
+using ResourceConstraint = VariantResourceConstraint<tempo::NoOverlapExpression<Time>,
+                                                     tempo::CumulativeExpression<Time>>;
+using SolverPtr = std::unique_ptr<tempo::Solver<Time>>;
+using ProblemInstance = tempo::SchedulingProblemHelper<Time, Resource>;
+
+struct Problem {
+    SolverPtr solver;
+    ProblemInstance instance;
+    std::vector<ResourceConstraint> constraints;
+    std::optional<Time> optimalSolution;
+    unsigned numTasks;
+};
 
 /**
  * loads a problem instance and instantiates the solver using the given options
@@ -41,8 +117,7 @@ using ProblemInstance = tempo::SchedulingProblemHelper<int, DisjunctiveResource<
  * @return ready to run scheduler (with default heuristics) and problem scheduling problem instance struct,
  * optionally the optimal solution and the number of tasks
  */
-auto loadSchedulingProblem(
-        const tempo::Options &options) -> std::tuple<SolverPtr, ProblemInstance, std::optional<int>, unsigned>;
+auto loadSchedulingProblem(const tempo::Options &options) -> Problem;
 
 
 /**

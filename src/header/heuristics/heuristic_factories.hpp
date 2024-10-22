@@ -46,19 +46,13 @@ namespace tempo::heuristics {
             using std::variant<Heuristics...>::emplace;
 
             template<concepts::scalar T> requires(variable_heuristic<Heuristics, T> && ...)
-            auto nextVariable(const Solver<T> &solver) {
-                return std::visit([&solver](auto &h) {return h.nextVariable(solver);}, *this);
-            }
+            DYNAMIC_DISPATCH(nextVariable, const Solver<T> &solver, &, solver, EMPTY)
 
             template<concepts::scalar T> requires(value_heuristic<Heuristics, Solver<T>> && ...)
-            auto valueDecision(VariableSelection x, const Solver<T> &solver) {
-                return std::visit([x, &solver](auto &h) {return h.valueDecision(x, solver);}, *this);
-            }
+            DYNAMIC_DISPATCH(valueDecision, ESCAPE(VariableSelection x, const Solver<T> &solver), &, ESCAPE(x, solver), EMPTY)
 
             template<concepts::scalar T> requires(heuristic<Heuristics, T> && ...)
-            auto branch(const Solver<T> &solver) {
-                return std::visit([&solver](auto &h) {return h.branch(solver);}, *this);
-            }
+            DYNAMIC_DISPATCH(branch, const Solver<T> &solver, &, solver, EMPTY)
         };
 
 

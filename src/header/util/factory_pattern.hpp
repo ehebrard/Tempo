@@ -96,4 +96,12 @@ struct TYPE##Factory {                          \
 
 #define MAKE_TEMPLATE_FACTORY(TYPE, T_ARG, ARG) MAKE_TEMPLATE_P_FACTORY(TYPE, auto, ESCAPE(T_ARG), ESCAPE(ARG))
 
+#define EMPTY
+
+#define DYNAMIC_DISPATCH(FNAME, FARG, LCAPTURE, LARG, CVSPEC)                                               \
+decltype(auto) FNAME(FARG) CVSPEC {                                                                         \
+    return std::visit([LCAPTURE](CVSPEC auto &impl) -> decltype(auto) { return impl.FNAME(LARG); }, *this); \
+}
+
+#define DYNAMIC_DISPATCH_VOID(FNAME, CVSPEC) DYNAMIC_DISPATCH(FNAME, EMPTY, EMPTY, EMPTY, CVSPEC)
 #endif //TEMPO_FACTORY_PATTERN_HPP

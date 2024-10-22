@@ -34,7 +34,6 @@
 #include "Literal.hpp"
 #include "Model.hpp"
 #include "Objective.hpp"
-#include "RelaxationPolicy.hpp"
 #include "Restart.hpp"
 #include "constraints/Cardinality.hpp"
 #include "constraints/CumulativeCheck.hpp"
@@ -45,6 +44,7 @@
 #include "constraints/FullTransitivity.hpp"
 #include "constraints/PseudoBoolean.hpp"
 #include "constraints/Transitivity.hpp"
+//#include "heuristics/RelaxationPolicy.hpp"
 #include "heuristics/RelaxationInterface.hpp"
 #include "heuristics/heuristic_factories.hpp"
 #include "heuristics/impl/DecayingEventActivityMap.hpp"
@@ -53,6 +53,7 @@
 #include "util/Profiler.hpp"
 #include "util/SubscribableEvent.hpp"
 #include "util/traits.hpp"
+
 
 namespace tempo {
 
@@ -627,7 +628,7 @@ public:
     
     template <typename S> void optimize(S &objective);
     
-    template <typename S, heuristics::RelaxationPolicy<T> P>
+    template <typename S, heuristics::relaxation_policy P>
     void largeNeighborhoodSearch(S &objective, P &&relaxationPolicy);
     
     boolean_state satisfiable();
@@ -2912,7 +2913,7 @@ void Solver<T>::optimize(S &objective) {
 }
 
 template <typename T>
-template <typename S, heuristics::RelaxationPolicy<T> P>
+template <typename S, heuristics::relaxation_policy P>
 void Solver<T>::largeNeighborhoodSearch(S &objective, P &&relaxationPolicy) {
     objective.X.extract(*this);
     objective_var = objective.X.id();

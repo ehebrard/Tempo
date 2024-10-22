@@ -74,6 +74,33 @@ namespace tempo::nn {
         }
 
         /**
+         * Sets all confidence values to 0
+         */
+        void resetConfidences() noexcept {
+            for (auto [pos, neg] : iterators::zip(this->massesPos, this->massesNeg)) {
+                pos = neg = 0;
+            }
+        }
+
+        /**
+         * resets confidence values to 0 and updates possible literals
+         * @param literals all valid search literals
+         */
+        void reinitialize(std::vector<Literal<T>> literals) {
+            this->literals = std::move(literals);
+            this->massesPos = std::vector(this->literals.size(), 0.0);
+            this->massesNeg = std::vector(this->literals.size(), 0.0);
+        }
+
+        /**
+         * @copydoc reinitialize
+         * overload that infers search literals from solver
+         */
+        void reinitialize(const Solver<T> &solver) {
+            reinitialize(graphBuilder.getProblem().getSearchLiterals(solver));
+        }
+
+        /**
          * Calculates prediction certainty from two evidence masses (not really theoretically motivated)
          * @param mPos positive evidence for a literal
          * @param mNeg negative evidence for a literal

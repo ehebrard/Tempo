@@ -33,6 +33,18 @@ namespace tempo::heuristics {
     };
 
     /**
+     * @brief Assumption interface
+     * @tparam I interface type
+     */
+    template<typename I>
+    concept assumption_interface = requires(I interface, Literal<int> l, std::vector<Literal<int>> lits) {
+        interface.reset();
+        { interface.makeAssumptions(lits) } -> std::convertible_to<bool>;
+        { interface.tryMakeAssumption(l) } -> std::convertible_to<bool>;
+        { interface.getState() } -> std::same_as<AssumptionState>;
+    };
+
+    /**
      * @brief Wrapper around solver that only exposes methods necessary for making assumptions.
      * @detail @copybrief
      * Ensures propagation and correct assumption level at all times
@@ -164,6 +176,82 @@ namespace tempo::heuristics {
 
     };
 
+    /**
+     * @brief Assumption interface wrapper that collects the assumptions made
+     * @tparam T timing type
+     * @tparam AI assumption interface type
+     */
+    template<concepts::scalar T, assumption_interface AI>
+    class AssumptionCollector {
+        std::vector<Literal<T>> assumptions;
+        AI &proxy;
+    public:
+        AssumptionCollector(const AssumptionCollector &) = delete;
+        AssumptionCollector(AssumptionCollector &&) = delete;
+        AssumptionCollector &operator=(const AssumptionCollector &) = delete;
+        AssumptionCollector &operator=(AssumptionCollector &&) = delete;
+
+        /**
+         * Ctor
+         * @param proxy assumption interface to wrap
+         */
+        AssumptionCollector(AI &proxy) noexcept: proxy(proxy) {}
+
+        /**
+         * Calls reset on base assumption interface. Also clears the assumption cache
+         */
+        void reset() {
+            proxy.reset();
+            assumptions.clear();
+        }
+
+        /**
+         * Calls tryMakeAssumption on base assumption interface
+         * @param lit literal to set
+         * @return true if set was successful, false otherwise
+         */
+        bool tryMakeAssumption(Literal<T> lit) {
+            bool res = proxy.tryMakeAssumption(lit);
+            if (res) {
+                assumptions.emplace_back(lit);
+            }
+
+            return res;
+        }
+
+        /**
+         * Calls makeAssumptions on base assumption interface
+         * @tparam L literal range type
+         * @param literals range of literals to set
+         * @return true if set was successful, false otherwise
+         */
+        template<concepts::typed_range<Literal<T>> L>
+        bool makeAssumptions(L &&literals) {
+            bool res = proxy.makeAssumptions(literals);
+            if (res) {
+                std::ranges::copy(std::forward<L>(literals), std::back_inserter(assumptions));
+            }
+
+            return res;
+        }
+
+        /**
+         * Gets the current state of the assumptions
+         * @return
+         */
+        [[nodiscard]] AssumptionState getState() const noexcept {
+            return proxy.getState();
+        }
+
+        /**
+         * Returns the assumptions made since the last call to rest
+         * @return
+         */
+        auto getAssumptions() noexcept -> std::vector<Literal<T>> & {
+            return assumptions;
+        }
+    };
+
     enum class PolicyAction {
         Reset,
         TrySet,
@@ -264,25 +352,12 @@ namespace tempo::heuristics {
     };
 
     /**
-     * @brief Assumption interface
-     * @tparam I interface type
-     * @tparam T timing type
-     */
-    template<typename I, typename T>
-    concept AssumptionInterface = requires(I interface, Literal<T> l, std::vector<Literal<T>> lits) {
-        interface.reset();
-        { interface.makeAssumptions(lits) } -> std::convertible_to<bool>;
-        { interface.tryMakeAssumption(l) } -> std::convertible_to<bool>;
-        { interface.getState() } -> std::same_as<AssumptionState>;
-    };
-
-    /**
      * @brief Relaxation policy interface
      * @tparam P policy type
      * @tparam T timing type
      */
-    template<typename P, typename T>
-    concept RelaxationPolicy = requires(P policy, AssumptionProxy<T> interface, unsigned fails) {
+    template<typename P>
+    concept relaxation_policy = requires(P policy, AssumptionProxy<int> interface, unsigned fails) {
         policy.relax(interface);
         policy.notifySuccess(fails);
         policy.notifyFailure(fails);
