@@ -1855,12 +1855,10 @@ public:
       solver.postCumulative(capacity, this->begin(), this->end(),
                             this->begDemand(), this->begDisjunct());
 
-//        if (solver.getOptions().edge_finding) {
-//                  solver.postStrongEdgeFinding(schedule, capacity,
-//                  this->begin(),
-//                                               this->end(), this->begDemand(),
-//                                               this->begDisjunct());
-//        }
+        if (solver.getOptions().edge_finding) {
+                  solver.postStrongEdgeFinding(schedule, capacity,
+                  this->begin(), this->end(), this->begDemand());
+        }
       if (solver.getOptions().time_tabling) {
         solver.postTimetabling(capacity, this->begin(), this->end(),
                                this->begDemand());

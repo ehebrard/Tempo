@@ -554,10 +554,10 @@ public:
     void postCumulative(const NumericVar<T> c, const ItTask beg_task,
                         const ItTask end_task, const ItNVar beg_dem,
                         const ItBVar beg_disj);
-    template <typename ItTask, typename ItNVar, typename ItBVar>
+    template <typename ItTask, typename ItNVar>
     void postStrongEdgeFinding(const Interval<T> s, const NumericVar<T> c,
                                const ItTask beg_task, const ItTask end_task,
-                               const ItNVar beg_dem, const ItBVar beg_disj);
+                               const ItNVar beg_dem);
     template <typename ItTask, typename ItNVar>
     void postTimetabling(const NumericVar<T> c, const ItTask beg_task,
                          const ItTask end_task, const ItNVar beg_dem);
@@ -3516,12 +3516,11 @@ void Solver<T>::postTimetabling(const NumericVar<T> c, const ItTask beg_task,
 }
 
 template <typename T>
-template <typename ItTask, typename ItNVar, typename ItBVar>
+template <typename ItTask, typename ItNVar>
 void Solver<T>::postStrongEdgeFinding(
     const Interval<T> s, const NumericVar<T> c, const ItTask beg_task,
-    const ItTask end_task, const ItNVar beg_dem, const ItBVar beg_disj) {
-  post(new CumulativeEdgeFinding<T>(*this, s, c, beg_task, end_task, beg_dem,
-                                    beg_disj));
+    const ItTask end_task, const ItNVar beg_dem) {
+  post(new CumulativeEdgeFinding<T>(*this, s, c, beg_task, end_task, beg_dem));
 }
 
 template <typename T> double Solver<T>::looseness(const Literal<T> &l) const {
