@@ -26,6 +26,7 @@
 
 #include <utility>
 #include <ranges>
+#include <algorithm>
 #include <Iterators.hpp>
 
 #include "util/traits.hpp"
@@ -221,11 +222,13 @@ public:
 };
 
 template <typename T = int> struct BoolInfo {
-  BoolInfo() {}
-  BoolInfo(const var_t i, const info_t f) : _id_(i), _edge_id_(f) {}
+  constexpr BoolInfo() noexcept = default;
+  constexpr BoolInfo(const var_t i, const info_t f) noexcept : _id_(i), _edge_id_(f) {}
+  constexpr bool operator==(const BoolInfo &) const noexcept = default;
 
   var_t _id_{Constant::NoIndex};
   index_t _edge_id_{Constant::NoIndex};
+
 };
 
 //! Wrapper/pointer for Boolean variables and expressions
@@ -240,8 +243,21 @@ public:
   BooleanVar(ExpressionImpl<T> *i) : ExpressionFlag(true), implem(i) {}
   BooleanVar(const var_t i, const index_t f = 0)
       : ExpressionFlag(false), data(i, f) {}
+  constexpr explicit BooleanVar(Literal<T> l) : ExpressionFlag(false), data(l.variable(), l.semantic()) {}
 
   Literal<T> operator==(const bool t) const;
+
+  constexpr bool operator==(const BooleanVar &other) const {
+      if (_is_expression != other._is_expression) {
+          return false;
+      }
+
+      if (_is_expression) {
+          return implem->id() == other.implem->id() and implem->semantic() == other.implem->semantic();
+      }
+
+      return data == other.data;
+  }
 
   BooleanVar<T> implies(const BooleanVar<T> x) const;
 
@@ -1920,6 +1936,10 @@ public:
     return const_cast<CumulativeExpression*>(this)->endDisjunct();
   }
 
+  const auto &getDisjunctiveLiterals() const noexcept {
+      return static_cast<const CumulativeExpressionImpl<T>*>(BooleanVar<T>::implem)->getDisjunctiveLiterals();
+  }
+
   std::vector<BooleanVar<T>>::iterator begDemand() {
     return static_cast<CumulativeExpressionImpl<T> *>(BooleanVar<T>::implem)
         ->begDemand();
@@ -1963,15 +1983,50 @@ CumulativeExpression<T> Cumulative(const Interval<T> &s, const NumericVar<T> c,
   return exp;
 }
 
+namespace detail {
+    template<typename T>
+    concept literal_matrix = concepts::same_template<T, Matrix> and
+                             concepts::same_template<typename std::remove_cvref_t<T>::value_type, Literal>;
+
+}
+
 /**
  * @brief concept for different resource expressions (NoOverlapExpression, CumulativeExpression, ...)
  * @tparam E expression type
  */
 template<typename E>
 concept resource_expression = tempo::concepts::ttyped_range<E, tempo::Interval> and requires(E expression) {
-    { *expression.begDisjunct() } -> tempo::concepts::same_template<tempo::BooleanVar>;
-    { *expression.endDisjunct() } -> tempo::concepts::same_template<tempo::BooleanVar>;
+    { expression.getDisjunctiveLiterals() } -> detail::literal_matrix;
 };
+
+template<typename T>
+concept resource_range = std::ranges::range<T> and resource_expression<std::ranges::range_value_t<T>>;
+
+template<resource_range Resources>
+auto booleanVarsFromResources(const Resources &resources) {
+    using LitT = std::remove_cvref_t<decltype(std::ranges::begin(resources)->getDisjunctiveLiterals())>::value_type;
+    using T = decltype(std::declval<LitT>().value());
+    using namespace std::views;
+    std::vector<BooleanVar<T>> variables;
+    for (const auto &resource: resources) {
+        auto resVars = resource.getDisjunctiveLiterals().rawData() |
+                filter([](auto lit) { return lit != Contradiction<T>; }) |
+                transform([](auto lit) { return tempo::BooleanVar<T>(lit); });
+        std::ranges::unique_copy(resVars, std::back_inserter(variables));
+    }
+
+    std::ranges::sort(variables, {}, [](const auto &var) { return var.id(); });
+    auto res = std::ranges::unique(variables);
+    variables.erase(res.begin(), res.end());
+    variables.shrink_to_fit();
+    return variables;
+}
+
+template<resource_expression R>
+auto booleanVarsFromResources(const R &resources) {
+    auto range = {resources};
+    return booleanVarsFromResources(range);
+}
 
 
 /*!

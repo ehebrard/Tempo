@@ -61,6 +61,7 @@ namespace tempo {
     public:
         using reference = typename std::vector<T>::reference;
         using const_reference = typename std::vector<T>::const_reference;
+        using value_type = typename std::vector<T>::value_type;
 
         /**
          * Default CTor. Constructs an empty Matrix

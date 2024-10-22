@@ -8,7 +8,6 @@
 #include <iostream>
 #include <string>
 #include <thread>
-#include <algorithm>
 
 #include "../helpers/scheduling_helpers.hpp"
 #include "../helpers/cli.hpp"
@@ -34,12 +33,8 @@ auto create(DestroyType type, const Problem &problem,
             const DestroyParameters &params) -> h::GenericDestroyPolicy<Time, RelaxationPolicy> {
     switch (type) {
         case DestroyType::RandomSubset: {
-            std::vector<tempo::BooleanVar<Time>> vars;
-            for (const auto &resConstraint: problem.constraints) {
-                std::copy(resConstraint.begDisjunct(), resConstraint.endDisjunct(), std::back_inserter(vars));
-            }
-
-            return h::RandomSubset(std::move(vars), params.destroyRatio, 1);
+            using namespace std::views;
+            return h::RandomSubset(tempo::booleanVarsFromResources(problem.constraints), params.destroyRatio, 1);
         }
 
         case DestroyType::RandomResource:

@@ -88,7 +88,8 @@ template<resource_expression R>
 template<assumption_interface AI>
 void FixRandomDisjunctiveResource<R>::relax(AI &s) const {
     int r{static_cast<int>(random() % resources.size())};
-    auto assumptions = std::ranges::subrange(resources[r].begDisjunct(), resources[r].endDisjunct()) |
+    const auto variables = booleanVarsFromResources(resources[r]);
+    auto assumptions = variables |
                        std::views::transform([&s](const auto &var) { return var == s.getSolver().boolean.value(var); });
     s.makeAssumptions(assumptions);
 }
