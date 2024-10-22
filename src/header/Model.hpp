@@ -1819,9 +1819,6 @@ public:
           //              std::cout << "**disjunct " << solver.pretty(d==true)
           //              << " <> " << solver.pretty(d==false) << std::endl;
 
-          //@TODO this is the inverse order of what happens in NoOverlapExpressionImpl (line 1616) but it is required
-          //like this in the CumulativeCheck Ctor
-          //@Emmanuel thoughts?
           disjunctiveLiterals(taskIdxA, taskIdxB) = solver.boolean.getLiteral(false, d);
           disjunctiveLiterals(taskIdxB, taskIdxA) = solver.boolean.getLiteral(true, d);
           solver.addToSearch(d);
@@ -1836,7 +1833,6 @@ public:
           //              std::cout << "disjunct " << solver.pretty(bb==true) <<
           //              " <> " << solver.pretty(bb==false) << std::endl;
 
-          //@TODO same order applies here too?
           disjunctiveLiterals(taskIdxA, taskIdxB) = solver.boolean.getLiteral(false, ba);
           disjunctiveLiterals(taskIdxB, taskIdxA) = solver.boolean.getLiteral(true, bb);
           solver.addToSearch(ba);
