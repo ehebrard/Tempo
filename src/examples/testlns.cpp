@@ -301,8 +301,8 @@ int main(int argc, char *argv[]) {
             for(auto bi{resource.begDisjunct()}; bi!=resource.endDisjunct(); ++bi) {
                 vars.push_back(*bi);
             }
-        heuristics::RandomSubset<int> policy(S, vars, .97, lnsDecay);
-        
+
+        heuristics::RandomSubset<int> policy(S, vars, .5, lnsDecay);
         S.largeNeighborhoodSearch(objective, policy);
     }
 

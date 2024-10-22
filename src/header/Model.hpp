@@ -124,9 +124,15 @@ public:
 
     Literal<T> after(const T t) const;
     Literal<T> before(const T t) const;
+    Literal<T> greaterThanOrEqual(const T t) const;
+    Literal<T> lessThanOrEqual(const T t) const;
 
     DistanceConstraint<T> after(const NumericVar<T> &e, const T t = 0) const;
     DistanceConstraint<T> before(const NumericVar<T> &e, const T t = 0) const;
+    DistanceConstraint<T> greaterThanOrEqual(const NumericVar<T> &e,
+                                             const T t = 0) const;
+    DistanceConstraint<T> lessThanOrEqual(const NumericVar<T> &e,
+                                          const T t = 0) const;
 
     var_t id() const {
       return (ExpressionFlag::_is_expression ? implem->id() : data._id_);
@@ -1847,14 +1853,15 @@ public:
       solver.postCumulative(capacity, this->begin(), this->end(),
                             this->begDemand(), this->begDisjunct());
 
-      if (solver.getOptions().edge_finding) {
-        //            std::cout
-        //            << "edge-finding for cumulative resources is not
-        //            implemented, " "please use '--no-edge-finding'.
-        //            Aborthing\n"; exit(0);
-        solver.postStrongEdgeFinding(schedule, capacity, this->begin(),
-                                     this->end(), this->begDemand(),
-                                     this->begDisjunct());
+//        if (solver.getOptions().edge_finding) {
+//                  solver.postStrongEdgeFinding(schedule, capacity,
+//                  this->begin(),
+//                                               this->end(), this->begDemand(),
+//                                               this->begDisjunct());
+//        }
+      if (solver.getOptions().time_tabling) {
+        solver.postTimetabling(capacity, this->begin(), this->end(),
+                               this->begDemand());
       }
     }
   }
@@ -1878,7 +1885,6 @@ public:
 private:
   Interval<T> schedule;
   NumericVar<T> capacity;
-
   std::vector<BooleanVar<T>> disjunct;
   std::vector<NumericVar<T>> demand;
 };
@@ -2012,31 +2018,21 @@ T NumericVar<T>::latest(const S &s) const {
 }
 
 template <typename T> Literal<T> NumericVar<T>::after(const T t) const {
-  assert(t != Constant::Infinity<T>);
-  assert(t != -Constant::Infinity<T>);
-
-  //    if(sign())
-          return geq<T>(id(), (t == Constant::Infinity<T> ? t : t - offset()));
-  //    else
-  //        return leq<T>(id(), (t == Constant::Infinity<T> ? t : t -
-  //        offset()));
-
-  //    if(sign())
-//  return geq<T>(id(), t - offset());
-  //    else
-  //        return leq<T>(id(), offset() - t);
+  return geq<T>(id(), (t == Constant::Infinity<T> ? t : t - offset()));
 }
 
 template <typename T> Literal<T> NumericVar<T>::before(const T t) const {
-//  assert(t != Constant::Infinity<T>);
-//  assert(t != -Constant::Infinity<T>);
-    
-    return leq<T>(id(), (t == Constant::Infinity<T> ? t : t - offset()));
+  return leq<T>(id(), (t == Constant::Infinity<T> ? t : t - offset()));
+}
 
-  //    if(sign())
-//  return leq<T>(id(), t - offset());
-  //    else
-  //        return geq<T>(id(), offset() - t);
+template <typename T>
+Literal<T> NumericVar<T>::greaterThanOrEqual(const T t) const {
+  return after(t);
+}
+
+template <typename T>
+Literal<T> NumericVar<T>::lessThanOrEqual(const T t) const {
+  return before(t);
 }
 
 template <typename T>
@@ -2050,6 +2046,18 @@ DistanceConstraint<T> NumericVar<T>::before(const NumericVar<T> &e,
                                             const T t) const {
   return {e.id(), id(),
           (t == Constant::Infinity<T> ? t : e.offset() - offset() - t)};
+}
+
+template <typename T>
+DistanceConstraint<T> NumericVar<T>::lessThanOrEqual(const NumericVar<T> &e,
+                                                     const T t) const {
+  return before(e, t);
+}
+
+template <typename T>
+DistanceConstraint<T> NumericVar<T>::greaterThanOrEqual(const NumericVar<T> &e,
+                                                        const T t) const {
+  return e.before(*this, t);
 }
 
 /*!

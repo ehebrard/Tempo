@@ -57,6 +57,7 @@ using hint = int;
 #define LEARNING 32
 #define QUEUE 64
 #define UNITPROPAGATION 128
+#define DCUT 256
 
 //#define DBG_MINIMIZATION
 //#define DBG_EDGEFINDING (m_solver.num_cons_propagations >= 0)
@@ -66,7 +67,7 @@ using hint = int;
 //#define DBG_BELLMAN_EXPL (sched.num_choicepoints >= 4172)
 //#define DEBUG_HEURISTICS
 //#define DBG_UP
-//#define DBG_CL 100000000
+//#define DBG_CL 47
 //#define
 //#define DBG_CLPLUS 1000000000
 //#define DBG_TRANSITIVITY true //(m_schedule.num_choicepoints >= 4064)
@@ -78,13 +79,16 @@ using hint = int;
 //#define DBG_FTRANS true //m_solver.num_choicepoints >= 900
 //#define DBG_BELLMAN_FT true
 //#define DBG_EXPL_FTRANS true
-//#define DBG_SEF (this->id() == 3435) //(m_solver.num_choicepoints >= 9000)
+//#define DBG_SEF (this->id() == 1729 and m_solver.num_choicepoints >= 4089)
 //#define DBG_EXTRACT true
 //#define DBG_SPANNING true
 //#define DBG_LIST true
 //#define DBGP0 true
 //#define DBG_RPROF true
 //#define DBG_EXTRACT_SUM true
+//#define DBG_TT true //(this->id() == 3049 and solver.num_cons_propagations >= 3914)
+//#define DBG_EXPLCTT true
+
 
 // priority values for constraint propagation
 enum class Priority {
