@@ -119,11 +119,11 @@ public:
     void computeAdjustments();
     void pushTask(const int i, int profile_index, const T usage);
     void doPruning();
-    
+
+    // create a new explanation for a new pruning
     hint newExplanation();
+    // add to explanation[h] the tasks contributing to the profile on interval [l,u), except i
     void computeExplanation(const hint h, const int i, const T l, const T u);
-//    void computeLBExplanation(const hint h, const int i, const T l, const T u);
-//    void computeUBExplanation(const hint h, const int i, const T l, const T u);
     
     // function used in explanation
     void xplain(const Literal<T> l, const hint h,
@@ -152,7 +152,6 @@ std::string CumulativeTimetabling<T>::asciiArt(const int i) const {
     std::stringstream ss;
     ss << std::setw(3) << std::right << mindemand(i) << "x" << std::setw(3)
     << std::left << minduration(i) << " " << std::right ;
-//    std::cout.flush();
     for (auto k{0}; k < est(i); ++k) {
         ss << " ";
     }
@@ -212,12 +211,6 @@ T CumulativeTimetabling<T>::energy(const unsigned i) const {
     return mindemand(i) * minduration(i);
 }
 
-//template <typename T>
-//T CumulativeTimetabling<T>::getFixedPart(const unsigned i) const {
-//    return std::max(0, ect(i) - lst(i));
-//}
-
-
 template <typename T>
 template <typename ItTask, typename ItNVar>
 CumulativeTimetabling<T>::CumulativeTimetabling(
@@ -225,9 +218,6 @@ CumulativeTimetabling<T>::CumulativeTimetabling(
                                                 const ItTask beg_task, const ItTask end_task, const ItNVar beg_dem)
 : solver(solver), num_explanations(0, &(solver.getEnv())) {
     capacity = cap;
-    
-    
-    
     
     Constraint<T>::priority = Priority::Medium;
     
@@ -237,11 +227,7 @@ CumulativeTimetabling<T>::CumulativeTimetabling(
         demand.push_back(*dp);
         ++dp;
     }
-    //    est_buffer.resize(task.size());
-    //    lst_buffer.resize(task.size());
-    //    ect_buffer.resize(task.size());
-    //    lct_buffer.resize(task.size());
-    
+
     est_order.resize(task.size());
     std::iota(est_order.begin(), est_order.end(), 0);
 }
@@ -259,17 +245,11 @@ template <typename T> void CumulativeTimetabling<T>::post(const int idx) {
         std::cout << "post " << *this << std::endl;
     }
 #endif
-    
-    
-//    std::cout << "post TT" << this->id() << ", demands =\n";
-    
-    
+      
     for (size_t i{0}; i < task.size(); ++i) {
         solver.wake_me_on(lb<T>(task[i].start.id()), this->id());
         solver.wake_me_on(ub<T>(task[i].end.id()), this->id());
         solver.wake_me_on(lb<T>(demand[i].id()), this->id());
-        
-//        std::cout << demand[i].min(solver) << ".." << demand[i].max(solver) << std::endl;
     }
 }
 
@@ -321,29 +301,16 @@ template <typename T> void CumulativeTimetabling<T>::buildProfile() {
     // Scan to find max usage.
     T max_usage = 0;
     T l{-Constant::Infinity<T>};
-    T u{Constant::Infinity<T>};
     T prev_time{l};
     T max_cap{capacity.max(solver)};
     for (const ProfileDelta<T>& step : profile_unique_time_) {
-//        if(usage > max_cap) {
-//            l = prev_time;
-//            u = step.time;
-//        }
-        
         usage += step.delta;
         if (usage > max_usage) {
             max_usage = usage;
-//            l = step.time;
         }
         if(usage > max_cap) {
             l = step.time;
-            u = step.time+1;
         }
-        
-        
-//        else if(usage < max_usage and prev_time == l) {
-//            u = step.time;
-//        }
         prev_time = step.time;
         
         
@@ -356,38 +323,13 @@ template <typename T> void CumulativeTimetabling<T>::buildProfile() {
 #endif
 
     }
-
-    
     
     assert(usage == 0);
  
-//    if(capacity.min(solver) < max_usage) {
-//        
-//        std::cout << "capacity lower bound (" << capacity.min(solver) << ") pruning (max usage=" << max_usage << " in [" << l << ".." << u << "]): " << solver.pretty(capacity.greaterThanOrEqual(max_usage)) << " #cp=" << solver.num_choicepoints << std::endl;
-//        
-//        printProfile();
-//        
-//        solver.set(capacity.greaterThanOrEqual(max_usage), {this, computeExplanation(-1,l,u)});
-//    }
-  
- 
     if(max_cap < max_usage) {
-
-//        hint h;
-//        if(sign == bound::upper) {
-//            h=newExplanation();
-//            sign = bound::lower;
-//            computeExplanation(h,-1,-u,-l);
-//            sign = bound::upper;
-//        } else {
-//            h=newExplanation();
-//            computeExplanation(h,-1,l,u);
-//        }
         hint h{newExplanation()};
-        computeExplanation(h,-1,l,u);
-        
+        computeExplanation(h,-1,l,l+1);
         throw Failure<T>({this, h});
-        
     }
     
     // Add a sentinel.
@@ -406,14 +348,10 @@ template <typename T> void CumulativeTimetabling<T>::computeAdjustments() {
         if(est_i == lst(i) and lct(i) == ect(i))
             continue;
         
-//        std::cout << "est(i)=" << est_i << " >? " << profile_unique_time_[profile_index].time << std::endl;
-        
         while (est_i > profile_unique_time_[profile_index].time) {
             assert(static_cast<size_t>(profile_index) < profile_unique_time_.size());
             ++profile_index;
             usage += profile_unique_time_[profile_index].delta;
-            
-//            std::cout << "YES est(i)=" << est_i << " >? " << profile_unique_time_[profile_index].time << std::endl;
         }
         pushTask(i, profile_index, usage);
     }
@@ -427,11 +365,9 @@ template <typename T> void CumulativeTimetabling<T>::pushTask(const int i, int p
     
 #ifdef DBG_TT
     if (DBG_TT) {
-//        std::cout << " push task t" << std::left << std::setw(3) << task[i].id() << ": " << profile_unique_time_[profile_index] << " (u=" << u << ")\n";
         std::cout << " push " << prettyTask(i) << ": " << profile_unique_time_[profile_index] << " (u=" << u << ")\n";
     }
 #endif
-    
     
     // Init
     if (mindemand(i) == 0) {  // Demand can be null, nothing to propagate.
@@ -441,7 +377,6 @@ template <typename T> void CumulativeTimetabling<T>::pushTask(const int i, int p
     T usage{u};
     
     hint h{Constant::NoHint};
-//    bool beenthere{false};
     
     const T residual_capacity = (capacity.max(solver) - mindemand(i));
     const T duration = minduration(i);
@@ -470,7 +405,6 @@ template <typename T> void CumulativeTimetabling<T>::pushTask(const int i, int p
         // compute the usage at the start min, we need to remove the last delta.
         const T usage_at_start_min = usage - first_prof_delta.delta;
         if (usage_at_start_min > residual_capacity) {
-//
             
 #ifndef OLD_EXPL
             h = newExplanation();
@@ -480,7 +414,6 @@ template <typename T> void CumulativeTimetabling<T>::pushTask(const int i, int p
             new_start_min = profile_unique_time_[profile_index].time;
             
 #ifndef OLD_EXPL
-//            computeExplanation(h, i, prev_start_min, new_start_min);
             computeExplanation(h, i, prev_start_min, new_start_min);
             if(sign == bound::lower) {
                 pruning.push_back(task[i].start.after(new_start_min));
@@ -490,10 +423,7 @@ template <typename T> void CumulativeTimetabling<T>::pushTask(const int i, int p
                 explanation[h].push_back(task[i].end.before(-prev_start_min));
             }
 #endif
-            
-            
-////            if(ect(i) < )
-//            computeExplanation(h, i, est(i), new_start_min);
+  
         }
         
 #ifdef DBG_TT
@@ -506,16 +436,10 @@ template <typename T> void CumulativeTimetabling<T>::pushTask(const int i, int p
         
     }
  
-    
     // Influence of current task
     const T start_max = lst(i);
     const T end_min = ect(i);
     const T demand_min = (start_max < end_min ? mindemand(i) : 0);
-    
-    
-    
-//    std::cout << h << std::endl;
-//    exit(1);
     
     while (profile_unique_time_[profile_index].time <
            (duration + new_start_min)) {
@@ -540,9 +464,6 @@ template <typename T> void CumulativeTimetabling<T>::pushTask(const int i, int p
         ++profile_index;
         assert(static_cast<size_t>(profile_index) < profile_unique_time_.size());
         // Does it fit?
-        
-        
-        
         if (usage > residual_capacity) {
             
 #ifdef DBG_TT
@@ -551,18 +472,7 @@ template <typename T> void CumulativeTimetabling<T>::pushTask(const int i, int p
          << residual_capacity << "\n";
     }
 #endif
-            
-//            if(h == Constant::NoHint) {
-//                h = newExplanation();
-//            }
-            
-//            beenthere = true;
-            
-//            computeExplanation(h, i, ect(i)-Gap<T>::epsilon(), new_start_min);
-            
-            
-//            computeExplanation(h, i, std::min(new_start_min,ect(i))-Gap<T>::epsilon(), new_start_min);
-            
+ 
 #ifndef OLD_EXPL
             h = newExplanation();
             auto prev_start_min{new_start_min};
@@ -572,7 +482,6 @@ template <typename T> void CumulativeTimetabling<T>::pushTask(const int i, int p
             
 #ifndef OLD_EXPL
             computeExplanation(h, i, std::min(new_start_min,prev_start_min+minduration(i))-Gap<T>::epsilon(), new_start_min);
-//            computeExplanation(h, i, prev_start_min, new_start_min);
             if(sign == bound::lower) {
                 pruning.push_back(task[i].start.after(new_start_min));
                 explanation[h].push_back(task[i].start.after(prev_start_min));
@@ -581,10 +490,7 @@ template <typename T> void CumulativeTimetabling<T>::pushTask(const int i, int p
                 explanation[h].push_back(task[i].end.before(-prev_start_min));
             }
 #endif
-            
-            
-            
-            
+    
             assert(new_start_min > est(i));
             
         }
@@ -597,114 +503,24 @@ template <typename T> void CumulativeTimetabling<T>::pushTask(const int i, int p
         std::cout << " t" << task[i].id() << " can fit @" << new_start_min << "\n";
     }
 #endif
-    
-//    if(beenthere != (est(i) < new_start_min)) {
-//        std::cout << "wtf?\n";
-//        exit(1);
-//    }
+
     
 #ifdef OLD_EXPL
     if(est(i) < new_start_min) {
-        
-//        std::cout << h << " / " << explanation.size() << std::endl;
-        
-//        h = newExplanation();
-        
-//        std::cout << est(i) << " -> " << (std::max(new_start_min,ect(i))-Gap<T>::epsilon()) << " to " << new_start_min << std::endl;
-        
-//        computeExplanation(h, i, std::max(new_start_min,ect(i))-Gap<T>::epsilon(), new_start_min);
         h = newExplanation();
         computeExplanation(h, i, est(i), new_start_min);
         
         if(sign == bound::lower) {
             pruning.push_back(task[i].start.after(new_start_min));
-//            computeLBExplanation(h, i, est(i), new_start_min);
-//            computeExplanation(h, i, est(i), new_start_min);
             explanation[h].push_back(task[i].start.after(est(i)));
         } else {
             pruning.push_back(task[i].end.before(-new_start_min));
-//            computeExplanation(h, i, est(i), new_start_min);
             explanation[h].push_back(task[i].end.before(-est(i)));
-//            computeUBExplanation(h, i, est(i), new_start_min);
         }
-        
-        
     }
 #endif
-    
-    
- 
-//        computeExplanation(h, i, std::max(new_start_min,ect(i))-Gap<T>::epsilon(), new_start_min);
-//        if(sign == bound::lower) {
-//            pruning.push_back(task[i].start.after(new_start_min));
-//            explanation[h].push_back(task[i].start.after(est(i)));
-//        } else {
-//            pruning.push_back(task[i].end.before(-new_start_min));
-//            explanation[h].push_back(task[i].end.before(-est(i)));
-//        }
-        
-        
-//    }
 
 }
-
-
-//template <typename T> void CumulativeTimetabling<T>::computeLBExplanation(const hint h, const int x, const T l, const T u) {
-//    
-////    bool flag{task[x].start.id() == 26};
-//    
-//#ifdef DBG_EXPLCTT
-//    if(DBG_EXPLCTT) {
-//        std::cout << "compute expl for " << task[x].start.after(u)
-//        << " demand(" << task[x].id() << ") = " << mindemand(x) << ", dur(" << task[x].id() << ")= " << minduration(x) << ")\n";
-//    }
-//#endif
-//    
-//    computeExplanation(h,x,l,u);
-////    explanation[h].push_back(task[x].start.after(est(x)));
-//        
-//#ifdef DBG_EXPLCTT
-//        if(DBG_EXPLCTT) {
-//            std::cout << " + " << explanation[h].back() << std::endl;
-//            for(auto l : explanation[h]) {
-//                std::cout << " * " << l << std::endl;
-//            }
-//            std::cout << " -> " << pruning.back() << std::endl;
-//        }
-//#endif
-//        
-//    
-//}
-//
-//
-//template <typename T> void CumulativeTimetabling<T>::computeUBExplanation(const hint h, const int x, const T l, const T u) {
-//    
-////    bool flag{task[x].start.id() == 26};
-//    
-//#ifdef DBG_EXPLCTT
-//    if(DBG_EXPLCTT) {
-//        std::cout << "compute expl for " << task[x].end.before(-u)
-//        << " demand(" << task[x].id() << ") = " << mindemand(x) << ", dur(" << task[x].id() << ")= " << minduration(x) << ")\n";
-//    }
-//#endif
-//    
-//    sign = bound::lower;
-//    computeExplanation(h,x,-u,-l);
-//    explanation[h].push_back(task[x].end.before(lct(x)));
-//    sign = bound::upper;
-//    
-//
-//#ifdef DBG_EXPLCTT
-//        if(DBG_EXPLCTT) {
-//            std::cout << " + " << explanation[h].back() << std::endl;
-//            for(auto l : explanation[h]) {
-//                std::cout << " * " << l << std::endl;
-//            }
-//            std::cout << " -> " << pruning.back() << std::endl;
-//        }
-//#endif
-//    
-//}
     
 template <typename T> hint CumulativeTimetabling<T>::newExplanation() {
     auto e_idx{num_explanations};
@@ -713,22 +529,12 @@ template <typename T> hint CumulativeTimetabling<T>::newExplanation() {
     } else {
         explanation[e_idx].clear();
     }
-//    hint h{static_cast<hint>(num_explanations)};
     ++num_explanations;
     return static_cast<hint>(e_idx);
 }
 
 
 template <typename T> void CumulativeTimetabling<T>::computeExplanation(const hint h, const int x, const T l, const T u) {
-    
-    if(l >= u) {
-        std::cout << "bug\n";
-        exit(1);
-    }
-    
-    
-//    bool flag{x == -1 ? false : task[x].start.id() == 26};
-    
     bool swap{false};
     auto lb{l};
     auto ub{u};
@@ -738,15 +544,11 @@ template <typename T> void CumulativeTimetabling<T>::computeExplanation(const hi
         lb = -u;
         ub = -l;
     }
-        
-//    computeExplanation(h,-1,-u,-l);
-        
  
     
 #ifdef DBG_EXPLCTT
     if(DBG_EXPLCTT) {
         std::cout << " b/c profile overload in [" << l << ".." << u << "] capacity = " << capacity.max(solver) << std::endl;
-//        std::cout << "(" << pruning.back() << ")\n";
     }
 #endif
     
@@ -777,7 +579,6 @@ template <typename T> void CumulativeTimetabling<T>::computeExplanation(const hi
 #endif
     }
     
-    
     if(swap) {
         sign = bound::upper;
         lb = -u;
@@ -797,20 +598,7 @@ template <typename T> void CumulativeTimetabling<T>::doPruning() {
                     std::cout << "apply pruning" << std::endl;
             }
 #endif
-    
-//    auto h{static_cast<hint>(num_explanations)};
-//    while(not pruning.empty()) {
-//        
-//#ifdef DBG_TT
-//            if (DBG_TT) {
-//                std::cout << "pruning (" << this->id() << "/" << solver.num_cons_propagations
-//                << "): " << pruning.back() << std::endl;
-//            }
-//#endif
-//        
-//        solver.set(pruning.back(), {this, --h});
-//        pruning.pop_back();
-//    }
+
     auto h{static_cast<hint>(num_explanations-pruning.size())};
     for(auto p : pruning) {
         #ifdef DBG_TT
@@ -823,30 +611,13 @@ template <typename T> void CumulativeTimetabling<T>::doPruning() {
                 solver.set(p, {this, h++});
     }
     pruning.clear();
-//    while(not pruning.empty()) {
-//        
-//#ifdef DBG_TT
-//            if (DBG_TT) {
-//                std::cout << "pruning (" << this->id() << "/" << solver.num_cons_propagations
-//                << "): " << pruning.back() << std::endl;
-//            }
-//#endif
-//        
-//        solver.set(pruning.back(), {this, --h});
-//        pruning.pop_back();
-//    }
 }
 
 
 template <typename T> void CumulativeTimetabling<T>::propagate() {
     sign = bound::lower;
     pruning.clear();
-    
-//    assert(mindemand(0) > -Constant::Infinity<T>);
-    
-//    if(solver.num_cons_propagations >= 403)
-//        exit(1);
-    
+ 
 #ifdef DBG_TT
     if (DBG_TT) {
         std::cout << "\nstart TT" << this->id() << "'s " << solver.num_cons_propagations
@@ -855,39 +626,21 @@ template <typename T> void CumulativeTimetabling<T>::propagate() {
                   [&](const int a, const int b) {return est(a) < est(b);});
         
         for (auto j : est_order) {
-//            std::cout << prettyTask(j) << std::endl;
             std::cout << "task " << std::setw(3) << task[j].id() << ": " << asciiArt(j) << std::endl;
         }
     }
 #endif
     
-//    if(mindemand(0) == -Constant::Infinity<T>) {
-//        
-//        for(auto d : demand) {
-//            std::cout << d.id() << std::endl;
-//        }
-//        
-////        std::cout << solver << std::endl;
-//        
-//        exit(1);
-//    }
-    
-    
     do {
-  
-//        std::cout << (sign == bound::lower ? "forward\n" : "backward\n");
-        
+      
 #ifdef DBG_TT
     if (DBG_TT) {
         std::cout << (sign == bound::lower ? "forward\n" : "backward\n");
     }
 #endif
         
-        
         buildProfile();
-        
-//        assert(mindemand(0) > -Constant::Infinity<T>);
-        
+     
 #ifdef DBG_TT
     if (DBG_TT and sign == bound::lower) {
         std::cout << "profile=\n";
@@ -898,58 +651,11 @@ template <typename T> void CumulativeTimetabling<T>::propagate() {
     }
 #endif
         
-        
-                
         computeAdjustments();
-        
-//        assert(mindemand(0) > -Constant::Infinity<T>);
-        
         doPruning();
         
         sign ^= 1;
     } while(sign!=bound::lower);
-    
-//    for(sign = bound::lower; sign!=bound::upper; sign ^= 1) {
-//        
-////        assert(mindemand(0) > -Constant::Infinity<T>);
-//        
-//        std::cout << (sign == bound::lower ? "forward\n" : "backward\n");
-//        
-//#ifdef DBG_TT
-//    if (DBG_TT) {
-//        std::cout << (sign == bound::lower ? "forward\n" : "backward\n");
-//    }
-//#endif
-//        
-//        
-//        buildProfile();
-//        
-////        assert(mindemand(0) > -Constant::Infinity<T>);
-//        
-//#ifdef DBG_TT
-//    if (DBG_TT) {
-//        std::cout << "profile=\n";
-//        for(auto p : profile_unique_time_) {
-//            std::cout << p << std::endl;
-//        }
-//        printProfile();
-//    }
-//#endif
-//        
-//        
-//                
-//        computeAdjustments();
-//        
-////        assert(mindemand(0) > -Constant::Infinity<T>);
-//        
-//        doPruning();
-//        
-////        assert(mindemand(0) > -Constant::Infinity<T>);
-//    }
-    
-//    
-//    if(solver.num_cons_propagations == 513)
-//        exit(1);
 }
 
 
