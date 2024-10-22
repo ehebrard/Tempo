@@ -1862,6 +1862,10 @@ public:
   std::vector<BooleanVar<T>>::iterator endDisjunct() { return disjunct.end(); }
   std::vector<BooleanVar<T>>::const_iterator endDisjunct() const { return disjunct.end(); }
 
+  const auto &getDisjunctiveLiterals() const noexcept {
+      return disjunctiveLiterals;
+  }
+
   std::vector<NumericVar<T>>::iterator begDemand() { return demand.begin(); }
   std::vector<NumericVar<T>>::const_iterator begDemand() const { return demand.begin(); }
   std::vector<NumericVar<T>>::iterator endDemand() { return demand.end(); }
