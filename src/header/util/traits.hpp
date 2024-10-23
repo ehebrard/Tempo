@@ -110,6 +110,12 @@ namespace tempo::concepts {
 
     template<typename T, template<typename...> typename Template>
     concept same_template = traits::is_same_template_v<Template, T>;
+
+    template<typename T, template<typename...> typename Template>
+    concept same_template_lvref = same_template<T, Template> and std::is_lvalue_reference_v<T>;
+
+    template<typename T, template<typename...> typename Template>
+    concept same_template_clvref = same_template_lvref<T, Template> and std::is_const_v<std::remove_reference_t<T>>;
 }
 
 #endif //TEMPO_TRAITS_HPP

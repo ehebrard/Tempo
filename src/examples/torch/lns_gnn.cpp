@@ -8,7 +8,6 @@
 #include <iostream>
 #include <string>
 #include <thread>
-#include <algorithm>
 
 #include "../helpers/scheduling_helpers.hpp"
 #include "../helpers/cli.hpp"
@@ -28,22 +27,18 @@ struct DestroyParameters {
 };
 
 using RelaxationPolicy = h::VariantPolicy<h::RandomSubset<Time>,
-        h::FixRandomDisjunctiveResource<Time, ResourceConstraint>>;
+        h::FixRandomDisjunctiveResource<ResourceConstraint>>;
 
 auto create(DestroyType type, const Problem &problem,
             const DestroyParameters &params) -> h::GenericDestroyPolicy<Time, RelaxationPolicy> {
     switch (type) {
         case DestroyType::RandomSubset: {
-            std::vector<tempo::BooleanVar<Time>> vars;
-            for (const auto &resConstraint: problem.constraints) {
-                std::copy(resConstraint.begDisjunct(), resConstraint.endDisjunct(), std::back_inserter(vars));
-            }
-
-            return h::RandomSubset<Time>(*problem.solver, std::move(vars), params.destroyRatio, 1);
+            using namespace std::views;
+            return h::RandomSubset(tempo::booleanVarsFromResources(problem.constraints), params.destroyRatio, 1);
         }
 
         case DestroyType::RandomResource:
-            return h::FixRandomDisjunctiveResource(*problem.solver, problem.constraints);
+            return h::FixRandomDisjunctiveResource(problem.constraints);
 
         default:
             throw std::runtime_error("unknown destroy policy");

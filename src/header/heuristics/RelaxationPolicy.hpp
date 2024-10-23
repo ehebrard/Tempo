@@ -38,29 +38,29 @@ namespace tempo::heuristics {
 template<typename T>
 class RelaxRandomDisjunctiveResource {
 public:
-    RelaxRandomDisjunctiveResource(Solver<T>& solver, std::vector<NoOverlapExpression<T>>& resources) : solver(solver), resources(resources) {}
+    explicit RelaxRandomDisjunctiveResource(std::vector<NoOverlapExpression<T>> resources) noexcept:
+            resources(std::move(resources)) {}
     template<assumption_interface AI>
-    void relax(AI &s);
+    void relax(AI &s) const;
     void notifyFailure(unsigned ) noexcept {}
     void notifySuccess(unsigned ) noexcept {}
 
 private:
-    Solver<T>& solver;
-    std::vector<NoOverlapExpression<T>>& resources;
+    std::vector<NoOverlapExpression<T>> resources;
 };
 
 
 template<typename T>
 template<assumption_interface AI>
-void RelaxRandomDisjunctiveResource<T>::relax(AI &s) {
+void RelaxRandomDisjunctiveResource<T>::relax(AI &s) const {
     int r{static_cast<int>(random() % resources.size())};
 
     std::cout << "relax resource " << r << "/" << resources.size() << std::endl;
     std::vector<Literal<T>> fixed;
-    for (auto &resource: resources) {
+    for (const auto &resource: resources) {
         if (--r != 0) {
             for (auto bi{resource.begDisjunct()}; bi != resource.endDisjunct(); ++bi) {
-                fixed.push_back(*bi == solver.boolean.value(*bi));
+                fixed.push_back(*bi == s.getSolver().boolean.value(*bi));
             }
         }
     }
@@ -69,50 +69,46 @@ void RelaxRandomDisjunctiveResource<T>::relax(AI &s) {
 }
 
 
-template<concepts::scalar T, resource_expression R>
+template<resource_expression R>
 class FixRandomDisjunctiveResource {
 public:
-    FixRandomDisjunctiveResource(const Solver<T> &solver, std::vector<R> resources) :
-            solver(solver), resources(std::move(resources)) {}
+    explicit FixRandomDisjunctiveResource(std::vector<R> resources) : resources(std::move(resources)) {}
     void notifyFailure(unsigned ) noexcept {}
     void notifySuccess(unsigned ) noexcept {}
 
     template<assumption_interface AI>
-    void relax(AI &s);
+    void relax(AI &s) const;
     
 private:
-    const Solver<T>& solver;
     std::vector<R> resources;
 };
 
 
-template<concepts::scalar T, resource_expression R>
+template<resource_expression R>
 template<assumption_interface AI>
-void FixRandomDisjunctiveResource<T, R>::relax(AI &s) {
+void FixRandomDisjunctiveResource<R>::relax(AI &s) const {
     int r{static_cast<int>(random() % resources.size())};
-    auto assumptions = std::ranges::subrange(resources[r].begDisjunct(), resources[r].endDisjunct()) |
-                       std::views::transform([this](const auto &var) { return var == solver.boolean.value(var); });
+    const auto variables = booleanVarsFromResources(resources[r]);
+    auto assumptions = variables |
+                       std::views::transform([&s](const auto &var) { return var == s.getSolver().boolean.value(var); });
     s.makeAssumptions(assumptions);
 }
 
 template <typename T> class RandomSubset {
 public:
-  RandomSubset(Solver<T> &solver, std::vector<BooleanVar<T>> vars,
-            double ratio, double decay)
-      : solver(solver), vars(std::move(vars)), ratio(1.0 - ratio), decay(decay) {}
+    RandomSubset(std::vector<BooleanVar<T>> vars, double ratio, double decay) : vars(std::move(vars)),
+                                                                                ratio(1.0 - ratio), decay(decay) {}
 
   template<assumption_interface AI>
-  void relax(AI &s);
+  void relax(AI &s) const;
   void notifyFailure(unsigned ) noexcept;
   void notifySuccess(unsigned ) noexcept {}
 
 protected:
-  Solver<T> &solver;
   std::vector<BooleanVar<T>> vars;
   double ratio, decay;
 
   // helper
-  std::vector<Literal<T>> fixed;
 };
 
 template<typename T>
@@ -122,10 +118,11 @@ void RandomSubset<T>::notifyFailure(unsigned) noexcept {
 
 template <typename T>
 template<assumption_interface AI>
-void RandomSubset<T>::relax(AI &s) {
-  fixed.clear();
+void RandomSubset<T>::relax(AI &s) const {
+  std::vector<Literal<T>> fixed;
+  fixed.reserve(vars.size());
   for (auto x : vars) {
-    fixed.push_back(x == solver.boolean.value(x));
+    fixed.push_back(x == s.getSolver().boolean.value(x));
   }
 
   size_t n{static_cast<size_t>(ratio * static_cast<double>(vars.size()))};
@@ -133,8 +130,8 @@ void RandomSubset<T>::relax(AI &s) {
     size_t r{i + static_cast<size_t>(random() % (fixed.size() - i))};
     std::swap(fixed[i], fixed[r]);
   }
-  fixed.resize(n);
 
+  fixed.resize(n);
   s.makeAssumptions(fixed);
 }
 

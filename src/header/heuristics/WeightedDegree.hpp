@@ -34,7 +34,7 @@ namespace tempo::heuristics {
                   GapOverActivity(solver, solver.ConflictEncountered.subscribe_handled(
                           [this, &solver, clause=std::vector<Literal<T>>{}](auto &expl) mutable {
                               clause.clear();
-                              expl.explain(Solver<T>::Contradiction, clause);
+                              expl.explain(Contradiction<T>, clause);
                               this->activity.update(clause, solver);
                           })) {}
     };

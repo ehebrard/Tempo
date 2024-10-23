@@ -115,6 +115,27 @@ TEST(util, Matrix_resize) {
     EXPECT_EQ(m.numColumns(), 4);
     m.at(2, 3) = 17;
     EXPECT_EQ(m.at(2, 3), 17);
+    m.resize(7, 10, 198);
+    EXPECT_EQ(m.numRows(), 7);
+    EXPECT_EQ(m.numColumns(), 10);
+    EXPECT_EQ(m.at(6, 8), 198);
+}
+
+TEST(util, Matrix_fill) {
+    using namespace tempo;
+    Matrix<int> m(2, 2, 4);
+    m.fill(19);
+    EXPECT_EQ(m.numRows(), 2);
+    EXPECT_EQ(m.numColumns(), 2);
+    m.for_each([](auto val) { EXPECT_EQ(val, 19); });
+    m.fill(1, 2, -3);
+    EXPECT_EQ(m.numRows(), 1);
+    EXPECT_EQ(m.numColumns(), 2);
+    m.for_each([](auto val) { EXPECT_EQ(val, -3); });
+    m.fill(3, 3, 1337);
+    EXPECT_EQ(m.numRows(), 3);
+    EXPECT_EQ(m.numColumns(), 3);
+    m.for_each([](auto val) { EXPECT_EQ(val, 1337); });
 }
 
 TEST(util, Matrix_change_layout) {

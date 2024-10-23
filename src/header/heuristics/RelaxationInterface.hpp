@@ -42,6 +42,7 @@ namespace tempo::heuristics {
         { interface.makeAssumptions(lits) } -> std::convertible_to<bool>;
         { interface.tryMakeAssumption(l) } -> std::convertible_to<bool>;
         { interface.getState() } -> std::same_as<AssumptionState>;
+        { interface.getSolver() } -> concepts::same_template_clvref<Solver>;
     };
 
     /**
@@ -154,6 +155,14 @@ namespace tempo::heuristics {
             return state;
         }
 
+        /**
+         * const reference to the solver
+         * @return const reference to the solver
+         */
+        [[nodiscard]] const auto &getSolver() const noexcept {
+            return s;
+        }
+
     private:
 
         void stateTransition(AssumptionState as) noexcept {
@@ -249,6 +258,14 @@ namespace tempo::heuristics {
          */
         auto getAssumptions() noexcept -> std::vector<Literal<T>> & {
             return assumptions;
+        }
+
+        /**
+         * const reference to the solver
+         * @return const reference to the solver
+         */
+        [[nodiscard]] decltype(auto) getSolver() const noexcept {
+            return proxy.getSolver();
         }
     };
 
@@ -348,6 +365,14 @@ namespace tempo::heuristics {
          */
         [[nodiscard]] AssumptionState getState() const {
             return proxy.getState();
+        }
+
+        /**
+         * const reference to the solver
+         * @return const reference to the solver
+         */
+        [[nodiscard]] decltype(auto) getSolver() const noexcept {
+            return proxy.getSolver();
         }
     };
 
