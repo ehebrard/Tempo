@@ -302,8 +302,10 @@ public:
 #ifdef DBG_LIST
         int itermax{1000};
 #endif
+        
+        auto width{static_cast<int>(std::log(nodes.size()))+1};
       for (auto tp{begin()}; tp != end(); ++tp) {
-        os << tp.index << ": " << *tp << " " << prev(tp.index) << "|" << next(tp.index) << std::endl;
+        os << std::setw(width) << tp.index << ": " << *tp << " " << prev(tp.index) << "|" << next(tp.index) << std::endl;
           
 #ifdef DBG_LIST
         if(--itermax == 0)
