@@ -1946,6 +1946,35 @@ namespace detail {
     concept literal_matrix = concepts::same_template<T, Matrix> and
                              concepts::same_template<typename std::remove_cvref_t<T>::value_type, Literal>;
 
+    template<typename T>
+    class single_forward_view: public std::ranges::view_interface<single_forward_view<T>> {
+        T data;
+    public:
+        template<typename U>
+        explicit constexpr single_forward_view(U &&data) : data(std::forward<U>(data)) {}
+
+        constexpr auto begin() const noexcept {
+            return &data;
+        }
+
+        constexpr auto begin() noexcept {
+            return &data;
+        }
+
+        constexpr auto end() const noexcept {
+            return &data + 1;
+        }
+
+        constexpr auto end() noexcept {
+            return &data + 1;
+        }
+    };
+
+    template<typename T>
+    constexpr auto single_forward(T &&data) {
+        return single_forward_view<T>(std::forward<T>(data));
+    }
+
 }
 
 /**
@@ -1971,12 +2000,13 @@ concept resource_range = std::ranges::range<T> and resource_expression<std::rang
  * @return vector of unique boolean variables
  */
 template<resource_range Resources>
-auto booleanVarsFromResources(const Resources &resources) {
-    using LitT = std::remove_cvref_t<decltype(std::ranges::begin(resources)->getDisjunctiveLiterals())>::value_type;
+auto booleanVarsFromResources(Resources &&resources) {
+    using LitT = std::remove_cvref_t<decltype(std::ranges::begin(
+            std::declval<Resources>())->getDisjunctiveLiterals())>::value_type;
     using T = decltype(std::declval<LitT>().value());
     using namespace std::views;
     std::vector<BooleanVar<T>> variables;
-    for (const auto &resource: resources) {
+    for (const auto &resource: std::forward<Resources>(resources)) {
         auto resVars = resource.getDisjunctiveLiterals().rawData() |
                 filter([](auto lit) { return lit != Contradiction<T>; }) |
                 transform([](auto lit) { return tempo::BooleanVar<T>(lit); });
@@ -1997,8 +2027,8 @@ auto booleanVarsFromResources(const Resources &resources) {
  * @return vector of unique boolean variables
  */
 template<resource_expression R>
-auto booleanVarsFromResources(const R &resource) {
-    auto range = {resource};
+auto booleanVarsFromResources(R &&resource) {
+    auto range = detail::single_forward(std::forward<R>(resource));
     return booleanVarsFromResources(range);
 }
 

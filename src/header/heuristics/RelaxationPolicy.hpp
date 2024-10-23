@@ -35,37 +35,32 @@
 namespace tempo::heuristics {
 
 
-template<typename T>
+template<resource_expression R>
 class RelaxRandomDisjunctiveResource {
 public:
-    explicit RelaxRandomDisjunctiveResource(std::vector<NoOverlapExpression<T>> resources) noexcept:
-            resources(std::move(resources)) {}
+    explicit RelaxRandomDisjunctiveResource(std::vector<R> resources) noexcept: resources(std::move(resources)) {}
     template<assumption_interface AI>
     void relax(AI &s) const;
     void notifyFailure(unsigned ) noexcept {}
     void notifySuccess(unsigned ) noexcept {}
 
 private:
-    std::vector<NoOverlapExpression<T>> resources;
+    std::vector<R> resources;
 };
 
 
-template<typename T>
+template<resource_expression R>
 template<assumption_interface AI>
-void RelaxRandomDisjunctiveResource<T>::relax(AI &s) const {
+void RelaxRandomDisjunctiveResource<R>::relax(AI &s) const {
+    using namespace std::views;
     int r{static_cast<int>(random() % resources.size())};
-
-    std::cout << "relax resource " << r << "/" << resources.size() << std::endl;
-    std::vector<Literal<T>> fixed;
-    for (const auto &resource: resources) {
-        if (--r != 0) {
-            for (auto bi{resource.begDisjunct()}; bi != resource.endDisjunct(); ++bi) {
-                fixed.push_back(*bi == s.getSolver().boolean.value(*bi));
-            }
-        }
+    if (s.getSolver().getOptions().verbosity >= Options::YACKING) {
+        std::cout << "relax resource " << r << "/" << resources.size() << std::endl;
     }
 
-    s.makeAssumptions(fixed);
+    auto skipView = resources | filter([r](const auto &) mutable { return r-- != 0; });
+    auto vars = booleanVarsFromResources(skipView);
+    s.makeAssumptions(vars | transform([&s](const auto &var) { return var == s.getSolver().boolean.value(var); }));
 }
 
 

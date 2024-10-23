@@ -20,14 +20,14 @@
 
 namespace h = tempo::heuristics;
 
-PENUM(DestroyType, RandomSubset, RandomResource)
+PENUM(DestroyType, RandomSubset, AllButOneResource, RandomResource)
 
 struct DestroyParameters {
     double destroyRatio;
 };
 
 using RelaxationPolicy = h::VariantPolicy<h::RandomSubset<Time>,
-        h::FixRandomDisjunctiveResource<ResourceConstraint>>;
+        h::FixRandomDisjunctiveResource<ResourceConstraint>, h::RelaxRandomDisjunctiveResource<ResourceConstraint>>;
 
 auto create(DestroyType type, const Problem &problem,
             const DestroyParameters &params) -> h::GenericDestroyPolicy<Time, RelaxationPolicy> {
@@ -37,8 +37,11 @@ auto create(DestroyType type, const Problem &problem,
             return h::RandomSubset(tempo::booleanVarsFromResources(problem.constraints), params.destroyRatio, 1);
         }
 
-        case DestroyType::RandomResource:
+        case DestroyType::AllButOneResource:
             return h::FixRandomDisjunctiveResource(problem.constraints);
+
+        case DestroyType::RandomResource:
+            return h::RelaxRandomDisjunctiveResource(problem.constraints);
 
         default:
             throw std::runtime_error("unknown destroy policy");
