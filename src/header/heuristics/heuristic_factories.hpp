@@ -31,7 +31,7 @@ namespace tempo {
 
 namespace tempo::heuristics {
 
-    /// --- Variable Heuristics ---
+    // --- Variable Heuristics ---
 
     namespace detail {
         using VSIDS_M = MovableHeuristic<VSIDS>;
@@ -61,7 +61,7 @@ namespace tempo::heuristics {
     using VariableHeuristic = detail::VariantHeuristicWrapper<Tightest, detail::VSIDS_M, detail::WeightedDegree_M,
                                                               RandomVariableSelection>;
 
-    /// Define heuristic factory types here
+    // Define heuristic factory types here
 
     MAKE_TEMPLATE_FACTORY(Tightest, concepts::scalar T, const Solver<T> &) {
             return Tightest{};
@@ -90,14 +90,14 @@ namespace tempo::heuristics {
     MAKE_FACTORY_PATTERN(VariableHeuristic, Tightest, VSIDS, WeightedDegree, RandomVariableSelection)
 
 
-    /// --- Value Heuristics ---
+    // --- Value Heuristics ---
 
-    /// Add further heuristic types here
+    // Add further heuristic types here
 
     using TightestSolutionGuided = SolutionGuided<TightestValue>;
     using ValueHeuristic = detail::VariantHeuristicWrapper<TightestValue, RandomBinaryValue, TightestSolutionGuided>;
 
-    /// Define heuristic factory types here
+    // Define heuristic factory types here
 
     MAKE_FACTORY(TightestValue, const Options &options) {
             return TightestValue(options.polarity_epsilon);
@@ -114,7 +114,7 @@ namespace tempo::heuristics {
     MAKE_FACTORY_PATTERN(ValueHeuristic, TightestValue, RandomBinaryValue, TightestSolutionGuided)
 
 
-    /// --- Use these factory methods ---
+    // --- Use these factory methods ---
 
     /**
      * Infers variable selection heuristic from solver options

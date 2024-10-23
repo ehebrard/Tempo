@@ -1,7 +1,7 @@
 /**
 * @author Tim Luchterhand
 * @date 23.10.24
-* @brief
+* @brief Contains factory methods for different standard relaxation policies defined in heuristics/RelaxationPolicy.hpp
 */
 
 #ifndef TEMPO_RELAXATION_POLICY_FACTORIES_HPP
@@ -17,16 +17,25 @@
 
 namespace tempo::heuristics {
 
+    /**
+     * @brief Relaxation policy type
+     */
     PENUM(RelaxPolicy, RandomSubset, AllButOneResource, RandomResource)
 
+    /**
+     * @brief Configuration parameters for relaxation policies
+     */
     struct RelaxationPolicyParams {
-        double relaxRatio;
-        double ratioDecay;
+        double relaxRatio; ///< percentage of variables to relax (RandomSubset policy)
+        double ratioDecay; ///< relaxation ratio decay
     };
 
+    // --- add further relaxation policies to this type ---
     template<concepts::scalar T, resource_expression R>
     using RelaxationPolicy = VariantPolicy<RandomSubset<T>,
             FixRandomDisjunctiveResource<R>, RelaxRandomDisjunctiveResource<R>>;
+
+    // --- Define policy factories here
 
     MAKE_TEMPLATE_FACTORY(RandomSubset, ESCAPE(resource_range R),
                           ESCAPE(R &&resources, const RelaxationPolicyParams &params)) {
@@ -47,10 +56,20 @@ namespace tempo::heuristics {
         }
     };
 
+    // --- Don't forget to add the new type here too (at the end of the variadic argument list)
+
     template<concepts::scalar T, resource_expression R>
     MAKE_P_FACTORY_PATTERN(RelaxationPolciy, ESCAPE(RelaxationPolicy<T, R>),
                            RandomSubset, AllButOneResource, RandomResource)
 
+    /**
+     * Factory method for relaxation policies
+     * @tparam RR type of resource range
+     * @param type relaxation policy type
+     * @param resources resource expressions of the problem
+     * @param params policy parameters
+     * @return relaxation policy for large neighborhood search
+     */
     template<resource_range RR>
     auto make_relaxation_policy(RelaxPolicy type, RR &&resources, const RelaxationPolicyParams &params) {
         using R = std::ranges::range_value_t<RR>;
