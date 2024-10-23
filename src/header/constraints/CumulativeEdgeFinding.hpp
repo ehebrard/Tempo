@@ -105,7 +105,7 @@ private:
   std::vector<int> lct_shared; // points to the possibly shared element whose
                                // t is the lct of the task
 
-  size_t leftcut_pointer;
+  int leftcut_pointer;
 
   int &get_shared_pointer(const int evt) {
     auto evti{evt - 1};
@@ -115,7 +115,7 @@ private:
       return est_shared[i];
     case 1:
       return ect_shared[i];
-    case 2:
+    default:
       return lct_shared[i];
     }
   }
@@ -128,7 +128,7 @@ private:
       return est_[i];
     case 1:
       return ect_[i];
-    case 2:
+    default:
       return lct_[i];
     }
   }
@@ -167,6 +167,8 @@ public:
       void propagate() override;
     
     void forwardDetection();
+    void addPrime(const int i);
+    void rmPrime(const int i);
     
   //    void computeBound(const int i);
 
@@ -354,7 +356,7 @@ CumulativeEdgeFinding<T>::CumulativeEdgeFinding(
   //    tp_attributes_est_i.resize(3);
   //    tp_attributes_ect_i.resize(3);
 
-  auto maxcap{capacity.max(solver)};
+  //  auto maxcap{capacity.max(solver)};
 
   for (unsigned i = 0; i < ip; ++i) {
     est_[i] = profile.create_element();
@@ -398,15 +400,17 @@ template <typename T> void CumulativeEdgeFinding<T>::initialiseProfile() {
 
   profile.clear();
 
-  auto C{capacity.max(solver)};
+  //  auto C{capacity.max(solver)};
 
+    
+    // initialise the timepoints with the values from the domains
   for (auto i : lct_order) {
       
-#ifdef DBG_SEF
-      if (DBG_SEF) {
-          std::cout << " init timepoints for " << prettyTask(i) << std::endl;
-      }
-#endif
+//#ifdef DBG_SEF
+//      if (DBG_SEF) {
+//          std::cout << " init timepoints for " << prettyTask(i) << std::endl;
+//      }
+//#endif
       
       est_shared[i] = est_[i];
       ect_shared[i] = ect_[i];
@@ -431,12 +435,14 @@ template <typename T> void CumulativeEdgeFinding<T>::initialiseProfile() {
             });
 
     
-#ifdef DBG_SEF
-      if (DBG_SEF) {
-          std::cout << " remove repetitions " << std::endl;
-      }
-#endif
+//#ifdef DBG_SEF
+//      if (DBG_SEF) {
+//          std::cout << " remove repetitions " << std::endl;
+//      }
+//#endif
     
+    
+    // populate the profile and merges duplicate times
   profile.add_front(event_ordering[0]);
     auto previous{event_ordering[0]};
     
@@ -507,9 +513,10 @@ template <typename T> void CumulativeEdgeFinding<T>::setLeftCutToTask(const int 
 
 template <typename T> void CumulativeEdgeFinding<T>::shrinkLeftCutToTime(const T t) {
         // we need to remove the tasks that have a lct equal to or larger than t
-        while(t <= lct(lct_order[leftcut_pointer])) {
-            rmTask(leftcut_pointer--);
+        while (leftcut_pointer-- > 0 and t <= lct(lct_order[leftcut_pointer])) {
+          rmTask(leftcut_pointer);
         }
+        ++leftcut_pointer;
 }
 
 template <typename T> void CumulativeEdgeFinding<T>::propagate() {
@@ -523,7 +530,7 @@ template <typename T> void CumulativeEdgeFinding<T>::propagate() {
   if (DBG_SEF) {
     std::cout << "\n\nstart propagation (" << capacity.max(solver) << ")\n";
     for (auto j : lct_order) {
-      std::cout << "task " << j << ": " << asciiArt(j) << std::endl;
+      std::cout << "task " << task[j].id() << ": " << asciiArt(j) << std::endl;
     }
   }
 #endif
@@ -535,61 +542,76 @@ template <typename T> void CumulativeEdgeFinding<T>::propagate() {
 
 }
 
+template <typename T> void CumulativeEdgeFinding<T>::addPrime(const int i) {
+    
+}
 
+template <typename T> void CumulativeEdgeFinding<T>::rmPrime(const int i);
 
 template <typename T> void CumulativeEdgeFinding<T>::forwardDetection() {
     
 #ifdef DBG_SEF
     if (DBG_SEF) {
-        std::cout << "\n\nstart forward detection\n";
-        for (auto j : lct_order) {
-            std::cout << "task " << j << ": " << asciiArt(j) << std::endl;
-        }
+      std::cout << "\nstart forward detection\n";
     }
 #endif
     
     //    std::cout << " first = " << *(lct_order.rend()) << std::endl;
-    
-    auto cap{capacity.max(solver)};
+
+    //    auto cap{capacity.max(solver)};
     auto stop{lct_order.rend()};
     --stop;
     
     // explore the tasks by decreasing lct
-    for (auto ii{lct_order.rbegin()}; ii != stop;) {
+//    for (auto ii{lct_order.rbegin()}; ii != stop;) {
+    int k{static_cast<int>(lct_order.size()-1)};
+    while(k >= 0) {
+        auto i{lct_order[k]};
         
 #ifdef DBG_SEF
         if (DBG_SEF) {
-            std::cout << " - analyse tasks whose lct is " << lct(*ii) << std::endl;
+            std::cout << " - analyse tasks whose lct is " << lct(i) << std::endl;
         }
 #endif
         
         // remove tasks whose lct is larger than or equal to lct(*ii)
-        shrinkLeftCutToTime(lct(*ii));
-        
-        
-        
+        shrinkLeftCutToTime(lct(i));
+
         // if there are no more tasks, all those in the current level have the same
         // lct and we can stop
-        if (ii == lct_order.rend()) {
-            break;
+        if (leftcut_pointer == 0) {
+          break;
         }
-        
+
         // lct of the task that precedes all the task whose lct is lct(i)
-        auto j{*ii};
-        auto lct_j{lct(j)};
-        
+        auto j{lct_order[leftcut_pointer - 1]};
+
         // tasks in the range [leftcut_pointer, *ii) all have a lct equal to lct(*ii)
         // - add their "prime" versions one by one and run scheduleOmega
-        do {
+        while(k >= leftcut_pointer) {
             
 #ifdef DBG_SEF
             if (DBG_SEF) {
-                std::cout << " - analyse task " << *ii << ": schedule tasks on [0," << lct_j << ")\n";
+              std::cout << "  * " << prettyTask(i)
+                        << ": schedule tasks on [0," << lct(j) << ")\n";
             }
 #endif
             
-        } while(*(ii--) != leftcut_pointer);
-        
+            addPrime(i);
+            
+            
+            i = lct_order[--k];
+        }
+//        do {
+//            
+//#ifdef DBG_SEF
+//            if (DBG_SEF) {
+//              std::cout << " - analyse " << i << ": " << prettyTask(i)
+//                        << ": schedule tasks on [0," << lct(j) << ")\n";
+//            }
+//#endif
+//
+//        } while (--k >= leftcut_pointer);
     }
 }
       
@@ -1390,66 +1412,65 @@ template <typename T> void CumulativeEdgeFinding<T>::forwardDetection() {
 //  return omega_ect;
 //}
 
-
-
 template <typename T>
-void CumulativeEdgeFinding<T>::xplain(const Literal<T> l, const hint h,
-                                      std::vector<Literal<T>> &Cl) {
+void CumulativeEdgeFinding<T>::xplain(const Literal<T>, const hint,
+                                      std::vector<Literal<T>> &) {
 
-//
-//#ifdef DBG_EXPLCE
-//  std::cout << "explain (" << explanation[h].size() << ") " << solver.pretty(l)
-//            << ":\n";
-//#endif
-//
-//  if (l == Solver<T>::Contradiction) {
-//    //        std::cout << "xplain contradiction: TODO\n";
-//    //        exit(1);
-//
-//    for (auto i : explanation[h].omega) {
-//
-//#ifdef DBG_EXPLCE
-//      std::cout << " * "
-//                << solver.pretty(task[i].start.after(explanation_lb[h]))
-//                << " and "
-//                << solver.pretty(task[i].end.before(explanation_ub[h]))
-//                << std::endl;
-//#endif
-//
-//      Cl.push_back(task[i].end.after(explanation[h].lb_omega));
-//      Cl.push_back(task[i].end.before(explanation[h].ub_omega));
-//    }
-//
-//  } else if (l.variable() == schedule.end.id()) {
-//    std::cout << "xplain global bound: TODO\n";
-//    exit(1);
-//  } else {
-//
-//    for (auto i : explanation[h].omega) {
-//
-//#ifdef DBG_EXPLCE
-//      std::cout << " * "
-//                << solver.pretty(task[i].start.after(explanation_lb[h]))
-//                << " and "
-//                << solver.pretty(task[i].end.before(explanation_ub[h]))
-//                << std::endl;
-//#endif
-//
-//      Cl.push_back(task[i].start.after(explanation[h].lb_omega));
-//      Cl.push_back(task[i].end.before(explanation[h].ub_omega));
-//    }
-//
-//#ifdef DBG_EXPLCE
-//    std::cout << " AND "
-//              << solver.pretty(
-//                     task[explanation[h].i].end.after(explanation[h].lb_i))
-//              << std::endl;
-//#endif
-//
-//    Cl.push_back(task[explanation[h].i].start.after(explanation[h].lb_i));
-//  }
-//
-//  //      Cl.push_back(geq<T>(l.variable(), explanation_lb[h]));
+  //
+  //#ifdef DBG_EXPLCE
+  //  std::cout << "explain (" << explanation[h].size() << ") " <<
+  //  solver.pretty(l)
+  //            << ":\n";
+  //#endif
+  //
+  //  if (l == Solver<T>::Contradiction) {
+  //    //        std::cout << "xplain contradiction: TODO\n";
+  //    //        exit(1);
+  //
+  //    for (auto i : explanation[h].omega) {
+  //
+  //#ifdef DBG_EXPLCE
+  //      std::cout << " * "
+  //                << solver.pretty(task[i].start.after(explanation_lb[h]))
+  //                << " and "
+  //                << solver.pretty(task[i].end.before(explanation_ub[h]))
+  //                << std::endl;
+  //#endif
+  //
+  //      Cl.push_back(task[i].end.after(explanation[h].lb_omega));
+  //      Cl.push_back(task[i].end.before(explanation[h].ub_omega));
+  //    }
+  //
+  //  } else if (l.variable() == schedule.end.id()) {
+  //    std::cout << "xplain global bound: TODO\n";
+  //    exit(1);
+  //  } else {
+  //
+  //    for (auto i : explanation[h].omega) {
+  //
+  //#ifdef DBG_EXPLCE
+  //      std::cout << " * "
+  //                << solver.pretty(task[i].start.after(explanation_lb[h]))
+  //                << " and "
+  //                << solver.pretty(task[i].end.before(explanation_ub[h]))
+  //                << std::endl;
+  //#endif
+  //
+  //      Cl.push_back(task[i].start.after(explanation[h].lb_omega));
+  //      Cl.push_back(task[i].end.before(explanation[h].ub_omega));
+  //    }
+  //
+  //#ifdef DBG_EXPLCE
+  //    std::cout << " AND "
+  //              << solver.pretty(
+  //                     task[explanation[h].i].end.after(explanation[h].lb_i))
+  //              << std::endl;
+  //#endif
+  //
+  //    Cl.push_back(task[explanation[h].i].start.after(explanation[h].lb_i));
+  //  }
+  //
+  //  //      Cl.push_back(geq<T>(l.variable(), explanation_lb[h]));
 }
 
 template <typename T>
