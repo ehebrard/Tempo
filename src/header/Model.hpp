@@ -1986,6 +1986,19 @@ concept resource_expression = tempo::concepts::ttyped_range<E, tempo::Interval> 
     { expression.getDisjunctiveLiterals() } -> detail::literal_matrix;
 };
 
+namespace detail {
+    template<resource_expression R>
+    class timing_type_from_resource {
+        using LitT = std::remove_cvref_t<decltype(std::declval<R>().getDisjunctiveLiterals())>::value_type;
+    public:
+        using type = decltype(std::declval<LitT>().value());
+    };
+
+    template<resource_expression R>
+    using timing_type_from_resource_t = timing_type_from_resource<R>::type;
+
+}
+
 /**
  * @brief concept modelling a range of resource expressions
  * @tparam T range type
@@ -2001,9 +2014,7 @@ concept resource_range = std::ranges::range<T> and resource_expression<std::rang
  */
 template<resource_range Resources>
 auto booleanVarsFromResources(Resources &&resources) {
-    using LitT = std::remove_cvref_t<decltype(std::ranges::begin(
-            std::declval<Resources>())->getDisjunctiveLiterals())>::value_type;
-    using T = decltype(std::declval<LitT>().value());
+    using T = detail::timing_type_from_resource_t<std::ranges::range_value_t<Resources>>;
     using namespace std::views;
     std::vector<BooleanVar<T>> variables;
     for (const auto &resource: std::forward<Resources>(resources)) {

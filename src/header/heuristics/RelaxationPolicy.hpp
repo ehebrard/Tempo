@@ -39,6 +39,10 @@ template<resource_expression R>
 class RelaxRandomDisjunctiveResource {
 public:
     explicit RelaxRandomDisjunctiveResource(std::vector<R> resources) noexcept: resources(std::move(resources)) {}
+
+    template<resource_range RR>
+    explicit RelaxRandomDisjunctiveResource(const RR& resources): resources(resources.begin(), resources.end()) {}
+
     template<assumption_interface AI>
     void relax(AI &s) const;
     void notifyFailure(unsigned ) noexcept {}
@@ -68,6 +72,10 @@ template<resource_expression R>
 class FixRandomDisjunctiveResource {
 public:
     explicit FixRandomDisjunctiveResource(std::vector<R> resources) : resources(std::move(resources)) {}
+
+    template<resource_range RR>
+    explicit FixRandomDisjunctiveResource(const RR& resources): resources(resources.begin(), resources.end()) {}
+
     void notifyFailure(unsigned ) noexcept {}
     void notifySuccess(unsigned ) noexcept {}
 

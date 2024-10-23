@@ -33,7 +33,7 @@
 #include "util/Profiler.hpp"
 #include "helpers/shell.hpp"
 #include "helpers/git_sha.hpp"
-#include "heuristics/RelaxationPolicy.hpp"
+#include "heuristics/relaxation_policy_factories.hpp"
 
 using namespace tempo;
 
@@ -151,12 +151,18 @@ void printResources(const Solver<T>& S, const std::vector<Interval<T>>& interval
 
 // implementation of a scheduling solver
 int main(int argc, char *argv[]) {
+  namespace h = tempo::heuristics;
   auto parser = tempo::getBaseParser();
   bool profileHeuristic;
-  double lnsDecay;
+  h::RelaxationPolicyParams policyParams;
+  h::RelaxPolicy policyType;
   cli::detail::configureParser(parser, cli::SwitchSpec("heuristic-profiling", "activate heuristic profiling",
                                                        profileHeuristic, false),
-                               cli::ArgSpec("lns-decay", "relaxation ratio decay", false, lnsDecay, 0.5));
+                               cli::ArgSpec("relax-decay", "relaxation ratio decay",
+                                            false, policyParams.ratioDecay, 0.5),
+                               cli::ArgSpec("relax-ratio", "initial relaxation ratio",
+                                            false, policyParams.relaxRatio, 0.5),
+                               cli::ArgSpec("lns-policy", "lns relaxation policy", true, policyType));
     
     std::string ordering_file{""};
     parser.getCmdLine().add<TCLAP::ValueArg<std::string>>(ordering_file, "", "static-ordering", "use static ordering heuristic", false, "", "string");
@@ -291,13 +297,9 @@ int main(int argc, char *argv[]) {
   }
     
     if(not optimal) {
-
-                
         MinimizationObjective<int> objective(schedule.duration);
-//        RelaxRandomDisjunctiveResource<int> policy(S, resources);
-//                FixRandomDisjunctiveResource<int> policy(S, resources);
-
-        heuristics::RandomSubset<int> policy(booleanVarsFromResources(resources), .5, lnsDecay);
+        auto policy = h::make_relaxation_policy(policyType, resources, policyParams);
+        std::cout << "-- using relaxation policy " << policyType << std::endl;
         S.largeNeighborhoodSearch(objective, policy);
     }
 
