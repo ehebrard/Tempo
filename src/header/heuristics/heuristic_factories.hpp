@@ -87,8 +87,7 @@ namespace tempo::heuristics {
         }
     };
 
-    MAKE_T_FACTORY_PATTERN(VariableHeuristic, template<concepts::scalar T>, Solver<T> &, Tightest, VSIDS,
-                           WeightedDegree, RandomVariableSelection)
+    MAKE_FACTORY_PATTERN(VariableHeuristic, Tightest, VSIDS, WeightedDegree, RandomVariableSelection)
 
 
     /// --- Value Heuristics ---
@@ -112,7 +111,7 @@ namespace tempo::heuristics {
         }
     };
 
-    MAKE_FACTORY_PATTERN(ValueHeuristic, const Options&, TightestValue, RandomBinaryValue, TightestSolutionGuided)
+    MAKE_FACTORY_PATTERN(ValueHeuristic, TightestValue, RandomBinaryValue, TightestSolutionGuided)
 
 
     /// --- Use these factory methods ---
