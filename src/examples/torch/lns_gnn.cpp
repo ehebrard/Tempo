@@ -16,35 +16,11 @@
 #include "nn/GNNBackbonePredictor.hpp"
 #include "util/Profiler.hpp"
 #include "heuristics/DRPolicy.hpp"
-#include "util/enum.hpp"
+#include "heuristics/relaxation_policy_factories.hpp"
 
 namespace h = tempo::heuristics;
 
-PENUM(DestroyType, RandomSubset, RandomResource)
-
-struct DestroyParameters {
-    double destroyRatio;
-};
-
-using RelaxationPolicy = h::VariantPolicy<h::RandomSubset<Time>,
-        h::FixRandomDisjunctiveResource<ResourceConstraint>>;
-
-auto create(DestroyType type, const Problem &problem,
-            const DestroyParameters &params) -> h::GenericDestroyPolicy<Time, RelaxationPolicy> {
-    switch (type) {
-        case DestroyType::RandomSubset: {
-            using namespace std::views;
-            return h::RandomSubset(tempo::booleanVarsFromResources(problem.constraints), params.destroyRatio, 1);
-        }
-
-        case DestroyType::RandomResource:
-            return h::FixRandomDisjunctiveResource(problem.constraints);
-
-        default:
-            throw std::runtime_error("unknown destroy policy");
-
-    }
-}
+using RP = h::RelaxationPolicy<Time, ResourceConstraint>;
 
 
 int main(int argc, char **argv) {
@@ -52,8 +28,8 @@ int main(int argc, char **argv) {
     std::string gnnLocation;
     std::string featureExtractorConf;
     nn::PolicyConfig config;
-    DestroyParameters destroyParameters;
-    DestroyType destroyType;
+    h::RelaxationPolicyParams destroyParameters{.relaxRatio = 0.9, .ratioDecay = 1};
+    h::RelaxPolicy destroyType;
     double sporadicIncrement = 0.001;
     unsigned numThreads = std::max(1u, std::thread::hardware_concurrency() / 2);
     auto opt = cli::parseOptions(argc, argv,
@@ -70,7 +46,7 @@ int main(int argc, char **argv) {
                                               "fix rate lower threshold at which a new region should be chosen",
                                               false, config.exhaustionThreshold),
                                  cli::ArgSpec("destroy-ratio", "percentage of literals to relax", false,
-                                              destroyParameters.destroyRatio, 0.9),
+                                              destroyParameters.relaxRatio),
                                  cli::ArgSpec("sporadic-increment", "probability increment on fail for root search",
                                               false, sporadicIncrement),
                                  cli::ArgSpec("fix-ratio", "percentage of literals to relax", false,
@@ -93,7 +69,8 @@ int main(int argc, char **argv) {
     nn::GNNBackbonePredictor gnnRepair(*problemInfo.solver, gnnLocation, featureExtractorConf, problemInfo.instance,
                                        config);
 
-    auto destroy = create(destroyType, problemInfo, destroyParameters);
+    h::GenericDestroyPolicy<Time, RP> destroy(
+            h::make_relaxation_policy(destroyType, problemInfo.constraints, destroyParameters));
     std::cout << "-- using destroy policy " << destroyType << std::endl;
     auto policy = heuristics::make_sporadic_root_search(sporadicIncrement,
                                                         heuristics::make_RD_policy(destroy, gnnRepair), opt.verbosity);

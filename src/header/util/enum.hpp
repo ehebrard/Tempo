@@ -69,5 +69,9 @@ inline constexpr std::array __##NAME##_converter__{enum_detail::split<__##NAME##
 inline std::ostream &operator<<(std::ostream &os, NAME e) {                                                     \
     os << __##NAME##_converter__.at(to_underlying(e));                                                          \
     return os;                                                                                                  \
+}                                                                                                               \
+inline auto to_string(NAME e) {                                                                                 \
+    return std::string(__##NAME##_converter__.at(to_underlying(e)));                                            \
 }
+
 #endif //TEMPO_ENUM_HPP
