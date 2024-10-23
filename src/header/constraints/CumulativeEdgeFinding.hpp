@@ -167,8 +167,8 @@ public:
       void propagate() override;
     
     void forwardDetection();
-    void addPrime(const int i);
-    void rmPrime(const int i);
+    void addPrime(const int i, const int j);
+    void rmPrime(const int i, const int j);
     
   //    void computeBound(const int i);
 
@@ -542,11 +542,31 @@ template <typename T> void CumulativeEdgeFinding<T>::propagate() {
 
 }
 
-template <typename T> void CumulativeEdgeFinding<T>::addPrime(const int i) {
+template <typename T> void CumulativeEdgeFinding<T>::addPrime(const int i, const int j) {
+    profile[est_shared[i]].increment += mindemand(i);
+    profile[est_shared[i]].incrementMax += mindemand(i);
     
+    if(ect(i) < lct(j)) {
+        profile[ect_shared[i]].increment -= mindemand(i);
+        profile[ect_shared[i]].incrementMax -= mindemand(i);
+    } else {
+        profile[lct_shared[j]].increment -= mindemand(i);
+        profile[lct_shared[j]].incrementMax -= mindemand(i);
+    }
 }
 
-template <typename T> void CumulativeEdgeFinding<T>::rmPrime(const int i);
+template <typename T> void CumulativeEdgeFinding<T>::rmPrime(const int i, const int j) {
+    profile[est_shared[i]].increment -= mindemand(i);
+    profile[est_shared[i]].incrementMax -= mindemand(i);
+    
+    if(ect(i) < lct(j)) {
+        profile[ect_shared[i]].increment += mindemand(i);
+        profile[ect_shared[i]].incrementMax += mindemand(i);
+    } else {
+        profile[lct_shared[j]].increment += mindemand(i);
+        profile[lct_shared[j]].incrementMax += mindemand(i);
+    }
+}
 
 template <typename T> void CumulativeEdgeFinding<T>::forwardDetection() {
     
@@ -597,8 +617,10 @@ template <typename T> void CumulativeEdgeFinding<T>::forwardDetection() {
             }
 #endif
             
-            addPrime(i);
+            addPrime(i, j);
             
+            
+            rmPrime(i, j);
             
             i = lct_order[--k];
         }
