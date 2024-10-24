@@ -25,6 +25,7 @@
 #include <ranges>
 #include <variant>
 #include <filesystem>
+#include <limits>
 
 #include "Global.hpp"
 #include "Model.hpp"
@@ -192,7 +193,72 @@ namespace detail {
             return vars;
         }
     };
+
+    struct RNG {
+        using result_type = decltype(random());
+
+        static constexpr auto min() { return std::numeric_limits<result_type>::min(); }
+        static constexpr auto max() { return std::numeric_limits<result_type>::max(); }
+        auto operator()() const noexcept { return random(); }
+    };
 }
+
+/**
+ * @brief Relaxation policy that relaxes a number of tasks
+ * @tparam T timing type
+ */
+template<concepts::scalar T>
+class RelaxTasks {
+    std::vector<Interval<T>> tasks;
+    detail::TaskVarMap<T> map;
+    double fixRatio;
+    double ratioDecay;
+public:
+    /**
+     * Ctor
+     * @tparam RR resource range type
+     * @param tasks vector of all tasks to consider
+     * @param resources resource expressions in the problem
+     * @param relaxRatio initial percentage of tasks to relax
+     * @param ratioDecay decay value applied to the relaxRatio on a fail (increases the number of relaxed tasks)
+     */
+    template<resource_range RR>
+    RelaxTasks(std::vector<Interval<T>> tasks, const RR &resources, double relaxRatio, double ratioDecay):
+            tasks(std::move(tasks)), map(this->tasks, resources), fixRatio(1 - relaxRatio), ratioDecay(ratioDecay) {
+        if (relaxRatio < 0 or relaxRatio > 1) {
+            throw std::runtime_error("invalid relaxation ratio");
+        }
+
+        if (ratioDecay < 0) {
+            throw std::runtime_error("invalid ratio decay");
+        }
+    }
+
+    void notifyFailure(unsigned ) noexcept {
+        fixRatio *= ratioDecay;
+    }
+
+    void notifySuccess(unsigned ) noexcept {}
+
+    template<assumption_interface AI>
+    void relax(AI &proxy) {
+        using namespace std::views;
+        const auto numFix = static_cast<std::size_t>(fixRatio * tasks.size());
+        if (numFix == 0) {
+            return;
+        }
+
+        std::ranges::shuffle(tasks, detail::RNG{});
+        auto vars = map.getTaskLiterals(counted(tasks.begin(), numFix));
+        if (proxy.getSolver().getOptions().verbosity >= Options::YACKING) {
+            std::cout << "-- fixing " << numFix << " / " << tasks.size()
+                      << " tasks (" << vars.size() << ") variables" << std::endl;
+        }
+
+        proxy.makeAssumptions(
+                vars | transform([&b = proxy.getSolver().boolean](const auto &var) { return var == b.value(var); }));
+    }
+};
 
 /**
  * @brief Relaxation policy wrapper that randomly triggers a search without relaxation
