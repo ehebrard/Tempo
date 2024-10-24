@@ -512,8 +512,6 @@ template <typename T> void CumulativeEdgeFinding<T>::growLeftCutToTime(const T t
 
 template <typename T> void CumulativeEdgeFinding<T>::propagate() {
 
-//    in_conflict.clear();
-
 std::sort(lct_order.begin(), lct_order.end(),
           [this](const int i, const int j) { return lct(i) < lct(j); });
 
@@ -531,6 +529,8 @@ initialiseProfile();
 forwardDetection();
 
 forwardAdjustment();
+
+doPruning();
 }
 
 template <typename T> void CumulativeEdgeFinding<T>::addPrime(const int i, const int j) {
@@ -784,30 +784,22 @@ template <typename T> void CumulativeEdgeFinding<T>::forwardAdjustment() {
 
     // available
     auto available{data[lct_shared[j]].available - data[t1].available};
-    auto t2{lct_shared[j]};
-    auto t3{ect_shared[i]};
+    auto t2{ect_shared[j]};
+    auto t3{lct_shared[i]};
 
     T maxoverflow;
     if (ect(i) < lct(j)) {
       if (available < minenergy(i)) {
-        maxoverflow = data[t3].overlap + data[t3].slackUnder -
-                      data[t1].overlap - data[t1].slackUnder;
+        maxoverflow = data[t3].overlap - data[t3].slackUnder -
+                      data[t1].overlap + data[t1].slackUnder;
       } else {
-        maxoverflow = data[t2].overlap + data[t3].slackUnder -
-                      data[t1].overlap - data[t1].slackUnder;
+        maxoverflow = data[t2].overlap - data[t3].slackUnder -
+                      data[t1].overlap + data[t1].slackUnder;
       }
     } else {
-      maxoverflow = data[t2].overlap + data[t2].slackUnder - data[t1].overlap -
+      maxoverflow = data[t2].overlap - data[t2].slackUnder - data[t1].overlap +
                     data[t1].slackUnder;
     }
-    //
-    //
-    //        auto t2{(ect(i) < lct(j) and available < minenergy(i) ?
-    //        lct_shared[j] : ect_shared[i])};
-    //
-    //        auto overlap{data[t2].overlap - data[t1].overlap};
-    //        auto slackUnder{data[t2].slackUnder - data[t1].slackUnder};
-    //        auto maxoverflow{overlap - slackUnder};
 
     T adjustment{-Constant::Infinity<T>};
     if (maxoverflow > 0) {
@@ -831,7 +823,10 @@ template <typename T> void CumulativeEdgeFinding<T>::forwardAdjustment() {
     computeForwardExplanation(i);
     pruning.push_back(task[i].start.after(adjustment));
 
-    std::cout << " *** adjustment: " << pruning.back() << std::endl;
+    std::cout << " *** adjustment: " << pruning.back() << " because";
+    for (auto l : explanation[num_explanations - 1])
+      std::cout << " " << l;
+    std::cout << std::endl;
   }
 }
 
