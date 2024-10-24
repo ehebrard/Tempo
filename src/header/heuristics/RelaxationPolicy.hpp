@@ -261,6 +261,73 @@ public:
 };
 
 /**
+ * @brief Relaxation policy that chronologically relaxes slices of the best known schedule.
+ * @details @copybrief
+ * On a fail, the policy tries to relax the next slice in the schedule.
+ * @tparam T timing type
+ * @note using this policy as is makes the LNS incomplete. Use it together with other policies (e.g. SporadicRootSearch)
+ */
+template<concepts::scalar T>
+class RelaxChronologically {
+    std::vector<Interval<T>> tasks;
+    detail::TaskVarMap<T> map;
+    unsigned numberOfSlices;
+    unsigned sliceWidth;
+    unsigned sliceIdx = 0;
+
+public:
+
+    /**
+     * Ctor
+     * @tparam RR resource range type
+     * @param tasks vector of all tasks to consider
+     * @param resources resource expressions in the problem
+     * @param numberOfSlices number of slices to split the schedule
+     */
+    template<resource_range RR>
+    RelaxChronologically(std::vector<Interval<T>> tasks, const RR &resources, unsigned numberOfSlices):
+            tasks(std::move(tasks)), map(this->tasks, resources),
+            numberOfSlices(std::max(numberOfSlices, static_cast<unsigned>(tasks.size()))),
+            sliceWidth(ceil_division(this->tasks.size(), static_cast<std::size_t>(this->numberOfSlices))) {
+        if (numberOfSlices == 0) {
+            throw std::runtime_error("number of slices cannot be 0");
+        }
+    }
+
+    void notifyFailure(unsigned ) {
+        sliceIdx = (sliceIdx + 1) % numberOfSlices;
+    }
+
+    void notifySuccess(unsigned ) {
+        sliceIdx = 0;
+    }
+
+    template<assumption_interface AI>
+    void relax(AI &proxy) {
+        if (proxy.getSolver().getOptions().verbosity >= Options::YACKING) {
+            std::cout << "-- relaxing slice " << sliceIdx << " of last schedule (~" << sliceWidth << " / "
+                      << tasks.size() << " tasks)" << std::endl;
+        }
+
+        std::ranges::sort(tasks, {}, [&s = proxy.getSolver()](const auto &t) { return t.getLatestStart(s); });
+        for (std::size_t idx = 0; idx < numberOfSlices; ++idx) {
+            if (idx == sliceIdx) {
+                continue;
+            }
+
+            std::ranges::subrange tRange(tasks.cbegin() + idx * sliceWidth,
+                                         tasks.cbegin() + std::min((idx + 1) * sliceWidth, tasks.size()));
+            auto vars = map.getTaskLiterals(tRange);
+            bool success = proxy.makeAssumptions(vars | std::views::transform(
+                    [&b = proxy.getSolver().boolean](const auto &var) { return var == b.value(var); }));
+            if (not success) {
+                return;
+            }
+        }
+    }
+};
+
+/**
  * @brief Relaxation policy wrapper that randomly triggers a search without relaxation
  * @details @copybrief
  * The root search is triggered with a probability that increases on failed relaxation runs
