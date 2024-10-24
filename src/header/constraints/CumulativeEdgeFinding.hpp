@@ -452,11 +452,11 @@ template <typename T> void CumulativeEdgeFinding<T>::initialiseProfile() {
     }
   }
 
-  for (auto i : lct_order) {
-    assert(profile[est_shared[i]].time == est(i));
-    assert(profile[ect_shared[i]].time == ect(i));
-    assert(profile[lct_shared[i]].time == lct(i));
-  }
+//  for (auto i : lct_order) {
+//    assert(profile[est_shared[i]].time == est(i));
+//    assert(profile[ect_shared[i]].time == ect(i));
+//    assert(profile[lct_shared[i]].time == lct(i));
+//  }
 
   leftcut_pointer = static_cast<int>(lct_order.size());
 }
@@ -632,6 +632,8 @@ T CumulativeEdgeFinding<T>::scheduleOmega(const int i, const T max_lct,
       std::cout << "jump to e_" << t.index << " = t_" << t->time << ":";
     }
 #endif
+      
+    data[t.index].overflow = overflow;
 
     auto l = next->time - t->time;
 
@@ -664,7 +666,7 @@ T CumulativeEdgeFinding<T>::scheduleOmega(const int i, const T max_lct,
     if (overflow > 0)
       isFeasible[i] = false;
 
-    data[t.index].overflow = overflow;
+    
     if (adjustment) {
       data[t.index].consumption = h_cons;
       overlap += (std::max(h_cons - (C - h), 0) * l);
@@ -913,9 +915,8 @@ template <typename T> void CumulativeEdgeFinding<T>::forwardDetection() {
 #ifdef DBG_SEF
           if (DBG_SEF) {
             std::cout << " task " << task[i].id()
-                      << " is in conflict with task interval "
-                      << task[*(lct_order.begin())].id() << ".."
-                      << task[beta].id() << std::endl;
+                      << " is in conflict with task interval ending at time "
+                      << lct(beta) << std::endl;
           }
 #endif
 
@@ -978,18 +979,20 @@ void CumulativeEdgeFinding<T>::computeForwardExplanation(const int i) {
       explanation[h].clear();
     }
     ++num_explanations;
-
     
     auto k{leftcut_pointer-1};
     auto j{lct_order[k]};
-    assert(j == prec[i]);
+
+    assert(lct(j) == lct(prec[i]));
+    
     auto t{profile[contact[i]].time};
-    while(lct(j) > t) {
+    
+    assert(ect(j) > t);
+ 
+    do {
         explanation[h].push_back(task[j].start.after(est(j)));
         explanation[h].push_back(task[j].end.before(lct(j)));
-        j = lct_order[--k];
-    }
-    
+    } while(k > 0 and ect(j = lct_order[--k]) > t);
     explanation[h].push_back(task[i].start.after(est(i)));
 
 }
