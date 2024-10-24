@@ -28,7 +28,7 @@ int main(int argc, char **argv) {
     std::string gnnLocation;
     std::string featureExtractorConf;
     nn::PolicyConfig config;
-    h::RelaxationPolicyParams destroyParameters{.relaxRatio = 0.9, .ratioDecay = 1};
+    h::RelaxationPolicyParams destroyParameters{.relaxRatio = 0.9, .ratioDecay = 1, .numScheduleSlices = 4};
     h::RelaxPolicy destroyType;
     double sporadicIncrement = 0.001;
     unsigned numThreads = std::max(1u, std::thread::hardware_concurrency() / 2);
@@ -47,6 +47,10 @@ int main(int argc, char **argv) {
                                               false, config.exhaustionThreshold),
                                  cli::ArgSpec("destroy-ratio", "percentage of literals to relax", false,
                                               destroyParameters.relaxRatio),
+                                 cli::ArgSpec("destroy-decay", "decay applied to the fix ratio (inverse destroy ratio)", false,
+                                              destroyParameters.ratioDecay),
+                                 cli::ArgSpec("num-slices", "number of schedule slices", false,
+                                              destroyParameters.numScheduleSlices),
                                  cli::ArgSpec("sporadic-increment", "probability increment on fail for root search",
                                               false, sporadicIncrement),
                                  cli::ArgSpec("fix-ratio", "percentage of literals to relax", false,
@@ -70,7 +74,8 @@ int main(int argc, char **argv) {
                                        config);
 
     h::GenericDestroyPolicy<Time, RP> destroy(
-            h::make_relaxation_policy(destroyType, problemInfo.constraints, destroyParameters));
+            h::make_relaxation_policy(destroyType, problemInfo.instance.tasks(), problemInfo.constraints,
+                                      destroyParameters));
     std::cout << "-- using destroy policy " << destroyType << std::endl;
     auto policy = heuristics::make_sporadic_root_search(sporadicIncrement,
                                                         heuristics::make_RD_policy(destroy, gnnRepair), opt.verbosity);

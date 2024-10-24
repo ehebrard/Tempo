@@ -13,6 +13,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <Iterators.hpp>
 #include <nlohmann/json.hpp>
 
 #include "util/traits.hpp"
@@ -25,6 +26,93 @@ namespace tempo {
     enum class Layout {
         RowMajor, ColMajor
     };
+
+    namespace detail {
+        template<typename Iterator>
+        class StrideIterator : public iterators::impl::SynthesizedOperators<StrideIterator<Iterator>> {
+            Iterator it;
+            Iterator::difference_type stride;
+        public:
+            using value_type = typename Iterator::value_type;
+            using reference = typename Iterator::reference;
+            using pointer = typename Iterator::pointer;
+            using difference_type = typename Iterator::difference_type;
+            using iterator_category = typename Iterator::iterator_category;
+            using iterator_concept = typename Iterator::iterator_concept;
+            using iterator_type = typename Iterator::iterator_type;
+            using iterators::impl::SynthesizedOperators<StrideIterator>::operator++;
+            using iterators::impl::SynthesizedOperators<StrideIterator>::operator--;
+
+            constexpr StrideIterator() noexcept = default;
+
+            constexpr StrideIterator(Iterator it, difference_type stride) noexcept: it(it), stride(stride) {}
+
+            template<typename I>
+            constexpr StrideIterator(const StrideIterator<I> &other) noexcept :
+                    it(other.getIterator()), stride(other.getStride()) {}
+
+            Iterator getIterator() const noexcept {
+                return it;
+            }
+
+            auto getStride() const noexcept {
+                return stride;
+            }
+
+            constexpr StrideIterator &operator++() noexcept {
+                it += stride;
+                return *this;
+            }
+
+            constexpr StrideIterator &operator--() noexcept {
+                it -= stride;
+                return *this;
+            }
+
+            constexpr StrideIterator &operator+=(difference_type n) noexcept {
+                it += stride * n;
+                return *this;
+            }
+
+            constexpr StrideIterator &operator-=(difference_type n) noexcept {
+                it -= stride * n;
+                return *this;
+            }
+
+            constexpr difference_type operator-(const StrideIterator &other) const noexcept {
+                return static_cast<difference_type>((it - other.it) / other.stride);
+            }
+
+            constexpr bool operator==(const StrideIterator &other) const noexcept {
+                return it == other.it;
+            }
+
+            constexpr reference operator*() const noexcept {
+                return *it;
+            }
+
+            constexpr reference operator*() noexcept {
+                return *it;
+            }
+
+            constexpr auto operator->() const noexcept {
+                return it.operator->();
+            }
+
+            constexpr auto operator->() noexcept {
+                return it.operator->();
+            }
+
+            constexpr bool operator<(const StrideIterator &other) const noexcept {
+                return it < other.it;
+            }
+
+            constexpr bool operator>(const StrideIterator &other) const noexcept {
+                return it > other.it;
+            }
+        };
+    }
+
 
     /**
      * @brief Very simple implementation of a matrix using a single vector
@@ -52,6 +140,20 @@ namespace tempo {
             });
 
             return max + 2;
+        }
+
+        constexpr auto rowIterators(std::size_t r) noexcept {
+            std::ptrdiff_t stride = layout == Layout::RowMajor ? 1 : nRows;
+            detail::StrideIterator begin(data.begin() + index(r, 0), stride);
+            detail::StrideIterator end(data.begin() + index(r, nCols), stride);
+            return std::make_pair(begin, end);
+        }
+
+        constexpr auto colIterators(std::size_t c) noexcept {
+            std::ptrdiff_t stride = layout == Layout::RowMajor ? nCols : 1;
+            detail::StrideIterator begin(data.begin() + index(0, c), stride);
+            detail::StrideIterator end(data.begin() + index(nRows, c), stride);
+            return std::make_pair(begin, end);
         }
 
         std::vector<T> data;
@@ -341,6 +443,102 @@ namespace tempo {
             }
 
             return true;
+        }
+
+        /**
+         * Row view of the matrix without bounds checking
+         * @param r row index
+         * @return row view of the specified row
+         */
+        constexpr auto row_unsafe(std::size_t r) noexcept {
+            auto [begin, end] = rowIterators(r);
+            return std::ranges::subrange(begin, end);
+        }
+
+        /**
+         * @copydoc row_unsafe()
+         */
+        constexpr auto row_unsafe(std::size_t r) const noexcept {
+            using It = detail::StrideIterator<typename std::vector<T>::const_iterator>;
+            auto [begin, end] = const_cast<Matrix*>(this)->rowIterators(r);
+            return std::ranges::subrange(It(begin), It(end));
+        }
+
+        /**
+         * Column view of the matrix without bounds checking
+         * @param c column index
+         * @return column view of the specified column
+         */
+        constexpr auto column_unsafe(std::size_t c) noexcept {
+            auto [begin, end] = colIterators(c);
+            return std::ranges::subrange(begin, end);
+        }
+
+        /**
+         * @copydoc column_unsafe()
+         */
+        constexpr auto column_unsafe(std::size_t c) const noexcept {
+            using It = detail::StrideIterator<typename std::vector<T>::const_iterator>;
+            auto [begin, end] = const_cast<Matrix*>(this)->colIterators(c);
+            return std::ranges::subrange(It(begin), It(end));
+        }
+
+        /**
+         * Row view of the matrix
+         * @param r row index
+         * @return row view of the specified row
+         * @throws std::out_of_range if row index is out of bounds
+         */
+        constexpr auto row(std::size_t r) {
+            if (r >= nRows) {
+                throw std::out_of_range(std::string(
+                        "access row " + std::to_string(r) +
+                        " but matrix has dimensions (" + std::to_string(nRows) + ", " + std::to_string(nCols) + ")"));
+            }
+
+            return row_unsafe(r);
+        }
+
+        /**
+         * @copydoc row()
+         */
+        constexpr auto row(std::size_t r) const {
+            if (r >= nRows) {
+                throw std::out_of_range(std::string(
+                        "access row " + std::to_string(r) +
+                        " but matrix has dimensions (" + std::to_string(nRows) + ", " + std::to_string(nCols) + ")"));
+            }
+
+            return row_unsafe(r);
+        }
+
+        /**
+         * Column view of the matrix
+         * @param c column index
+         * @return column view of the specified column
+         * @throws std::out_of_range if column index is out of bounds
+         */
+        constexpr auto column(std::size_t c) {
+            if (c >= nCols) {
+                throw std::out_of_range(std::string(
+                        "access col " + std::to_string(c) +
+                        " but matrix has dimensions (" + std::to_string(nRows) + ", " + std::to_string(nCols) + ")"));
+            }
+
+            return column_unsafe(c);
+        }
+
+        /**
+         * @copydoc column()
+         */
+        constexpr auto column(std::size_t c) const {
+            if (c >= nCols) {
+                throw std::out_of_range(std::string(
+                        "access col " + std::to_string(c) +
+                        " but matrix has dimensions (" + std::to_string(nRows) + ", " + std::to_string(nCols) + ")"));
+            }
+
+            return column_unsafe(c);
         }
     };
 }

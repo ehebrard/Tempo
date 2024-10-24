@@ -172,5 +172,9 @@ namespace tempo::testing {
 
     heuristics::LitProvider::LitProvider(Literal<int> lit, std::vector<int> upper, std::vector<int> lower) :
             boolean(lit), numeric(std::move(upper), std::move(lower)) {}
+
+    auto DummyResourceExpression::getDisjunctiveLiterals() const noexcept -> const Matrix<Literal<int>> & {
+        return literals;
+    }
 }
 

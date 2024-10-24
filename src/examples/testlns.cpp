@@ -162,6 +162,8 @@ int main(int argc, char *argv[]) {
                                             false, policyParams.ratioDecay, 0.5),
                                cli::ArgSpec("relax-ratio", "initial relaxation ratio",
                                             false, policyParams.relaxRatio, 0.5),
+                               cli::ArgSpec("relax-slices", "number of schedule slices",
+                                            false, policyParams.numScheduleSlices, 4),
                                cli::ArgSpec("lns-policy", "lns relaxation policy", true, policyType));
     
     std::string ordering_file{""};
@@ -298,7 +300,7 @@ int main(int argc, char *argv[]) {
     
     if(not optimal) {
         MinimizationObjective<int> objective(schedule.duration);
-        auto policy = h::make_relaxation_policy(policyType, resources, policyParams);
+        auto policy = h::make_relaxation_policy(policyType, intervals, resources, policyParams);
         std::cout << "-- using relaxation policy " << policyType << std::endl;
         S.largeNeighborhoodSearch(objective, policy);
     }

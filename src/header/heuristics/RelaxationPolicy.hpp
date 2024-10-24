@@ -25,10 +25,12 @@
 #include <ranges>
 #include <variant>
 #include <filesystem>
+#include <limits>
 
 #include "Global.hpp"
 #include "Model.hpp"
 #include "RelaxationInterface.hpp"
+#include "util/Options.hpp"
 #include "util/serialization.hpp"
 #include "util/factory_pattern.hpp"
 
@@ -137,6 +139,193 @@ void RandomSubset<T>::relax(AI &s) const {
   fixed.resize(n);
   s.makeAssumptions(fixed);
 }
+
+namespace detail {
+    template<concepts::scalar T>
+    class TaskVarMap {
+        std::size_t offset = 0;
+        std::vector<std::vector<BooleanVar<T>>> map{};
+    public:
+        template<concepts::typed_range<Interval<T>> Tasks, resource_range RR>
+        TaskVarMap(const Tasks &tasks, const RR &resources) {
+            using namespace std::views;
+            auto [minT, maxT] = std::ranges::minmax(tasks, {}, [](const auto &t) { return t.id(); });
+            offset = minT.id();
+            map.resize(maxT.id() - offset + 1);
+            for (const auto &t : tasks) {
+                auto &tVars = map[t.id() - offset];
+                for (const auto &r : resources) {
+                    auto res = std::ranges::find(r, t);
+                    if (res == std::ranges::end(r)) {
+                        continue;
+                    }
+
+                    const auto idx = std::ranges::distance(std::ranges::begin(r), res);
+                    auto vars = r.getDisjunctiveLiterals().row_unsafe(idx) |
+                                filter([](auto l) { return l != Contradiction<T>; }) |
+                                transform([](auto l) { return BooleanVar<T>(l); });
+
+                    std::ranges::copy(vars, std::back_inserter(tVars));
+                }
+
+                std::ranges::sort(tVars);
+                auto res = std::ranges::unique(tVars);
+                tVars.erase(res.begin(), res.end());
+                tVars.shrink_to_fit();
+            }
+        }
+
+        template<concepts::same_template<Interval> Task>
+        auto operator()(const Task &t) const noexcept -> const auto & {
+            return map[t.id() - offset];
+        }
+
+        template<concepts::typed_range<Interval<T>> Tasks>
+        auto getTaskLiterals(const Tasks &tasks) const -> std::vector<BooleanVar<T>> {
+            using namespace std::views;
+            auto varsView =
+                    tasks | transform([this](const auto &t) -> decltype(auto) { return (*this)(t); }) | join;
+            std::vector<BooleanVar<T>> vars;
+            std::ranges::copy(varsView, std::back_inserter(vars));
+            std::ranges::sort(vars);
+            auto res = std::ranges::unique(vars);
+            vars.erase(res.begin(), res.end());
+            return vars;
+        }
+    };
+
+    struct RNG {
+        using result_type = decltype(random());
+
+        static constexpr auto min() { return std::numeric_limits<result_type>::min(); }
+        static constexpr auto max() { return std::numeric_limits<result_type>::max(); }
+        auto operator()() const noexcept { return random(); }
+    };
+}
+
+/**
+ * @brief Relaxation policy that relaxes a number of tasks
+ * @tparam T timing type
+ */
+template<concepts::scalar T>
+class RelaxTasks {
+    std::vector<Interval<T>> tasks;
+    detail::TaskVarMap<T> map;
+    double fixRatio;
+    double ratioDecay;
+public:
+    /**
+     * Ctor
+     * @tparam RR resource range type
+     * @param tasks vector of all tasks to consider
+     * @param resources resource expressions in the problem
+     * @param relaxRatio initial percentage of tasks to relax
+     * @param ratioDecay decay value applied to the relaxRatio on a fail (increases the number of relaxed tasks)
+     */
+    template<resource_range RR>
+    RelaxTasks(std::vector<Interval<T>> tasks, const RR &resources, double relaxRatio, double ratioDecay):
+            tasks(std::move(tasks)), map(this->tasks, resources), fixRatio(1 - relaxRatio), ratioDecay(ratioDecay) {
+        if (relaxRatio < 0 or relaxRatio > 1) {
+            throw std::runtime_error("invalid relaxation ratio");
+        }
+
+        if (ratioDecay < 0) {
+            throw std::runtime_error("invalid ratio decay");
+        }
+    }
+
+    void notifyFailure(unsigned ) noexcept {
+        fixRatio *= ratioDecay;
+    }
+
+    void notifySuccess(unsigned ) noexcept {}
+
+    template<assumption_interface AI>
+    void relax(AI &proxy) {
+        using namespace std::views;
+        const auto numFix = static_cast<std::size_t>(fixRatio * tasks.size());
+        if (numFix == 0) {
+            return;
+        }
+
+        std::ranges::shuffle(tasks, detail::RNG{});
+        auto vars = map.getTaskLiterals(counted(tasks.begin(), numFix));
+        if (proxy.getSolver().getOptions().verbosity >= Options::YACKING) {
+            std::cout << "-- fixing " << numFix << " / " << tasks.size()
+                      << " tasks (" << vars.size() << ") variables" << std::endl;
+        }
+
+        proxy.makeAssumptions(
+                vars | transform([&b = proxy.getSolver().boolean](const auto &var) { return var == b.value(var); }));
+    }
+};
+
+/**
+ * @brief Relaxation policy that chronologically relaxes slices of the best known schedule.
+ * @details @copybrief
+ * On a fail, the policy tries to relax the next slice in the schedule.
+ * @tparam T timing type
+ * @note using this policy as is makes the LNS incomplete. Use it together with other policies (e.g. SporadicRootSearch)
+ */
+template<concepts::scalar T>
+class RelaxChronologically {
+    std::vector<Interval<T>> tasks;
+    detail::TaskVarMap<T> map;
+    unsigned numberOfSlices;
+    unsigned sliceWidth;
+    unsigned sliceIdx = 0;
+
+public:
+
+    /**
+     * Ctor
+     * @tparam RR resource range type
+     * @param tasks vector of all tasks to consider
+     * @param resources resource expressions in the problem
+     * @param numberOfSlices number of slices to split the schedule
+     */
+    template<resource_range RR>
+    RelaxChronologically(std::vector<Interval<T>> tasks, const RR &resources, unsigned numberOfSlices):
+            tasks(std::move(tasks)), map(this->tasks, resources),
+            numberOfSlices(std::max(numberOfSlices, static_cast<unsigned>(tasks.size()))),
+            sliceWidth(ceil_division(this->tasks.size(), static_cast<std::size_t>(this->numberOfSlices))) {
+        if (numberOfSlices == 0) {
+            throw std::runtime_error("number of slices cannot be 0");
+        }
+    }
+
+    void notifyFailure(unsigned ) {
+        sliceIdx = (sliceIdx + 1) % numberOfSlices;
+    }
+
+    void notifySuccess(unsigned ) {
+        sliceIdx = 0;
+    }
+
+    template<assumption_interface AI>
+    void relax(AI &proxy) {
+        if (proxy.getSolver().getOptions().verbosity >= Options::YACKING) {
+            std::cout << "-- relaxing slice " << sliceIdx << " of last schedule (~" << sliceWidth << " / "
+                      << tasks.size() << " tasks)" << std::endl;
+        }
+
+        std::ranges::sort(tasks, {}, [&s = proxy.getSolver()](const auto &t) { return t.getLatestStart(s); });
+        for (std::size_t idx = 0; idx < numberOfSlices; ++idx) {
+            if (idx == sliceIdx) {
+                continue;
+            }
+
+            std::ranges::subrange tRange(tasks.cbegin() + idx * sliceWidth,
+                                         tasks.cbegin() + std::min((idx + 1) * sliceWidth, tasks.size()));
+            auto vars = map.getTaskLiterals(tRange);
+            bool success = proxy.makeAssumptions(vars | std::views::transform(
+                    [&b = proxy.getSolver().boolean](const auto &var) { return var == b.value(var); }));
+            if (not success) {
+                return;
+            }
+        }
+    }
+};
 
 /**
  * @brief Relaxation policy wrapper that randomly triggers a search without relaxation
