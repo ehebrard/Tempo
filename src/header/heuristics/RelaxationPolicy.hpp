@@ -29,6 +29,7 @@
 #include "Global.hpp"
 #include "Model.hpp"
 #include "RelaxationInterface.hpp"
+#include "util/Options.hpp"
 #include "util/serialization.hpp"
 #include "util/factory_pattern.hpp"
 
@@ -136,6 +137,48 @@ void RandomSubset<T>::relax(AI &s) const {
 
   fixed.resize(n);
   s.makeAssumptions(fixed);
+}
+
+namespace detail {
+    template<concepts::scalar T>
+    class TaskVarMap {
+        std::size_t offset = 0;
+        std::vector<std::vector<BooleanVar<T>>> map{};
+    public:
+        template<concepts::typed_range<Interval<T>> Tasks, resource_range RR>
+        TaskVarMap(const Tasks &tasks, const RR &resources) {
+            using namespace std::views;
+            auto [minT, maxT] = std::ranges::minmax(tasks, {}, [](const auto &t) { return t.id(); });
+            offset = minT.id();
+            map.resize(maxT.id() - offset + 1);
+            for (const auto &t : tasks) {
+                auto &tVars = map[t.id() - offset];
+                for (const auto &r : resources) {
+                    auto res = std::ranges::find(r, t);
+                    if (res == std::ranges::end(r)) {
+                        continue;
+                    }
+
+                    const auto idx = std::ranges::distance(std::ranges::begin(r), res);
+                    auto vars = r.getDisjunctiveLiterals().row_unsafe(idx) |
+                                filter([](auto l) { return l != Contradiction<T>; }) |
+                                transform([](auto l) { return BooleanVar<T>(l); });
+
+                    std::ranges::copy(vars, std::back_inserter(tVars));
+                }
+
+                std::ranges::sort(tVars);
+                auto res = std::ranges::unique(tVars);
+                tVars.erase(res.begin(), res.end());
+                tVars.shrink_to_fit();
+            }
+        }
+
+        template<concepts::same_template<Interval> Task>
+        auto operator()(const Task &t) const noexcept -> const auto & {
+            return map[t.id() - offset];
+        }
+    };
 }
 
 /**

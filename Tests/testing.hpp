@@ -64,6 +64,15 @@ namespace tempo::testing {
         explicit DummyScheduler(Args &&...args): numeric(std::forward<Args>(args)...) {}
     };
 
+    struct DummyResourceExpression: std::vector<Interval<int>> {
+        template<concepts::typed_range<Interval<int>> T>
+        DummyResourceExpression(const T &tasks, Matrix<Literal<int>> literals): std::vector<Interval<int>>(
+                std::ranges::begin(tasks), std::ranges::end(tasks)), literals(std::move(literals)) {}
+
+        Matrix<Literal<int>> literals;
+        [[nodiscard]] auto getDisjunctiveLiterals() const noexcept -> const Matrix<Literal<int>> &;
+    };
+
 
     auto createTestProblem() -> std::pair<ProblemInstance, DummyScheduler>;
 
