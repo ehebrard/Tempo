@@ -2024,7 +2024,7 @@ auto booleanVarsFromResources(Resources &&resources) {
         auto resVars = resource.getDisjunctiveLiterals().rawData() |
                 filter([](auto lit) { return lit != Contradiction<T>; }) |
                 transform([](auto lit) { return tempo::BooleanVar<T>(lit); });
-        std::ranges::unique_copy(resVars, std::back_inserter(variables));
+        std::ranges::copy(resVars, std::back_inserter(variables));
     }
 
     std::ranges::sort(variables, {}, [](const auto &var) { return var.id(); });
