@@ -1,3 +1,23 @@
+/************************************************
+ * Tempo Restart.hpp
+ *
+ * Copyright 2024 Emmanuel Hebrard
+ *
+ * Tempo is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation, either version 3 of the License, or (at your
+ *  option) any later version.
+ *
+ * Tempo is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Tempo.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ ***********************************************/
+
 #ifndef TEMPO_RESTART
 #define TEMPO_RESTART
 
@@ -22,7 +42,7 @@ namespace tempo {
     virtual ~RestartPolicy() {}
 
     virtual void reset(unsigned int& limit) = 0;
-    virtual void initialize(unsigned int& limit) = 0;
+    virtual void initialize(unsigned int& limit, const unsigned int val) = 0;
     
   };
 
@@ -35,7 +55,7 @@ namespace tempo {
      virtual ~NoRestart() {}
     
     void reset(unsigned int& limit) override ;
-    void initialize(unsigned int& limit) override ;
+    void initialize(unsigned int& limit, const unsigned int val) override ;
     
   };
 
@@ -51,7 +71,7 @@ namespace tempo {
     virtual ~Geometric() {}
     
     void reset(unsigned int& limit) override ;
-    void initialize(unsigned int& limit) override ;
+    void initialize(unsigned int& limit, const unsigned int val) override ;
     
   };
 
@@ -73,7 +93,7 @@ namespace tempo {
     virtual ~Luby() {}
     
     void reset(unsigned int& limit) override ;
-    void initialize(unsigned int& limit) override ;
+    void initialize(unsigned int& limit, const unsigned int val) override ;
     
   };
 
@@ -82,21 +102,16 @@ template<typename S>
 class RestartManager {
   
 public:
-
-  
-    RestartManager(S& s) : caller(s) {
-        
-//        std::cout << caller.getOptions().restart_policy << std::endl;
-        
-        if (caller.getOptions().restart_policy == "luby") {
-          impl = new Luby(caller.getOptions().restart_base);
-        } else if (caller.getOptions().restart_policy == "geom") {
-          impl =
-              new Geometric(caller.getOptions().restart_base, caller.getOptions().restart_factor);
-        } else {
-          impl = new NoRestart();
-        }
+  RestartManager(S &s) : caller(s) {
+    if (caller.getOptions().restart_policy == "luby") {
+      impl = new Luby(caller.getOptions().restart_base);
+    } else if (caller.getOptions().restart_policy == "geom") {
+      impl = new Geometric(caller.getOptions().restart_base,
+                           caller.getOptions().restart_factor);
+    } else {
+      impl = new NoRestart();
     }
+  }
    ~RestartManager() {
        delete impl;
   }
@@ -106,20 +121,13 @@ public:
     }
     
     void initialize() {
-        impl->initialize(restart_limit);
-        restart_limit += caller.num_fails;
+        impl->initialize(restart_limit, caller.num_fails);
+//        restart_limit += caller.num_fails;
     }
-    
-    bool limit() {
-//        
-//        std::cout << caller.num_fails << " >? " << restart_limit << std::endl;
-        
-        return caller.num_fails > restart_limit;
-    }
-    
-    
 
-private:
+    bool limit() { return caller.num_fails > restart_limit; }
+
+  private:
     unsigned int restart_limit{static_cast<unsigned int>(-1)};
     RestartPolicy *impl;
     S& caller;

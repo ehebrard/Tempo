@@ -13,6 +13,10 @@
 #include <fstream>
 #include <Iterators.hpp>
 #include <optional>
+#include <vector>
+#include <sstream>
+
+#include "util/traits.hpp"
 
 #define DELIM ,
 
@@ -73,16 +77,54 @@ namespace tempo::serialization {
         nlohmann::to_json(j, instance);
     };
 
+    using Branch = std::vector<std::pair<var_t, bool>>;
+
+    /**
+     * @brief Represents a serializable solution of a scheduling problem
+     * @details @copybrief
+     * @tparam T timing type
+     */
+    template<concepts::scalar T>
+    struct Solution {
+        Solution() = default;
+
+        Solution(unsigned int id, T objective, Branch decisions) : id(id), objective(objective),
+                                                                   decisions(std::move(decisions)) {}
+
+        unsigned id;
+        T objective;
+        Branch decisions;
+    };
+
+    /**
+     * @brief Represents a serializable intermediate state or partial problem state of a scheduling problem.
+     * @details @copybrief
+     */
+    struct PartialProblem {
+        PartialProblem() = default;
+
+        PartialProblem(unsigned int associatedSolution, Branch decisions)
+                : associatedSolution(associatedSolution), decisions(std::move(decisions)) {}
+
+        unsigned associatedSolution;
+        Branch decisions;
+    };
+
+    DEFINE_SERIALIZATION(concepts::scalar T, Solution<T>, id, objective, decisions)
+    NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(PartialProblem, associatedSolution, decisions)
+
     /**
      * Converts a serializable object to json and writes it to the specified destination
      * @tparam S Type of object to be serialized
      * @param object Object to be serialized
      * @param destination Destination file
+     * @param fileMode optional file mode (default: open and seek to beginning)
      * @throws std::runtime_error if file could not be opened for writing
      */
     template<serializable S>
-    void serializeToFile(const S &object, const std::filesystem::path &destination) {
-        std::ofstream file(destination);
+    void serializeToFile(const S &object, const std::filesystem::path &destination,
+                         std::ios_base::openmode fileMode = std::ios_base::out) {
+        std::ofstream file(destination, fileMode);
         if (not file.is_open()) {
             std::stringstream ss;
             ss << "unable to open file '" << destination << "' for writing";

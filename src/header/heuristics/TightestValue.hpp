@@ -7,27 +7,18 @@
 #ifndef TEMPO_TIGHTESTVALUE_HPP
 #define TEMPO_TIGHTESTVALUE_HPP
 
-#include "BaseValueHeuristic.hpp"
+#include "BaseBooleanHeuristic.hpp"
 #include "Constant.hpp"
 #include "DistanceConstraint.hpp"
 #include "Global.hpp"
-#include "util/factory_pattern.hpp"
+#include "Literal.hpp"
 #include "util/traits.hpp"
+#include "util/distance.hpp"
 
-namespace tempo {
-template <typename T> class Scheduler;
-}
 
 namespace tempo::heuristics {
 
 namespace detail {
-template <typename Sched>
-concept distance_provider = requires(const Sched &s, lit l, event e) {
-  requires traits::is_same_template_v<DistanceConstraint,
-                                      decltype(s.getEdge(l))>;
-  { s.upper(e) } -> concepts::scalar;
-  { s.lower(e) } -> concepts::scalar;
-};
 }
 
 /**
@@ -35,55 +26,49 @@ concept distance_provider = requires(const Sched &s, lit l, event e) {
  * @details @copybrief
  * Chooses the polarity that would leave the most slack in the timing network
  */
-class TightestValue : public BaseValueHeuristic<TightestValue> {
+class TightestValue : public BaseBooleanHeuristic<TightestValue> {
 public:
   /**
    * Ctor
    * @param epsilon see tempo::heuristics::BaseValueHeuristic
    */
   explicit TightestValue(double epsilon)
-      : BaseValueHeuristic<TightestValue>(epsilon) {}
+      : BaseBooleanHeuristic<TightestValue>(epsilon) {}
 
   /**
    * heuristic interface
-   * @tparam Sched class that provides distances between events and a mapping
+   * @tparam Solver class that provides distances between events and a mapping
    * from literals to edges
    * @param cp choice point
-   * @param scheduler scheduler instance
+   * @param solver scheduler instance
    * @return either POS(cp) or NEG(cp)
    */
-  template <detail::distance_provider Sched>
-  static lit choose(var cp, const Sched &scheduler) {
-    using T = decltype(scheduler.lower(tempo::event(0)));
-    lit d = NoVar;
-    auto prec_a{scheduler.getEdge(POS(cp))};
-    auto prec_b{scheduler.getEdge(NEG(cp))};
-
-    T gap_a{0};
-    if (prec_a != Constant::NoEdge<T>) {
-      gap_a = scheduler.upper(prec_a.from) - scheduler.lower(prec_a.to);
+  template <edge_distance_provider Solver>
+  requires(boolean_info_provider<Solver>) static auto choose(
+      var_t x, const Solver &solver) {
+      
+      
+//      std::cout << solver.pretty(solver.boolean.getLiteral(true,x)) << " <> "
+//      << solver.pretty(solver.boolean.getLiteral(false,x)) << "\n";
+//      
+    // @TODO no gap info available -> what should I return?
+    if (not solver.boolean.hasSemantic(x)) {
+        return solver.boolean.getLiteral((tempo::random() % 2), x);
+//        return solver.boolean.getLiteral(false, x);
     }
 
-    T gap_b{0};
-    if (prec_b != Constant::NoEdge<T>) {
-      gap_b = scheduler.upper(prec_b.from) - scheduler.lower(prec_b.to);
-    }
-    d = (gap_a < gap_b ? NEG(cp) : POS(cp));
-
-//#ifdef DBG_TRACE
-//    if (DBG_BOUND and (DBG_TRACE & SEARCH)) {
-//      std::cout << scheduler << "\n-- new decision: " << prettyLiteral(EDGE(d))
-//                << std::endl;
-//    }
-//#endif
-
-    return d;
+    auto gapPos = boundEstimation(true, x, solver);
+    auto gapNeg = boundEstimation(false, x, solver);
+//    assert(gapPos.has_value() and gapNeg.has_value());
+      // case where only one side is an edge
+      if(not gapPos.has_value()) {
+          return solver.boolean.getLiteral(false, x);
+      } else if(not gapNeg.has_value()) {
+          return solver.boolean.getLiteral(true, x);
+      } else {
+          return solver.boolean.getLiteral(gapPos >= gapNeg, x);
+      }
   }
-};
-
-MAKE_FACTORY(TightestValue, const ValueHeuristicConfig &config) {
-  return TightestValue(config.epsilon);
-}
 };
 }
 

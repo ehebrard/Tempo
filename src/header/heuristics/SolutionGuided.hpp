@@ -9,56 +9,57 @@
 
 #include <vector>
 
-#include "BaseValueHeuristic.hpp"
-#include "TightestValue.hpp"
-#include "util/SubscribableEvent.hpp"
+#include "BaseBooleanHeuristic.hpp"
+#include "heuristics/heuristic_interface.hpp"
 
 namespace tempo::heuristics {
 
-namespace detail {
-template <typename Sched>
-concept solution_provider = requires(const Sched &s, var x) {
-  { s.hasSolution() } -> std::convertible_to<bool>;
-  { s.getSolution()[x] } -> std::convertible_to<bool>;
-};
-}
-
-/**
- * @brief Solution guided value selection heuristic.
- * @details @copybrief
- * Performs the first decent using tempo::heuristics::TightestValue. After that
- * follows the most recent solution
- */
-class SolutionGuided : public BaseValueHeuristic<SolutionGuided> {
-public:
-  /**
-   * Ctor.
-   * @param epsilon see tempo::heuristics::BaseValueHeuristic
-   */
-  explicit SolutionGuided(double epsilon)
-      : BaseValueHeuristic<SolutionGuided>(epsilon) {}
-
-  /**
-   * heuristic interface
-   * @tparam Sched class that provides previously encountered solutions
-   * @param cp choice point
-   * @param scheduler scheduler instance
-   * @return either POS(cp) or NEG(cp)
-   */
-  template <detail::solution_provider Sched>
-  [[nodiscard]] lit choose(var cp, const Sched &scheduler) const {
-    if (not scheduler.hasSolution()) {
-      return TightestValue::choose(cp, scheduler);
+    namespace detail {
+        template<typename Sched>
+        concept solution_provider = requires(const Sched &s, var_t x) {
+            { s.boolean.hasSolution() } -> std::convertible_to<bool>;
+            { s.boolean.bestSolution() } -> std::same_as<const std::vector<bool> &>;
+        };
     }
 
-    return scheduler.getSolution()[cp] ? POS(cp) : NEG(cp);
-  }
-};
+    /**
+     * @brief Solution guided value selection heuristic.
+     * @details @copybrief
+     * Performs the first decent using some base heuristic. After that follows the most recent solution
+     */
+    template<class BaseHeuristic>
+    class SolutionGuided : public BaseBooleanHeuristic<SolutionGuided<BaseHeuristic>> {
+        BaseHeuristic h;
+    public:
+        /**
+         * Ctor.
+         * @tparam Args
+         * @param epsilon see tempo::heuristics::BaseValueHeuristic
+         * @param args arguments to base heuristic
+         */
+        template<class... Args>
+        explicit SolutionGuided(double epsilon, Args &&...args): BaseBooleanHeuristic<SolutionGuided>(epsilon),
+                                                                 h(std::forward<Args>(args)...) {}
 
-MAKE_FACTORY(SolutionGuided, const ValueHeuristicConfig &config) {
-  return SolutionGuided(config.epsilon);
-}
-};
+        /**
+         * heuristic interface
+         * @tparam S class that provides previously encountered solutions
+         */
+        template<detail::solution_provider S>
+        requires(heuristics::value_heuristic<BaseHeuristic, S> and boolean_info_provider<S>)
+        [[nodiscard]] auto choose(var_t x, const S &solver) {
+            const auto &b = solver.boolean;
+            if (not b.hasSolution()) {
+                return h.valueDecision({x, VariableType::Boolean}, solver);
+            }
+
+            auto posLit = b.getLiteral(true, x);
+            auto negLit = b.getLiteral(false, x);
+            const auto &sol = b.bestSolution();
+            assert(sol[posLit] != sol[negLit]);
+            return sol[posLit] ? posLit : negLit;
+        }
+    };
 }
 
 #endif // TEMPO_SOLUTIONGUIDED_HPP

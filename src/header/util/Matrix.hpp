@@ -40,8 +40,10 @@ namespace tempo {
         [[nodiscard]] unsigned printLength() const noexcept {
             unsigned max = 0;
             for_each([&max](const auto &val) {
-                if constexpr (concepts::scalar<T>) {
-                    max = std::max(max, static_cast<unsigned>(std::log(std::abs(val) + 1) / std::log(10)) + (val < 0));
+                if constexpr (std::integral<T>) {
+                    auto decimals = static_cast<unsigned>(std::log(static_cast<float>(std::abs(val)) + 1)
+                            / std::log(10)) + (val < 0);
+                    max = std::max(max, decimals);
                 } else {
                     std::stringstream ss;
                     ss << val;
@@ -59,6 +61,7 @@ namespace tempo {
     public:
         using reference = typename std::vector<T>::reference;
         using const_reference = typename std::vector<T>::const_reference;
+        using value_type = typename std::vector<T>::value_type;
 
         /**
          * Default CTor. Constructs an empty Matrix
@@ -132,14 +135,68 @@ namespace tempo {
         }
 
         /**
+         * @tparam F matrix like type that supports function call operator
+         * @param nRows number of rows
+         * @param nCols  number of columns
+         * @param matrixLike functor object with init values
+         * @param initValue initial value (optional, if non is specified, default constructs elements)
+         * @param layout storage layout (default is row major)
+         */
+        template<concepts::callable_r<T, std::size_t, std::size_t> F>
+        constexpr Matrix(std::size_t nRows, std::size_t nCols, F &&matrixLike, Layout layout = Layout::RowMajor):
+                data(nRows * nCols), nRows(nRows), nCols(nCols), layout(layout) {
+            if (layout == Layout::RowMajor) {
+                for (std::size_t i = 0; i < numRows(); ++i) {
+                    for (std::size_t j = 0; j < numColumns(); ++j) {
+                        operator()(i, j) = std::forward<F>(matrixLike)(i, j);
+                    }
+                }
+            } else {
+                for (std::size_t j = 0; j < numColumns(); ++j) {
+                    for (std::size_t i = 0; i < numRows(); ++i) {
+                        operator()(i, j) = std::forward<F>(matrixLike)(i, j);
+                    }
+                }
+            }
+        }
+
+        /**
          * Resize the matrix. Does not change the stored items. Depending on the new size, old items might be lost
          * @param numRows new number of rows
          * @param numCols new number of columns
+         * @param value value to insert in case of insertion
          */
-        constexpr void resize(std::size_t numRows, std::size_t numCols) {
-            data.resize(numRows * numCols);
+        constexpr void resize(std::size_t numRows, std::size_t numCols, const T& value = T{}) {
+            data.resize(numRows * numCols, value);
             nRows = numRows;
             nCols = numCols;
+        }
+
+        /**
+         * Fill the matrix with the given value
+         * @param value value to insert at every position
+         */
+        constexpr void fill(const T &value) {
+            for_each([&value](auto &val) { val = value; });
+        }
+
+        /**
+         * Set the size of the matrix and insert the given value at every position
+         * @param numRows number of rows
+         * @param numCols number of columns
+         * @param value value to insert at every position
+         * @note in contrast to resize this method overwrites existing elements
+         */
+        constexpr void fill(std::size_t numRows, std::size_t numCols, const T &value) {
+            std::size_t newSize = numRows * numCols;
+            nRows = numRows;
+            nCols = numCols;
+            if (newSize > data.size()) {
+                data = std::vector<T>(newSize, value);
+            } else {
+                data.resize(newSize);
+                fill(value);
+            }
         }
 
         /**
@@ -251,13 +308,7 @@ namespace tempo {
 
         template<typename U = T> requires(concepts::printable<U>)
         friend std::ostream &operator<<(std::ostream &os, const Matrix &matrix) {
-            auto printLen = 0;
-            if constexpr (std::floating_point<U>) {
-                printLen = 4;
-            } else {
-                printLen = matrix.printLength();
-            }
-
+            auto printLen = matrix.printLength();
             os << std::setprecision(2);
             for (std::size_t i = 0; i < matrix.numRows(); ++i) {
                 for (std::size_t j = 0; j < matrix.numColumns(); ++j) {

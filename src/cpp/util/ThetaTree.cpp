@@ -7,6 +7,12 @@
 
 #include "util/ThetaTree.hpp"
 
+//string pretty(const int x) {
+//    std::stringstream ss;
+//    if(x == Constant)
+//}
+
+
 std::ostream &tempo::operator<<(std::ostream &os, const tempo::ThetaTree &x) {
   return x.display(os);
 }
@@ -66,7 +72,6 @@ void ThetaTree::update(int i) {
     i = parent(i);
     int l = leftChild(i);
     int r = rightChild(i);
-    //    node[i].earliest_start = node[l].earliest_start;
     node[i].duration = node[l].duration + node[r].duration;
     node[i].bound = node[r].bound;
     if (node[i].bound < node[l].bound + node[r].duration) {

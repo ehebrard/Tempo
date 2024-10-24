@@ -14,8 +14,9 @@
 #include <nlohmann/json.hpp>
 
 #include "util/traits.hpp"
+#include "util/distance.hpp"
 #include "util/serialization.hpp"
-#include "util/task_timings.hpp"
+#include "util/SchedulingProblemHelper.hpp"
 #include "tensor_utils.hpp"
 #include "torch_types.hpp"
 #include "util/factory_pattern.hpp"
@@ -25,40 +26,38 @@
  */
 namespace tempo::nn {
     /**
-     * @brief Requirement for a type that can be used as resource or task feature extractor
-     * @details @copybrief
-     * Requires a call operator that takes a graph topology and an event network and returns a tensor containing all
-     * features
-     * @tparam Extractor
-     */
-    template<typename Extractor, typename EvtFun>
-    concept feature_extractor = concepts::callable_r<Extractor, torch::Tensor, const Topology, const EvtFun>
-            and concepts::arbitrary_event_dist_fun<EvtFun>;
-
-    /**
      * @brief Extracts features from timing information of tasks.
      * @details @copybrief
      * These are the normalized shortest and longest execution time as well as the normalized minimal offset from
      * the origin and horizon.
      */
     struct TaskTimingFeatureExtractor {
+        static constexpr auto LegacyKey = "legacy";
+        bool legacyFeatures = false;
+
         /**
          * Returns a tensor containing timing features for all tasks.
+         * @tparam DistFun type of distance function
+         * @tparam S Solver type that has a member that provides upper and lower bounds
+         * @tparam T timing type
+         * @tparam R scheduling resource type
          * @param topology Graph topology for which to extract the features
-         * @param eventDistances current event network from which the features are generated
+         * @param state current state of the solver
+         * @param problem scheduling problem description
          * @return torch::Tensor containing task features
          */
-        template<concepts::arbitrary_event_dist_fun EvtFun>
-        auto operator()(const Topology &topology, const EvtFun &eventDistances) const -> torch::Tensor {
-            using namespace torch::indexing;
-            const auto ub = upperBound(eventDistances);
+        template<typename DistFun, distance_provider S, concepts::scalar T, SchedulingResource R>
+        auto operator()(const Topology &topology, const SolverState<DistFun, S> &state,
+                        const SchedulingProblemHelper<T, R> &problem) const -> torch::Tensor {
+            const auto ub = static_cast<DataType>(problem.schedule().getLatestEnd(state.solver));
             torch::Tensor ret = torch::empty({static_cast<long>(topology.numTasks), 4}, dataTensorOptions());
-            for (long t = 0; t < topology.numTasks; ++t) {
-                util::sliceAssign(ret, {static_cast<long>(t), util::SliceHere},
-                                  {minDuration(t, eventDistances)/ static_cast<DataType>(ub),
-                                   maxDuration(t, eventDistances) / static_cast<DataType>(ub),
-                                   earliestStartTime(t, eventDistances) / static_cast<DataType>(ub),
-                                   latestCompletion(t, eventDistances) / static_cast<DataType>(ub)});
+            for (auto [t, task]: iterators::enumerate(problem.tasks(), 0l)) {
+                util::sliceAssign(ret, {t, util::SliceHere},
+                                  {task.minDuration(state.solver) / ub,
+                                   task.maxDuration(state.solver) / ub,
+                                   task.getEarliestStart(state.solver) / ub *
+                                   static_cast<DataType>(1 - 2 * legacyFeatures),
+                                   task.getLatestEnd(state.solver) / ub - static_cast<DataType>(legacyFeatures)});
             }
 
             return ret;
@@ -76,22 +75,27 @@ namespace tempo::nn {
     struct ResourceEnergyExtractor {
         /**
          * Returns a tensor containing resource energy feature for all resources.
+         * @tparam DistFun type of distance function
+         * @tparam S Solver type that has a member that provides upper and lower bounds
+         * @tparam T timing type
+         * @tparam R scheduling resource type
          * @param topology Graph topology for which to extract the features
-         * @param eventDistances current event network from which the features are generated
+         * @param state current state of the solver
+         * @param problem scheduling problem description
          * @return torch::Tensor containing resource features
          */
-        template<concepts::arbitrary_event_dist_fun EvtFun>
-        auto operator()(const Topology &topology, const EvtFun &eventDistances) const -> torch::Tensor {
-            using namespace torch::indexing;
-            const auto ub = upperBound(eventDistances);
+        template<typename Dist, distance_provider S, concepts::scalar T, SchedulingResource R>
+        auto operator()(const Topology &topology, const SolverState<Dist, S> &state,
+                        const SchedulingProblemHelper<T, R> &problem) const -> torch::Tensor {
+            const auto ub = static_cast<DataType>(problem.schedule().getLatestEnd(state.solver));
             auto ret = torch::zeros({static_cast<long>(topology.numResources), 1}, dataTensorOptions());
             const std::span demands(topology.resourceDemands.data_ptr<DataType>(), topology.resourceDemands.size(0));
             const auto tasks = util::getIndexSlice(topology.resourceDependencies, 0);
             const auto resources = util::getIndexSlice(topology.resourceDependencies, 1);
             std::span energy(ret.data_ptr<DataType>(), topology.numResources);
             for (auto [task, res, demand] : iterators::zip(tasks, resources, demands)) {
-                auto avgDuration = static_cast<DataType>(minDuration(task, eventDistances)
-                        + maxDuration(task, eventDistances)) / DataType(2) / ub;
+                auto avgDuration = static_cast<DataType>(problem.tasks()[task].minDuration(state.solver)
+                        + problem.tasks()[task].maxDuration(state.solver)) / DataType(2) / ub;
                 energy[res] += avgDuration * demand;
             }
 
@@ -108,30 +112,39 @@ namespace tempo::nn {
     struct TimingEdgeExtractor {
         /**
          * Returns a tensor containing timing features for all edges.
+         * @tparam DistFun type of distance function
+         * @tparam S Solver type that has a member that provides upper and lower bounds
+         * @tparam T timing type
+         * @tparam R scheduling resource type
          * @param topology Graph topology for which to extract the features
-         * @param eventDistances current event network from which the features are generated
+         * @param state current state of the solver
+         * @param problem scheduling problem description
          * @return torch::Tensor containing edge features
          */
-        template<concepts::arbitrary_event_dist_fun EvtFun>
-        auto operator()(const Topology &topology, const EvtFun &eventDistances) const -> torch::Tensor {
-            using namespace torch::indexing;
-            const auto ub = upperBound(eventDistances);
+        template<concepts::arbitrary_task_dist_fun Dist, typename S, concepts::scalar T, SchedulingResource R>
+        auto operator()(const Topology &topology, const SolverState<Dist, S> &state,
+                        const SchedulingProblemHelper<T, R> &problem) const -> torch::Tensor {
+            const auto ub = static_cast<DataType>(problem.schedule().getLatestEnd(state.solver));
             const auto edgeFrom = util::getIndexSlice(topology.edgeIndices, 0);
             const auto edgeTo = util::getIndexSlice(topology.edgeIndices, 1);
             auto ret = torch::empty({static_cast<long>(edgeFrom.size()), 2}, dataTensorOptions());
             for (auto [idx, from, to] : iterators::zip_enumerate(edgeFrom, edgeTo, 0l)) {
-                const auto tempDiff = taskDistance(from, to, eventDistances);
-                const auto tempDiffRev = taskDistance(to, from, eventDistances);
+                const auto tempDiff = state.distance(from, to);
+                const auto tempDiffRev = state.distance(to, from);
                 const bool isPrecedence = tempDiff <= 0 or tempDiffRev <= 0;
                 util::sliceAssign(ret, {idx, util::SliceHere}, {static_cast<DataType>(isPrecedence),
-                                                                tempDiff / static_cast<DataType>(ub)});
+                                                                static_cast<DataType>(tempDiff) / ub});
             }
 
             return ret;
         }
     };
 
-    MAKE_DEFAULT_FACTORY(TaskTimingFeatureExtractor, const nlohmann::json&)
+    MAKE_FACTORY(TaskTimingFeatureExtractor, const nlohmann::json &config) {
+            return TaskTimingFeatureExtractor{.legacyFeatures = config.at(
+                    TaskTimingFeatureExtractor::LegacyKey).get<bool>()};
+        }
+    };
     MAKE_DEFAULT_FACTORY(ResourceEnergyExtractor, const nlohmann::json&)
     MAKE_DEFAULT_FACTORY(TimingEdgeExtractor, const nlohmann::json&)
 }

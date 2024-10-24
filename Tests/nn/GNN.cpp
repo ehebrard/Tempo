@@ -8,8 +8,9 @@
 #include <Iterators.hpp>
 
 #include "nn/GNN.hpp"
-#include "nn/GNNEdgePolarityPredictor.hpp"
+#include "nn/tensor_utils.hpp"
 #include "testing.hpp"
+#include "nn/heat_map_utils.hpp"
 
 class TestGNN: public tempo::nn::GNN {
 public:
@@ -22,11 +23,6 @@ public:
 class TestEdgeRegressor : public tempo::nn::EdgeRegressor {
 public:
     using tempo::nn::EdgeRegressor::extractHeatMap;
-};
-
-class TestGNNHeatMap: public tempo::nn::heuristics::GNNEdgePolarityPredictor {
-public:
-    using tempo::nn::heuristics::GNNEdgePolarityPredictor::choosePolarityFromHeatMap;
 };
 
 TEST(nn_GNN, base_gnn_ctor) {
@@ -50,22 +46,4 @@ TEST(nn_GNN, edge_regressor_heat_map){
     EXPECT_EQ(heatMap.at(0, 1), TestEdgeRegressor::NoValue);
     EXPECT_EQ(heatMap.at(1, 0), TestEdgeRegressor::NoValue);
     EXPECT_EQ(heatMap.at(4, 1), TestEdgeRegressor::NoValue);
-}
-
-TEST(nn_GNN, gnn_heat_map_choose_polarity) {
-    using namespace tempo;
-    Matrix<nn::DataType> heatMap(3, 3, nn::GNN::NoValue);
-    heatMap(0, 1) = 0.9;
-    heatMap(1, 0) = 0.1;
-    heatMap(2, 1) = 1;
-    heatMap(1, 2) = 1;
-    DistanceConstraint cp(START(0), END(1), 0);
-    EXPECT_TRUE(TestGNNHeatMap::choosePolarityFromHeatMap(cp.from, cp.to, heatMap));
-    EXPECT_FALSE(TestGNNHeatMap::choosePolarityFromHeatMap((~cp).from, (~cp).to, heatMap));
-    cp = {START(2), START(1), 0};
-    EXPECT_FALSE(TestGNNHeatMap::choosePolarityFromHeatMap(cp.from, cp.to, heatMap));
-    EXPECT_FALSE(TestGNNHeatMap::choosePolarityFromHeatMap((~cp).from, (~cp).to, heatMap));
-    cp = {START(0), END(2), 0};
-    EXPECT_THROW(TestGNNHeatMap::choosePolarityFromHeatMap(cp.from, cp.to, heatMap), std::runtime_error);
-    EXPECT_THROW(TestGNNHeatMap::choosePolarityFromHeatMap((~cp).from, (~cp).to, heatMap), std::runtime_error);
 }

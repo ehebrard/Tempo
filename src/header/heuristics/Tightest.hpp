@@ -5,72 +5,54 @@
 #ifndef TEMPO_TIGHTEST_HPP
 #define TEMPO_TIGHTEST_HPP
 
-#include "BaseHeuristic.hpp"
-//#include "Scheduler.hpp"
+#include "RankingHeuristic.hpp"
+#include "Global.hpp"
+#include "util/distance.hpp"
 
 namespace tempo::heuristics {
 
-/**
- * @brief Heuristic selects the choice point with minimum Distance between two
- * nodes
- * @tparam Distance Type of Distance
- */
-template <typename T> class Tightest : public BaseHeuristic<Tightest<T>> {
-public:
-  /**
-   * CTor
-   * @tparam DistFun type of Distance function
-   * @param distFun Distance function
-   */
-//  explicit Tightest(Scheduler<T> &s) : distance(s) {}
-    explicit Tightest() {}
+    class Tightest : public RankingHeuristic<Tightest> {
+    public:
+        Tightest() = default;
 
-  /**
-   * Calculates the cost for a choice point which is the maximum of the Distance
-   * between the nodes in both directions
-   * @tparam T type of DistanceConstraint
-   * @param choicePoint choice point to evaluate
-   * @return maximum of the Distances in both directions between the nodes
-   */
-  T getCost(var x, const Scheduler<T>& sched) const {
+        /**
+         * Calculates the cost for a boolean variable which is the maximum of the distance
+         * between the nodes in both directions of the associated distance constraint
+         * @tparam T timing type
+         * @param x variable identifier
+         * @param solver solver for which to select a variable
+         * @return maximum of the Distances in both directions between the nodes
+         */
+        template<edge_distance_provider S>
+        [[nodiscard]] auto getCost(var_t x, const S &solver) const {
+            using T = std::remove_cvref_t<decltype(*boundEstimation(true, 0, solver))>;
+            assert(x != Constant::NoVar);
+            T dom{1};
+            if (solver.boolean.hasSemantic(x)) {
+                auto gapA = boundEstimation(true, x, solver);
+                auto gapB = boundEstimation(false, x, solver);
+                dom = std::max(gapA, gapB).value_or(InfiniteDistance<T>);
+            }
 
-    // to - from <= d // e_i - s_j <= 0
-
-    auto prec_a{sched.getEdge(POS(x))};
-    auto prec_b{sched.getEdge(NEG(x))};
-    T gap_a{0};
-    if (prec_a != Constant::NoEdge<T>)
-      gap_a = sched.upper(prec_a.from) - sched.lower(prec_a.to) +
-              prec_a.distance;
-    T gap_b{0};
-    if (prec_b != Constant::NoEdge<T>)
-      gap_b = sched.upper(prec_b.from) - sched.lower(prec_b.to) +
-              prec_b.distance;
-    return std::max(gap_a, gap_b);
-  }
-    
-    T getCost(var_t x, const Solver<T>& solver) const {
-        double dom{1};
-        
-        if(solver.boolean.hasSemantic(x)) {
-            auto p{solver.boolean.getLiteral(true,x)};
-            auto n{solver.boolean.getLiteral(false,x)};
-            
-            auto prec_a{solver.boolean.getEdge(p)};
-            auto prec_b{solver.boolean.getEdge(n)};
-            
-            auto gap_a = solver.numeric.upper(prec_a.from) - solver.numeric.lower(prec_a.to);
-            auto gap_b = solver.numeric.upper(prec_b.from) - solver.numeric.lower(prec_b.to);
-            
-            dom = static_cast<double>(std::max(gap_a, gap_b));
+            return dom;
         }
-        
-      return dom;
-    }
 
-//private:
-//  const Scheduler<T> &distance;
-};
+        template<edge_distance_provider S>
+        [[nodiscard]] var_t chooseBest(var_t x, var_t y, const S &solver) const {
+            return getCost(x, solver) <= getCost(y, solver) ? x : y;
+        }
+
+        /**
+         * @tparam T
+         * @param solver
+         * @todo currently only selects boolean variables
+         */
+        template<concepts::scalar T>
+        [[nodiscard]] auto nextVariable(const Solver<T> &solver) const -> VariableSelection {
+            return {this->bestVariable(solver.getBranch(), solver), VariableType::Boolean};
+        }
+
+    };
 }
 
 

@@ -177,7 +177,7 @@ namespace tempo::nn::util {
     auto loadTensor(const std::filesystem::path &fileName) -> torch::Tensor;
 
     /**
-     * Saves all tensors of an schedcl::nn::InputGraph to a directory
+     * Saves all tensors of a tempo::nn::InputGraph to a directory
      * @param graph graph to save
      * @param fileNameBase path to existing directory
      */

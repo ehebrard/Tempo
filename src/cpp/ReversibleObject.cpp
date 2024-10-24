@@ -69,25 +69,25 @@ void ReversibleObject::checkpoint() {}
 
 
 
-
-ReversibleBool::ReversibleBool(BacktrackEnvironment *e) : ReversibleObject(e) {}
-
-void ReversibleBool::undo() {
-    value = Unknown;
-}
-
-ReversibleBool &ReversibleBool::operator=(const boolean_state &rhs) {
-    assert(value == Unknown);
-    
-    ReversibleObject::save();
-    value = rhs;
-
-    return *this;
-}
-
-boolean_state ReversibleBool::val() const { return value; }
-
-std::ostream &ReversibleBool::display(std::ostream &os) const {
-    os << value;
-    return os;
-}
+//
+//ReversibleBool::ReversibleBool(BacktrackEnvironment *e) : ReversibleObject(e) {}
+//
+//void ReversibleBool::undo() {
+//    value = Unknown;
+//}
+//
+//ReversibleBool &ReversibleBool::operator=(const boolean_state &rhs) {
+//    assert(value == Unknown);
+//    
+//    ReversibleObject::save();
+//    value = rhs;
+//
+//    return *this;
+//}
+//
+//boolean_state ReversibleBool::val() const { return value; }
+//
+//std::ostream &ReversibleBool::display(std::ostream &os) const {
+//    os << value;
+//    return os;
+//}

@@ -6,53 +6,20 @@
 #ifndef TEMPO_TOPOLOGY_EXTRACTORS_HPP
 #define TEMPO_TOPOLOGY_EXTRACTORS_HPP
 
-#include <ranges>
 #include <vector>
+#include <cassert>
 
 #include "Global.hpp"
-#include "util/parsing/format.hpp"
+#include "Model.hpp"
+#include "util/SchedulingProblemHelper.hpp"
 #include "torch_types.hpp"
 #include "tensor_utils.hpp"
 #include "util/Matrix.hpp"
 #include "util/factory_pattern.hpp"
+#include "util/traits.hpp"
 #include "DistanceConstraint.hpp"
 
 namespace tempo::nn {
-
-    /**
-     * Represents the state of a the solver that can be used to extract the graph topology
-     * @tparam EvtFun type of event distance function
-     */
-    template<concepts::arbitrary_event_dist_fun EvtFun>
-    struct SolverState {
-        template<typename E>
-        requires(concepts::arbitrary_event_dist_fun<std::remove_cvref_t<E>>)
-        explicit constexpr SolverState(E &&evt) : eventNetwork(std::forward<E>(evt)) {}
-        EvtFun eventNetwork; ///< event network functor object
-    };
-
-    /**
-     * Concept that models the interface of a topology extractor
-     * @tparam Extractor
-     * @tparam EvtFun type of event function
-     */
-    template<typename Extractor, typename EvtFun>
-    concept topology_extractor = requires(Extractor e, const SolverState<EvtFun> &state) {
-        { e.getTopology(state) } -> std::convertible_to<Topology>;
-    };
-
-
-    /**
-     * Helper function for SolverState
-     * @tparam Args argument types to SolverState
-     * @param args arguments to SolverState
-     * @return solver state view of the arguments. Depending on the reference type of the arguments, this is only
-     * a non owning object
-     */
-    template<typename ...Args>
-    constexpr auto makeSolverState(Args &&...args) {
-        return SolverState<Args...>(std::forward<Args>(args)...);
-    }
 
     namespace impl {
         struct EdgeLookup : protected Matrix<IndexType> {
@@ -108,18 +75,38 @@ namespace tempo::nn {
         /**
          * Ctor
          * @param problem initial problem instance
+         * @param bidirectionalPrecedences Whether to insert bidirectional precedence edges
          */
-        explicit MinimalTopologyBuilder(const ProblemInstance &problem);
+        template<concepts::scalar T, SchedulingResource R>
+        explicit MinimalTopologyBuilder(const SchedulingProblemHelper<T, R> &problem, bool bidirectionalPrecedences) {
+            using namespace iterators;
+            cache.numTasks = problem.tasks().size();
+            cache.numResources = problem.resources().size();
+            impl::TopologyData topologyData{.edgeLookup = impl::EdgeLookup(cache.numTasks * 2 + 2)};
+            for (auto [r, resourceSpec]: enumerate(problem.resources(), 0l)) {
+                completeSubGraph(resourceSpec, r, topologyData);
+            }
+
+            addPrecedenceEdges(problem.precedences(), problem.getMapping(), topologyData, bidirectionalPrecedences);
+            cache.edgeIndices = util::makeIndexTensor(topologyData.edges);
+            cache.edgePairMask = torch::from_blob(topologyData.edgePairMask.data(),
+                                                  static_cast<long>(topologyData.edgePairMask.size()),
+                                                  indexTensorOptions()).clone();
+            cache.edgeResourceRelations = util::makeIndexTensor(topologyData.edgeIdx, topologyData.edgeRelResIdx);
+            cache.resourceDependencies = util::makeIndexTensor(topologyData.taskIdx, topologyData.resIdx);
+            cache.resourceDemands = torch::from_blob(topologyData.resDemands.data(),
+                                                     {static_cast<long>(topologyData.taskIdx.size()), 1},
+                                                     dataTensorOptions()).clone();
+        }
 
         /**
          * Generates a graph topology based on the initial problem instance and on the given decided precedence
          * constraints
-         * @tparam EvtFun type of event distance function
          * @param precedences range of decided precedences
          * @return the graph topology representing the initial problem and the added precedences
          */
-        template<typename EvtFun>
-        [[nodiscard]] auto getTopology(const SolverState<EvtFun> &) const -> const Topology &{
+        template<typename ...Args>
+        [[nodiscard]] auto getTopology(const SolverState<Args...> &) const -> const Topology &{
             return cache;
         }
 
@@ -130,32 +117,67 @@ namespace tempo::nn {
         [[nodiscard]] auto getTopology() const -> const Topology&;
 
     protected:
-        template<std::ranges::range R>
-        static void addPrecedenceEdges(const R &precedences, impl::TopologyData &topologyData) {
-            for (auto [from, to, dist] : precedences) {
-                assert(from != ORIGIN and from != HORIZON and to != ORIGIN and to != HORIZON &&
-                       "You probably passed a precedence between tasks instead of events!");
-                Edge e(TASK(from), TASK(to));
+        template<concepts::ttyped_range<DistanceConstraint> R>
+        static void addPrecedenceEdges(const R &precedences, const VarTaskMapping &vtMapping,
+                                       impl::TopologyData &topologyData, bool bidirectional) {
+            for (const auto &p : precedences) {
+                if(not vtMapping.contains(p.from) or not vtMapping.contains(p.to)) {
+                    continue;
+                }
+
+                Edge e(vtMapping(p.from), vtMapping(p.to));
                 if (e.first == e.second or topologyData.edgeLookup.contains(e)) {
                     continue;
                 }
 
-                addEdge(e, false, topologyData.pairMaskVal++, topologyData);
+                addEdge(e, false, topologyData.pairMaskVal, topologyData);
+                if (bidirectional) {
+                    Edge rev(e.second, e.first);
+                    addEdge(rev, false, topologyData.pairMaskVal, topologyData);
+                }
+
+                ++topologyData.pairMaskVal;
             }
         }
 
         static void addEdge(const Edge &e, bool isResourceEdge, IndexType maskVal, impl::TopologyData &topologyData);
 
-        static void completeSubGraph(const Resource<int> &resourceSpec, IndexType resource,
-                                     impl::TopologyData &topologyData);
+        template<SchedulingResource R>
+        static void completeSubGraph(const R &resourceSpec, IndexType resource, impl::TopologyData &topologyData) {
+            decltype(auto) taskIds = resourceSpec.tasks();
+            for (std::size_t i = 0; i < taskIds.size(); ++i) {
+                topologyData.taskIdx.emplace_back(taskIds[i]);
+                topologyData.resIdx.emplace_back(resource);
+                topologyData.resDemands.emplace_back(static_cast<DataType>(resourceSpec.getDemand(i)) /
+                                                     static_cast<DataType>(resourceSpec.resourceCapacity()));
+                for (std::size_t j = i + 1; j < taskIds.size(); ++j) {
+                    Edge e(taskIds[i], taskIds[j]);
+                    Edge rev(taskIds[j], taskIds[i]);
+                    topologyData.edgeRelResIdx.emplace_back(resource);
+                    topologyData.edgeRelResIdx.emplace_back(resource);
+                    if (topologyData.edgeLookup.contains(e)) {
+                        topologyData.edgeIdx.emplace_back(topologyData.edgeLookup(e));
+                        topologyData.edgeIdx.emplace_back(topologyData.edgeLookup(rev));
+                        continue;
+                    }
+
+                    addEdge(e, true, topologyData.pairMaskVal, topologyData);
+                    addEdge(rev, true, topologyData.pairMaskVal, topologyData);
+                    ++topologyData.pairMaskVal;
+                }
+            }
+        }
 
     private:
         Topology cache;
     };
 
-    MAKE_FACTORY(MinimalTopologyBuilder, const ProblemInstance &problemInstance) {
-        return MinimalTopologyBuilder(problemInstance);
-    }};
+    MAKE_TEMPLATE_FACTORY(MinimalTopologyBuilder, ESCAPE(concepts::scalar T, SchedulingResource R),
+                          const ESCAPE(SchedulingProblemHelper<T, R> &problemInstance, const nlohmann::json &params)) {
+            auto bidir = params.at("bidirectionalPrecedences").get<bool>();
+            return MinimalTopologyBuilder(problemInstance, bidir);
+        }
+    };
 }
 
 #endif //TEMPO_TOPOLOGY_EXTRACTORS_HPP

@@ -8,11 +8,15 @@
     "extractorName": "ResourceEnergyExtractor"
   },
   "taskFeatureExtractor": {
-    "arguments": null,
+    "arguments": {
+      "legacy": true
+    },
     "extractorName": "TaskTimingFeatureExtractor"
   },
   "topologyExtractor": {
-    "arguments": null,
+    "arguments": {
+      "bidirectionalPrecedences": false
+    },
     "extractorName": "MinimalTopologyBuilder"
   }
 }

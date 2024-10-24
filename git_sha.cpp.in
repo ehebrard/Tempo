@@ -1,0 +1,7 @@
+/**
+* @author Tim Luchterhand
+* @date 12.08.24
+* @brief contains current git sha
+*/
+
+const char *GitSha = "@GIT_SHA1@";

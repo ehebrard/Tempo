@@ -1,45 +1,76 @@
+/************************************************
+ * Tempo CardinalityInterface.hpp
+ *
+ * Copyright 2024 Emmanuel Hebrard
+ *
+ * Tempo is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation, either version 3 of the License, or (at your
+ *  option) any later version.
+ *
+ * Tempo is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Tempo.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ ***********************************************/
+
 #ifndef TEMPO_CARDINALITY_HPP
 #define TEMPO_CARDINALITY_HPP
 
 #include <cassert>
 #include <vector>
 
-#include "Explanation.hpp"
-#include "Global.hpp"
-#include "ReversibleObject.hpp"
-#include "Scheduler.hpp"
 #include "constraints/Constraint.hpp"
+#include "ReversibleObject.hpp"
 
-//#define DBG_LTRANS
+//#define DBG_CARD
 
 namespace tempo {
 
-template <typename T> class CardinalityGeq : public Constraint {
-private:
-  Scheduler<T> &m_schedule;
+template<typename T>
+class Solver;
 
-  std::vector<lit> literals;
 
-    Reversible<size_t> current_ub;
+// enforce sum(l_i) <= bound
+template <typename T> class CardinalityInterface : public Constraint<T> {
+protected:
+  Solver<T> &m_solver;
     
-    size_t lower_limit;
-    
-    std::vector<lit> expl;
+  std::vector<Literal<T>> literals;
+
+    Reversible<T> current_bound;
+
     
 public:
+    
+    virtual T upperBound() = 0;
+    virtual T lowerBound() = 0;
+    virtual void setLowerBound(const T l) = 0;
+    
+//  template <typename Iter>
+//  CardinalityInterface(Solver<T> &solver, const Iter beg_lit,
+//               const Iter end_lit, const unsigned lb);
   template <typename Iter>
-  CardinalityGeq(Scheduler<T> &scheduler, const Iter beg_lit,
-               const Iter end_lit, const size_t lb);
-  virtual ~CardinalityGeq();
+  CardinalityInterface(Solver<T> &solver, const Iter beg_var, const Iter end_var,
+              const bool sign);
 
-  bool notify_edge(const int lit, const int rank) override;
+  template <typename Iter>
+  CardinalityInterface(Solver<T> &solver, const Iter beg_lit, const Iter end_lit);
+  virtual ~CardinalityInterface();
+
+  bool notify(const Literal<T>, const int) override;
   void post(const int idx) override;
   void propagate() override;
 
-  void xplain(const lit l, const hint h, std::vector<lit> &Cl) override;
-  int getType() const override;
-    
-    void setBound(const int l);
+  void xplain(const Literal<T> l, const hint h,
+              std::vector<Literal<T>> &Cl) override;
+//  int getType() const override;
+
+//  void setBound(const unsigned b);
 
   std::ostream &display(std::ostream &os) const override;
 
@@ -52,31 +83,42 @@ public:
 
 template <typename T>
 template <typename Iter>
-CardinalityGeq<T>::CardinalityGeq(Scheduler<T> &scheduler, const Iter beg_lit,
-                            const Iter end_lit, const size_t lb)
-    : m_schedule(scheduler), lower_limit(lb)
+CardinalityInterface<T>::CardinalityInterface(Solver<T> &solver, const Iter beg_var,
+                            const Iter end_var, const bool sign)
+    : m_solver(solver), current_bound(0, &solver.getEnv())
 {
 
-  priority = Priority::Low;
-
-  for (auto l{beg_lit}; l != end_lit; ++l) {
-      literals.push_back(*l);
+  Constraint<T>::priority = Priority::High;
+  for (auto x{beg_var}; x != end_var; ++x) {
+    auto l{*x == sign};
+    literals.push_back(l);
   }
-        
-        current_ub = literals.size();
-        setBound(lb);
+//  setBound(b);
 }
 
-template <typename T> CardinalityGeq<T>::~CardinalityGeq() {}
+template <typename T>
+template <typename Iter>
+CardinalityInterface<T>::CardinalityInterface(Solver<T> &solver, const Iter beg_lit,
+                            const Iter end_lit)
+    : m_solver(solver), current_bound(0, &solver.getEnv()) {
 
-template <typename T> void CardinalityGeq<T>::setBound(const int l) {
-    lower_limit = l;
+  Constraint<T>::priority = Priority::High;
+  for (auto l{beg_lit}; l != end_lit; ++l) {
+    literals.push_back(*l);
+  }
+//  setBound(b);
 }
 
-template <typename T> void CardinalityGeq<T>::post(const int idx) {
+template <typename T> CardinalityInterface<T>::~CardinalityInterface() {}
 
-  cons_id = idx;
-  idempotent = true;
+//template <typename T> void CardinalityInterface<T>::setBound(const unsigned b) {
+//    bound = b;
+//}
+
+template <typename T> void CardinalityInterface<T>::post(const int idx) {
+
+  Constraint<T>::cons_id = idx;
+    Constraint<T>::idempotent = true;
 
 #ifdef DEBUG_CONSTRAINT
   if (debug_flag > 0) {
@@ -85,90 +127,112 @@ template <typename T> void CardinalityGeq<T>::post(const int idx) {
 #endif
 
     for(auto l : literals) {
-        m_schedule.wake_me_on_edge(l, cons_id);
+        m_solver.wake_me_on(l, this->id());
     }
     
 }
 
 template <typename T>
-void CardinalityGeq<T>::propagate() {}
+void CardinalityInterface<T>::propagate() {}
 
 
 template <typename T>
-bool CardinalityGeq<T>::notify_edge(const lit l, const int) {
-    if(m_schedule.falsified(l)) {
-        --current_ub;
-        if(current_ub < lower_limit) {
-            expl.clear();
+bool CardinalityInterface<T>::notify(const Literal<T> l, const int) {
+    
+    auto ub{upperBound()};
+
+    if(l.isNumeric()) {
+        if(current_bound > ub) {
+          throw Failure<T>({this, Constant::NoHint});
+        } else if(current_bound == ub) {
             for(auto p : literals) {
-                if(m_schedule.isFalse(VAR(p)))
-                    expl.push_back(EDGE(p));
+                if(m_solver.boolean.isUndefined(p.variable()))
+                  m_solver.set(~p, {this, Constant::NoHint});
             }
-            assert(expl.size() > static_cast<size_t>(lower_limit));
-            throw Failure({this, NoHint}
-                          
-                          );
-        } else if(current_ub == lower_limit) {
-            expl.clear();
-            for(auto p : literals) {
-                if(m_schedule.isUndefined(VAR(p)))
-                    m_schedule.set(p);
-                else if(m_schedule.isFalse(VAR(p))) {
-                    expl.push_back(EDGE(p));
+        }
+    } else {
+        
+        if(m_solver.boolean.satisfied(l)) {
+            ++current_bound;
+
+            T lb{static_cast<T>(current_bound)};
+            if(lb > ub) {
+              throw Failure<T>({this, Constant::NoHint});
+            } else {
+              if (lb > lowerBound()) {
+                setLowerBound(lb);
+              }
+              if (lb == ub) {
+                for (auto p : literals) {
+                  if (m_solver.boolean.isUndefined(p.variable()))
+                    m_solver.set(~p, {this, Constant::NoHint});
                 }
+              }
             }
-            assert(expl.size() == static_cast<size_t>(lower_limit));
         }
     }
-  
+
   return false;
 }
 
 
 
-template <typename T> int CardinalityGeq<T>::getType() const {
-  return CARDEXPL;
-}
+//template <typename T> int CardinalityInterface<T>::getType() const {
+//  return CARDEXPL;
+//}
 
 template <typename T>
-void CardinalityGeq<T>::xplain(const lit, const hint, std::vector<lit> &Cl) {
+void CardinalityInterface<T>::xplain(const Literal<T> l, const hint, std::vector<Literal<T>> &Cl) {
     
-    for(auto l : expl) {
-        Cl.push_back(l);
+    auto l_lvl{(l==Contradiction<T> ? m_solver.numLiteral() : m_solver.propagationLevel(l))};
+    for(auto p : literals) {
+        if(m_solver.boolean.satisfied(p) and m_solver.propagationLevel(p) < l_lvl)
+            Cl.push_back(p);
     }
     
 }
 
 template <typename T>
-std::ostream &CardinalityGeq<T>::display(std::ostream &os) const {
-  os << "CardinalityGeq";
+std::ostream &CardinalityInterface<T>::display(std::ostream &os) const {
+  os << "Cardinality";
 
 #ifdef DEBUG_CONSTRAINT
-  os << "[" << cons_id << "]";
+  os << "[" << this->id() << "]";
 #endif
 
-  os << "(";
-  for (auto l : literals) {
-      std::cout << " " << m_schedule.prettyLiteral(l);
+    os << "(" ;
+    if(m_solver.boolean.satisfied(literals[0]))
+        std::cout << "1";
+    else if(m_solver.boolean.falsified(literals[0]))
+        std::cout << "0";
+    else
+        std::cout << literals[0];
+    for (unsigned i{1}; i<literals.size(); ++i) {
+        if(m_solver.boolean.satisfied(literals[i]))
+            std::cout << " 1";
+        else if(m_solver.boolean.falsified(literals[i]))
+            std::cout << " 0";
+        else
+            std::cout << " " << literals[i];
   }
-  std::cout << " )";
+  std::cout << ")";
   return os;
 }
 
 template <typename T>
-std::ostream &CardinalityGeq<T>::print_reason(std::ostream &os,
+std::ostream &CardinalityInterface<T>::print_reason(std::ostream &os,
                                             const hint) const {
   //  display(os);
-  os << "CardinalityGeq";
+  os << "Cardinality";
   //
   //  if (not explanations[h].empty()) {
   //
   //    auto l{explanations[h].begin()};
-  //    m_schedule.displayLiteral(os, *l);
+  //    m_solver.displayLiteral(os, *l);
   //    ++l;
   //    while (l != explanations[h].end()) {
   //      os << ", ";
-  //      m_schedule.displayLiteral(os, *l);
+  //      m_solver.displayLiteral(os, *l);
   //      ++l;
   //    }
   //  }
@@ -177,7 +241,115 @@ std::ostream &CardinalityGeq<T>::print_reason(std::ostream &os,
   return os;
 }
 
-// template <typename T> std::vector<int> CardinalityGeq<T>::task_map;
+
+
+template <typename T> class CardinalityConst : public CardinalityInterface<T> {
+public:
+    
+    template <typename Iter>
+    CardinalityConst(Solver<T> &solver, const Iter beg_var, const Iter end_var,
+                const bool sign, const T ub) : CardinalityInterface<T>(solver, beg_var, end_var, sign), bound(ub) {}
+
+    template <typename Iter>
+    CardinalityConst(Solver<T> &solver, const Iter beg_lit, const Iter end_lit,
+                const T ub) : CardinalityInterface<T>(solver, beg_lit, end_lit), bound(ub) {}
+    
+    T upperBound() override {return bound;}
+    
+    T lowerBound() override {return CardinalityInterface<T>::current_bound;}
+    
+    void setLowerBound(const T) override {};
+    
+private:
+    T bound;
+};
+
+
+template <typename T> class CardinalityLeqVar : public CardinalityInterface<T> {
+public:
+    
+    template <typename Iter>
+    CardinalityLeqVar(Solver<T> &solver, const Iter beg_var, const Iter end_var,
+                const bool sign, const var_t ub) : CardinalityInterface<T>(solver, beg_var, end_var, sign), bound(ub) {}
+
+    template <typename Iter>
+    CardinalityLeqVar(Solver<T> &solver, const Iter beg_lit, const Iter end_lit,
+                const var_t ub) : CardinalityInterface<T>(solver, beg_lit, end_lit), bound(ub) {}
+    
+    T upperBound() override {return CardinalityInterface<T>::m_solver.numeric.upper(bound);}
+    
+    T lowerBound() override {return CardinalityInterface<T>::m_solver.numeric.lower(bound);}
+//    T lowerBound() override {return CardinalityInterface<T>::current_bound;}
+    
+    void setLowerBound(const T l) override {
+        CardinalityInterface<T>::m_solver.set(geq<T>(bound, l));
+//        
+//        std::cout << " ==> set [" << CardinalityInterface<T>::m_solver.numeric.lower(bound)
+//        << ".." << CardinalityInterface<T>::m_solver.numeric.upper(bound) << "]\n";
+    };
+    
+    void post(const int idx) override;
+    
+//    void propagate() override;
+    
+private:
+    var_t bound;
+};
+
+
+template <typename T> void CardinalityLeqVar<T>::post(const int idx) {
+    CardinalityInterface<T>::post(idx);
+    CardinalityInterface<T>::m_solver.wake_me_on(ub<T>(bound), this->id());
+}
+
+
+
+template <typename T> class CardinalityGeqVar : public CardinalityInterface<T> {
+public:
+    
+    template <typename Iter>
+    CardinalityGeqVar(Solver<T> &solver, const Iter beg_var, const Iter end_var,
+                const bool sign, const var_t lb) : CardinalityInterface<T>(solver, beg_var, end_var, sign), bound(lb) {}
+
+    template <typename Iter>
+    CardinalityGeqVar(Solver<T> &solver, const Iter beg_lit, const Iter end_lit,
+                const var_t lb) : CardinalityInterface<T>(solver, beg_lit, end_lit), bound(lb) {
+        for(auto& l : CardinalityInterface<T>::literals) {
+            l = ~l;
+        }
+    }
+    
+    T upperBound() override {return static_cast<T>(CardinalityInterface<T>::literals.size()) -  CardinalityInterface<T>::m_solver.numeric.lower(bound);}
+//        T upperBound() override {return CardinalityInterface<T>::m_solver.numeric.upper(bound);}
+    
+//    T lowerBound() override {return CardinalityInterface<T>::current_bound;}
+    T lowerBound() override {return static_cast<T>(CardinalityInterface<T>::literals.size()) - CardinalityInterface<T>::m_solver.numeric.upper(bound);}
+    
+    void setLowerBound(const T l) override {
+        
+//        std::cout << " set [" << CardinalityInterface<T>::m_solver.numeric.lower(bound)
+//        << ".." << CardinalityInterface<T>::m_solver.numeric.upper(bound) << "] <= " 
+//        << (l - static_cast<T>(CardinalityInterface<T>::literals.size())) << "\n";
+//        
+        CardinalityInterface<T>::m_solver.set(leq<T>(bound, static_cast<T>(CardinalityInterface<T>::literals.size()) - l));
+//
+//            std::cout << " ==> [" << CardinalityInterface<T>::m_solver.numeric.lower(bound)
+//            << ".." << CardinalityInterface<T>::m_solver.numeric.upper(bound) << "] (" << lowerBound() << ")\n";
+    };
+    
+    void post(const int idx) override;
+    
+private:
+    var_t bound;
+};
+
+
+template <typename T> void CardinalityGeqVar<T>::post(const int idx) {
+    CardinalityInterface<T>::post(idx);
+    CardinalityInterface<T>::m_solver.wake_me_on(lb<T>(bound), this->id());
+}
+
+// template <typename T> std::vector<int> CardinalityInterface<T>::task_map;
 
 } // namespace tempo
 

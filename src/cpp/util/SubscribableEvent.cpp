@@ -6,48 +6,21 @@
 
 namespace tempo {
 
-    void SubscriberHandle::dispose() noexcept {
-        disposed = true;
-    }
+    void SubscriberHandle::unregister() noexcept {
+        if (nullptr != alive) {
+            *alive = 0;
+        }
 
-    bool SubscriberHandle::isDisposed() const noexcept {
-        return disposed;
-    }
-
-    void SubscriberHandle::unregister() {
-        invokeDeregister();
+        alive.reset();
     }
 
     SubscriberHandle::~SubscriberHandle() {
-        invokeDeregister();
+        unregister();
     }
 
-    void SubscriberHandle::invokeDeregister() {
-        if (not disposed and nullptr != eventStatus and eventStatus->isAlive()) {
-            deregister(id);
-            dispose();
-        }
-    }
+    SubscriberHandle::SubscriberHandle(Token): alive(std::make_shared<char>(Alive)) {}
 
-    SubscriberHandle::SubscriberHandle(SubscriberHandle &&other) noexcept: SubscriberHandle() {
-        using std::swap;
-        swap(*this, other);
-    }
-
-    SubscriberHandle &SubscriberHandle::operator=(SubscriberHandle &&other) noexcept {
-        using std::swap;
-        SubscriberHandle tmp = std::move(other);
-        swap(*this, tmp);
-        return *this;
-    }
-
-    SubscriberHandle::SubscriberHandle() noexcept: deregister(), eventStatus(), disposed(true), id() {}
-
-    void swap(SubscriberHandle &lhs, SubscriberHandle &rhs) noexcept {
-        using std::swap;
-        swap(lhs.deregister, rhs.deregister);
-        swap(lhs.eventStatus, rhs.eventStatus);
-        swap(lhs.disposed, rhs.disposed);
-        swap(lhs.id, rhs.id);
+    bool SubscriberHandle::isSubscribed() const noexcept {
+        return nullptr != alive and *alive == Alive;
     }
 }

@@ -13,23 +13,6 @@
 
 namespace tempo {
 
-    namespace impl {
-        struct EventStatus {
-            [[nodiscard]] constexpr bool isAlive() const noexcept {
-                return alive;
-            }
-
-            constexpr void invalidate() noexcept {
-                alive = false;
-            }
-        private:
-            bool alive = true;
-        };
-
-        using EventStatusPtr = std::shared_ptr<EventStatus>;
-        using cEventStatusPtr = std::shared_ptr<const EventStatus>;
-    }
-
     /**
      * @brief Identifies a function handler subscribed to a SubscribableEvent. Can be used to unsubscribe the function
      * handler.
@@ -40,29 +23,17 @@ namespace tempo {
     class SubscriberHandle {
         template<typename ...Args>
         friend class SubscribableEvent;
+        struct Token{};
     public:
-        using Id = unsigned long long;
-        SubscriberHandle(const SubscriberHandle &) = delete;
-        SubscriberHandle &operator=(const SubscriberHandle &) = delete;
-        SubscriberHandle(SubscriberHandle &&other) noexcept;
-        SubscriberHandle &operator=(SubscriberHandle &&other) noexcept;
-
-        /**
-         * mark the handle as disposed. It can then no longer be used to unregister the event handler from the event.
-         * Automatic unsubscription at destruction is also disabled
-         */
-        void dispose() noexcept;
-
-        /**
-         * Whether the handle has been manually disposed
-         * @return
-         */
-        [[nodiscard]] bool isDisposed() const noexcept;
+        SubscriberHandle(const SubscriberHandle &) = default;
+        SubscriberHandle &operator=(const SubscriberHandle &) = default;
+        SubscriberHandle(SubscriberHandle &&other) noexcept = default;
+        SubscriberHandle &operator=(SubscriberHandle &&other) = default;
 
         /**
          * Manually unregister the associated event handler
          */
-        void unregister();
+        void unregister() noexcept;
 
         /**
          * DTor. Automatically unregisters the associated event handler if not already disposed.
@@ -70,27 +41,130 @@ namespace tempo {
         ~SubscriberHandle();
 
         /**
-         * swaps the contents of two handles
-         * @param lhs left hand side
-         * @param rhs right hand side
+         * Ctor. Creates an empty handle
          */
-        friend void swap(SubscriberHandle &lhs, SubscriberHandle &rhs) noexcept;
+        constexpr SubscriberHandle() noexcept = default;
+
+        /**
+         * Whether the handle refers to a valid event
+         * @return true if handle refers to an active event, false otherwise
+         */
+        [[nodiscard]] bool isSubscribed() const noexcept;
 
     protected:
-        template<typename Fun>
-        SubscriberHandle(Fun &&deregister, impl::cEventStatusPtr status, Id id, bool disposed):
-                deregister(std::forward<Fun>(deregister)), eventStatus(std::move(status)), disposed(disposed), id(id) {}
+
+        static constexpr Token Subscribe{};
+
+        /**
+         * Ctor
+         * creates a handle with specified id
+         * @param id id value of the handle
+         */
+        SubscriberHandle(Token);
 
     private:
-        SubscriberHandle() noexcept;
-        void invokeDeregister();
-
-        std::function<void(Id)> deregister;
-        impl::cEventStatusPtr eventStatus;
-        bool disposed = false;
-        Id id{};
+        static constexpr char Alive = 1;
+        std::shared_ptr<char> alive;
     };
 
+
+    namespace detail {
+        template<typename T>
+        class ActiveList {
+            std::vector<T> data{};
+            std::size_t endIdx{0};
+        public:
+            ActiveList() = default;
+
+            ActiveList(std::initializer_list<T> elems) : data(elems), endIdx(data.size()) {}
+
+            template<typename ...Args>
+            explicit ActiveList(Args &&... args) : data(std::forward<Args>(args)...), endIdx(data.size()) {}
+
+            ActiveList(const ActiveList &) = default;
+            ActiveList(ActiveList &&other) noexcept : ActiveList() {
+                swap(other);
+            }
+            ActiveList &operator=(ActiveList other) noexcept {
+                swap(other);
+                return *this;
+            }
+
+            ~ActiveList() = default;
+
+            void swap(ActiveList &other) noexcept {
+                using std::swap;
+                swap(data, other.data);
+                swap(endIdx, other.endIdx);
+            }
+
+            void markInactive(std::vector<T>::iterator elem) noexcept(std::is_nothrow_swappable_v<T>) {
+                if (empty()) {
+                    return;
+                }
+
+                const auto pos = elem - data.begin();
+                if (pos < 0 or static_cast<std::size_t>(pos) >= endIdx) {
+                    return;
+                }
+
+                --endIdx;
+                if (endIdx != static_cast<std::size_t>(pos)) {
+                    std::swap(data[pos], data[endIdx]);
+                }
+            }
+
+            auto begin() const noexcept {
+                return data.begin();
+            }
+
+            auto begin() noexcept {
+                return data.begin();
+            }
+
+            auto end() const noexcept {
+                return data.begin() + endIdx;
+            }
+
+            auto end() noexcept {
+                return data.begin() + endIdx;
+            }
+
+            void cleanUp() {
+                data.erase(end(), data.end());
+            }
+
+            [[nodiscard]] std::size_t size() const noexcept {
+                return endIdx;
+            }
+
+            [[nodiscard]] bool empty() const noexcept {
+                return size() == 0;
+            }
+
+            template<typename ...Args>
+            void add(Args &&...args) {
+                if (endIdx == data.size()) {
+                    data.emplace_back(std::forward<Args>(args)...);
+                } else {
+                    data.pop_back();
+                    data.emplace_back(std::forward<Args>(args)...);
+                    std::swap(data.back(), data[endIdx]);
+                }
+
+                ++endIdx;
+            }
+
+            auto &back() const noexcept {
+                return data[endIdx - 1];
+            }
+        };
+
+        template<typename T>
+        void swap(ActiveList<T> &a, ActiveList<T> &b) noexcept {
+            a.swap(b);
+        }
+    }
 
     /**
      * @brief C# inspired event class that manages a list of event handlers that can be invoked together
@@ -99,9 +173,8 @@ namespace tempo {
     template<typename ...Args>
     class SubscribableEvent {
         using handler = std::function<void(Args...)>;
-        using HandlerId = SubscriberHandle::Id;
     public:
-        SubscribableEvent() noexcept: eventStatus(std::make_shared<impl::EventStatus>()) {}
+        constexpr SubscribableEvent() noexcept = default;
 
         SubscribableEvent(const SubscribableEvent &) = delete;
         SubscribableEvent &operator=(const SubscribableEvent &) = delete;
@@ -109,7 +182,9 @@ namespace tempo {
         SubscribableEvent &operator=(SubscribableEvent &&) noexcept = default;
 
         ~SubscribableEvent() {
-            eventStatus->invalidate();
+            for (auto &[_, handle]: handlers) {
+                handle.unregister();
+            }
         }
 
         /**
@@ -138,8 +213,14 @@ namespace tempo {
          */
         template<typename ...InvokeArgs>
         void trigger(InvokeArgs&&... args) const {
-            for (const auto &[handler, _] : handlers) {
-                handler(std::forward<InvokeArgs>(args)...);
+            auto it = handlers.begin();
+            while (not handlers.empty() and it < handlers.end()) {
+                if (it->second.isSubscribed()) {
+                    it->first(std::forward<InvokeArgs>(args)...);
+                    ++it;
+                } else {
+                    handlers.markInactive(it);
+                }
             }
         }
 
@@ -147,21 +228,11 @@ namespace tempo {
         template<typename Handler>
         SubscriberHandle subscribe(Handler &&handlerFunction, bool discardHandler) {
             static_assert(std::is_invocable_r_v<void, Handler, Args...>, "invalid event handler signature");
-            handlers.emplace_back(std::forward<Handler>(handlerFunction), handlerId);
-            return SubscriberHandle([this](auto id) { unsubscribe(id);}, eventStatus, handlerId++, discardHandler);
+            handlers.add(std::forward<Handler>(handlerFunction), SubscriberHandle(SubscriberHandle::Subscribe));
+            return discardHandler ? SubscriberHandle() : handlers.back().second;
         }
 
-        void unsubscribe(HandlerId id) {
-            auto res = std::ranges::find_if(handlers, [id](const auto &p) { return p.second == id; });
-            if (res != handlers.end()) {
-                std::swap(*res, handlers.back());
-                handlers.pop_back();
-            }
-        }
-
-        std::vector<std::pair<handler, HandlerId>> handlers{};
-        impl::EventStatusPtr eventStatus;
-        HandlerId handlerId{};
+        mutable detail::ActiveList<std::pair<handler, SubscriberHandle>> handlers{};
     };
 }
 

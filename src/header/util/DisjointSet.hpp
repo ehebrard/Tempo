@@ -61,7 +61,7 @@ void DisjointSet<E>::resize(const size_t n) {
   while (parent.size() < n) {
       parent.push_back(static_cast<E>(parent.size()));
   }
-    size.resize(n,1);
+  size.resize(n,1);
 }
 
 template<typename E>
@@ -85,9 +85,6 @@ template<typename E>
 size_t DisjointSet<E>::find(const E elt) {
     auto x{elt};
     while(parent[x] != x) {
-
-      //        std::cout << "p[" << x << "] <- p[" << parent[x] << "]\n";
-
       parent[x] = parent[parent[x]];
       x = parent[x];
     }

@@ -55,6 +55,7 @@ namespace tempo::nn {
          * @return task network matrix where (t, u) = probability that task t is scheduled after task u
          */
         auto getHeatMap(const InputGraph &input) -> Matrix<DataType>;
+
     protected:
         static auto extractHeatMap(const torch::Tensor &edgeProbabilities, const torch::Tensor &edgeIdx,
                             std::size_t numTasks) -> Matrix<DataType>;

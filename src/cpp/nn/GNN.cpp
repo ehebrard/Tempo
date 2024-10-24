@@ -4,6 +4,7 @@
  */
 
 #include <Iterators.hpp>
+#include <iostream>
 
 #include "nn/GNN.hpp"
 #include "nn/tensor_utils.hpp"
@@ -11,6 +12,7 @@
 namespace tempo::nn {
     GNN::GNN(const std::filesystem::path &modelLocation): model(torch::jit::load(modelLocation, Device)) {
         model.eval();
+        std::cout << "-- GNN CPU inference on " << torch::get_num_threads() << " threads" << std::endl;
     }
 
     auto GNN::inference(const InputGraph &input) -> torch::IValue {

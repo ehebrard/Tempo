@@ -7,12 +7,10 @@
 
 #include <concepts>
 
-//#include "Scheduler.hpp"
+#include "util/traits.hpp"
 
 namespace tempo {
-    template<typename T>
-    class Scheduler;
-
+ 
 template<typename T>
 class Solver;
 }
@@ -21,7 +19,6 @@ namespace tempo::heuristics::impl {
     /**
      * @brief Class that can be used to record the activity on distance constraints
      */
-template<typename T>
     class EventActivityMap {
     public:
         /**
@@ -29,15 +26,8 @@ template<typename T>
          * @tparam T type of scheduler
          * @param scheduler scheduler for which to construct the ActivityMap
          */
-        
-        explicit EventActivityMap(Scheduler<T> &scheduler) 
-//        : sched(scheduler)
-        {
-//            numNodes = scheduler.numEvent();
-            numeric_activity.resize(scheduler.numEvent(), 1);
-            scheduler.setActivityMap(this);
-        }
-        
+
+        template<concepts::scalar T>
         explicit EventActivityMap(Solver<T> &solver)
 //        : sched(scheduler)
         {
@@ -48,15 +38,6 @@ template<typename T>
         }
 
         
-        /**
-         * Gets the activity for a given choice point
-         * @tparam T
-         * @param bound constraint
-         * @return
-         */
-        constexpr double get(const BoundConstraint<T>& c) const noexcept {
-            return numeric_activity[EVENT(c.l)];
-        }
         
         /**
          * Gets the activity for a given choice point
@@ -64,23 +45,12 @@ template<typename T>
          * @param edge constraint
          * @return
          */
+        template<concepts::scalar T>
         constexpr double get(const DistanceConstraint<T>& c) const noexcept {
             return numeric_activity[c.from] + numeric_activity[c.to];
         }
-        
-        /**
-         * Gets the activity for a given choice point
-         * @tparam T
-         * @param variable
-         * @return
-         */
-        constexpr double get(const var x, const Scheduler<T>& sched) const noexcept {
-            return get(sched.getEdge(POS(x))) + get(sched.getEdge(NEG(x)));
-//            DistanceConstraint<T> left{sched.getEdge(POS(x))};
-//            DistanceConstraint<T> right{sched.getEdge(NEG(x))};
-//            return activity[left.from] + activity[left.to] + activity[right.from] + activity[right.to];
-        }
 
+        template<concepts::scalar T>
         constexpr double get(const Literal<T> l,
                              const Solver<T> &solver) const noexcept {
           double a{0};
@@ -90,19 +60,32 @@ template<typename T>
           } else {
             a = boolean_activity[l.variable()];
             if (l.hasSemantic()) {
-              a += get(solver.boolean.getEdge(l));
-              a += get(solver.boolean.getEdge(~l));
+                auto pe{solver.boolean.getEdge(l)};
+                if(pe != Constant::NoEdge<T>)
+                    a += get(pe);
+                
+                auto ne{solver.boolean.getEdge(~l)};
+                if(ne != Constant::NoEdge<T>)
+                    a += get(ne);
             }
           }
           return a;
         }
 
+        template<concepts::scalar T>
         constexpr double get(const var_t x, const Solver<T>& solver) const noexcept {
           double a{boolean_activity[x]};
           //            double a{0};
           if (solver.boolean.hasSemantic(x)) {
-            a += get(solver.boolean.getEdge(true, x)) / 1000;
-            a += get(solver.boolean.getEdge(false, x)) / 1000;
+              auto pe{solver.boolean.getEdge(true, x)};
+              if(pe != Constant::NoEdge<T>)
+                  a += get(pe);
+              
+              auto ne{solver.boolean.getEdge(false, x)};
+              if(ne != Constant::NoEdge<T>)
+                  a += get(ne);
+//              a += get(solver.boolean.getEdge(true, x));
+//              a += get(solver.boolean.getEdge(false, x));
           }
 
             return a;
@@ -159,7 +142,6 @@ template<typename T>
 
     protected:
 
-//        Scheduler<T>& sched;
         std::vector<double> numeric_activity{};
         std::vector<double> boolean_activity{};
     };

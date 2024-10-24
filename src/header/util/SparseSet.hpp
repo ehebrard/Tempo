@@ -9,7 +9,6 @@
 
 namespace tempo {
 
-
 /**********************************************
  * SparseSet
  **********************************************/
@@ -17,14 +16,13 @@ namespace tempo {
 
 template<typename E=int, typename T=size_t>
 class SparseSet {
-   
+
 private:
-    
-    // so that we can remove from the end
-    T end_;
-    // so that we can remove from the start
-    T start_;
-    
+  // so that we can remove from the end
+  T end_;
+  // so that we can remove from the start
+  T start_;
+
 private:
   /*!@name Parameters*/
   //@{
@@ -49,17 +47,17 @@ public:
   //@{
   bool safe_has(const E elt) const;
   bool has(const E elt) const;
-	bool isback(const E elt) const;
-	bool isfront(const E elt) const;
+  bool isback(const E elt) const;
+  bool isfront(const E elt) const;
 
   size_t capacity() const;
-//	size_t count() const;
-//	size_t start() const;
+  //	size_t count() const;
+  //	size_t start() const;
   size_t size() const;
-    size_t frontsize() const;
-    size_t backsize() const;
-    size_t start_idx() const;
-    size_t end_idx() const;
+  size_t frontsize() const;
+  size_t backsize() const;
+  size_t start_idx() const;
+  size_t end_idx() const;
   bool empty() const;
 
   void setStart(const T &s);
@@ -115,10 +113,9 @@ public:
   std::vector<E>::iterator get_iterator(const size_t i);
   std::vector<E>::const_iterator get_iterator(const size_t i) const;
 
-
   void fill();
-	void fill_back();
-	void fill_front();
+  void fill_back();
+  void fill_front();
 
   void clear();
 
@@ -139,13 +136,13 @@ public:
 
   E back() const;
 
-  E any(const size_t limit=INFTY) const {
+  E any(const size_t limit = static_cast<size_t>(-1)) const {
     auto m{std::min(limit, size())};
     return list_[start_ + (random() % m)];
   }
 
   void push_front(const E elt);
-	void push_back(const E elt);
+  void push_back(const E elt);
   void add(const E elt);
   void safe_add(const E elt);
 
@@ -164,7 +161,7 @@ public:
   void restore_start(const size_t);
   void restore_end(const size_t);
   //@}
-	
+
   /*!@name Miscellaneous*/
   //@{
   std::ostream &display(std::ostream &os) const;
@@ -206,7 +203,7 @@ void SparseSet<E,T>::reserve(const size_t n) {
 template<typename E, typename T>
 void SparseSet<E,T>::resize(const size_t n) {
   reserve(n);
-	fill();
+  fill();
 }
 
 //
@@ -240,7 +237,8 @@ bool SparseSet<E,T>::safe_has(const E elt) const {
 }
 
 template <typename E, typename T> bool SparseSet<E,T>::has(const E elt) const {
-  return index_[elt] < static_cast<size_t>(end_) and
+  return static_cast<size_t>(elt) < capacity() and
+         index_[elt] < static_cast<size_t>(end_) and
          index_[elt] >= static_cast<size_t>(start_);
 }
 
@@ -411,12 +409,12 @@ std::vector<E>::const_reverse_iterator SparseSet<E,T>::brend() const {
 
 template<typename E, typename T>
 std::vector<E>::const_iterator SparseSet<E,T>::get_iterator(const size_t i) const {
-	return list_.begin() + i;
+  return list_.begin() + i;
 }
 
 template<typename E, typename T>
 std::vector<E>::iterator SparseSet<E,T>::get_iterator(const size_t i) {
-	return list_.begin() + i;
+  return list_.begin() + i;
 }
 
 // std::vector<E>::iterator SparseSet<E,T>::begin_after() { return end(); }
@@ -497,7 +495,7 @@ void SparseSet<E,T>::pull_front(const E elt) {
   list_[index_[elt]] = first;
   list_[start_] = elt;
   index_[elt] = start_;
-	++start_;
+  ++start_;
 }
 
 // ...|y..|x..
@@ -544,15 +542,14 @@ void SparseSet<E,T>::safe_add(const E elt) {
   }
 }
 
-template<typename E, typename T>
-void SparseSet<E,T>::add(const E elt) {
-	
-	// std::cout << "add " << elt << " to " << *this << std::endl;
+template <typename E, typename T> void SparseSet<E, T>::add(const E elt) {
 
-        if (index_[elt] >= static_cast<size_t>(end_))
-          push_back(elt);
-        else if (index_[elt] < static_cast<size_t>(start_))
-          push_front(elt);
+  // std::cout << "add " << elt << " to " << *this << std::endl;
+
+  if (index_[elt] >= static_cast<size_t>(end_))
+    push_back(elt);
+  else if (index_[elt] < static_cast<size_t>(start_))
+    push_front(elt);
 }
 
 template<typename E, typename T>
@@ -562,7 +559,7 @@ void SparseSet<E,T>::push_back(const E elt) {
   list_[index_[elt]] = next;
   index_[elt] = end_;
   list_[end_] = elt;
-	++end_;
+  ++end_;
 }
 
 template<typename E, typename T>
@@ -580,7 +577,7 @@ size_t SparseSet<E,T>::index(const E elt) const { return index_[elt]; }
 
 template<typename E, typename T>
 std::ostream &SparseSet<E,T>::display(std::ostream &os) const {
-    for (size_t i{0}; i < capacity(); ++i) {
+  for (size_t i{0}; i < capacity(); ++i) {
     if (i == start_)
       os << " |";
     if (i == end_)

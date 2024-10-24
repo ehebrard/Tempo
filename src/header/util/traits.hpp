@@ -8,6 +8,7 @@
 #include <type_traits>
 #include <functional>
 #include "Global.hpp"
+#include "util/IntFinity.hpp"
 
 /**
  * @brief namespace containing various type traits
@@ -63,7 +64,19 @@ namespace tempo::traits {
     struct is_same_template<Template, Template<Args...>> : std::true_type {};
 
     template<template<typename ...> typename Template, typename T>
-    constexpr inline bool is_same_template_v = is_same_template<Template, T>::value;
+    constexpr inline bool is_same_template_v = is_same_template<Template, std::remove_cvref_t<T>>::value;
+
+    template<typename T>
+    struct is_scalar {
+        static constexpr bool value = std::is_integral_v<T> or std::is_floating_point_v<T>;
+    };
+
+    template<typename T, UnsignedUnderflow U>
+    struct is_scalar<intfinity<T, U>> : std::true_type {};
+
+    template<typename T>
+    inline constexpr bool is_scalar_v = is_scalar<T>::value;
+
 }
 
 namespace tempo::concepts {
@@ -72,17 +85,20 @@ namespace tempo::concepts {
                          std::convertible_to<std::invoke_result_t<Functor, Args...>, Return>;
 
     template<typename T>
-    concept scalar = std::integral<T> || std::floating_point<T>;
+    concept scalar = traits::is_scalar_v<T>;//std::integral<T> || std::floating_point<T>;
 
     template<typename E, typename T>
-    concept event_dist_fun = callable_r<E, T, event, event>;
+    concept task_dist_fun = callable_r<E, T, unsigned , unsigned>;
 
     template<typename E>
-    concept arbitrary_event_dist_fun = std::invocable<E, event, event> &&
-                                       scalar<std::remove_reference_t<std::invoke_result_t<E, event, event>>>;
+    concept arbitrary_task_dist_fun = std::invocable<E, unsigned, unsigned> &&
+                                       scalar<std::remove_reference_t<std::invoke_result_t<E, unsigned, unsigned>>>;
 
     template<typename R, typename T>
     concept typed_range = std::ranges::range<R> && std::same_as<std::ranges::range_value_t<R>, T>;
+
+    template<typename R, typename T>
+    concept ctyped_range = std::ranges::range<R>and std::convertible_to<std::ranges::range_value_t<R>, T>;
 
     template<typename R, template<typename> typename T>
     concept ttyped_range = std::ranges::range<R> && traits::is_same_template_v<T, std::ranges::range_value_t<R>>;
@@ -91,6 +107,15 @@ namespace tempo::concepts {
     concept printable = requires(const T &obj, std::ostream &os) {
         os << obj;
     };
+
+    template<typename T, template<typename...> typename Template>
+    concept same_template = traits::is_same_template_v<Template, T>;
+
+    template<typename T, template<typename...> typename Template>
+    concept same_template_lvref = same_template<T, Template> and std::is_lvalue_reference_v<T>;
+
+    template<typename T, template<typename...> typename Template>
+    concept same_template_clvref = same_template_lvref<T, Template> and std::is_const_v<std::remove_reference_t<T>>;
 }
 
 #endif //TEMPO_TRAITS_HPP

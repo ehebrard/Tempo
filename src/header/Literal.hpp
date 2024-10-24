@@ -1,8 +1,28 @@
+/************************************************
+ * Tempo Solver.hpp
+ *
+ * Copyright 2024 Emmanuel Hebrard and Tim Luchterhand
+ *
+ * Tempo is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation, either version 3 of the License, or (at your
+ *  option) any later version.
+ *
+ * Tempo is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Tempo.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ ***********************************************/
 
 #ifndef __TEMPO_LITERAL_HPP
 #define __TEMPO_LITERAL_HPP
 
 #include <variant>
+#include <nlohmann/json.hpp>
 
 #include "Constant.hpp"
 #include "Global.hpp"
@@ -141,6 +161,20 @@ namespace detail {
             numericData = value;
             info |= TagBit;
         }
+
+        friend void to_json(nlohmann::json &j, Literal<T> literal) {
+            j["info"] = literal.info;
+            j["data"] = literal.isNumeric() ? literal.value_unsafe() : literal.semantic_unsafe();
+        }
+
+        friend void from_json(const nlohmann::json &j, Literal<T> &literal) {
+            j.at("info").get_to(literal.info);
+            if (literal.isNumeric()) {
+                j.at("data").get_to(literal.numericData);
+            } else {
+                j.at("data").get_to(literal.semanticInfo);
+            }
+        }
     };
 
     /**
@@ -172,45 +206,47 @@ namespace detail {
 
 template<typename T>
 struct Literal : public detail::LiteralStorage<T> {
-    constexpr Literal() noexcept: detail::LiteralStorage<T>(Constant::NoVarx,Constant::NoSemantic, detail::Boolean{}) {}
+  constexpr Literal() noexcept
+      : detail::LiteralStorage<T>(Constant::NoVar, Constant::NoSemantic,
+                                  detail::Boolean{}) {}
 
-    /**
-     * Ctor
-     * constructs a NUMERIC literal
-     * @param sign sign of the literal
-     * @param x variable identifier
-     * @param v numeric value
-     * @note see also makeNumericLiteral()
-     */
-    constexpr Literal(bool sign, var_t x, T v, detail::Numeric) noexcept;
+  /**
+   * Ctor
+   * constructs a NUMERIC literal
+   * @param sign sign of the literal
+   * @param x variable identifier
+   * @param v numeric value
+   * @note see also makeNumericLiteral()
+   */
+  constexpr Literal(bool sign, var_t x, T v, detail::Numeric) noexcept;
 
-    /**
-     * Ctor
-     * constructs a BOOLEAN literal
-     * @param sign sign of the literal
-     * @param x variable identifier
-     * @param v semantic information
-     * @note see also makeBooleanLiteral()
-     */
-    constexpr Literal(bool sign, var_t x, info_t info, detail::Boolean) noexcept;
-    using detail::LiteralStorage<T>::LiteralStorage;
+  /**
+   * Ctor
+   * constructs a BOOLEAN literal
+   * @param sign sign of the literal
+   * @param x variable identifier
+   * @param v semantic information
+   * @note see also makeBooleanLiteral()
+   */
+  constexpr Literal(bool sign, var_t x, info_t info, detail::Boolean) noexcept;
+  using detail::LiteralStorage<T>::LiteralStorage;
 
-    [[nodiscard]] constexpr bool isBoolean() const noexcept;
-    [[nodiscard]] constexpr bool hasSemantic() const noexcept;
+  [[nodiscard]] constexpr bool isBoolean() const noexcept;
+  [[nodiscard]] constexpr bool hasSemantic() const noexcept;
 
-    constexpr operator info_t() const noexcept;
+  constexpr operator info_t() const noexcept;
 
-    [[nodiscard]] constexpr var_t variable() const noexcept;
+  [[nodiscard]] constexpr var_t variable() const noexcept;
 
-    constexpr bool sameVariable(const Literal<T> &l) const noexcept;
-    constexpr bool operator==(const Literal<T> &l) const noexcept;
+  constexpr bool sameVariable(const Literal<T> &l) const noexcept;
+  constexpr bool operator==(const Literal<T> &l) const noexcept;
 
-    [[nodiscard]] constexpr info_t constraint() const;
-    std::ostream& display(std::ostream &os) const;
-    
-    static constexpr info_t index(bool sign, var_t x) noexcept;
-    static constexpr var_t var(info_t l) noexcept;
-    static constexpr bool sgn(info_t l) noexcept;
+  [[nodiscard]] constexpr info_t constraint() const;
+  std::ostream &display(std::ostream &os) const;
+
+  static constexpr info_t index(bool sign, var_t x) noexcept;
+  static constexpr var_t var(info_t l) noexcept;
+  static constexpr bool sgn(info_t l) noexcept;
 };
 
 template <typename T>
@@ -241,9 +277,10 @@ constexpr auto makeNumericLiteral(bool sign, var_t variableId, T value) noexcept
  * @param info semantic info
  * @note prefer using this function when constructing boolean literals over the constructor
  */
-template<concepts::scalar T>
-constexpr auto makeBooleanLiteral(bool sign, var_t variableId, info_t info) noexcept {
-    return Literal<T>(sign, variableId, info, detail::Boolean{});
+template <concepts::scalar T>
+constexpr auto makeBooleanLiteral(bool sign, var_t variableId,
+                                  info_t info = Constant::NoSemantic) noexcept {
+  return Literal<T>(sign, variableId, info, detail::Boolean{});
 }
 
 template <typename T>
@@ -306,18 +343,19 @@ Literal<T> operator~(const Literal<T> &l) noexcept {
 }
 
 template <typename T> std::ostream& Literal<T>::display(std::ostream &os) const {
-    if(this->id() == Constant::NoVarx) {
-      if (this->value() == Constant::Infinity<T>)
-        os << "infinity";
-      else if (this->value() == -Constant::Infinity<T>)
-        os << "-infinity";
-      else
-        os << "constant: " << this->value();
-    } else if(this->isNumeric()) {
-        os << (this->sign() ? "x" : "-x") << variable() << " <= " << this->value();
-    } else {
-      os << (this->sign() ? "b" : "¬b") << variable() << (hasSemantic() ? "*" : "");
-    }
+  if (this->id() == Constant::NoVar) {
+    if (this->value() == Constant::Infinity<T>)
+      os << "infinity";
+    else if (this->value() == -Constant::Infinity<T>)
+      os << "-infinity";
+    else
+      os << "constant: " << this->value();
+  } else if (this->isNumeric()) {
+    os << (this->sign() ? "x" : "-x") << variable() << " <= " << this->value();
+  } else {
+    os << (this->sign() ? "b" : "¬b") << variable()
+       << (hasSemantic() ? "*" : "");
+  }
     return os;
 }
 
@@ -366,6 +404,13 @@ constexpr Literal<T> neg(const var_t x, const info_t d=0) noexcept {
     return makeBooleanLiteral<T>(false, x, d);
 }
 
+// Global constant for failures
+template<concepts::scalar T>
+inline constexpr Literal<T> Contradiction = makeBooleanLiteral<T>(false, Constant::NoVar, 0);
+
+// Global constant ~Contradiction
+template<concepts::scalar T>
+inline constexpr Literal<T> Truism = makeBooleanLiteral<T>(true, Constant::NoVar, 0);
 
 }
 

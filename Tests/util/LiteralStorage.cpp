@@ -71,3 +71,21 @@ TEST(util, LiteralStorage_creator_functions) {
     EXPECT_EQ(ls.value(), 0.3f);
     EXPECT_EQ(ls.id(), 12);
 }
+
+template<tempo::concepts::scalar T>
+void testSerializationRt(tempo::Literal<T> lit) {
+    nlohmann::json j;
+    j = lit;
+    auto rt = j.get<tempo::Literal<T>>();
+    EXPECT_EQ(rt, lit);
+}
+
+TEST(util, LiteralStorage_serialization) {
+    using namespace tempo;
+    auto lss = makeBooleanLiteral<float>(true, 4, 17);
+    auto lsn = makeNumericLiteral(false, 7, 31);
+    auto lsn1 = makeNumericLiteral(true, 19, 0.4f);
+    testSerializationRt(lss);
+    testSerializationRt(lsn);
+    testSerializationRt(lsn1);
+}

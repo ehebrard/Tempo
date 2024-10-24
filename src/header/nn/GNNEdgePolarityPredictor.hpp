@@ -6,16 +6,26 @@
 #ifndef TEMPO_GNNEDGEPOLARITYPREDICTOR_HPP
 #define TEMPO_GNNEDGEPOLARITYPREDICTOR_HPP
 
+#include "Global.hpp"
 #include "GNN.hpp"
 #include "GraphBuilder.hpp"
 #include "util/Matrix.hpp"
-#include "util/parsing/format.hpp"
+#include "util/traits.hpp"
+#include "Literal.hpp"
+#include "heat_map_utils.hpp"
 
-namespace tempo::nn::heuristics {
+namespace tempo {
+    template<typename T>
+    class Solver;
+}
+
+namespace tempo::nn {
+
     /**
      * GNN based value selection heuristic that predicts a probability for each edge and returns the polarity of
      * choicepoint accordingly
      */
+    template<concepts::scalar T, SchedulingResource R>
     class GNNEdgePolarityPredictor {
     public:
         /**
@@ -27,37 +37,33 @@ namespace tempo::nn::heuristics {
          */
         GNNEdgePolarityPredictor(const std::filesystem::path &modelLocation,
                                  const std::filesystem::path &featureExtractorConfigLocation,
-                                 const ProblemInstance &problemInstance);
+                                 SchedulingProblemHelper<T, R> problemInstance) :
+                gnn(modelLocation),
+                graphBuilder(featureExtractorConfigLocation, std::move(problemInstance)) {}
 
         /**
          * Returns the choice point in the appropriate polarity according to a GNN edge regressor
-         * @param cp choicepoint to evaluate
-         * @return cp or ~cp according to the GNN heat map
+         * @param x variable for which to make a choice
+         * @return corresponding positive or negative literal according to the GNN
          */
-        template<concepts::scalar T>
-        auto choosePolarity(const DistanceConstraint<T> &cp) const -> DistanceConstraint<T> {
-            return choosePolarityFromHeatMap(cp.from, cp.to, edgeHeatMap) ? cp : ~cp;
+        auto choose(var_t x, const Solver<T> &solver) const -> Literal<T> {
+            const auto &mapping = graphBuilder.getProblem().getMapping();
+            return solver.boolean.getLiteral(pignisticEdgeProbability(x, edgeHeatMap, solver, mapping) > 0.5, x);
         }
 
         /**
          * Runs the GNN to produce an edge heat map
-         * @param scheduler scheduler instance for which to produce the heat map
+         * @param solver scheduler instance for which to produce the heat map
          */
-        template<concepts::scalar T>
-        void preEvaluation(const Scheduler<T> &scheduler) {
-            auto [choices, implied] = scheduler.getChoices();
-            std::vector<DistanceConstraint<T>> allChoices = std::move(choices);
-            std::copy(implied.begin(), implied.end(), std::back_inserter(allChoices));
-            auto graph = graphBuilder.getGraph(scheduler.distance, allChoices);
+        void preEvaluation(const Solver<T> &solver) {
+            auto taskNetwork = graphBuilder.getProblem().getTaskDistances(solver);
+            auto graph = graphBuilder.getGraph(makeSolverState(std::move(taskNetwork), solver));
             edgeHeatMap = gnn.getHeatMap(graph);
         }
 
-    protected:
-        static bool choosePolarityFromHeatMap(event from, event to, const Matrix<DataType> &heatMap);
-
     private:
         EdgeRegressor gnn;
-        GraphBuilder graphBuilder;
+        GraphBuilder<T, R> graphBuilder;
         Matrix<DataType> edgeHeatMap{};
     };
 }

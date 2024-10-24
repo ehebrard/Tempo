@@ -1,3 +1,22 @@
+/************************************************
+ * Tempo Failure.hpp
+ *
+ * Copyright 2024 Emmanuel Hebrard
+ *
+ * Tempo is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation, either version 3 of the License, or (at your
+ *  option) any later version.
+ *
+ * Tempo is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Tempo.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ ***********************************************/
 
 #ifndef __TEMPO_FAILURE_HPP
 #define __TEMPO_FAILURE_HPP
@@ -9,45 +28,17 @@
 
 namespace tempo {
 
-/**********************************************
-* Failure
-**********************************************/
-
-class Failure: public std::exception
-{
+//! Failure exception
+template <typename T> class Failure : public std::exception {
 public:
-    
-    Explanation reason;
-    
-    Failure(Explanation r=Constant::NoReason) : reason(r) {}
+  Explanation<T> reason;
 
-
-  virtual const char* what() const throw()
-  {
-    return "Inconsistency (literal)";
-  }
-};
-
-template <typename T> class NewFailure : public std::exception {
-public:
-  NewExplanation<T> reason;
-
-  NewFailure(NewExplanation<T> r) : reason(r) {}
+  Failure(Explanation<T> r) : reason(r) {}
 
   virtual const char *what() const throw() { return "Inconsistency (literal)"; }
 };
 
-//class NegativeCycle: public std::exception
-//{
-//public:
-//    NegativeCycle() = default;
-//
-//  virtual const char* what() const throw()
-//  {
-//    return "Inconsistency (negative cycle)";
-//  }
-//};
-
+//! End-of-search exception
 class SearchExhausted : public std::exception {
     
 public:

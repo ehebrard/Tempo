@@ -1,79 +1,179 @@
 
+/************************************************
+ * Tempo Options.hpp
+ *
+ * Copyright 2024 Emmanuel Hebrard
+ *
+ * Tempo is free software: you can redistribute it and/or modify it
+ * under the terms of the GNU General Public License as published by the
+ * Free Software Foundation, either version 3 of the License, or (at your
+ *  option) any later version.
+ *
+ * Tempo is distributed in the hope that it will be useful, but WITHOUT
+ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
+ * for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with Tempo.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ ***********************************************/
 
 #ifndef __CMDLINE_HPP
 #define __CMDLINE_HPP
 
 #include <tclap/CmdLine.h>
+#include <limits>
+#include <memory>
+
+
+struct argbase {
+    virtual ~argbase() {}
+    virtual void assign() = 0;
+};
+
+template <typename Opt, typename ClapArg, typename E = void>
+struct arg : public argbase {
+    ClapArg carg;
+    Opt &opt;
+
+    template <typename... T>
+    arg(TCLAP::CmdLine &cmd, Opt &opt, T &&...args)
+            : carg(std::forward<T>(args)...), opt(opt) {
+        cmd.add(carg);
+    }
+
+    void assign() override { opt = carg.getValue(); }
+};
+
+template<typename Opt, typename ClapArg>
+struct arg<Opt, ClapArg, typename std::enable_if<std::is_enum<Opt>{}>::type> : public argbase {
+    ClapArg carg;
+    Opt &opt;
+
+    template<typename... T>
+    arg(TCLAP::CmdLine &cmd, Opt &opt, T &&...args): carg(std::forward<T>(args)...), opt(opt) {
+        cmd.add(carg);
+    }
+
+    void assign() override {
+        opt = static_cast<typename std::remove_reference<Opt>::type>(carg.getValue());
+    }
+};
+
+
+struct cmdline {
+    TCLAP::CmdLine cmd;
+    std::vector<std::unique_ptr<argbase>> args;
+
+    explicit cmdline(const std::string &message, char delimiter = ' ',
+                     const std::string &version = "none", bool helpAndVersion = true);
+
+    template <typename ClapArg, typename Opt, typename... T>
+    void add(Opt &opt, T &&...clapargs) {
+        args.emplace_back(std::move(std::make_unique<arg<Opt, ClapArg>>(
+        cmd, opt, std::forward<T>(clapargs)...)));
+    }
+
+    void parse(int argc, char *argv[]);
+};
+
 
 namespace tempo {
 
 class Options {
 
 public:
+    Options() = default;
+    
   // the actual options
-  std::string cmdline; // for reference
-  std::string instance_file;
+  std::string cmdline{}; // for reference
+  std::string instance_file{"../data/osp/hurley/j7per0-0.txt"};
 
   enum verbosity { SILENT = 0, QUIET, NORMAL, YACKING, SOLVERINFO };
-  int verbosity;
+  int verbosity{verbosity::NORMAL};
 
-  int seed;
+  int seed{1};
+
+  int ub{std::numeric_limits<int>::max()};
+  int lb{std::numeric_limits<int>::min()};
+
+  bool print_sol{false};
+  bool print_par{false};
+  bool print_mod{false};
+  bool print_ins{false};
+  bool print_sta{false};
+  bool print_cmd{false};
+  std::string dbg_file{""};
+//  std::string order_file{""};
+
+  bool learning{true};
+  bool edge_finding{true};
+    bool time_tabling{true};
+  bool transitivity{true};
+
+  bool dichotomy{false};
+
+  bool full_up{false};
+  bool order_bound_watch{false};
     
-    int ub;
+    bool full_transitivity{false};
+    bool primal_boost{true};
 
-  bool print_sol;
-  bool print_par;
-  bool print_mod;
-  bool print_ins;
-  bool print_sta;
-  bool print_cmd;
-  std::string dbg_file;
+    enum class ChoicePointHeuristics { Tightest = 0, WeightedDegree, VSIDS, Random };
+    ChoicePointHeuristics choice_point_heuristics{ChoicePointHeuristics::VSIDS};
 
-  bool learning;
-  bool edge_finding;
-  bool transitivity;
+    enum class PolarityHeuristic { Tightest, TSG, Random };
 
-  bool dichotomy;
+    double polarity_epsilon{0};
 
-  enum class ChoicePointHeuristics {
-    Tightest = 0,
-    WeightedDegree,
-    WeightedCriticalPath,
-    VSIDS
-  };
-  ChoicePointHeuristics choice_point_heuristics;
+    PolarityHeuristic polarity_heuristic{PolarityHeuristic::Tightest};
 
-  enum class PolarityHeuristic { Tightest, SolutionGuided, Random };
+    double vsids_decay{0.999};
+    double vsids_epsilon{0.05};
 
-  double polarity_epsilon;
+    double forgetfulness{0.3};
 
-  PolarityHeuristic polarity_heuristic;
+    //  enum class Minimization { None = 0, Greedy, QuickXplain };
 
-  double vsids_decay;
-  double vsids_epsilon;
+    int minimization{1};
 
-  double forgetfulness;
+    int greedy_runs{1};
 
-  //  enum class Minimization { None = 0, Greedy, QuickXplain };
+    unsigned long search_limit{std::numeric_limits<unsigned long>::max()};
+    //    double time_limit;
 
-  int minimization;
+    enum class LiteralScore {
+      Size = 0,
+      Looseness,
+      Activity,
+      LoosenessOverActivity
+    };
 
-  enum class LiteralScore {
-    Size = 0,
-    Looseness,
-    Activity,
-    LoosenessOverActivity
-  };
+    LiteralScore forget_strategy{3};
 
-  LiteralScore forget_strategy;
-
-  double restart_factor;
-  int restart_base;
-  std::string restart_policy;
-  std::string input_format;
+    double restart_factor{1.2};
+    int restart_base{128};
+    std::string restart_policy{"geom"};
+    std::string input_format{"osp"};
 };
 
 Options parse(int argc, char *argv[]);
+
+class Parser {
+    std::unique_ptr<Options> options;
+    std::unique_ptr<cmdline> cmdLine;
+public:
+    explicit Parser(const std::string &name = "tempo");
+    auto getOptions() noexcept -> Options &;
+    [[nodiscard]] auto getOptions() const noexcept -> const Options &;
+    auto getCmdLine() noexcept -> cmdline &;
+    [[nodiscard]] auto getCmdLine() const noexcept -> const cmdline &;
+    void parse(int argc, char **argv);
+};
+
+auto getBaseParser() -> Parser;
+
 
 static Options no_option;
 } // namespace tempo

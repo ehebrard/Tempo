@@ -4,7 +4,7 @@
 
 #ifndef TEMPO_WEIGHTEDCRITICALPATH_HPP
 #define TEMPO_WEIGHTEDCRITICALPATH_HPP
-#include "BaseHeuristic.hpp"
+#include "RankingHeuristic.hpp"
 #include "Options.hpp"
 #include "heuristics/impl/DecayingEventActivityMap.hpp"
 #include "util/SubscribableEvent.hpp"
