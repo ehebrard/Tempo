@@ -308,7 +308,6 @@ template <typename T> void CumulativeTimetabling<T>::buildProfile() {
   // Scan to find max usage.
   T max_usage = 0;
   T l{-Constant::Infinity<T>};
-  T prev_time{l};
   T max_cap{capacity.max(solver)};
   for (const ProfileDelta<T> &step : profile_unique_time_) {
     usage += step.delta;
@@ -318,7 +317,6 @@ template <typename T> void CumulativeTimetabling<T>::buildProfile() {
     if (usage > max_cap) {
       l = step.time;
     }
-    prev_time = step.time;
 
 #ifdef DBG_TT
     if (DBG_TT) {
