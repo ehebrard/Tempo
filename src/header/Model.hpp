@@ -1844,12 +1844,12 @@ public:
     if (std::distance(this->begin(), this->end()) > 1) {
       solver.postCumulative(capacity, *this, demand, disjunctiveLiterals);
 
-#ifdef DBG_SEF
+//#ifdef DBG_SEF
         if (solver.getOptions().edge_finding) {
                   solver.postStrongEdgeFinding(schedule, capacity,
                   this->begin(), this->end(), this->begDemand());
         }
-#endif
+//#endif
         
       if (solver.getOptions().time_tabling) {
         solver.postTimetabling(capacity, this->begin(), this->end(),

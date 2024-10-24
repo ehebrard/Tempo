@@ -83,7 +83,7 @@ template <typename T = int> struct Datapoint {
     if (overflow > 0)
       os << "overflow=" << overflow;
     if (consumption > 0)
-      os << " consumption=" << overflow;
+      os << " consumption=" << consumption;
     if (overlap > 0)
       os << " overlap=" << overlap;
     if (slackUnder > 0)
@@ -236,7 +236,7 @@ public:
 template <typename T>
 std::string CumulativeEdgeFinding<T>::prettyTask(const int i) const {
   std::stringstream ss;
-  ss << "t" << task[i].id() << ": [" << est(i) << ".." << lct(i) << "] ("
+  ss << "t" << std::left << std::setw(3) << task[i].id() << ": [" << est(i) << ".." << lct(i) << "] ("
      << mindemand(i) << "x" << minduration(i) << ")";
   return ss.str();
 }
@@ -359,7 +359,7 @@ CumulativeEdgeFinding<T>::CumulativeEdgeFinding(
   auto ip{task.size()};
 
   //    in_conflict.reserve(ip);
-  prec.resize(ip);
+  prec.resize(ip, -1);
   est_.resize(ip);
   ect_.resize(ip);
   lct_.resize(ip);
@@ -379,6 +379,8 @@ CumulativeEdgeFinding<T>::CumulativeEdgeFinding(
     lct_[i] = profile.create_element();
   }
   data.resize(profile.size() + 1);
+        
+//        sentinel =
 
   lct_order.resize(task.size());
   std::iota(lct_order.begin(), lct_order.end(), 0);
@@ -512,6 +514,25 @@ template <typename T> void CumulativeEdgeFinding<T>::growLeftCutToTime(const T t
 
 template <typename T> void CumulativeEdgeFinding<T>::propagate() {
 
+//    in_conflict.clear();
+    
+//    std::cout << solver.num_cons_propagations << ": " << in_conflict.size() << " /";
+//    for(auto p : prec) {
+//        std::cout << " " << p;
+//    }
+//    std::cout <<std::endl;
+//    
+//    assert(pruning.empty());
+//        assert(in_conflict.empty());
+//    for(auto p : prec) {
+//    
+//        assert(p == -1);
+//    }
+    
+//    assert(in_conflict.empty());
+    
+    
+
 std::sort(lct_order.begin(), lct_order.end(),
           [this](const int i, const int j) { return lct(i) < lct(j); });
 
@@ -519,7 +540,7 @@ std::sort(lct_order.begin(), lct_order.end(),
 if (DBG_SEF) {
   std::cout << "\n\nstart propagation (" << capacity.max(solver) << ")\n";
   for (auto j : lct_order) {
-    std::cout << "task " << task[j].id() << ": " << asciiArt(j) << std::endl;
+    std::cout << "task " << std::setw(3) << task[j].id() << ": " << asciiArt(j) << std::endl;
   }
 }
 #endif
@@ -529,8 +550,8 @@ initialiseProfile();
 forwardDetection();
 
 forwardAdjustment();
-
-doPruning();
+    
+    doPruning();
 }
 
 template <typename T> void CumulativeEdgeFinding<T>::addPrime(const int i, const int j) {
@@ -637,6 +658,12 @@ T CumulativeEdgeFinding<T>::scheduleOmega(const int i, const T max_lct,
 
     auto l = next->time - t->time;
 
+    if (adjustment) {
+      data[t.index].overlap = overlap;
+      data[t.index].slackUnder = slackUnder;
+      data[t.index].available = available;
+    }
+
     // S is the sum of demands of the tasks that could be processed at time
     S += t->incrementMax;
     // h_max is the min between the resource's capacity and the total of the
@@ -647,6 +674,9 @@ T CumulativeEdgeFinding<T>::scheduleOmega(const int i, const T max_lct,
     // h_cons is the amount of resource actually used in the optimistic scenario
     // (min between what is required + due from earlier, and what is available)
     auto h_cons{std::min(h_req + overflow, h_max)};
+//    if (adjustment) {
+//      data[t.index].consumption = h_cons;
+//    }
 
     if (overflow > 0 and (h_cons - h_req) != 0) {
       auto al{std::max(Gap<T>::epsilon(), overflow / (h_cons - h_req))};
@@ -668,14 +698,15 @@ T CumulativeEdgeFinding<T>::scheduleOmega(const int i, const T max_lct,
 
     
     if (adjustment) {
-      data[t.index].consumption = h_cons;
+      //data[t.index].consumption = h_cons;
       overlap += (std::max(h_cons - (C - h), 0) * l);
       slackUnder += (std::max(std::min(C - h, h_max) - h_cons, 0) * l);
       available += (std::min(C - h_cons, h) * l);
-
-      data[t.index].overlap = overlap;
+        
+        data[t.index].consumption = h_cons;
+      /*data[t.index].overlap = overlap;
       data[t.index].slackUnder = slackUnder;
-      data[t.index].available = available;
+      data[t.index].available = available;*/
     }
 
     if (overflow > 0)
@@ -730,6 +761,8 @@ T CumulativeEdgeFinding<T>::scheduleOmega(const int i, const T max_lct,
 
 template <typename T> void CumulativeEdgeFinding<T>::doPruning() {
 
+//    std::cout << "start pruning" << std::endl;
+    
 #ifdef DBG_TT
   if (DBG_TT) {
     if (not pruning.empty())
@@ -749,6 +782,9 @@ template <typename T> void CumulativeEdgeFinding<T>::doPruning() {
     solver.set(p, {this, h++});
   }
   pruning.clear();
+    
+    
+//    std::cout << "end pruning" << std::endl;
 }
 
 template <typename T> void CumulativeEdgeFinding<T>::forwardAdjustment() {
@@ -764,7 +800,7 @@ template <typename T> void CumulativeEdgeFinding<T>::forwardAdjustment() {
 
   while (not in_conflict.empty()) {
     auto i{in_conflict.back()};
-    in_conflict.pop_back();
+    
 
 #ifdef DBG_SEF
     if (DBG_SEF) {
@@ -780,28 +816,52 @@ template <typename T> void CumulativeEdgeFinding<T>::forwardAdjustment() {
     scheduleOmega(i, lct(j), true);
 
     // t1 is the latest time points between est(i) and contact[i]
+//      std::cout << contact[i] << "/" << profile.size() << std::endl;
     auto t1{profile[contact[i]].time < est(i) ? est_shared[i] : contact[i]};
 
     // available
     auto available{data[lct_shared[j]].available - data[t1].available};
-    auto t2{ect_shared[j]};
-    auto t3{lct_shared[i]};
+    auto t2{ect_shared[i]};
+    auto t3{lct_shared[j]};
 
     T maxoverflow;
     if (ect(i) < lct(j)) {
+        
+#ifdef DBG_SEF
+        if (DBG_SEF) {
+            std::cout << "available: " << available << std::endl;
+        }
+#endif
+        
       if (available < minenergy(i)) {
         maxoverflow = data[t3].overlap - data[t3].slackUnder -
                       data[t1].overlap + data[t1].slackUnder;
+          
+#ifdef DBG_SEF
+          if (DBG_SEF) {
+              std::cout << "overlap: " << (data[t3].overlap-data[t1].overlap) << std::endl;
+          }
+#endif
+          
       } else {
         maxoverflow = data[t2].overlap - data[t3].slackUnder -
                       data[t1].overlap + data[t1].slackUnder;
       }
     } else {
-      maxoverflow = data[t2].overlap - data[t2].slackUnder - data[t1].overlap +
+      maxoverflow = data[t3].overlap - data[t3].slackUnder - data[t1].overlap -
                     data[t1].slackUnder;
     }
 
     T adjustment{-Constant::Infinity<T>};
+      
+#ifdef DBG_SEF
+      if (DBG_SEF) {
+          std::cout << " *** maxoverflow: " << maxoverflow << std::endl;
+          
+          assert(maxoverflow > 0);
+      }
+#endif
+      
     if (maxoverflow > 0) {
       auto next{profile.at(t1)};
       while (next != profile.end()) {
@@ -819,148 +879,173 @@ template <typename T> void CumulativeEdgeFinding<T>::forwardAdjustment() {
         }
       }
     }
-
+      
+#ifdef DBG_SEF
+      if (DBG_SEF) {
+          std::cout << " *** adjustment value: " << adjustment << std::endl;
+      }
+#endif
+      
     computeForwardExplanation(i);
     pruning.push_back(task[i].start.after(adjustment));
 
-    std::cout << " *** adjustment: " << pruning.back() << " because";
-    for (auto l : explanation[num_explanations - 1])
-      std::cout << " " << l;
-    std::cout << std::endl;
+#ifdef DBG_SEF
+      if (DBG_SEF) {
+          std::cout << " *** adjustment: " << pruning.back() << std::endl;
+      }
+#endif
+      
+      
+      in_conflict.pop_back();
+      prec[i] = -1;
   }
+    
+//    
+//    assert(in_conflict.empty());
+//    for(auto p : prec) {
+//        assert(p == -1);
+//    }
 }
 
 
 template <typename T> void CumulativeEdgeFinding<T>::forwardDetection() {
-
-#ifdef DBG_SEF
-  if (DBG_SEF) {
-    std::cout << "\nstart forward detection\n";
-  }
-#endif
-
-  while (not in_conflict.empty()) {
-    prec[in_conflict.back()] = -1;
-    in_conflict.pop_back();
-  }
-
-  //        auto cap{capacity.max(solver)};
-  auto stop{lct_order.rend()};
-  --stop;
-
-  // explore the tasks by decreasing lct
-  //    for (auto ii{lct_order.rbegin()}; ii != stop;) {
-  int k{static_cast<int>(lct_order.size() - 1)};
-  while (k >= 0) {
-    auto i{lct_order[k]};
-
+    
 #ifdef DBG_SEF
     if (DBG_SEF) {
-      std::cout << " - analyse tasks whose lct is " << lct(i) << std::endl;
+        std::cout << "\nstart forward detection\n";
     }
 #endif
-
-    // remove tasks whose lct is larger than or equal to lct(*ii)
-    shrinkLeftCutToTime(lct(i));
-
-    // if there are no more tasks, all those in the current level have the same
-    // lct and we can stop
-    if (leftcut_pointer == 0) {
-      break;
+    
+    while (not in_conflict.empty()) {
+        prec[in_conflict.back()] = -1;
+        in_conflict.pop_back();
     }
-
-    // lct of the task that precedes all the task whose lct is lct(i)
-    auto j{lct_order[leftcut_pointer - 1]};
-
-    // tasks in the range [leftcut_pointer, *ii) all have a lct equal to
-    // lct(*ii)
-    // - add their "prime" versions one by one and run scheduleOmega
-    while (k >= leftcut_pointer) {
-
+    
+    //        auto cap{capacity.max(solver)};
+    auto stop{lct_order.rend()};
+    --stop;
+    
+    // explore the tasks by decreasing lct
+    //    for (auto ii{lct_order.rbegin()}; ii != stop;) {
+    int k{static_cast<int>(lct_order.size() - 1)};
+    while (k >= 0) {
+        auto i{lct_order[k]};
+        
+        
+            //          continue;
+            
 #ifdef DBG_SEF
-      if (DBG_SEF) {
-        std::cout << "  * " << prettyTask(i) << ": schedule tasks on [0,"
-                  << lct(j) << ")\n";
-      }
+            if (DBG_SEF) {
+                std::cout << " - analyse tasks whose lct is " << lct(i) << std::endl;
+            }
 #endif
-
-      addPrime(i, j);
-      scheduleOmega(i, lct(j));
-      rmPrime(i, j);
-
-      computeBound(i);
-
-      if (beta != -1) {
+            
+            // remove tasks whose lct is larger than or equal to lct(*ii)
+            shrinkLeftCutToTime(lct(i));
+            
+            // if there are no more tasks, all those in the current level have the same
+            // lct and we can stop
+            if (leftcut_pointer == 0) {
+                break;
+            }
+            
+            // lct of the task that precedes all the task whose lct is lct(i)
+            auto j{lct_order[leftcut_pointer - 1]};
+            
+                
+                // tasks in the range [leftcut_pointer, *ii) all have a lct equal to
+                // lct(*ii)
+                // - add their "prime" versions one by one and run scheduleOmega
+                while (k >= leftcut_pointer) {
+                    
 #ifdef DBG_SEF
-        if (DBG_SEF) {
-          std::cout << "  - beta = " << beta << " (task " << task[beta].id()
-                    << ")" << std::endl;
+                    if (DBG_SEF) {
+                        std::cout << "  * " << prettyTask(i) << ": schedule tasks on [0,"
+                        << lct(j) << ")\n";
+                    }
+#endif
+                    
+                    if(lct(i) != ect(i)) {
+                        if(est(i) < lct(j)) {
+                    
+                    addPrime(i, j);
+                    scheduleOmega(i, lct(j));
+                    rmPrime(i, j);
+                    
+                    computeBound(i);
+                    
+                    if (beta != -1) {
+                        
+                        assert(lct(lct_order[leftcut_pointer]) > lct(beta));
+                        shrinkLeftCutToTime(lct(beta) + Gap<T>::epsilon());
+                        
+                        addPrime(i, beta);
+                        auto ect_i_H = scheduleOmega(i, lct(beta));
+                        rmPrime(i, beta);
+                        
+                        if (ect_i_H > lct(beta)) {
+                            
+#ifdef DBG_SEF
+                            if (DBG_SEF) {
+                                std::cout << "  - beta = " << beta << " (task " << task[beta].id()
+                                << "), contact = " << contact[i] << " [" << lct(beta) << ".." << profile[contact[i]].time << "]" << std::endl;
+                                
+                                assert(contact[i] != -1);
+                            }
+#endif
+                            prec[i] = beta;
+                            in_conflict.push_back(i);
+                        }
+                    }
+                    
+                    if (prec[i] == -1 and alpha != -1) {
+                        
+                        assert(lct(lct_order[leftcut_pointer]) > lct(alpha));
+                        shrinkLeftCutToTime(lct(alpha) + 1);
+                        
+                        //                std::cout << profile << std::endl;
+                        
+                        addPrime(i, alpha);
+                        auto ect_i_H = scheduleOmega(i, lct(alpha));
+                        rmPrime(i, alpha);
+                        
+                        if (ect_i_H > lct(alpha)) {
+                            
+#ifdef DBG_SEF
+                            if (DBG_SEF) {
+                                std::cout << "  - alpha = " << alpha << " (task " << task[alpha].id()
+                                << "), contact = " << contact[i] << " [" << lct(alpha) << ".." << profile[contact[i]].time << "]" << std::endl;
+                                
+                                assert(contact[i] != -1);
+                            }
+                            //#endif
+                            //#ifdef DBG_SEF
+                            //          if (DBG_SEF) {
+                            //            std::cout << " task " << task[i].id()
+                            //                      << " is in conflict with task interval "
+                            //                      << task[*(lct_order.begin())].id() << ".."
+                            //                      << task[alpha].id() << std::endl;
+                            //          }
+#endif
+                            
+                            prec[i] = alpha;
+                            in_conflict.push_back(i);
+                        }
+                    }
+                    
+//                    for(auto c : in_conflict) {
+//                        std::cout << " t" << task[c].id() ;
+//                    }
+//                    std::cout << "\nt" << task[i].id() << ": b=" << beta << " a=" << alpha << " prec=" << prec[i] << " contact=" << contact[i] << std::endl;
+                    
+                    if (alpha != -1 or beta != -1) {
+                        growLeftCutToTime(lct(i));
+                    }
+                }
+            }
+            i = lct_order[--k];
         }
-#endif
-
-        assert(lct(lct_order[leftcut_pointer]) > lct(beta));
-        shrinkLeftCutToTime(lct(beta) + 1);
-
-        addPrime(i, beta);
-        auto ect_i_H = scheduleOmega(i, lct(beta));
-        rmPrime(i, beta);
-
-        if (ect_i_H > lct(beta)) {
-
-#ifdef DBG_SEF
-          if (DBG_SEF) {
-            std::cout << " task " << task[i].id()
-                      << " is in conflict with task interval ending at time "
-                      << lct(beta) << std::endl;
-          }
-#endif
-
-          prec[i] = beta;
-          in_conflict.push_back(i);
-        }
-      }
-
-      if (prec[i] == -1 and alpha != -1) {
-
-#ifdef DBG_SEF
-        if (DBG_SEF) {
-          std::cout << "  - alpha = " << alpha << " (task " << task[alpha].id()
-                    << ")" << std::endl;
-        }
-#endif
-
-        assert(lct(lct_order[leftcut_pointer]) > lct(alpha));
-        shrinkLeftCutToTime(lct(alpha) + 1);
-
-        //                std::cout << profile << std::endl;
-
-        addPrime(i, alpha);
-        auto ect_i_H = scheduleOmega(i, lct(alpha));
-        rmPrime(i, alpha);
-
-        if (ect_i_H > lct(alpha)) {
-
-#ifdef DBG_SEF
-          if (DBG_SEF) {
-            std::cout << " task " << task[i].id()
-                      << " is in conflict with task interval "
-                      << task[*(lct_order.begin())].id() << ".."
-                      << task[alpha].id() << std::endl;
-          }
-#endif
-
-          prec[i] = alpha;
-          in_conflict.push_back(i);
-        }
-      }
-
-      if (alpha != -1 or beta != -1) {
-        growLeftCutToTime(lct(i));
-      }
-
-      i = lct_order[--k];
     }
-  }
 }
 
 
