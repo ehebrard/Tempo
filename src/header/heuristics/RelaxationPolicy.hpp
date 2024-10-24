@@ -178,6 +178,19 @@ namespace detail {
         auto operator()(const Task &t) const noexcept -> const auto & {
             return map[t.id() - offset];
         }
+
+        template<concepts::typed_range<Interval<T>> Tasks>
+        auto getTaskLiterals(const Tasks &tasks) const -> std::vector<BooleanVar<T>> {
+            using namespace std::views;
+            auto varsView =
+                    tasks | transform([this](const auto &t) -> decltype(auto) { return (*this)(t); }) | join;
+            std::vector<BooleanVar<T>> vars;
+            std::ranges::copy(varsView, std::back_inserter(vars));
+            std::ranges::sort(vars);
+            auto res = std::ranges::unique(vars);
+            vars.erase(res.begin(), res.end());
+            return vars;
+        }
     };
 }
 
