@@ -154,7 +154,8 @@ namespace tempo::nn {
             if (not config.carefulAssumptions or failCount == 0) {
                 s.makeAssumptions(assumptions);
                 if (not assumptions.empty() and solver.getOptions().verbosity >= Options::YACKING) {
-                    std::cout << "-- fixing " << assumptions.size() << " literals\n";
+                    std::cout << "-- fixing " << assumptions.size() << " / " << predictor.numLiterals()
+                              << " literals\n";
                 }
             } else {
                 std::size_t litCount = 0;

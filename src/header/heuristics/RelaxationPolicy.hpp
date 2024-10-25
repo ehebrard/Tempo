@@ -339,18 +339,16 @@ class SporadicRootSearch {
     P basePolicy;
     double rootSearchProbability = 0;
     double probabilityIncrement;
-    int verbosity;
 public:
     /**
      * Ctor
      * @tparam Pol base relaxation policy type
      * @param probabilityIncrement increment to apply to the relaxation probability on failed relaxation
      * @param policy base relaxation policy
-     * @param verbosity logging verbosity
      */
     template<relaxation_policy Pol>
-    SporadicRootSearch(double probabilityIncrement, Pol &&policy, int verbosity = Options::NORMAL) :
-            basePolicy(std::forward<Pol>(policy)), probabilityIncrement(probabilityIncrement), verbosity(verbosity) {
+    SporadicRootSearch(double probabilityIncrement, Pol &&policy) :
+            basePolicy(std::forward<Pol>(policy)), probabilityIncrement(probabilityIncrement) {
         if (probabilityIncrement > 1 or probabilityIncrement < 0) {
             throw std::runtime_error("invalid probability increment");
         }
@@ -363,13 +361,13 @@ public:
      */
     template<assumption_interface AI>
     void relax(AI &s) {
-        if (verbosity >= Options::YACKING) {
+        if (s.getSolver().getOptions().verbosity >= Options::YACKING) {
             std::cout << "-- sporadic probability " << std::setprecision(2) << rootSearchProbability * 100 << "%"
                       << std::endl;
         }
         const bool root = random() % Resolution < static_cast<unsigned long>(rootSearchProbability * Resolution);
         if (root) {
-            if (verbosity >= Options::YACKING) {
+            if (s.getSolver().getOptions().verbosity >= Options::YACKING) {
                 std::cout << "-- root search" << std::endl;
             }
             return;
@@ -402,12 +400,11 @@ public:
  * @tparam P relaxation policy type
  * @param rootProbabilityIncrement increment to apply to the relaxation probability on failed relaxation
  * @param policy base relaxation policy
- * @param verbosity logging verbosity
  * @return constructed SporadicRootSearch policy
  */
 template<relaxation_policy P>
-auto make_sporadic_root_search(double rootProbabilityIncrement, P &&policy, int verbosity = Options::NORMAL) {
-    return SporadicRootSearch<P>(rootProbabilityIncrement, std::forward<P>(policy), verbosity);
+auto make_sporadic_root_search(double rootProbabilityIncrement, P &&policy) {
+    return SporadicRootSearch<P>(rootProbabilityIncrement, std::forward<P>(policy));
 }
 
 /**

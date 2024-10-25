@@ -78,7 +78,7 @@ int main(int argc, char **argv) {
                                       destroyParameters));
     std::cout << "-- using destroy policy " << destroyType << std::endl;
     auto policy = heuristics::make_sporadic_root_search(sporadicIncrement,
-                                                        heuristics::make_RD_policy(destroy, gnnRepair), opt.verbosity);
+                                                        heuristics::make_RD_policy(destroy, gnnRepair));
     MinimizationObjective objective(problemInfo.instance.schedule().duration);
     util::StopWatch sw;
     problemInfo.solver->largeNeighborhoodSearch(objective, policy);
