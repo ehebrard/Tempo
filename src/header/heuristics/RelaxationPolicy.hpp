@@ -365,8 +365,8 @@ public:
             std::cout << "-- sporadic probability " << std::setprecision(2) << rootSearchProbability * 100 << "%"
                       << std::endl;
         }
-        const bool root = random() % Resolution < static_cast<unsigned long>(rootSearchProbability * Resolution);
-        if (root) {
+
+        if (randomEventOccurred<Resolution>(rootSearchProbability)) {
             if (s.getSolver().getOptions().verbosity >= Options::YACKING) {
                 std::cout << "-- root search" << std::endl;
             }
