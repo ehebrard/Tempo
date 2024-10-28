@@ -31,6 +31,7 @@ namespace tempo::nn {
     namespace fs = std::filesystem;
 
     PENUM(DecayMode, Constant, Reciprog, Exponential);
+    PENUM(AssumptionMode, SingleShot, CarefulSkip, CarefulInverse)
 
     struct PolicyConfig {
         PolicyConfig() noexcept;
@@ -43,19 +44,20 @@ namespace tempo::nn {
          * @param minFailRatio lower bound solver failure rate at which to increase relaxation ratio
          * @param maxFailRatio upper bound solver failure rate at which to decrease relaxation ratio
          * @param exhaustionThreshold lower bound on ratio of literals at which a new region should be explored
-         * @param carefulAssumptions whether to propagate after each literal
+         * @param assumptionMode how to make assumptions
          * @param decreaseOnSuccess whether to decrease fix rate even on success
          * @param retryLimit number of retries with same relaxation ration before decreasing relaxation ratio
          * @param decayMode type of decay to apply on fail or after too many solver fails
          */
         PolicyConfig(double fixRatio, double reactivity, double minCertainty, double minFailRatio,
-                     double maxFailRatio, double exhaustionThreshold, bool carefulAssumptions, bool decreaseOnSuccess,
-                     DecayMode decayMode, unsigned int retryLimit) noexcept;
+                     double maxFailRatio, double exhaustionThreshold, AssumptionMode assumptionMode,
+                     bool decreaseOnSuccess, DecayMode decayMode, unsigned int retryLimit) noexcept;
 
         double fixRatio, decay, minCertainty, minFailRatio, maxFailRatio, exhaustionThreshold;
-        bool carefulAssumptions, decreaseOnSuccess;
+        bool decreaseOnSuccess;
         unsigned retryLimit;
         DecayMode decayMode;
+        AssumptionMode assumptionMode;
     };
 
     std::ostream &operator<<(std::ostream &os, const PolicyConfig &config);
@@ -144,6 +146,7 @@ namespace tempo::nn {
          */
         template<heuristics::assumption_interface AssumptionInterface>
         void fix(AssumptionInterface &s) {
+            using enum AssumptionMode;
             const auto numLits = maxNumLiterals();
             if (numLits == 0) {
                 return;
@@ -151,7 +154,7 @@ namespace tempo::nn {
 
             tempo::util::ScopeWatch sw(profiler, "repair");
             auto assumptions = assumptionCache | std::views::take(numLits);
-            if (not config.carefulAssumptions or failCount == 0) {
+            if (config.assumptionMode == SingleShot or failCount == 0) {
                 s.makeAssumptions(assumptions);
                 if (not assumptions.empty() and solver.getOptions().verbosity >= Options::YACKING) {
                     std::cout << "-- fixing " << assumptions.size() << " / " << predictor.numLiterals()
@@ -167,6 +170,15 @@ namespace tempo::nn {
                     }
 
                     bool success = s.tryMakeAssumption(lit);
+                    if (not success and config.assumptionMode == CarefulInverse) {
+                        lit = ~lit;
+                        success = s.tryMakeAssumption(lit);
+                        if (not success) {
+                            s.fail();
+                            return;
+                        }
+                    }
+
                     litCount += success;
                     if (success) {
                         newAssumptions.emplace_back(lit);
