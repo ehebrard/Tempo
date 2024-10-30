@@ -151,6 +151,15 @@ public:
       verify("pop back");
 #endif
     }
+    
+    void resize(const size_t n) {
+      
+      nodes.resize(n + 1);
+
+#ifdef DBG_LIST
+      verify("resize");
+#endif
+    }
 
     template <typename... T>
     int create_element(T ...args) {
