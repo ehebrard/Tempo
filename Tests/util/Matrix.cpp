@@ -170,3 +170,31 @@ TEST(util, Matrix_equality) {
     m2 = {2, 3, {1, 4, 2, 5, 3, 6}, Layout::ColMajor};
     EXPECT_EQ(m1, m2);
 }
+
+TEST(util, Matrix_row) {
+    using namespace tempo;
+    namespace r = std::ranges;
+    Matrix<int> m(3, 3, {1, 2, 3, 4, 5, 6, 7, 8, 9});
+    const auto &cm = m;
+    auto first = m.row(0);
+    auto last = cm.row(2);
+    EXPECT_TRUE(r::equal(first, std::vector{1, 2, 3}));
+    EXPECT_TRUE(r::equal(last, std::vector{7, 8, 9}));
+    EXPECT_TRUE(std::is_const_v<std::remove_reference_t<r::range_reference_t<decltype(last)>>>);
+    first[1] = 17;
+    EXPECT_EQ(m.at(0, 1), 17);
+}
+
+TEST(util, Matrix_col) {
+    using namespace tempo;
+    namespace r = std::ranges;
+    Matrix<int> m(3, 3, {1, 2, 3, 4, 5, 6, 7, 8, 9});
+    const auto &cm = m;
+    auto first = m.column(0);
+    auto last = cm.column(2);
+    EXPECT_TRUE(r::equal(first, std::vector{1, 4, 7}));
+    EXPECT_TRUE(r::equal(last, std::vector{3, 6, 9}));
+    EXPECT_TRUE(std::is_const_v<std::remove_reference_t<r::range_reference_t<decltype(last)>>>);
+    first[1] = 17;
+    EXPECT_EQ(m.at(1, 0), 17);
+}

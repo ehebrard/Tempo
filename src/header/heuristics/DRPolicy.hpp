@@ -52,8 +52,10 @@ namespace tempo::heuristics {
      */
     template<destroy_policy D, repair_policy R>
     class RDPolicy {
+        static constexpr auto Resolution = 100000;
         D destroy;
         R repair;
+        double exhaustionProbability = 0;
     public:
 
         /**
@@ -62,10 +64,16 @@ namespace tempo::heuristics {
          * @tparam ArgR repair policy type
          * @param destroyer destroy policy
          * @param repairer repair policy
+         * @param exhaustionProbability probability of choosing a new region even if repair policy is not exhausted
          */
         template<destroy_policy ArgD, repair_policy ArgR>
-        RDPolicy(ArgD &&destroyer, ArgR &&repairer): destroy(std::forward<ArgD>(destroyer)),
-                                                     repair(std::forward<ArgR>(repairer)) {}
+        RDPolicy(ArgD &&destroyer, ArgR &&repairer, double exhaustionProbability = 0):destroy(
+                std::forward<ArgD>(destroyer)), repair(std::forward<ArgR>(repairer)), exhaustionProbability(
+                exhaustionProbability) {
+            if (exhaustionProbability < 0 or exhaustionProbability > 1) {
+                throw std::runtime_error("invalid exhaustion probability");
+            }
+        }
 
         /**
          * notifies both policy of a successful search
@@ -92,7 +100,13 @@ namespace tempo::heuristics {
          */
         template<assumption_interface AI>
         void relax(AI &s) {
-            if (repair.exhausted()) {
+            bool randomlyExhausted = randomEventOccurred<Resolution>(exhaustionProbability);
+            if (repair.exhausted() or randomlyExhausted) {
+                if (s.getSolver().getOptions().verbosity >= Options::YACKING) {
+                    std::cout << "-- " << (randomlyExhausted ? "randomly " : "");
+                    std::cout << "choosing new region" << std::endl;
+                }
+
                 destroy.requestNewRegion();
             }
 
@@ -115,11 +129,12 @@ namespace tempo::heuristics {
      * @tparam R repair policy type
      * @param destroy destroy policy
      * @param repair repair policy
+     * @param exhaustionProbability probability of choosing a new region even if repair policy is not exhausted
      * @return constructed DR-policy
      */
     template<destroy_policy D, repair_policy R>
-    auto make_RD_policy(D &&destroy, R &&repair) {
-        return RDPolicy<D, R>(std::forward<D>(destroy), std::forward<R>(repair));
+    auto make_RD_policy(D &&destroy, R &&repair, double exhaustionProbability = 0) {
+        return RDPolicy<D, R>(std::forward<D>(destroy), std::forward<R>(repair), exhaustionProbability);
     }
 
     /**

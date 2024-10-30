@@ -2971,7 +2971,8 @@ void Solver<T>::largeNeighborhoodSearch(S &objective, P &&relaxationPolicy) {
         } else {
 
             // no assumptions made and still failure => no improving solution exists
-            if (surrogate.getState() == heuristics::AssumptionState::Empty) {
+            if (surrogate.getState() == heuristics::AssumptionState::Empty and
+                not KillHandler::instance().signalReceived()) {
                 objective.setDual(objective.primalBound());
             } else {
                 std::forward<P>(relaxationPolicy).notifyFailure(num_fails);

@@ -194,6 +194,11 @@ void seed(const unsigned long s);
 
 unsigned long random(void);
 
+template<unsigned long Res>
+bool randomEventOccurred(double probability) noexcept {
+    return random() % Res < static_cast<unsigned long>(probability * Res);
+}
+
 } // namespace tempo
 
 #endif // _TEMPO_SCHEDULING_HPP

@@ -43,6 +43,7 @@ namespace tempo::heuristics {
         { interface.tryMakeAssumption(l) } -> std::convertible_to<bool>;
         { interface.getState() } -> std::same_as<AssumptionState>;
         { interface.getSolver() } -> concepts::same_template_clvref<Solver>;
+        noexcept(interface.fail());
     };
 
     /**
@@ -163,6 +164,13 @@ namespace tempo::heuristics {
             return s;
         }
 
+        /**
+         * Notifies the solver that assumptions have failed
+         */
+        void fail() noexcept {
+            stateTransition(AssumptionState::Fail);
+        }
+
     private:
 
         void stateTransition(AssumptionState as) noexcept {
@@ -267,12 +275,20 @@ namespace tempo::heuristics {
         [[nodiscard]] decltype(auto) getSolver() const noexcept {
             return proxy.getSolver();
         }
+
+        /**
+         * Calls fail on the proxy
+         */
+        void fail() noexcept {
+            proxy.fail();
+        }
     };
 
     enum class PolicyAction {
         Reset,
         TrySet,
-        Set
+        Set,
+        Fail
     };
 
     /**
@@ -363,7 +379,7 @@ namespace tempo::heuristics {
          * @copydoc AssumptionProxy::getState
          * @note this triggers the serialization
          */
-        [[nodiscard]] AssumptionState getState() const {
+        [[nodiscard]] AssumptionState getState() const noexcept {
             return proxy.getState();
         }
 
@@ -373,6 +389,15 @@ namespace tempo::heuristics {
          */
         [[nodiscard]] decltype(auto) getSolver() const noexcept {
             return proxy.getSolver();
+        }
+
+        /**
+         * Calls fail on the proxy
+         */
+        void fail() {
+            auto data = std::make_pair(PolicyAction::Fail, std::vector<Literal<T>>{});
+            flushToLog(data);
+            proxy.fail();
         }
     };
 
