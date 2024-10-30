@@ -41,68 +41,76 @@
 namespace tempo {
 
 template <typename T = int> struct Timepoint {
-
-  Timepoint() {}
-  Timepoint(T time, T increment, T incrementMax)
-      : time(time), increment(increment), incrementMax(incrementMax) {}
-
-  T time{0};
-  T increment{0};
-  T incrementMax{0};
-
-  void merge(const Timepoint<T> &t) {
-    assert(t.time == time);
-
-    increment += t.increment;
-    incrementMax += t.incrementMax;
-  }
-
-  std::ostream &display(std::ostream &os) const {
-    os << "(t=" << time << "|∂=" << increment << "|∂max=" << incrementMax
-       << ")";
-    return os;
-  }
+    
+    Timepoint() {}
+    Timepoint(T time, T increment, T incrementMax)
+    : time(time), increment(increment), incrementMax(incrementMax) {}
+    
+    T time{0};
+    T increment{0};
+    T incrementMax{0};
+    
+    void merge(const Timepoint<T> &t) {
+        assert(t.time == time);
+        
+        increment += t.increment;
+        incrementMax += t.incrementMax;
+    }
+    
+    //    bool operator<=(const Timepoint<T>& t) {
+    //        return time <= t.time;
+    //    }
+    //
+    //    bool operator<(const Timepoint<T>& t) {
+    //        return time < t.time;
+    //    }
+    
+    std::ostream &display(std::ostream &os) const {
+        os << "(t=" << time << "|∂=" << increment << "|∂max=" << incrementMax
+        << ")";
+        return os;
+    }
 };
 
 
 template <typename T = int> struct Datapoint {
-
-  Datapoint() {}
-  Datapoint(const T overflow, const T consumption, const T overlap,
-            const T slackUnder, const T available)
-      : overflow(overflow), consumption(consumption), overlap(overlap),
-        slackUnder(slackUnder), available(available) {}
-
-  T overflow{0};
-  T consumption{0};
-  T overlap{0};
-  T slackUnder{0};
-  T available{0};
-
-  std::ostream &display(std::ostream &os) const {
-    if (overflow > 0)
-      os << "overflow=" << overflow;
-    if (consumption > 0)
-      os << " consumption=" << consumption;
-    if (overlap > 0)
-      os << " overlap=" << overlap;
-    if (slackUnder > 0)
-      os << " slackUnder=" << slackUnder;
-    if (available > 0)
-      os << " available=" << available;
-
-    return os;
-  }
+    
+    Datapoint() {}
+    Datapoint(const T overflow, const T consumption, const T overlap,
+              const T slackUnder, const T available)
+    : overflow(overflow), consumption(consumption), overlap(overlap),
+    slackUnder(slackUnder), available(available) {}
+    
+    T overflow{0};
+    T consumption{0};
+    T overlap{0};
+    T slackUnder{0};
+    T available{0};
+    
+    std::ostream &display(std::ostream &os) const {
+        if (overflow > 0)
+            os << "overflow=" << overflow;
+        if (consumption > 0)
+            os << " consumption=" << consumption;
+        if (overlap > 0)
+            os << " overlap=" << overlap;
+        if (slackUnder > 0)
+            os << " slackUnder=" << slackUnder;
+        if (available > 0)
+            os << " available=" << available;
+        
+        return os;
+    }
 };
 
 template <typename T>
 std::ostream &operator<<(std::ostream &os, const Timepoint<T> &x) {
-  return x.display(os);
+    return x.display(os);
 }
 
 template <typename T>
 std::ostream &operator<<(std::ostream &os, const Datapoint<T> &x) {
-  return x.display(os);
+    return x.display(os);
 }
 
 template<typename T>
@@ -110,128 +118,247 @@ class Solver;
 
 template <typename T> class CumulativeEdgeFinding : public Constraint<T> {
 private:
-  Solver<T> &solver;
-  NumericVar<T> capacity;
-  Interval<T> schedule;
-  std::vector<Interval<T>> task;
-  std::vector<NumericVar<T>> demand;
-
-  // mapping from the tasks that need to be adjusted to the corresponding
-  // left-cut interval
-  std::vector<int> prec;
-
-  // mapping the lower bound of the set explaining the adjustment
-  std::vector<int> contact;
-
-  // tasks that have been found to be in conflict with a left-cut interval
-  //    SparseSet<> in_conflict;
-  std::vector<int> in_conflict;
-
-  List<Timepoint<T>> profile;
-  std::vector<Datapoint<T>> data;
-  std::vector<int>
-      est_; // pointer to the profile element used for est of the task
-  std::vector<int>
-      ect_; // pointer to the profile element used for ect of the task
-  std::vector<int>
-      lct_; // pointer to the profile element used for lct of the task
-
-  std::vector<int> est_shared; // points to the possibly shared element whose
-  // t is the est of the task
-  std::vector<int> ect_shared; // points to the possibly shared element whose
-  // t is the ect of the task
-  std::vector<int> lct_shared; // points to the possibly shared element whose
-  // t is the lct of the task
-
-  int leftcut_pointer;
-
-  int &get_shared_pointer(const int evt) {
-    auto evti{evt - 1};
-    auto i{(evti) / 3};
-    switch ((evti % 3)) {
-    case 0:
-      return est_shared[i];
-    case 1:
-      return ect_shared[i];
-    default:
-      return lct_shared[i];
+    Solver<T> &solver;
+    NumericVar<T> capacity;
+    Interval<T> schedule;
+    std::vector<Interval<T>> task;
+    std::vector<NumericVar<T>> demand;
+    
+    // mapping from the tasks that need to be adjusted to the corresponding
+    // left-cut interval
+    std::vector<int> prec;
+    
+    // mapping the lower bound of the set explaining the adjustment
+    std::vector<int> contact;
+    
+    // tasks that have been found to be in conflict with a left-cut interval
+    //    SparseSet<> in_conflict;
+    std::vector<int> in_conflict;
+    
+    List<Timepoint<T>> profile;
+    std::vector<Datapoint<T>> data;
+    std::vector<int>
+    est_; // pointer to the profile element used for est of the task
+    std::vector<int>
+    ect_; // pointer to the profile element used for ect of the task
+    std::vector<int>
+    lct_; // pointer to the profile element used for lct of the task
+    
+    std::vector<int> est_shared; // points to the possibly shared element whose
+    // t is the est of the task
+    std::vector<int> ect_shared; // points to the possibly shared element whose
+    // t is the ect of the task
+    std::vector<int> lct_shared; // points to the possibly shared element whose
+    // t is the lct of the task
+    
+    int leftcut_pointer;
+    
+    int &get_shared_pointer(const int evt) {
+        auto evti{evt - 1};
+        auto i{(evti) / 3};
+        switch ((evti % 3)) {
+            case 0:
+                return est_shared[i];
+            case 1:
+                return ect_shared[i];
+            default:
+                return lct_shared[i];
+        }
     }
-  }
-
-  std::vector<int> event_ordering;
-  std::vector<int> lct_order;
-  int alpha;
-  int beta;
-
-  // tools for adjustments
-  std::vector<int>
-      minEct; // the minimum ect among tasks of the set use for explanation
-  std::vector<int> maxOverflow; // the number of energy units to schedule on the
-  // upper part of the profile
-  std::vector<bool> isFeasible; // use to check if the correctonding scheduling
-  // is feasible (without preemption)
-
-  std::vector<std::vector<Literal<T>>> explanation;
-  Reversible<size_t> num_explanations;
-  std::vector<Literal<T>> pruning;
-
+    
+    std::vector<int> event_ordering;
+    std::vector<int> lct_order;
+    int alpha;
+    int beta;
+    
+    // tools for adjustments
+    std::vector<int>
+    minEct; // the minimum ect among tasks of the set use for explanation
+    std::vector<int> maxOverflow; // the number of energy units to schedule on the
+    // upper part of the profile
+    std::vector<bool> isFeasible; // use to check if the correctonding scheduling
+    // is feasible (without preemption)
+    
+    std::vector<std::vector<Literal<T>>> explanation;
+    Reversible<size_t> num_explanations;
+    std::vector<Literal<T>> pruning;
+    
 public:
-  template <typename ItTask, typename ItNVar>
-  CumulativeEdgeFinding(Solver<T> &solver, const Interval<T> sched,
-                        const NumericVar<T> capacity, const ItTask beg_task,
-                        const ItTask end_task, const ItNVar beg_dem);
-  virtual ~CumulativeEdgeFinding();
-
-  // helpers
-  T est(const unsigned i) const;
-  T lst(const unsigned i) const;
-  T ect(const unsigned i) const;
-  T lct(const unsigned i) const;
-  T minduration(const unsigned i) const;
-  T maxduration(const unsigned i) const;
-  T mindemand(const unsigned i) const;
-  T maxdemand(const unsigned i) const;
-  T minenergy(const unsigned i) const;
-  //    bool hasFixedPart(const unsigned i) const;
-  //    T overlapedFixedPartEnergy(const unsigned i, const unsigned j) const;
-  //    std::vector<T> overlapedFixedPartEnergy();
-
-  bool notify(const Literal<T>, const int rank) override;
-  void post(const int idx) override;
-  void propagate() override;
-
-  void forwardAdjustment();
-  void forwardDetection();
-  void addPrime(const int i, const int j);
-  void rmPrime(const int i, const int j);
-  T scheduleOmega(const int i, const T max_lct, const bool adjustment = false);
-  int makeNewEvent(const T t);
-
-  void computeBound(const int i);
-  void doPruning();
-
-  // initialise the profile with every tasks
-  void initialiseProfile();
-
-  // set the current profile to contain the tasks lct_order[0],..,lct_order[i]
-  void setLeftCutToTime(const T t);
-  void shrinkLeftCutToTime(const T t);
-  void growLeftCutToTime(const T t);
-  void rmTask(const int i);
-  void addTask(const int i);
-
-  // function used in explanation
-   void computeForwardExplanation(const int i);
-  void xplain(const Literal<T> l, const hint h,
-              std::vector<Literal<T>> &Cl) override;
-
-  std::ostream &display(std::ostream &os) const override;
-
-  std::ostream &print_reason(std::ostream &os, const hint h) const override;
-
-  std::string prettyTask(const int i) const;
-  std::string asciiArt(const int i) const;
+    template <typename ItTask, typename ItNVar>
+    CumulativeEdgeFinding(Solver<T> &solver, const Interval<T> sched,
+                          const NumericVar<T> capacity, const ItTask beg_task,
+                          const ItTask end_task, const ItNVar beg_dem);
+    virtual ~CumulativeEdgeFinding();
+    
+    // helpers
+    T est(const unsigned i) const;
+    T lst(const unsigned i) const;
+    T ect(const unsigned i) const;
+    T lct(const unsigned i) const;
+    T minduration(const unsigned i) const;
+    T maxduration(const unsigned i) const;
+    T mindemand(const unsigned i) const;
+    T maxdemand(const unsigned i) const;
+    T minenergy(const unsigned i) const;
+    //    bool hasFixedPart(const unsigned i) const;
+    //    T overlapedFixedPartEnergy(const unsigned i, const unsigned j) const;
+    //    std::vector<T> overlapedFixedPartEnergy();
+    
+    bool notify(const Literal<T>, const int rank) override;
+    void post(const int idx) override;
+    void propagate() override;
+    
+    void forwardAdjustment();
+    void forwardDetection();
+    void addPrime(const int i, const int j);
+    void rmPrime(const int i, const int j);
+    T scheduleOmega(const int i, const T max_lct, const bool adjustment = false);
+    int makeNewEvent(const T t);
+    
+    void computeBound(const int i);
+    void doPruning();
+    
+    // initialise the profile with every tasks
+    void initialiseProfile();
+    
+    // set the current profile to contain the tasks lct_order[0],..,lct_order[i]
+    void setLeftCutToTime(const T t);
+    void shrinkLeftCutToTime(const T t);
+    void growLeftCutToTime(const T t);
+    void rmTask(const int i);
+    void addTask(const int i);
+    
+    // function used in explanation
+    void computeForwardExplanation(const int i);
+    void xplain(const Literal<T> l, const hint h,
+                std::vector<Literal<T>> &Cl) override;
+    
+    std::ostream &display(std::ostream &os) const override;
+    
+    std::ostream &print_reason(std::ostream &os, const hint h) const override;
+    
+    std::string prettyTask(const int i) const;
+    std::string asciiArt(const int i) const;
+    
+    
+#ifdef DBG_SEF
+    void verify(const char* msg);
+#endif
 };
+
+#ifdef DBG_SEF
+template <typename T>
+void CumulativeEdgeFinding<T>::verify(const char* msg) {
+    std::vector<Timepoint<T>> events;
+    for(int k{0}; k<leftcut_pointer; ++k) {
+        auto i{lct_order[k]};
+        events.emplace_back(est(i), mindemand(i), mindemand(i));
+        events.emplace_back(ect(i), -mindemand(i), 0);
+        events.emplace_back(lct(i), 0, -mindemand(i));
+    }
+    std::sort(events.begin(), events.end(), [](const Timepoint<T>& a, const Timepoint<T>& b) {return a.time < b.time; });
+    
+    auto tp{profile.begin()};
+    auto tv{events.begin()};
+    
+    while(tv != events.end()) {
+        T d{0};
+        T dv{0};
+        T dm{0};
+        T dmv{0};
+        
+        
+        auto now{tv->time};
+        do {
+            dv += tv->increment;
+            dmv += tv->incrementMax;
+//            std::cout << tv->time << ": " << dmv << std::endl;
+        } while(++tv != events.end() and tv->time == now);
+        
+        bool bug{false};
+        while(tp->time < now) {
+            if(tp->increment != 0 or tp->incrementMax != 0) {
+                std::cout << "non-zero non-task event!\n";
+                bug=true;
+            }
+            ++tp;
+        }
+        
+        d += tp->increment;
+        dm += tp->incrementMax;
+        
+        
+        if(d != dv) {
+            std::cout << "discrepancy increment @" << *tp << "|" << *(tv-1) << ": " << d << "/" << dv << std::endl;
+            bug = true;
+        }
+        if(dm != dmv) {
+            std::cout << "discrepancy increment max @" << *tp << "|" << *(tv-1) << ": " << dm << "/" << dmv << std::endl;
+            bug = true;
+        }
+        
+        
+        ++tp;
+        
+        if(bug) {
+            std::cout << "bug " << msg << "\n"  ;//
+            
+//            for(auto t : events) {
+//                std::cout << t << std::endl;
+//            }
+//            std::cout << std::endl;
+            
+            
+            auto itp{profile.begin()};
+            auto itv{events.begin()};
+            //            ++tp;
+            //            ++tv;
+//            bool encore{true};
+            while(true){
+                if(itp != tp) {
+                    while(itp->increment == 0 and itp->incrementMax == 0) {
+                        ++itp;
+                    }
+                }
+                if(itp != tp) {
+                    while(itv != tv and itv->time <= itp->time) {
+                        std::cout << *itp << " / " << *itv << std::endl;
+                        ++itv;
+                    }
+                }
+                ++itp;
+                std::cout << std::endl;
+//
+//                if(itp == tp)
+//                    std::cout << " ----- ";
+//                else {
+//                    std::cout << *itp;
+//                    ++itp;
+//                }
+//                std::cout  << " / ";
+//                if(itv == tv)
+//                    std::cout << " ----- ";
+//                else {
+//                    std::cout << *itv;
+//                    ++itv;
+//                }
+//                std::cout << std::endl;
+                
+                if(itp == tp and itv == tv)
+                    break;
+                
+                if(itp == tp or itv == tv) {
+                    std::cout << "rebug\n";
+                    exit(1);
+                }
+                
+            }
+            //                << profile << std::endl;
+            exit(1);
+        }
+    }
+}
+#endif
 
 template <typename T>
 std::string CumulativeEdgeFinding<T>::prettyTask(const int i) const {
@@ -253,13 +380,17 @@ std::string CumulativeEdgeFinding<T>::asciiArt(const int i) const {
   for (auto k{est(i) + 1}; k < ect(i); ++k) {
     ss << "=";
   }
+  if(ect(i) < lct(i))
+      ss << "|";
+//  else
+//      ss << ".";
   if (lct(i) == Constant::Infinity<T>) {
-    ss << "=... " << est(i) << "...";
+    ss << "... " << est(i) << "...";
   } else {
-    for (auto k{ect(i)}; k < lct(i); ++k) {
+    for (auto k{ect(i)+1}; k < lct(i); ++k) {
       ss << ".";
     }
-    ss << "] " << est(i) << ".." << lct(i);
+    ss << "] " << est(i) << "-" << ect(i) << ".." << lct(i);
   }
   return ss.str();
 }
@@ -431,6 +562,15 @@ template <typename T> void CumulativeEdgeFinding<T>::initialiseProfile() {
     profile[est_[i]].incrementMax = mindemand(i);
     profile[ect_[i]].increment = -mindemand(i);
     profile[lct_[i]].incrementMax = -mindemand(i);
+      profile[ect_[i]].incrementMax = 0;
+      profile[lct_[i]].increment = 0;
+      
+//      if(profile[est_[i]].time == 15)
+//          std::cout << "if est: " << profile[est_[i]] << " / " << mindemand(i) << std::endl;
+//      if(profile[ect_[i]].time == 15)
+//          std::cout << "if ect: " << profile[ect_[i]] << " / " << mindemand(i) << std::endl;
+//      if(profile[lct_[i]].time == 15)
+//          std::cout << "if lct: " << profile[lct_[i]] << " / " << mindemand(i) << std::endl;
   }
 
   std::sort(event_ordering.begin(), event_ordering.end(),
@@ -465,6 +605,13 @@ template <typename T> void CumulativeEdgeFinding<T>::initialiseProfile() {
 
 
 template <typename T> void CumulativeEdgeFinding<T>::rmTask(const int i) {
+    
+#ifdef DBG_SEF
+    if(DBG_SEF) {
+        std::cout << "RM " << task[i].id() << std::endl;
+    }
+#endif
+    
   profile[est_shared[i]].increment -= mindemand(i);
   profile[est_shared[i]].incrementMax -= mindemand(i);
   profile[ect_shared[i]].increment += mindemand(i);
@@ -472,6 +619,13 @@ template <typename T> void CumulativeEdgeFinding<T>::rmTask(const int i) {
 }
 
 template <typename T> void CumulativeEdgeFinding<T>::addTask(const int i) {
+    
+#ifdef DBG_SEF
+    if(DBG_SEF) {
+        std::cout << "ADD " << task[i].id() << std::endl;
+    }
+#endif
+    
   profile[est_shared[i]].increment += mindemand(i);
   profile[est_shared[i]].incrementMax += mindemand(i);
   profile[ect_shared[i]].increment -= mindemand(i);
@@ -479,16 +633,24 @@ template <typename T> void CumulativeEdgeFinding<T>::addTask(const int i) {
 }
 
 template <typename T> void CumulativeEdgeFinding<T>::setLeftCutToTime(const T t) {
+    
+
+    
   if (leftcut_pointer < static_cast<int>(lct_order.size()) and
       lct(lct_order[leftcut_pointer]) < t) {
     growLeftCutToTime(t);
   } else {
     shrinkLeftCutToTime(t);
   }
+    
+
 }
 
 template <typename T> void CumulativeEdgeFinding<T>::shrinkLeftCutToTime(const T t) {
 
+#ifdef DBG_SEF
+    verify("before shrink-leftcut");
+#endif
 //    std::cout << "shrink until " << t << ":\n" << profile << std::endl;
 
 // remove the tasks that have a lct equal to or larger than t
@@ -498,18 +660,35 @@ while (leftcut_pointer-- > 0 and t <= lct(lct_order[leftcut_pointer])) {
   //        << std::endl;
 
   rmTask(lct_order[leftcut_pointer]);
+    
 }
 
 //    std::cout << "==>\n" << profile << std::endl;
 
 ++leftcut_pointer;
+    
+#ifdef DBG_SEF
+    verify("after shrink-leftcut");
+#endif
+    
 }
 
 template <typename T> void CumulativeEdgeFinding<T>::growLeftCutToTime(const T t) {
+    
+#ifdef DBG_SEF
+    verify("before grow-leftcut");
+#endif
+    
   // add the tasks that have a lct strictly smaller than t
   while (t > lct(lct_order[leftcut_pointer])) {
     addTask(lct_order[leftcut_pointer++]);
   }
+    
+#ifdef DBG_SEF
+    verify("after grow-leftcut");
+#endif
+    
+//    verify();
 }
 
 template <typename T> void CumulativeEdgeFinding<T>::propagate() {
@@ -546,28 +725,64 @@ if (DBG_SEF) {
 #endif
 
 initialiseProfile();
+    
+#ifdef DBG_SEF
+    verify("after init-profile");
+#endif
 
 forwardDetection();
+    
+#ifdef DBG_SEF
+    verify("after detection");
+#endif
 
 forwardAdjustment();
+    
+#ifdef DBG_SEF
+    verify("after adjustment");
+#endif
     
     doPruning();
 }
 
 template <typename T> void CumulativeEdgeFinding<T>::addPrime(const int i, const int j) {
+    
+#ifdef DBG_SEF
+    if(DBG_SEF) {
+        std::cout << "ADD " << task[i].id() << "'" << std::endl;
+    }
+#endif
+    
   profile[est_shared[i]].increment += mindemand(i);
   profile[est_shared[i]].incrementMax += mindemand(i);
 
   if (ect(i) < lct(j)) {
+      
+//      if(profile[ect_shared[i]].time == 15) {
+//          std::cout << "flag ect!\n";
+//      }
+      
     profile[ect_shared[i]].increment -= mindemand(i);
     profile[ect_shared[i]].incrementMax -= mindemand(i);
   } else {
+      
+//      if(profile[lct_shared[i]].time == 15) {
+//          std::cout << "flag lct!\n";
+//      }
+      
     profile[lct_shared[j]].increment -= mindemand(i);
     profile[lct_shared[j]].incrementMax -= mindemand(i);
   }
 }
 
 template <typename T> void CumulativeEdgeFinding<T>::rmPrime(const int i, const int j) {
+    
+#ifdef DBG_SEF
+    if(DBG_SEF) {
+        std::cout << "RM " << task[i].id() << "'" << std::endl;
+    }
+#endif
+    
   profile[est_shared[i]].increment -= mindemand(i);
   profile[est_shared[i]].incrementMax -= mindemand(i);
 
@@ -725,6 +940,8 @@ T CumulativeEdgeFinding<T>::scheduleOmega(const int i, const T max_lct,
 
       std::cout << std::endl;
     }
+      
+    assert(h_cons >= 0 or next->time <= max_lct);
 #endif
   }
 
@@ -848,7 +1065,7 @@ template <typename T> void CumulativeEdgeFinding<T>::forwardAdjustment() {
                       data[t1].overlap + data[t1].slackUnder;
       }
     } else {
-      maxoverflow = data[t3].overlap - data[t3].slackUnder - data[t1].overlap -
+      maxoverflow = data[t3].overlap - data[t3].slackUnder - data[t1].overlap +
                     data[t1].slackUnder;
     }
 
@@ -886,8 +1103,8 @@ template <typename T> void CumulativeEdgeFinding<T>::forwardAdjustment() {
       }
 #endif
       
-    computeForwardExplanation(i);
     pruning.push_back(task[i].start.after(adjustment));
+    computeForwardExplanation(i);
 
 #ifdef DBG_SEF
       if (DBG_SEF) {
@@ -968,6 +1185,8 @@ template <typename T> void CumulativeEdgeFinding<T>::forwardDetection() {
                     if(lct(i) != ect(i)) {
                         if(est(i) < lct(j)) {
                     
+//                            std::cout << profile << std::endl;
+                        
                     addPrime(i, j);
                     scheduleOmega(i, lct(j));
                     rmPrime(i, j);
@@ -978,6 +1197,8 @@ template <typename T> void CumulativeEdgeFinding<T>::forwardDetection() {
                         
                         assert(lct(lct_order[leftcut_pointer]) > lct(beta));
                         shrinkLeftCutToTime(lct(beta) + Gap<T>::epsilon());
+                        
+                        assert(est(i) < lct(beta));
                         
                         addPrime(i, beta);
                         auto ect_i_H = scheduleOmega(i, lct(beta));
@@ -1004,6 +1225,8 @@ template <typename T> void CumulativeEdgeFinding<T>::forwardDetection() {
                         shrinkLeftCutToTime(lct(alpha) + 1);
                         
                         //                std::cout << profile << std::endl;
+                        
+                        assert(est(i) < lct(alpha));
                         
                         addPrime(i, alpha);
                         auto ect_i_H = scheduleOmega(i, lct(alpha));
@@ -1052,6 +1275,8 @@ template <typename T> void CumulativeEdgeFinding<T>::forwardDetection() {
 template <typename T>
 void CumulativeEdgeFinding<T>::computeForwardExplanation(const int i) {
     
+//    verify("compute expl");
+    
     auto h{num_explanations};
     if (explanation.size() <= h) {
       explanation.resize(h + 1);
@@ -1067,12 +1292,28 @@ void CumulativeEdgeFinding<T>::computeForwardExplanation(const int i) {
     
     auto t{profile[contact[i]].time};
     
-    assert(ect(j) > t);
+//    if(ect(j) <= t) {
+//        
+//        std::cout << "capacity = " << capacity.max(solver) << std::endl;
+//        for (auto j : lct_order) {
+//            std::cout << "task " << std::setw(3) << task[j].id() << ": " << asciiArt(j) << std::endl;
+//        }
+//        
+//        std::cout << "compute expl for " << pruning.back() << " (" << prettyTask(i) << ")\n";
+//        std::cout << "contact = " << profile[contact[i]] << std::endl;
+//        std::cout << "left-cut -> " << prettyTask(j) << std::endl;
+//        
+//    }
+//    
+//    
+//    assert(ect(j) > t);
  
     do {
-        explanation[h].push_back(task[j].start.after(est(j)));
-        explanation[h].push_back(task[j].end.before(lct(j)));
-    } while(k > 0 and ect(j = lct_order[--k]) > t);
+        if(ect(j) > t) {
+            explanation[h].push_back(task[j].start.after(est(j)));
+            explanation[h].push_back(task[j].end.before(lct(j)));
+        }
+    } while(k > 0 and lct(j = lct_order[--k]) > t);
     explanation[h].push_back(task[i].start.after(est(i)));
 
 }
