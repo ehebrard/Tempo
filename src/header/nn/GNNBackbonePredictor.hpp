@@ -62,7 +62,10 @@ namespace tempo::nn {
 
     std::ostream &operator<<(std::ostream &os, const PolicyConfig &config);
 
-    struct SingleShotFix {
+    /**
+     * @brief Fix policy that simply takes the best N edges predicted by the GNN
+     */
+    struct BestN {
         constexpr void reset() noexcept {};
 
         template<concepts::scalar T, heuristics::assumption_interface AI>
@@ -75,11 +78,19 @@ namespace tempo::nn {
     };
 
 
+    /**
+     * @brief Fix policy that tries to fix N edges in a greedy fashion
+     * @tparam T timing type
+     */
     template<concepts::scalar T>
     class GreedyFix {
         std::vector<Literal<T>> cache;
         bool inverse;
     public:
+        /**
+         * Ctor
+         * @param inverse whether to set the inverse literal on fail
+         */
         explicit constexpr GreedyFix(bool inverse) noexcept: inverse(inverse) {}
 
         void reset() noexcept {
@@ -170,6 +181,12 @@ namespace tempo::nn {
         }
     }
 
+    /**
+     * @brief Fix policy that tries to fix N edges by maximizing the sum of their confidence values while respecting
+     * the learned clauses
+     * @todo integrate problem constraints
+     * @tparam T timing type
+     */
     template<concepts::scalar T>
     class OptimalFix {
         std::vector<Literal<T>> cache;
@@ -179,6 +196,12 @@ namespace tempo::nn {
         static constexpr auto FixPointPrec = 1000; //@TODO use Solver<float>
     public:
 
+        /**
+         * Ctor
+         * @param timeLimit time limit in ms for optimization problem
+         * @param failLimit fail limit for optimization problem
+         * @param hardTimeLimit whether to always cut off after the time limit even when no solution has been found
+         */
         OptimalFix(unsigned timeLimit, unsigned failLimit, bool hardTimeLimit) noexcept: timeLimit(timeLimit),
                                                                                          failLimit(failLimit),
                                                                                          hardTimeLimit(hardTimeLimit) {}
@@ -266,6 +289,10 @@ namespace tempo::nn {
         }
     };
 
+    /**
+     * @brief Variant wrapper for fix policies
+     * @tparam Ts
+     */
     template<typename ...Ts>
     struct VariantFix : public std::variant<Ts...> {
         DYNAMIC_DISPATCH_VOID(reset, EMPTY)
@@ -274,7 +301,7 @@ namespace tempo::nn {
     };
 
     template<concepts::scalar T>
-    using FixPolicy = VariantFix<SingleShotFix, GreedyFix<T>, OptimalFix<T>>;
+    using FixPolicy = VariantFix<BestN, GreedyFix<T>, OptimalFix<T>>;
 
     /**
      * @brief GNN based relaxation policy. Uses precedence predictor to fix most probable precedences
