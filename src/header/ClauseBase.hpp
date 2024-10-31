@@ -71,7 +71,7 @@ public:
   // total number of literals in the clauses
   size_t volume() const;
   // returns the clause with id i
-  Clause<T> *operator[](const index_t i);
+  Clause<T> *operator[](const index_t i) const;
   // returns the last clause to have been added
   Clause<T> *back();
 
@@ -339,7 +339,7 @@ template <typename T> size_t ClauseBase<T>::volume() const {
 //   watch[NUMERIC].resize(2 * m);
 // }
 
-template <typename T> Clause<T> *ClauseBase<T>::operator[](const index_t i) {
+template <typename T> Clause<T> *ClauseBase<T>::operator[](const index_t i) const {
   if (i >= free_cl_indices.capacity() or free_cl_indices.has(i))
     return NULL;
   return base[i];

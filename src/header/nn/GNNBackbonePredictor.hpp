@@ -31,7 +31,7 @@ namespace tempo::nn {
     namespace fs = std::filesystem;
 
     PENUM(DecayMode, Constant, Reciprog, Exponential);
-    PENUM(AssumptionMode, SingleShot, GreedySkip, GreedyInverse)
+    PENUM(AssumptionMode, SingleShot, GreedySkip, GreedyInverse, Optimal)
 
     struct PolicyConfig {
         PolicyConfig() noexcept;
@@ -127,6 +127,145 @@ namespace tempo::nn {
         }
     };
 
+    namespace detail {
+        template<concepts::scalar T, typename Lookup>
+        class CachedLookup {
+            std::vector<BooleanVar<T>> cache;
+            Lookup lookup;
+            Solver<T> &solver;
+            const std::vector<BooleanVar<T>> &vars;
+            static constexpr auto NoVar = BooleanVar<T>(Constant::NoVar, Constant::NoSemantic);
+        public:
+            template<typename L>
+            CachedLookup(Solver<T> &solver, const std::vector<BooleanVar<T>> &vars,
+                         std::size_t numLits,L &&lookup): lookup(std::forward<L>(lookup)), solver(solver), vars(vars) {
+                assert(vars.size() == this->lookup.size());
+                cache.resize(numLits, NoVar);
+            }
+
+            template<concepts::scalar U>
+            auto operator()(Literal<U> lit) -> Literal<T> {
+                auto &var = cache[lit.variable()];
+                if (var != NoVar) {
+                    return var == lit.sign();
+                }
+
+                auto res = std::ranges::find(lookup, lit);
+                if (res != std::ranges::end(lookup)) {
+                    var = vars[std::ranges::distance(std::ranges::begin(lookup), res)];
+                } else {
+                    //@TODO are some variables constants in the sub problem?
+                    var = solver.newBoolean();
+                    solver.addToSearch(var);
+                }
+
+                return var == lit.sign();
+            }
+        };
+
+        template<concepts::scalar T, typename Lookup>
+        auto makeLookup(Solver<T> &solver, const std::vector<BooleanVar<T>> &vars,
+                        std::size_t numLits, Lookup &&lookup) {
+            return CachedLookup<T, Lookup>(solver, vars, numLits, std::forward<Lookup>(lookup));
+        }
+    }
+
+    template<concepts::scalar T>
+    class OptimalFix {
+        std::vector<Literal<T>> cache;
+        unsigned timeLimit;
+        unsigned failLimit;
+        bool hardTimeLimit;
+        static constexpr auto FixPointPrec = 1000; //@TODO use Solver<float>
+    public:
+
+        OptimalFix(unsigned timeLimit, unsigned failLimit, bool hardTimeLimit) noexcept: timeLimit(timeLimit),
+                                                                                         failLimit(failLimit),
+                                                                                         hardTimeLimit(hardTimeLimit) {}
+
+        void reset() noexcept {
+            cache.clear();
+        }
+
+        template<heuristics::assumption_interface AI>
+        std::size_t select(AI &proxy, std::size_t numLiterals, unsigned numFails,
+                    const std::vector<std::pair<Literal<T>, double>> & gnnOutput) {
+            using namespace std::views;
+            using ST = int;
+            if (numFails == 0 and not cache.empty()) {
+                proxy.makeAssumptions(cache | take(numLiterals));
+                return std::min(numLiterals, cache.size());
+            }
+
+            cache.clear();
+            Options opt;
+            opt.search_limit = failLimit;
+            opt.verbosity = Options::SILENT;
+            if (proxy.getSolver().getOptions().verbosity >= Options::SOLVERINFO) {
+                std::cout << "-- solving selection problem\n";
+                opt.verbosity = Options::NORMAL;
+            }
+
+            tempo::util::StopWatch stopWatch;
+            bool solution = false;
+            Solver<ST> solver(opt);
+            solver.SolutionFound.subscribe_unhandled([&solution, &solver, &stopWatch, this](auto &&) {
+                solution = true;
+                if (stopWatch.elapsed<std::chrono::milliseconds>() > timeLimit) {
+                    solver.cancelSearch();
+                }
+            });
+
+            solver.PropagationCompleted.subscribe_unhandled([&stopWatch, &solver, &solution, this](auto &&) {
+                if ((hardTimeLimit or solution) and stopWatch.elapsed<std::chrono::milliseconds>() > timeLimit) {
+                    solver.cancelSearch();
+                }
+            });
+            std::vector<BooleanVar<ST>> variables;
+            std::vector<ST> weights;
+            variables.reserve(gnnOutput.size());
+            weights.reserve(gnnOutput.size());
+            for (auto weight: gnnOutput | elements<1>) {
+                auto x = solver.newBoolean();
+                solver.addToSearch(x);
+                variables.emplace_back(x);
+                weights.emplace_back(static_cast<ST>(weight * FixPointPrec));
+            }
+
+            const auto &cb = proxy.getSolver().clauses;
+            if (cb.size() != 0) {
+                auto lookup = detail::makeLookup(solver, variables, proxy.getSolver().numLiteral(),
+                                                 gnnOutput | elements<0>);
+                auto clauses = iota(0ul, cb.size()) | transform([&cb](auto idx) { return cb[idx]; }) |
+                               filter([](auto ptr) { return nullptr != ptr; });
+                for (const auto c : clauses) {
+                    auto clause = *c | transform(lookup) | common;
+                    solver.clauses.add(clause.begin(), clause.end());
+                }
+            }
+
+            solver.post(AtMost(static_cast<ST>(numLiterals), variables));
+            auto objective = Sum(variables, weights);
+            stopWatch.start();
+            solver.maximize(objective);
+            if (not solver.boolean.hasSolution()) {
+                proxy.fail();
+                return 0;
+            }
+
+            for (auto [valid, lit]: iterators::zip(
+                    variables | transform([&solver](const auto &x) { return solver.boolean.value(x); }),
+                    gnnOutput | elements<0>)) {
+                if (valid) {
+                    cache.emplace_back(lit);
+                }
+            }
+
+            proxy.makeAssumptions(cache);
+            return cache.size();
+        }
+    };
+
     template<typename ...Ts>
     struct VariantFix : public std::variant<Ts...> {
         DYNAMIC_DISPATCH_VOID(reset, EMPTY)
@@ -135,7 +274,7 @@ namespace tempo::nn {
     };
 
     template<concepts::scalar T>
-    using FixPolicy = VariantFix<SingleShotFix, GreedyFix<T>>;
+    using FixPolicy = VariantFix<SingleShotFix, GreedyFix<T>, OptimalFix<T>>;
 
     /**
      * @brief GNN based relaxation policy. Uses precedence predictor to fix most probable precedences
@@ -222,6 +361,9 @@ namespace tempo::nn {
                     break;
                 case GreedyInverse:
                     fixPolicy.template emplace<GreedyFix<T>>(true);
+                    break;
+                case Optimal:
+                    fixPolicy.template emplace<OptimalFix<T>>(100, 50, false);
                     break;
                 case AssumptionMode::SingleShot:
                     break;

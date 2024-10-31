@@ -93,7 +93,7 @@ methods
  */
 
 struct ExpressionFlag {
-  ExpressionFlag(const bool t = false) : _is_expression(t) {}
+  constexpr ExpressionFlag(const bool t = false) noexcept : _is_expression(t) {}
   bool _is_expression;
 };
 
@@ -241,7 +241,7 @@ template <typename T = int> class BooleanVar : public ExpressionFlag {
 public:
   constexpr BooleanVar() noexcept: ExpressionFlag(false), data(Constant::NoIndex, Constant::NoSemantic) {}
   BooleanVar(ExpressionImpl<T> *i) : ExpressionFlag(true), implem(i) {}
-  BooleanVar(const var_t i, const index_t f = 0)
+  constexpr BooleanVar(const var_t i, const index_t f = 0) noexcept
       : ExpressionFlag(false), data(i, f) {}
   constexpr explicit BooleanVar(Literal<T> l) : ExpressionFlag(false), data(l.variable(), l.semantic()) {}
 
