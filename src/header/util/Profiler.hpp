@@ -239,7 +239,17 @@ namespace tempo::util {
          * @return TimingEvent with start point set to the last call to start() and end
          * event the current time
          */
-        TimingEvent getTiming() const;
+        [[nodiscard]] TimingEvent getTiming() const;
+
+        /**
+         * Get the number of elapsed time units
+         * @tparam T time unit
+         * @return number of time units since call to start
+         */
+        template<typename T>
+        auto elapsed() const {
+            return std::chrono::duration_cast<T>(std::chrono::high_resolution_clock::now() - startTp).count();
+        }
     };
 
 
