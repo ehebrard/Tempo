@@ -12,6 +12,8 @@
 #include <ranges>
 #include <iostream>
 #include <limits>
+#include <variant>
+#include <Iterators.hpp>
 
 #include "heuristics/RelaxationInterface.hpp"
 #include "util/traits.hpp"
@@ -21,17 +23,15 @@
 #include "util/Profiler.hpp"
 #include "util/enum.hpp"
 #include "util/Options.hpp"
-
-namespace tempo {
-    template<typename T>
-    class Solver;
-}
+#include "util/factory_pattern.hpp"
+#include "Solver.hpp"
+#include "Constant.hpp"
 
 namespace tempo::nn {
     namespace fs = std::filesystem;
 
     PENUM(DecayMode, Constant, Reciprog, Exponential);
-    PENUM(AssumptionMode, SingleShot, CarefulSkip, CarefulInverse)
+    PENUM(AssumptionMode, SingleShot, GreedySkip, GreedyInverse)
 
     struct PolicyConfig {
         PolicyConfig() noexcept;
@@ -62,6 +62,81 @@ namespace tempo::nn {
 
     std::ostream &operator<<(std::ostream &os, const PolicyConfig &config);
 
+    struct SingleShotFix {
+        constexpr void reset() noexcept {};
+
+        template<concepts::scalar T, heuristics::assumption_interface AI>
+        std::size_t select(AI &proxy, std::size_t numLiterals, unsigned,
+                           const std::vector<std::pair<Literal<T>, double>> & gnnOutput) {
+            using namespace std::views;
+            proxy.makeAssumptions(gnnOutput | take(numLiterals) | elements<0>);
+            return std::min(numLiterals, gnnOutput.size());
+        }
+    };
+
+
+    template<concepts::scalar T>
+    class GreedyFix {
+        std::vector<Literal<T>> cache;
+        bool inverse;
+    public:
+        explicit constexpr GreedyFix(bool inverse) noexcept: inverse(inverse) {}
+
+        void reset() noexcept {
+            cache.clear();
+        }
+
+        template<heuristics::assumption_interface AI>
+        std::size_t select(AI &proxy, std::size_t numLiterals, unsigned numFails,
+                    const std::vector<std::pair<Literal<T>, double>> & gnnOutput) {
+            if (numFails == 0 and not cache.empty()) {
+                proxy.makeAssumptions(cache | std::views::take(numLiterals));
+                return std::min(numLiterals, cache.size());
+            }
+
+            if (proxy.getSolver().getOptions().verbosity >= Options::SOLVERINFO) {
+                std::cout << "-- greedy selection of literals\n";
+            }
+
+            std::size_t litCount = 0;
+            std::vector<Literal<T>> newAssumptions;
+            newAssumptions.reserve(numLiterals);
+            for (auto lit: gnnOutput | std::views::elements<0>) {
+                if (litCount == numLiterals) {
+                    break;
+                }
+
+                bool success = proxy.tryMakeAssumption(lit);
+                if (not success and inverse) {
+                    lit = ~lit;
+                    success = proxy.tryMakeAssumption(lit);
+                    if (not success) {
+                        proxy.fail();
+                        return 0;
+                    }
+                }
+
+                litCount += success;
+                if (success) {
+                    newAssumptions.emplace_back(lit);
+                }
+            }
+
+            std::swap(newAssumptions, cache);
+            return litCount;
+        }
+    };
+
+    template<typename ...Ts>
+    struct VariantFix : public std::variant<Ts...> {
+        DYNAMIC_DISPATCH_VOID(reset, EMPTY)
+
+        DYNAMIC_DISPATCH_FORWARD(select, EMPTY)
+    };
+
+    template<concepts::scalar T>
+    using FixPolicy = VariantFix<SingleShotFix, GreedyFix<T>>;
+
     /**
      * @brief GNN based relaxation policy. Uses precedence predictor to fix most probable precedences
      * @tparam T timing type
@@ -73,10 +148,12 @@ namespace tempo::nn {
         const Solver<T> &solver;
         mutable tempo::util::Profiler profiler{};
         const PolicyConfig config;
-        std::vector<Literal<T>> assumptionCache{};
+        std::vector<std::pair<Literal<T>, double>> gnnCache;
+        FixPolicy<T> fixPolicy{};
         unsigned failCount = 0;
         unsigned solverFailCount = 0;
         double fixRatio;
+        std::size_t numFixed = 0;
 
         auto calcFailRatio(auto fails) const noexcept {
             return static_cast<double>(fails - solverFailCount) / predictor.numLiterals();
@@ -137,6 +214,18 @@ namespace tempo::nn {
             if (solver.getOptions().verbosity >= Options::YACKING) {
                 std::cout << config << std::endl;
             }
+
+            using enum AssumptionMode;
+            switch(config.assumptionMode) {
+                case GreedySkip:
+                    fixPolicy.template emplace<GreedyFix<T>>(false);
+                    break;
+                case GreedyInverse:
+                    fixPolicy.template emplace<GreedyFix<T>>(true);
+                    break;
+                case AssumptionMode::SingleShot:
+                    break;
+            }
         }
 
         /**
@@ -146,48 +235,19 @@ namespace tempo::nn {
          */
         template<heuristics::assumption_interface AssumptionInterface>
         void fix(AssumptionInterface &s) {
-            using enum AssumptionMode;
             const auto numLits = maxNumLiterals();
             if (numLits == 0) {
                 return;
             }
 
             tempo::util::ScopeWatch sw(profiler, "repair");
-            auto assumptions = assumptionCache | std::views::take(numLits);
-            if (config.assumptionMode == SingleShot or failCount == 0) {
-                s.makeAssumptions(assumptions);
-                if (not assumptions.empty() and solver.getOptions().verbosity >= Options::YACKING) {
-                    std::cout << "-- fixing " << assumptions.size() << " / " << predictor.numLiterals()
-                              << " literals\n";
-                }
-            } else {
-                std::size_t litCount = 0;
-                std::vector<Literal<T>> newAssumptions;
-                newAssumptions.reserve(numLits);
-                for (auto lit : assumptions) {
-                    if (litCount == numLits) {
-                        break;
-                    }
-
-                    bool success = s.tryMakeAssumption(lit);
-                    if (not success and config.assumptionMode == CarefulInverse) {
-                        lit = ~lit;
-                        success = s.tryMakeAssumption(lit);
-                        if (not success) {
-                            s.fail();
-                            return;
-                        }
-                    }
-
-                    litCount += success;
-                    if (success) {
-                        newAssumptions.emplace_back(lit);
-                    }
-                }
-
-                std::swap(newAssumptions, assumptionCache);
-                if (litCount > 0 and solver.getOptions().verbosity >= Options::YACKING) {
-                    std::cout << "-- fixing " << litCount << " literals after fail\n";
+            numFixed = fixPolicy.select(s, numLits, failCount, gnnCache);
+            if (solver.getOptions().verbosity >= Options::YACKING) {
+                if (s.getState() == heuristics::AssumptionState::Fail) {
+                    std::cout << "-- failed to fix literals\n";
+                } else {
+                    std::cout << "-- fixing " << numFixed << " / " << predictor.numLiterals()
+                              << " literals" << (failCount > 0 ? " after fail\n" : "\n");
                 }
             }
         }
@@ -218,19 +278,19 @@ namespace tempo::nn {
         /**
          * Runs the GNN inference and fills the assumption cache
          */
-        void updateCache() {
+        void runInference() {
             using namespace std::views;
             if (maxNumLiterals() == 0) {
-                assumptionCache.clear();
+                gnnCache.clear();
                 return;
             }
 
             tempo::util::ScopeWatch sw(profiler, "gnn lns policy update");
             predictor.updateConfidence(solver);
             auto lits = predictor.getLiterals();
-            auto selection = lits | take_while([m = config.minCertainty](auto &tpl) { return std::get<1>(tpl) > m; }) |
-                             elements<0> | common;
-            assumptionCache = std::vector(selection.begin(), selection.end());
+            auto selection = lits | take_while([m = config.minCertainty](auto &tpl) { return std::get<1>(tpl) > m; })
+                             | common;
+            gnnCache = std::vector(selection.begin(), selection.end());
             if (solver.getOptions().verbosity >= Options::YACKING) {
                 std::cout << "-- Updating GNN confidence values" << std::endl;
             }
@@ -252,7 +312,8 @@ namespace tempo::nn {
             failCount = 0;
             predictor.reinitialize(solver);
             fixRatio = config.fixRatio;
-            updateCache();
+            runInference();
+            fixPolicy.reset();
         }
 
         /**
@@ -260,7 +321,7 @@ namespace tempo::nn {
          * @return true if ratio of literals to fix is lower than exhaustion threshold, false otherwise
          */
         bool exhausted() const noexcept {
-            return (std::min(assumptionCache.size(), maxNumLiterals()) /
+            return (std::min(numFixed, maxNumLiterals()) /
                    static_cast<double>(predictor.numLiterals())) < config.exhaustionThreshold;
         }
 
