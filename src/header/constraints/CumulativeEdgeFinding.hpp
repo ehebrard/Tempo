@@ -869,7 +869,7 @@ template <typename T> void CumulativeEdgeFinding<T>::propagate() {
     
 //    assert(in_conflict.empty());
     
-    
+    pruning.clear();
 
 std::sort(lct_order.begin(), lct_order.end(),
           [this](const int i, const int j) { return lct(i) < lct(j); });
@@ -1013,6 +1013,15 @@ int CumulativeEdgeFinding<T>::resetProfile(const int i, const size_t saved_size)
         }
         return i;
     } else {
+        
+#ifdef DBG_SEF
+  if (DBG_SEF and debug_flag > 3) {
+    std::cout << "non-trivial reset-profile" << std::endl
+              << profile;
+      exit(1);
+  }
+#endif
+        
         if(profile[i].increment != 0 or profile[i].incrementMax != 0) {
                     std::cout << "bug save event\n";
                     exit(1);
@@ -1045,6 +1054,21 @@ T CumulativeEdgeFinding<T>::scheduleOmega(const int i, const T max_lct,
     
     if(adjustment) {
         clearData();
+        
+#ifdef DBG_SEF
+  if (DBG_SEF and debug_flag > 2) {
+      auto next{profile.begin()};
+        auto stop{profile.end()};
+
+      while (next != stop and next->time <= max_lct) {
+          auto t{next};
+          ++next;
+          std::cout << *t << ": " << data[t.index] << std::endl;
+      }
+
+  }
+#endif
+        
     }
 
   auto next{profile.begin()};
@@ -1098,14 +1122,23 @@ T CumulativeEdgeFinding<T>::scheduleOmega(const int i, const T max_lct,
 //      data[t.index].consumption = h_cons;
 //    }
 
-    if (overflow > 0 and (h_cons - h_req) != 0) {
+    if (overflow > 0 and (h_cons - h_req) > 0) {
       auto al{std::max(Gap<T>::epsilon(), overflow / (h_cons - h_req))};
       // there is some overflow, and it will be resorbed by the next time point
       if (al < l) {
         l = al;
         auto new_event{makeNewEvent(t->time + l)};
         profile.add_after(t.index, new_event);
+
+#ifdef DBG_SEF
+  if (DBG_SEF and debug_flag > 2) {
+      std::cout << " [create tmp event " << *(profile.at(new_event)) << " before " << *next << " b/c " << al << "] "; //<< std::endl;
+  }
+#endif
+          
         next = profile.at(new_event);
+          
+
           
 //          std::cout << "create tmp event " << new_event << " / " << saved_size << std::endl;
 //          exit(1);
@@ -1186,7 +1219,7 @@ T CumulativeEdgeFinding<T>::scheduleOmega(const int i, const T max_lct,
         std::cout << "contact[" << task[i].id() << "] = " << profile[contact[i]]
                   << " (" << contact[i]
                   << ") contact time = " << profile[contact[i]].time << ": " << data[contact[i]]
-                  << std::endl;
+          << std::endl;
       }
 #endif
     }
@@ -1230,7 +1263,7 @@ template <typename T> void CumulativeEdgeFinding<T>::doPruning() {
 
     solver.set(p, {this, h++});
   }
-  pruning.clear();
+//  pruning.clear();
     
     
 //    std::cout << "end pruning" << std::endl;
@@ -1585,8 +1618,13 @@ void CumulativeEdgeFinding<T>::computeForwardExplanation(const int i) {
 }
 
 template <typename T>
-void CumulativeEdgeFinding<T>::xplain(const Literal<T>, const hint h,
+void CumulativeEdgeFinding<T>::xplain(const Literal<T> l, const hint h,
                                       std::vector<Literal<T>> &Cl) {
+    
+    if(h < 0 or  h >= explanation.size()) {
+        std::cout << "bug explanation of " << l << ": (" << h << "/" << explanation.size() << ")\n";
+        exit(1);
+    }
     
     for (auto p : explanation[h]) {
       Cl.push_back(p);
