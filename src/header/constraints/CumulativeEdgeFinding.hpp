@@ -1148,7 +1148,7 @@ T CumulativeEdgeFinding<T>::scheduleOmega(const int i, const T max_lct,
     contact[i] = -1;
       
       auto t{next};
-      if(omega_ect > schedule.end.min(solver)) {
+      if(overflow == 0 and omega_ect > schedule.end.min(solver)) {
 //          auto t{next};
           while(data[t.index].overflow == 0) {
 //              std::cout << "hack overflow " << *t << ": " << data[t.index] << std::endl;
