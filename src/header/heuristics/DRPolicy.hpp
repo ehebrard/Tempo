@@ -29,7 +29,7 @@ namespace tempo::heuristics {
         instance.notifySuccess(numFail);
         instance.notifyFailure(numFail);
         instance.requestNewRegion();
-        instance.relax(proxy);
+        { instance.relax(proxy) } -> concepts::ttyped_range<Literal>;
         { instance.newRegion() } -> std::convertible_to<bool>;
     };
 
@@ -37,10 +37,11 @@ namespace tempo::heuristics {
      * @brief Repair policy interface
      */
     template<typename T>
-    concept repair_policy = requires(T instance, unsigned numFail, AssumptionProxy<int> &proxy) {
+    concept repair_policy = requires(T instance, unsigned numFail, AssumptionProxy<int> &proxy,
+                                     std::vector<Literal<int>> region) {
         instance.notifySuccess(numFail);
         instance.notifyFailure(numFail);
-        instance.notifyNewRegion();
+        instance.notifyNewRegion(region);
         instance.fix(proxy);
         { instance.exhausted() } -> std::convertible_to<bool>;
     };
@@ -110,13 +111,13 @@ namespace tempo::heuristics {
                 destroy.requestNewRegion();
             }
 
-            destroy.relax(s);
+            decltype(auto) fixedRegion = destroy.relax(s);
             if (s.getState() == AssumptionState::Fail) {
                 return;
             }
 
             if (destroy.newRegion()) {
-                repair.notifyNewRegion();
+                repair.notifyNewRegion(std::forward<decltype(fixedRegion)>(fixedRegion));
             }
 
             repair.fix(s);
@@ -168,7 +169,7 @@ namespace tempo::heuristics {
          * @param proxy solver proxy
          */
         template<assumption_interface AI>
-        void relax(AI &proxy) {
+        auto relax(AI &proxy) -> const std::vector<Literal<T>> & {
             if (newRegionRequested) {
                 newRegionRequested = false;
                 AssumptionCollector<T, AI> collector(proxy);
@@ -179,6 +180,8 @@ namespace tempo::heuristics {
                 proxy.makeAssumptions(assumptionCache);
                 isNewRegion = false;
             }
+
+            return assumptionCache;
         }
 
         /**

@@ -579,8 +579,7 @@ public:
     
     // must be called before the first call to 'search()'
     void initializeSearch();
-    void setHeuristic(heuristics::MovableHeuristic<heuristics::PolymorphicHeuristic<T>> h);
-    
+
     template<heuristics::heuristic<T> H>
     void setBranchingHeuristic(H &&h);
     // record the backtrack-environment level when calling 'initializeSearch()'
@@ -776,7 +775,9 @@ private:
     
     // helper for 'initializeSearch()' (since it need to be called only once)
     bool initialized{false};
-    
+
+    bool searchCancelled = false;
+
     /**
      * @name helpers for conflict-analysis
      */
@@ -797,6 +798,10 @@ public:
     }
     std::vector<Literal<T>>::iterator end_learnt() {
         return learnt_clause.end();
+    }
+
+    void cancelSearch() noexcept {
+        searchCancelled = true;
     }
     // @}
     
@@ -2876,6 +2881,7 @@ void Solver<T>::optimize(S &objective) {
     //    displayHeader(std::cout);
     
     while (objective.gap() and not KillHandler::instance().signalReceived() and
+           not searchCancelled and
            not(num_fails >= options.search_limit)) {
         auto satisfiability = search();
         if (satisfiability == TrueState) {
@@ -2933,7 +2939,7 @@ void Solver<T>::largeNeighborhoodSearch(S &objective, P &&relaxationPolicy) {
     }
     
 
-    while (objective.gap() and not KillHandler::instance().signalReceived()) {
+    while (objective.gap() and not KillHandler::instance().signalReceived() and not searchCancelled) {
         heuristics::AssumptionProxy surrogate = *this;
         std::forward<P>(relaxationPolicy).relax(surrogate);
 
@@ -3052,7 +3058,7 @@ template <typename T> boolean_state Solver<T>::search() {
   //    assumption_stamp =
   init_level = env.level();
   boolean_state satisfiability{UnknownState};
-  while (satisfiability == UnknownState and
+  while (satisfiability == UnknownState and not searchCancelled and
          not KillHandler::instance().signalReceived() and
          not(num_fails >= options.search_limit)) {
       
@@ -3562,8 +3568,7 @@ template <typename T>
 std::ostream &Solver<T>::displayProgress(std::ostream &os) const {
 
   auto cpu{(cpu_time() - start_time)};
-  auto [start, stop] = stopWatch.getTiming();
-  const auto wallTime = std::chrono::duration_cast<std::chrono::milliseconds>(stop - start).count();
+  const auto wallTime = stopWatch.elapsed<std::chrono::milliseconds>();
 
   os << "  " << std::setw(9) << num_fails << "  " << std::setw(9)
      << num_choicepoints << "  " << std::setw(7)
