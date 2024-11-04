@@ -663,7 +663,7 @@ template <typename T> void CumulativeEdgeFinding<T>::initialiseProfile() {
         
         auto ect_omega{scheduleOmega(i,t)};
         if(ect_omega == Constant::Infinity<T>) {
-//            std::cout << "overload fail!\n";
+            std::cout << "overload fail!\n";
 //            debug_flag = 1;
             prec[i] = i;
             auto h{static_cast<hint>(num_explanations)};
@@ -675,11 +675,10 @@ template <typename T> void CumulativeEdgeFinding<T>::initialiseProfile() {
             auto s{static_cast<int>(task.size())};
             prec[s] = i;
             contact[s] = contact[i];
-            
-//            std::cout << contact[i] << " @" << solver.num_cons_propagations << std::endl;
+           
             pruning.push_back(schedule.end.after(ect_omega));
             computeForwardExplanation(s);
-//            exit(1);
+
         }
 //        else {
 //            std::cout << "ok\n";
@@ -1149,7 +1148,6 @@ T CumulativeEdgeFinding<T>::scheduleOmega(const int i, const T max_lct,
       
       auto t{next};
       if(overflow == 0 and omega_ect > schedule.end.min(solver)) {
-//          auto t{next};
           while(data[t.index].overflow == 0) {
 //              std::cout << "hack overflow " << *t << ": " << data[t.index] << std::endl;
               --t;
@@ -1160,7 +1158,6 @@ T CumulativeEdgeFinding<T>::scheduleOmega(const int i, const T max_lct,
               std::cout << "hack overflow " << *t << ": " << data[t.index] << std::endl;
           }
 #endif
-//          exit(1);
       }
       
     if (overflow > 0) {
@@ -1452,8 +1449,6 @@ template <typename T> void CumulativeEdgeFinding<T>::forwardDetection() {
                         assert(lct(lct_order[leftcut_pointer]) > lct(alpha));
                         shrinkLeftCutToTime(lct(alpha) + 1);
                         
-                        //                std::cout << profile << std::endl;
-                        
                         assert(est(i) < lct(alpha));
                         
                         addPrime(i, alpha);
@@ -1469,26 +1464,12 @@ template <typename T> void CumulativeEdgeFinding<T>::forwardDetection() {
                                 
                                 assert(contact[i] != -1);
                             }
-                            //#endif
-                            //#ifdef DBG_SEF
-                            //          if (DBG_SEF) {
-                            //            std::cout << " task " << task[i].id()
-                            //                      << " is in conflict with task interval "
-                            //                      << task[*(lct_order.begin())].id() << ".."
-                            //                      << task[alpha].id() << std::endl;
-                            //          }
 #endif
                             
                             prec[i] = alpha;
                             in_conflict.push_back(i);
                         }
                     }
-                    
-//                    for(auto c : in_conflict) {
-//                        std::cout << " t" << task[c].id() ;
-//                    }
-//                    std::cout << "\nt" << task[i].id() << ": b=" << beta << " a=" << alpha << " prec=" << prec[i] << " contact=" << contact[i] << std::endl;
-                    
                     if (alpha != -1 or beta != -1) {
                         growLeftCutToTime(lct(i));
                     }
@@ -1525,6 +1506,15 @@ void CumulativeEdgeFinding<T>::computeForwardExplanation(const int i) {
     auto j{lct_order[k]};
     
 //    std::cout << j << std::endl;
+    
+    
+    
+    if(i != n and lct(j) != lct(prec[i])) {
+        std::cout << "bug prec[" << task[i].id() << "] = " << task[prec[i]].id()
+        << " lct(Omega) = " << lct(j) << " / lct(prec) = " << lct(prec[i]) << " @"
+        << solver.num_cons_propagations << "\n";
+        exit(1);
+    }
     
     assert(i == n or lct(j) == lct(prec[i]));
     
