@@ -648,17 +648,26 @@ template <typename T> void CumulativeEdgeFinding<T>::initialiseProfile() {
 
     
     for(unsigned k{0}; k<task.size(); ++k) {
-        if(k+1<task.size() and lct(lct_order[k]) == lct(lct_order[k+1]))
+        if(k+1<task.size() and lct(lct_order[k]) == lct(lct_order[k+1])) {
+#ifdef DBG_SEF
+        if(DBG_SEF and debug_flag > 3) {
+            std::cout << "passing on t" << task[lct_order[k]].id() << std::endl;
+        }
+#endif
             continue;
+        }
         
         auto i{lct_order[k]};
         auto t{lct(i)};
-        growLeftCutToTime(t);
+        growLeftCutToTime(t+Gap<T>::epsilon());
         
 #ifdef DBG_SEF
         std::stringstream ss;
-        ss << "checking t" << i ;
+        ss << "checking t" << task[i].id() ;
         verify(ss.str().c_str());
+        if(DBG_SEF and debug_flag > 3) {
+            std::cout << ss.str() << std::endl;
+        }
 #endif
         
         auto ect_omega{scheduleOmega(i,t)};
@@ -818,7 +827,8 @@ template <typename T> void CumulativeEdgeFinding<T>::growLeftCutToTime(const T t
 #endif
     
   // add the tasks that have a lct strictly smaller than t
-  while (t > lct(lct_order[leftcut_pointer])) {
+    int n{static_cast<int>(task.size())};
+  while (leftcut_pointer < n and t > lct(lct_order[leftcut_pointer])) {
     addTask(lct_order[leftcut_pointer++]);
   }
     
