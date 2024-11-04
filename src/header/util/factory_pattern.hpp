@@ -99,5 +99,13 @@ decltype(auto) FNAME(FARG) CVSPEC {                                             
     return std::visit([LCAPTURE](CVSPEC auto &impl) -> decltype(auto) { return impl.FNAME(LARG); }, *this); \
 }
 
+#define DYNAMIC_DISPATCH_FORWARD(FNAME, CVSPEC)                             \
+template<typename ...Args>                                                  \
+decltype(auto) FNAME(Args &&...args) CVSPEC {                               \
+    return std::visit([&args...](CVSPEC auto &impl) -> decltype(auto) {     \
+        return impl.FNAME(std::forward<Args>(args)...);                     \
+    }, *this);                                                              \
+}
+
 #define DYNAMIC_DISPATCH_VOID(FNAME, CVSPEC) DYNAMIC_DISPATCH(FNAME, EMPTY, EMPTY, EMPTY, CVSPEC)
 #endif //TEMPO_FACTORY_PATTERN_HPP
