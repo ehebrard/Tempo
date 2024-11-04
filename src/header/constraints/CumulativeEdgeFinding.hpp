@@ -264,7 +264,7 @@ public:
     
 #ifdef DBG_SEF
     void verify(const char* msg);
-    int debug_flag{3}; // 0 nothing but pruning // 1 summary // 2 task processing // 3 profile
+    int debug_flag{4}; // 0 nothing but pruning // 1 summary // 2 task processing // 3 profile // 4 maxoverflow
 #endif
 };
 
