@@ -476,9 +476,16 @@ namespace tempo::nn {
         /**
          * Call this function to reset confidences and caches and rerun inference. This is useful when the gnn will be
          * applied to a new region in the search space
+         * @param region The literals that were already fixed
          */
-        void notifyNewRegion() {
+        template<concepts::typed_range<Literal<T>> Region>
+        void notifyNewRegion(const Region &region) {
             failCount = 0;
+            if (std::ranges::empty(region)) {
+                fixRatio = 0;
+                return;
+            }
+
             predictor.reinitialize(solver);
             fixRatio = config.fixRatio;
             runInference();
@@ -490,8 +497,13 @@ namespace tempo::nn {
          * @return true if ratio of literals to fix is lower than exhaustion threshold, false otherwise
          */
         bool exhausted() const noexcept {
-            return (std::min(numFixed, maxNumLiterals()) /
-                   static_cast<double>(predictor.numLiterals())) < config.exhaustionThreshold;
+            auto ratio = std::min(numFixed, maxNumLiterals()) / static_cast<double>(predictor.numLiterals());
+            bool res = ratio < config.exhaustionThreshold;
+            if (res and solver.getOptions().verbosity >= Options::SOLVERINFO) {
+                std::cout << "-- repair exhausted: num fixed = " << numFixed << ", max num literals = "
+                          << maxNumLiterals() << ", ratio = " << ratio << "\n";
+            }
+            return res;
         }
 
         /**
