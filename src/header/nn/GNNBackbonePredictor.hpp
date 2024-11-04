@@ -31,7 +31,7 @@ namespace tempo::nn {
     namespace fs = std::filesystem;
 
     PENUM(DecayMode, Constant, Reciprog, Exponential);
-    PENUM(AssumptionMode, SingleShot, GreedySkip, GreedyInverse, Optimal)
+    PENUM(AssumptionMode, BestN, GreedySkip, GreedyInverse, Optimal)
 
     struct PolicyConfig {
         PolicyConfig() noexcept;
@@ -392,7 +392,7 @@ namespace tempo::nn {
                 case Optimal:
                     fixPolicy.template emplace<OptimalFix<T>>(100, 50, false);
                     break;
-                case AssumptionMode::SingleShot:
+                case AssumptionMode::BestN:
                     break;
             }
         }

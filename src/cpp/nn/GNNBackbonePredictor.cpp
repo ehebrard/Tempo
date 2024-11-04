@@ -19,7 +19,7 @@ namespace tempo::nn {
     PolicyConfig::PolicyConfig() noexcept: fixRatio(1), decay(0.5), minCertainty(0.5),
                                            minFailRatio(-1), maxFailRatio(std::numeric_limits<double>::infinity()),
                                            exhaustionThreshold(0.01), decreaseOnSuccess(false), retryLimit(0),
-                                           decayMode(DecayMode::Constant), assumptionMode(AssumptionMode::SingleShot) {}
+                                           decayMode(DecayMode::Constant), assumptionMode(AssumptionMode::BestN) {}
 
     std::ostream &operator<<(std::ostream &os, const PolicyConfig &config) {
         os << "-- GNN backbone predictor config:\n";
