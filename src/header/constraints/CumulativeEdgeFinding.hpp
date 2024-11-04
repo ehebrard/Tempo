@@ -672,7 +672,7 @@ template <typename T> void CumulativeEdgeFinding<T>::initialiseProfile() {
         
         auto ect_omega{scheduleOmega(i,t)};
         if(ect_omega == Constant::Infinity<T>) {
-            std::cout << "overload fail!\n";
+//            std::cout << "overload fail!\n";
 //            debug_flag = 1;
             prec[i] = i;
             auto h{static_cast<hint>(num_explanations)};
@@ -1585,8 +1585,14 @@ void CumulativeEdgeFinding<T>::computeForwardExplanation(const int i) {
 }
 
 template <typename T>
-void CumulativeEdgeFinding<T>::xplain(const Literal<T>, const hint,
-                                      std::vector<Literal<T>> &) {}
+void CumulativeEdgeFinding<T>::xplain(const Literal<T>, const hint h,
+                                      std::vector<Literal<T>> &Cl) {
+    
+    for (auto p : explanation[h]) {
+      Cl.push_back(p);
+    }
+    
+}
 
 template <typename T>
 std::ostream &CumulativeEdgeFinding<T>::display(std::ostream &os) const {

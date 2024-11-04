@@ -2160,7 +2160,7 @@ template <typename T> void Solver<T>::decisionCut(Explanation<T> &e) {
 #ifdef DBG_TRACE
         if (DBG_BOUND and (DBG_TRACE & DCUT)) {
             std::cout << "resolve ";
-            if (l == Contradiction) {
+            if (l == Contradiction<T>) {
                 std::cout << "contradiction";
             } else {
               std::cout << pretty(l); //<< " @" << propagationLevel(l);
@@ -2304,7 +2304,7 @@ template <typename T> void Solver<T>::analyze(Explanation<T> &e) {
 #ifdef DBG_TRACE
             if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
               std::cout << "resolve ";
-              if (l == Contradiction) {
+              if (l == Contradiction<T>) {
                 std::cout << "contradiction";
               } else {
                 std::cout << pretty(l) << " @" << propagationLevel(l);
