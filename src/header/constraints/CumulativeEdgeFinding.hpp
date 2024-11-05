@@ -6,7 +6,7 @@
  *International Joint Conference on Artificial Intelligence (IJCAI'16). AAAI
  *Press, 3103–3109.
  *
- * Copyright 2024 Emmanuel Hebrard
+ * Copyright 2024 Emmanuel Hebrard, Roger Kameugne
  *
  * Tempo is free software: you can redistribute it and/or modify it
  * under the terms of the GNU General Public License as published by the
@@ -136,6 +136,7 @@ private:
   Interval<T> schedule;
   std::vector<Interval<T>> task;
   std::vector<NumericVar<T>> demand;
+  bool sign{bound::lower};
 
   // mapping from the tasks that need to be adjusted to the corresponding
   // left-cut interval
@@ -221,15 +222,15 @@ public:
   void post(const int idx) override;
   void propagate() override;
 
-  void forwardAdjustment();
-  void forwardDetection();
+  void adjustment();
+  void detection();
   void addPrime(const int i, const int j);
   void rmPrime(const int i, const int j);
   T scheduleOmega(const int i, const T max_lct, const bool adjustment = false);
   int makeNewEvent(const T t);
   //    int resetProfile(const int i, const size_t saved_size);
 
-  void overloadBound();
+  //  void overloadBound();
 
   void computeBound(const int i);
   void doPruning();
@@ -246,7 +247,7 @@ public:
   void addTask(const int i);
 
   // function used in explanation
-  void computeForwardExplanation(const int i);
+  void computeExplanation(const int i);
   void xplain(const Literal<T> l, const hint h,
               std::vector<Literal<T>> &Cl) override;
 
@@ -397,20 +398,44 @@ std::string CumulativeEdgeFinding<T>::asciiArt(const int i) const {
 }
 
 template <typename T> T CumulativeEdgeFinding<T>::est(const unsigned i) const {
-  return task[i].getEarliestStart(solver);
+  return (sign == bound::lower ? task[i].getEarliestStart(solver)
+                               : -task[i].getLatestEnd(solver));
 }
 
 template <typename T> T CumulativeEdgeFinding<T>::lst(const unsigned i) const {
-  return task[i].getLatestStart(solver);
+  return (sign == bound::lower ? task[i].getLatestStart(solver)
+                               : -task[i].getEarliestEnd(solver));
 }
 
 template <typename T> T CumulativeEdgeFinding<T>::ect(const unsigned i) const {
-  return task[i].getEarliestEnd(solver);
+  return (sign == bound::lower ? task[i].getEarliestEnd(solver)
+                               : -task[i].getLatestStart(solver));
 }
 
 template <typename T> T CumulativeEdgeFinding<T>::lct(const unsigned i) const {
-  return task[i].getLatestEnd(solver);
+  return (sign == bound::lower ? task[i].getLatestEnd(solver)
+                               : -task[i].getEarliestStart(solver));
 }
+
+// template <typename T> T CumulativeEdgeFinding<T>::est(const unsigned i) const
+// {
+//   return task[i].getEarliestStart(solver);
+// }
+//
+// template <typename T> T CumulativeEdgeFinding<T>::lst(const unsigned i) const
+// {
+//   return task[i].getLatestStart(solver);
+// }
+//
+// template <typename T> T CumulativeEdgeFinding<T>::ect(const unsigned i) const
+// {
+//   return task[i].getEarliestEnd(solver);
+// }
+//
+// template <typename T> T CumulativeEdgeFinding<T>::lct(const unsigned i) const
+// {
+//   return task[i].getLatestEnd(solver);
+// }
 
 template <typename T>
 T CumulativeEdgeFinding<T>::minduration(const unsigned i) const {
@@ -625,14 +650,14 @@ template <typename T> void CumulativeEdgeFinding<T>::initialiseProfile() {
     if (ect_omega == Constant::Infinity<T>) {
       prec[i] = i;
       auto h{static_cast<hint>(num_explanations)};
-      computeForwardExplanation(i);
+      computeExplanation(i);
       throw Failure<T>({this, h});
     } else if (schedule.end.min(solver) < ect_omega) {
       auto s{static_cast<int>(task.size())};
       prec[s] = i;
       contact[s] = contact[i];
       pruning.push_back(schedule.end.after(ect_omega));
-      computeForwardExplanation(s);
+      computeExplanation(s);
     }
   }
 }
@@ -664,10 +689,6 @@ template <typename T> void CumulativeEdgeFinding<T>::addTask(const int i) {
   profile[est_shared[i]].incrementMax += mindemand(i);
   profile[ect_shared[i]].increment -= mindemand(i);
   profile[lct_shared[i]].incrementMax -= mindemand(i);
-
-  //    data[est_shared[i]].reset();
-  //    data[ect_shared[i]].reset();
-  //    data[lct_shared[i]].reset();
 }
 
 template <typename T>
@@ -686,20 +707,11 @@ template <typename T> void CumulativeEdgeFinding<T>::shrinkLeftCutToTime(const T
 #ifdef DBG_SEF
   verify("before shrink-leftcut");
 #endif
-//    std::cout << "shrink until " << t << ":\n" << profile << std::endl;
-
-// remove the tasks that have a lct equal to or larger than t
-while (leftcut_pointer-- > 0 and t <= lct(lct_order[leftcut_pointer])) {
-
-  //        std::cout << " - remove " << prettyTask(lct_order[leftcut_pointer])
-  //        << std::endl;
-
-  rmTask(lct_order[leftcut_pointer]);
-}
-
-//    std::cout << "==>\n" << profile << std::endl;
-
-++leftcut_pointer;
+  // remove the tasks that have a lct equal to or larger than t
+  while (leftcut_pointer-- > 0 and t <= lct(lct_order[leftcut_pointer])) {
+    rmTask(lct_order[leftcut_pointer]);
+  }
+  ++leftcut_pointer;
 
 #ifdef DBG_SEF
 verify("after shrink-leftcut");
@@ -721,63 +733,62 @@ template <typename T> void CumulativeEdgeFinding<T>::growLeftCutToTime(const T t
 #ifdef DBG_SEF
   verify("after grow-leftcut");
 #endif
-
-//    verify();
 }
 
-template <typename T> void CumulativeEdgeFinding<T>::overloadBound() {
-  auto ii{lct_order.begin()};
-
-  while (ii != lct_order.end()) {
-    auto t{lct(*ii)};
-    do {
-      ++ii;
-    } while (ii != lct_order.end() and lct(*ii) == t);
-  }
-}
+// template <typename T> void CumulativeEdgeFinding<T>::overloadBound() {
+//   auto ii{lct_order.begin()};
+//
+//   while (ii != lct_order.end()) {
+//     auto t{lct(*ii)};
+//     do {
+//       ++ii;
+//     } while (ii != lct_order.end() and lct(*ii) == t);
+//   }
+// }
 
 template <typename T> void CumulativeEdgeFinding<T>::propagate() {
 
-  pruning.clear();
+  sign = bound::lower;
 
-  std::sort(lct_order.begin(), lct_order.end(),
-            [this](const int i, const int j) { return lct(i) < lct(j); });
+  do {
+    pruning.clear();
 
-#ifdef DBG_SEF
-if (DBG_SEF and debug_flag > 0) {
-  std::cout << "\n\nstart propagation (" << capacity.max(solver) << ")\n";
-  for (auto j : lct_order) {
-    std::cout << "task " << std::setw(3) << task[j].id() << ": " << asciiArt(j)
-              << std::endl;
-  }
-}
-#endif
-
-initialiseProfile();
-
-// save the original size to remove all useless tps
-//    auto saved_size{profile.size()};
+    std::sort(lct_order.begin(), lct_order.end(),
+              [this](const int i, const int j) { return lct(i) < lct(j); });
 
 #ifdef DBG_SEF
-verify("after init-profile");
+    if (DBG_SEF and debug_flag > 0) {
+      std::cout << "\n\nstart ("
+                << (sign == bound::lower ? "forward" : "backward")
+                << ") propagation (" << capacity.max(solver) << ")\n";
+      for (auto j : lct_order) {
+        std::cout << "task " << std::setw(3) << task[j].id() << ": "
+                  << asciiArt(j) << std::endl;
+      }
+    }
 #endif
 
-forwardDetection();
+    initialiseProfile();
 
 #ifdef DBG_SEF
-verify("after detection");
+    verify("after init-profile");
 #endif
 
-forwardAdjustment();
+    detection();
 
 #ifdef DBG_SEF
-verify("after adjustment");
+    verify("after detection");
 #endif
 
-//    // remove useless tps
-//    profile.resize(saved_size);
+    adjustment();
 
-doPruning();
+#ifdef DBG_SEF
+    verify("after adjustment");
+#endif
+
+    doPruning();
+    sign ^= 1;
+  } while (sign != bound::lower);
 }
 
 template <typename T> void CumulativeEdgeFinding<T>::addPrime(const int i, const int j) {
@@ -943,7 +954,6 @@ T CumulativeEdgeFinding<T>::scheduleOmega(const int i, const T max_lct,
   auto stop{profile.end()};
 
   while (next != stop and next->time <= max_lct) {
-    //     while (next != stop) {
     auto t{next};
     ++next;
 
@@ -1083,7 +1093,7 @@ template <typename T> void CumulativeEdgeFinding<T>::doPruning() {
   }
 }
 
-template <typename T> void CumulativeEdgeFinding<T>::forwardAdjustment() {
+template <typename T> void CumulativeEdgeFinding<T>::adjustment() {
 
 #ifdef DBG_SEF
   if (DBG_SEF and debug_flag > 0) {
@@ -1152,7 +1162,6 @@ template <typename T> void CumulativeEdgeFinding<T>::forwardAdjustment() {
 
     assert(maxoverflow > 0);
 
-    //    if (maxoverflow > 0) {
     auto next{profile.at(t1)};
     while (next != profile.end()) {
       auto t{next};
@@ -1168,18 +1177,16 @@ template <typename T> void CumulativeEdgeFinding<T>::forwardAdjustment() {
         break;
       }
     }
-//    }
 
-pruning.push_back(task[i].start.after(adjustment));
-computeForwardExplanation(i);
+    pruning.push_back(task[i].start.after(adjustment));
+    computeExplanation(i);
 
-in_conflict.pop_back();
-prec[i] = -1;
+    in_conflict.pop_back();
+    prec[i] = -1;
   }
 }
 
-
-template <typename T> void CumulativeEdgeFinding<T>::forwardDetection() {
+template <typename T> void CumulativeEdgeFinding<T>::detection() {
 
 #ifdef DBG_SEF
   if (DBG_SEF and debug_flag > 0) {
@@ -1218,8 +1225,8 @@ template <typename T> void CumulativeEdgeFinding<T>::forwardDetection() {
     // lct of the task that precedes all the task whose lct is lct(i)
     auto j{lct_order[leftcut_pointer - 1]};
 
-    // tasks in the range [leftcut_pointer, *ii) all have a lct equal to
-    // lct(*ii)
+    // tasks in the range [leftcut_pointer, k) all have a lct equal to
+    // lct(i)
     // - add their "prime" versions one by one and run scheduleOmega
     while (k >= leftcut_pointer) {
 
@@ -1305,9 +1312,8 @@ template <typename T> void CumulativeEdgeFinding<T>::forwardDetection() {
   }
 }
 
-
 template <typename T>
-void CumulativeEdgeFinding<T>::computeForwardExplanation(const int i) {
+void CumulativeEdgeFinding<T>::computeExplanation(const int i) {
   auto n{static_cast<int>(task.size())};
 
   auto h{num_explanations};
@@ -1351,9 +1357,13 @@ void CumulativeEdgeFinding<T>::computeForwardExplanation(const int i) {
 
   do {
     if (ect(j) > t) {
+        
+        auto saved_sign{sign};
+        sign = bound::lower;
       explanation[h].push_back(task[j].start.after(est(j)));
       explanation[h].push_back(task[j].end.before(lct(j)));
-
+        sign = saved_sign;
+        
 #ifdef DBG_SEF
       if (DBG_SEF and debug_flag >= 0) {
         std::cout << "task " << std::setw(3) << task[j].id() << ": "
@@ -1362,8 +1372,12 @@ void CumulativeEdgeFinding<T>::computeForwardExplanation(const int i) {
 #endif
     }
   } while (k > 0 and lct(j = lct_order[--k]) > t);
-  if (prec[i] != i and i != n)
-    explanation[h].push_back(task[i].start.after(est(i)));
+    if (prec[i] != i and i != n) {
+        if(sign == bound::lower)
+            explanation[h].push_back(task[i].start.after(est(i)));
+        else
+            explanation[h].push_back(task[i].end.before(-est(i)));
+    }
 
 #ifdef DBG_SEF
   if (DBG_SEF and debug_flag >= 0) {
