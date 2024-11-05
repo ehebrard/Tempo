@@ -228,9 +228,6 @@ public:
   void rmPrime(const int i, const int j);
   T scheduleOmega(const int i, const T max_lct, const bool adjustment = false);
   int makeNewEvent(const T t);
-  //    int resetProfile(const int i, const size_t saved_size);
-
-  //  void overloadBound();
 
   void computeBound(const int i);
   void doPruning();
@@ -265,103 +262,6 @@ public:
 #endif
 };
 
-#ifdef DBG_SEF
-template <typename T>
-void CumulativeEdgeFinding<T>::verify(const char* msg) {
-  std::vector<Timepoint<T>> events;
-  for (int k{0}; k < leftcut_pointer; ++k) {
-    auto i{lct_order[k]};
-    events.emplace_back(est(i), mindemand(i), mindemand(i));
-    events.emplace_back(ect(i), -mindemand(i), 0);
-    events.emplace_back(lct(i), 0, -mindemand(i));
-  }
-  std::sort(events.begin(), events.end(),
-            [](const Timepoint<T> &a, const Timepoint<T> &b) {
-              return a.time < b.time;
-            });
-
-  auto tp{profile.begin()};
-  auto i{tp};
-  while (i != profile.end()) {
-    ++i;
-    if (i == tp) {
-      std::cout << "infinite loop " << msg << "\n"; //
-      exit(1);
-    }
-  }
-
-  auto tv{events.begin()};
-
-  while (tv != events.end()) {
-    T d{0};
-    T dv{0};
-    T dm{0};
-    T dmv{0};
-
-    auto now{tv->time};
-    do {
-      dv += tv->increment;
-      dmv += tv->incrementMax;
-    } while (++tv != events.end() and tv->time == now);
-
-    bool bug{false};
-    while (tp->time < now) {
-      if (tp->increment != 0 or tp->incrementMax != 0) {
-        std::cout << "non-zero non-task event!\n";
-        bug = true;
-      }
-      ++tp;
-    }
-
-    d += tp->increment;
-    dm += tp->incrementMax;
-
-    if (d != dv) {
-      std::cout << "discrepancy increment @" << *tp << "|" << *(tv - 1) << ": "
-                << d << "/" << dv << std::endl;
-      bug = true;
-    }
-    if (dm != dmv) {
-      std::cout << "discrepancy increment max @" << *tp << "|" << *(tv - 1)
-                << ": " << dm << "/" << dmv << std::endl;
-      bug = true;
-    }
-
-    ++tp;
-
-    if (bug) {
-      std::cout << "bug " << msg << "\n"; //
-      auto itp{profile.begin()};
-      auto itv{events.begin()};
- 
-      while (true) {
-        if (itp != tp) {
-          while (itp->increment == 0 and itp->incrementMax == 0) {
-            ++itp;
-          }
-        }
-        if (itp != tp) {
-          while (itv != tv and itv->time <= itp->time) {
-            std::cout << *itp << " / " << *itv << std::endl;
-            ++itv;
-          }
-        }
-        ++itp;
-        std::cout << std::endl;
-        if (itp == tp and itv == tv)
-          break;
-
-        if (itp == tp or itv == tv) {
-          std::cout << "rebug\n";
-          exit(1);
-        }
-      }
-      exit(1);
-    }
-  }
-}
-#endif
-
 template <typename T>
 std::string CumulativeEdgeFinding<T>::prettyTask(const int i) const {
   std::stringstream ss;
@@ -384,8 +284,6 @@ std::string CumulativeEdgeFinding<T>::asciiArt(const int i) const {
   }
   if (ect(i) < lct(i))
     ss << "|";
-  //  else
-  //      ss << ".";
   if (lct(i) == Constant::Infinity<T>) {
     ss << "... " << est(i) << "...";
   } else {
@@ -416,26 +314,6 @@ template <typename T> T CumulativeEdgeFinding<T>::lct(const unsigned i) const {
   return (sign == bound::lower ? task[i].getLatestEnd(solver)
                                : -task[i].getEarliestStart(solver));
 }
-
-// template <typename T> T CumulativeEdgeFinding<T>::est(const unsigned i) const
-// {
-//   return task[i].getEarliestStart(solver);
-// }
-//
-// template <typename T> T CumulativeEdgeFinding<T>::lst(const unsigned i) const
-// {
-//   return task[i].getLatestStart(solver);
-// }
-//
-// template <typename T> T CumulativeEdgeFinding<T>::ect(const unsigned i) const
-// {
-//   return task[i].getEarliestEnd(solver);
-// }
-//
-// template <typename T> T CumulativeEdgeFinding<T>::lct(const unsigned i) const
-// {
-//   return task[i].getLatestEnd(solver);
-// }
 
 template <typename T>
 T CumulativeEdgeFinding<T>::minduration(const unsigned i) const {
@@ -515,7 +393,6 @@ CumulativeEdgeFinding<T>::CumulativeEdgeFinding(
 
   auto ip{task.size()};
 
-  //    in_conflict.reserve(ip);
   prec.resize(ip + 1, -1);
   est_.resize(ip);
   ect_.resize(ip);
@@ -537,8 +414,6 @@ CumulativeEdgeFinding<T>::CumulativeEdgeFinding(
   }
   data.resize(profile.size() + 1);
 
-  //        sentinel =
-
   lct_order.resize(task.size());
   std::iota(lct_order.begin(), lct_order.end(), 0);
   event_ordering.resize(profile.size());
@@ -546,7 +421,6 @@ CumulativeEdgeFinding<T>::CumulativeEdgeFinding(
 }
 
 template <typename T> CumulativeEdgeFinding<T>::~CumulativeEdgeFinding() {}
-
 
 template <typename T> void CumulativeEdgeFinding<T>::post(const int idx) {
 
@@ -662,7 +536,6 @@ template <typename T> void CumulativeEdgeFinding<T>::initialiseProfile() {
   }
 }
 
-
 template <typename T> void CumulativeEdgeFinding<T>::rmTask(const int i) {
 
 #ifdef DBG_SEF
@@ -734,17 +607,6 @@ template <typename T> void CumulativeEdgeFinding<T>::growLeftCutToTime(const T t
   verify("after grow-leftcut");
 #endif
 }
-
-// template <typename T> void CumulativeEdgeFinding<T>::overloadBound() {
-//   auto ii{lct_order.begin()};
-//
-//   while (ii != lct_order.end()) {
-//     auto t{lct(*ii)};
-//     do {
-//       ++ii;
-//     } while (ii != lct_order.end() and lct(*ii) == t);
-//   }
-// }
 
 template <typename T> void CumulativeEdgeFinding<T>::propagate() {
 
@@ -867,44 +729,6 @@ int CumulativeEdgeFinding<T>::makeNewEvent(const T t) {
   }
   return new_event;
 }
-
-// template <typename T>
-// int CumulativeEdgeFinding<T>::resetProfile(const int i, const size_t
-// saved_size) {
-////    if(i <= profile.size()) {
-////        std::cout << "bug save event\n";
-////        exit(1);
-////    }
-//    if(i <= static_cast<int>(saved_size)) {
-//        while(profile.size() > saved_size) {
-//            profile.pop_back();
-//        }
-//        return i;
-//    } else {
-//
-//#ifdef DBG_SEF
-//  if (DBG_SEF and debug_flag > 3) {
-//    std::cout << "non-trivial reset-profile" << std::endl
-//              << profile;
-//      exit(1);
-//  }
-//#endif
-//
-//        if(profile[i].increment != 0 or profile[i].incrementMax != 0) {
-//                    std::cout << "bug save event\n";
-//                    exit(1);
-//        }
-//        auto t{profile[i].time};
-//        while(profile.size() > saved_size) {
-//            profile.pop_back();
-//        }
-//        profile.create_element(t,0,0);
-//        data[profile.size()] = data[i];
-//        return profile.size();
-////        std::cout << "stop here\n";
-////        exit(1);
-//    }
-//}
 
 template <typename T>
 T CumulativeEdgeFinding<T>::scheduleOmega(const int i, const T max_lct,
@@ -1416,6 +1240,105 @@ std::ostream &CumulativeEdgeFinding<T>::print_reason(std::ostream &os, const hin
   os << "cumulative-edge-finding";
   return os;
 }
+
+
+#ifdef DBG_SEF // debugging stuff
+template <typename T>
+void CumulativeEdgeFinding<T>::verify(const char* msg) {
+  std::vector<Timepoint<T>> events;
+  for (int k{0}; k < leftcut_pointer; ++k) {
+    auto i{lct_order[k]};
+    events.emplace_back(est(i), mindemand(i), mindemand(i));
+    events.emplace_back(ect(i), -mindemand(i), 0);
+    events.emplace_back(lct(i), 0, -mindemand(i));
+  }
+  std::sort(events.begin(), events.end(),
+            [](const Timepoint<T> &a, const Timepoint<T> &b) {
+              return a.time < b.time;
+            });
+
+  auto tp{profile.begin()};
+  auto i{tp};
+  while (i != profile.end()) {
+    ++i;
+    if (i == tp) {
+      std::cout << "infinite loop " << msg << "\n"; //
+      exit(1);
+    }
+  }
+
+  auto tv{events.begin()};
+
+  while (tv != events.end()) {
+    T d{0};
+    T dv{0};
+    T dm{0};
+    T dmv{0};
+
+    auto now{tv->time};
+    do {
+      dv += tv->increment;
+      dmv += tv->incrementMax;
+    } while (++tv != events.end() and tv->time == now);
+
+    bool bug{false};
+    while (tp->time < now) {
+      if (tp->increment != 0 or tp->incrementMax != 0) {
+        std::cout << "non-zero non-task event!\n";
+        bug = true;
+      }
+      ++tp;
+    }
+
+    d += tp->increment;
+    dm += tp->incrementMax;
+
+    if (d != dv) {
+      std::cout << "discrepancy increment @" << *tp << "|" << *(tv - 1) << ": "
+                << d << "/" << dv << std::endl;
+      bug = true;
+    }
+    if (dm != dmv) {
+      std::cout << "discrepancy increment max @" << *tp << "|" << *(tv - 1)
+                << ": " << dm << "/" << dmv << std::endl;
+      bug = true;
+    }
+
+    ++tp;
+
+    if (bug) {
+      std::cout << "bug " << msg << "\n"; //
+      auto itp{profile.begin()};
+      auto itv{events.begin()};
+ 
+      while (true) {
+        if (itp != tp) {
+          while (itp->increment == 0 and itp->incrementMax == 0) {
+            ++itp;
+          }
+        }
+        if (itp != tp) {
+          while (itv != tv and itv->time <= itp->time) {
+            std::cout << *itp << " / " << *itv << std::endl;
+            ++itv;
+          }
+        }
+        ++itp;
+        std::cout << std::endl;
+        if (itp == tp and itv == tv)
+          break;
+
+        if (itp == tp or itv == tv) {
+          std::cout << "rebug\n";
+          exit(1);
+        }
+      }
+      exit(1);
+    }
+  }
+}
+#endif
+
 
 } // namespace tempo
 
