@@ -1115,11 +1115,12 @@ template <typename T> void CumulativeEdgeFinding<T>::adjustment() {
     scheduleOmega(i, lct(j), true);
 
     // t1 is the latest time points between est(i) and contact[i]
-    auto t1{profile[contact[i]].time < est(i) ? est_shared[i] : contact[i]};
+    //auto t1{profile[contact[i]].time < est(i) ? est_shared[i] : contact[i]};
+    auto t1{contact[i]};
 
     // available
-    auto available{data[lct_shared[j]].available - data[t1].available};
-    auto t2{ect_shared[i]};
+    //auto available{data[lct_shared[j]].available - data[t1].available};
+    //auto t2{ect_shared[i]};
     auto t3{lct_shared[j]};
 
 #ifdef DBG_SEF
@@ -1137,7 +1138,7 @@ template <typename T> void CumulativeEdgeFinding<T>::adjustment() {
 #endif
 
     T maxoverflow;
-    if (ect(i) < lct(j)) {
+    /*if (ect(i) < lct(j)) {
 
       if (available < minenergy(i)) {
         maxoverflow = data[t3].overlap - data[t3].slackUnder -
@@ -1150,7 +1151,8 @@ template <typename T> void CumulativeEdgeFinding<T>::adjustment() {
     } else {
       maxoverflow = data[t3].overlap - data[t3].slackUnder - data[t1].overlap +
                     data[t1].slackUnder;
-    }
+    }*/
+    maxoverflow = data[t3].overlap - data[t3].slackUnder - data[t1].overlap + data[t1].slackUnder;
 
 #ifdef DBG_SEF
     if (DBG_SEF and debug_flag > 3) {
@@ -1246,6 +1248,7 @@ template <typename T> void CumulativeEdgeFinding<T>::detection() {
 
           computeBound(i);
 
+
           if (beta != -1) {
 
             assert(lct(lct_order[leftcut_pointer]) > lct(beta));
@@ -1274,10 +1277,10 @@ template <typename T> void CumulativeEdgeFinding<T>::detection() {
             }
           }
 
-          if (prec[i] == -1 and alpha != -1) {
+          if (alpha != -1) {
 
             assert(lct(lct_order[leftcut_pointer]) > lct(alpha));
-            shrinkLeftCutToTime(lct(alpha) + 1);
+            shrinkLeftCutToTime(lct(alpha) + Gap<T>::epsilon());
 
             assert(est(i) < lct(alpha));
 
@@ -1297,9 +1300,12 @@ template <typename T> void CumulativeEdgeFinding<T>::detection() {
                 assert(contact[i] != -1);
               }
 #endif
-
+              if (prec[i] != -1){
+                in_conflict.pop_back();
+              }
               prec[i] = alpha;
               in_conflict.push_back(i);
+
             }
           }
           if (alpha != -1 or beta != -1) {
