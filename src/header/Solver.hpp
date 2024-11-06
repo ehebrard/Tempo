@@ -3506,6 +3506,7 @@ template <typename ItTask, typename ItNVar>
 void Solver<T>::postTimetabling(const NumericVar<T> c, const ItTask beg_task,
                                 const ItTask end_task, const ItNVar beg_dem) {
   post(new CumulativeTimetabling<T>(*this, c, beg_task, end_task, beg_dem));
+//    post(new CumulativeTimetablingFixedDemand<T>(*this, c, beg_task, end_task, beg_dem));
 }
 
 template <typename T>

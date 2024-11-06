@@ -1854,6 +1854,9 @@ public:
       if (solver.getOptions().time_tabling) {
         solver.postTimetabling(capacity, this->begin(), this->end(),
                                this->begDemand());
+          
+//          solver.postTimetablingFixedDemand(capacity, this->begin(), this->end(),
+//                                 this->begDemand());
       }
     }
   }

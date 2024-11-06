@@ -196,6 +196,12 @@ private:
   std::vector<std::vector<Literal<T>>> explanation;
   Reversible<size_t> num_explanations;
   std::vector<Literal<T>> pruning;
+    
+#ifdef STATS
+    long unsigned int num_prop{0};
+    long unsigned int num_useful{0};
+    long unsigned int num_pruning{0};
+#endif
 
 public:
   template <typename ItTask, typename ItNVar>
@@ -609,7 +615,33 @@ template <typename T> void CumulativeEdgeFinding<T>::growLeftCutToTime(const T t
 }
 
 template <typename T> void CumulativeEdgeFinding<T>::propagate() {
-
+    
+ 
+    
+#ifdef STATS
+    bool doprop{true};
+    if(num_prop > 100) {
+        auto ratio{static_cast<double>(num_useful)/static_cast<double>(num_prop)};
+        if(ratio < 0.1) {
+            auto r{tempo::random()};
+            
+//            std::cout << (r%100) << " <= " << static_cast<unsigned long>(ratio * 1000) << "?\n";
+            
+            if((r%100) <= static_cast<unsigned long>(ratio * 1000))
+            {
+                doprop = true;
+            }
+        }
+    }
+ 
+        if(doprop) {
+            ++num_prop;
+        } else {
+            return;
+        }
+#endif
+ 
+    
   sign = bound::lower;
 
   do {
@@ -911,6 +943,16 @@ T CumulativeEdgeFinding<T>::scheduleOmega(const int i, const T max_lct,
 }
 
 template <typename T> void CumulativeEdgeFinding<T>::doPruning() {
+    
+#ifdef STATS
+    num_pruning += pruning.size();
+    if(not pruning.empty()) {
+        ++num_useful;
+//        std::cout << "EF" << this->id() << ": " << num_useful << "/" << num_prop << " (" << num_pruning << ")\n";
+//        std::cout << "EF" << this->id() << ": " << static_cast<double>(num_useful)/static_cast<double>(num_prop) << " (" << num_pruning << ")\n";
+    }
+#endif
+    
   auto h{static_cast<hint>(num_explanations - pruning.size())};
   for (auto p : pruning) {
     solver.set(p, {this, h++});
@@ -1101,7 +1143,7 @@ template <typename T> void CumulativeEdgeFinding<T>::detection() {
           if (prec[i] == -1 and alpha != -1) {
 
             assert(lct(lct_order[leftcut_pointer]) > lct(alpha));
-            shrinkLeftCutToTime(lct(alpha) + 1);
+            shrinkLeftCutToTime(lct(alpha) + Gap<T>::epsilon());
 
             assert(est(i) < lct(alpha));
 

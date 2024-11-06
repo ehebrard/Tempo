@@ -173,7 +173,7 @@ int main(int argc, char *argv[]) {
                                               false, policyParams.relaxRatio, 0.5),
                                  cli::ArgSpec("relax-slices", "number of schedule slices",
                                               false, policyParams.numScheduleSlices, 4),
-                                 cli::ArgSpec("lns-policy", "lns relaxation policy", false, policyType));
+                                 cli::ArgSpec("lns-policy", "lns relaxation policy", false, policyType, h::RelaxPolicy::RandomTasks));
     
 
     parser.parse(argc, argv);
