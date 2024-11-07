@@ -50,14 +50,14 @@ namespace tempo::nn {
          * @param decayMode type of decay to apply on fail or after too many solver fails
          */
         PolicyConfig(double fixRatio, double reactivity, double minCertainty, double minFailRatio,
-                     double maxFailRatio, double exhaustionThreshold, AssumptionMode assumptionMode,
+                     double maxFailRatio, double exhaustionThreshold, lns::AssumptionMode assumptionMode,
                      bool decreaseOnSuccess, DecayMode decayMode, unsigned int retryLimit) noexcept;
 
         double fixRatio, decay, minCertainty, minFailRatio, maxFailRatio, exhaustionThreshold;
         bool decreaseOnSuccess;
         unsigned retryLimit;
         DecayMode decayMode;
-        AssumptionMode assumptionMode;
+        lns::AssumptionMode assumptionMode;
     };
 
     std::ostream &operator<<(std::ostream &os, const PolicyConfig &config);
@@ -69,7 +69,7 @@ namespace tempo::nn {
      */
     template<concepts::scalar T, SchedulingResource R>
     class GNNBackbonePredictor {
-        using FixPolicy = VariantFix<BestN, GreedyFix<T>, OptimalFix<T>>;
+        using FixPolicy = lns::VariantFix<lns::BestN, lns::GreedyFix<T>, lns::OptimalFix<T>>;
         GNNPrecedencePredictor<T, R> predictor;
         const Solver<T> &solver;
         mutable tempo::util::Profiler profiler{};
@@ -141,18 +141,18 @@ namespace tempo::nn {
                 std::cout << config << std::endl;
             }
 
-            using enum AssumptionMode;
+            using enum lns::AssumptionMode;
             switch(config.assumptionMode) {
                 case GreedySkip:
-                    fixPolicy.template emplace<GreedyFix<T>>(false);
+                    fixPolicy.template emplace<lns::GreedyFix<T>>(false);
                     break;
                 case GreedyInverse:
-                    fixPolicy.template emplace<GreedyFix<T>>(true);
+                    fixPolicy.template emplace<lns::GreedyFix<T>>(true);
                     break;
                 case Optimal:
-                    fixPolicy.template emplace<OptimalFix<T>>(100, 50, false);
+                    fixPolicy.template emplace<lns::OptimalFix<T>>(100, 50, false);
                     break;
-                case AssumptionMode::BestN:
+                case BestN:
                     break;
             }
         }

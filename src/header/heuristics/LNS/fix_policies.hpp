@@ -19,7 +19,7 @@
 #include "relaxation_policies.hpp"
 #include "Solver.hpp"
 
-namespace tempo::nn {
+namespace tempo::lns {
 
     PENUM(AssumptionMode, BestN, GreedySkip, GreedyInverse, Optimal)
 
