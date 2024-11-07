@@ -22,11 +22,11 @@
 #include <vector>
 
 #include "Solver.hpp"
-#include "heuristics/Greedy.hpp"
-#include "util/parsing/rcpsp.hpp"
 #include "helpers/cli.hpp"
+#include "heuristics/Greedy.hpp"
 #include "heuristics/relaxation_policy_factories.hpp"
-
+#include "util/parsing/psplib.hpp"
+#include "util/parsing/rcpsp.hpp"
 
 using namespace tempo;
 
@@ -194,8 +194,12 @@ int main(int argc, char *argv[]) {
   std::vector<Interval<>> intervals;
   std::vector<std::pair<int, int>> precedences;
 
-  rcpsp::parse(opt.instance_file, S, schedule, intervals, tasks_requirements,
-               task_demands, resource_capacities, precedences);
+  if (opt.input_format == "rcp")
+    rcpsp::parse(opt.instance_file, S, schedule, intervals, tasks_requirements,
+                 task_demands, resource_capacities, precedences);
+  else
+    psplib::parse(opt.instance_file, S, schedule, intervals, tasks_requirements,
+                  task_demands, resource_capacities, precedences);
 
   //      for(auto i : intervals) {
   //          std::cout << i.id() << ": " << i << std::endl;
