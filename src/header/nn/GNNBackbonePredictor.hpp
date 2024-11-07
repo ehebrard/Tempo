@@ -26,7 +26,7 @@
 #include "util/factory_pattern.hpp"
 #include "Solver.hpp"
 #include "Constant.hpp"
-#include "fix_policies.hpp"
+#include "heuristics/LNS/fix_policies.hpp"
 
 namespace tempo::nn {
     namespace fs = std::filesystem;

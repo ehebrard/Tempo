@@ -15,8 +15,8 @@
 #include "util/Options.hpp"
 #include "Model.hpp"
 #include "util/Profiler.hpp"
-#include "heuristics/LNS/relaxation_interface.hpp"
-#include "heuristics/LNS/relaxation_policies.hpp"
+#include "relaxation_interface.hpp"
+#include "relaxation_policies.hpp"
 #include "Solver.hpp"
 
 namespace tempo::nn {
@@ -31,10 +31,10 @@ namespace tempo::nn {
 
         template<concepts::scalar T, heuristics::assumption_interface AI>
         std::size_t select(AI &proxy, std::size_t numLiterals, unsigned,
-                           const std::vector<std::pair<Literal<T>, double>> & gnnOutput) {
+                           const std::vector<std::pair<Literal<T>, double>> & weightedLiterals) {
             using namespace std::views;
-            proxy.makeAssumptions(gnnOutput | take(numLiterals) | elements<0>);
-            return std::min(numLiterals, gnnOutput.size());
+            proxy.makeAssumptions(weightedLiterals | take(numLiterals) | elements<0>);
+            return std::min(numLiterals, weightedLiterals.size());
         }
     };
 
@@ -59,7 +59,7 @@ namespace tempo::nn {
 
         template<heuristics::assumption_interface AI>
         std::size_t select(AI &proxy, std::size_t numLiterals, unsigned numFails,
-                           const std::vector<std::pair<Literal<T>, double>> & gnnOutput) {
+                           const std::vector<std::pair<Literal<T>, double>> & weightedLiterals) {
             if (numFails == 0 and not cache.empty()) {
                 proxy.makeAssumptions(cache | std::views::take(numLiterals));
                 return std::min(numLiterals, cache.size());
@@ -72,7 +72,7 @@ namespace tempo::nn {
             std::size_t litCount = 0;
             std::vector<Literal<T>> newAssumptions;
             newAssumptions.reserve(numLiterals);
-            for (auto lit: gnnOutput | std::views::elements<0>) {
+            for (auto lit: weightedLiterals | std::views::elements<0>) {
                 if (litCount == numLiterals) {
                     break;
                 }
@@ -173,7 +173,7 @@ public:
 
     template<heuristics::assumption_interface AI>
     std::size_t select(AI &proxy, std::size_t numLiterals, unsigned numFails,
-                       const std::vector<std::pair<Literal<T>, double>> & gnnOutput) {
+                       const std::vector<std::pair<Literal<T>, double>> & weightedLiterals) {
         using namespace std::views;
         using ST = int;
         if (numFails == 0 and not cache.empty()) {
@@ -207,9 +207,9 @@ public:
         });
         std::vector<BooleanVar<ST>> variables;
         std::vector<ST> weights;
-        variables.reserve(gnnOutput.size());
-        weights.reserve(gnnOutput.size());
-        for (auto weight: gnnOutput | elements<1>) {
+        variables.reserve(weightedLiterals.size());
+        weights.reserve(weightedLiterals.size());
+        for (auto weight: weightedLiterals | elements<1>) {
             auto x = solver.newBoolean();
             solver.addToSearch(x);
             variables.emplace_back(x);
@@ -219,7 +219,7 @@ public:
         const auto &cb = proxy.getSolver().clauses;
         if (cb.size() != 0) {
             auto lookup = detail::makeLookup(solver, variables, proxy.getSolver().numLiteral(),
-                                             gnnOutput | elements<0>);
+                                             weightedLiterals | elements<0>);
             auto clauses = iota(0ul, cb.size()) | transform([&cb](auto idx) { return cb[idx]; }) |
                            filter([](auto ptr) { return nullptr != ptr; });
             for (const auto c : clauses) {
@@ -239,7 +239,7 @@ public:
 
         for (auto [valid, lit]: iterators::zip(
                 variables | transform([&solver](const auto &x) { return solver.boolean.value(x); }),
-                gnnOutput | elements<0>)) {
+                weightedLiterals | elements<0>)) {
             if (valid) {
                 cache.emplace_back(lit);
             }
@@ -259,15 +259,15 @@ public:
         std::size_t varsPerTask = 0;
         std::size_t lastNumTasks = 0;
 
-        void calcWeights(const std::vector<std::pair<Literal<T>, double>> & gnnOutput) {
+        void calcWeights(const std::vector<std::pair<Literal<T>, double>> & weightedLiterals) {
             for (auto &[t, confidence]: tasks) {
                 confidence = 0;
                 for (const auto &var : map(t)) {
-                    auto res = std::ranges::find_if(gnnOutput, var, [&var](const auto &pair) {
+                    auto res = std::ranges::find_if(weightedLiterals, var, [&var](const auto &pair) {
                         return pair.first.variable() == var.id();
                     });
 
-                    if (res != gnnOutput.end()) {
+                    if (res != weightedLiterals.end()) {
                         confidence += res->second;
                     }
                 }
@@ -292,7 +292,7 @@ public:
 
         template<heuristics::assumption_interface AI>
         std::size_t select(AI &proxy, std::size_t numLiterals, unsigned numFails,
-                           const std::vector<std::pair<Literal<T>, double>> & gnnOutput) {
+                           const std::vector<std::pair<Literal<T>, double>> & weightedLiterals) {
             const auto numTasks = numLiterals / varsPerTask;
             if (numTasks == 0) {
                 return 0;
@@ -304,7 +304,7 @@ public:
             }
 
             if (cache.empty()) {
-                calcWeights(gnnOutput);
+                calcWeights(weightedLiterals);
             }
         }
     };
