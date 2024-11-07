@@ -623,14 +623,10 @@ template <typename T> void CumulativeEdgeFinding<T>::propagate() {
     if(num_prop > 100) {
         auto ratio{static_cast<double>(num_useful)/static_cast<double>(num_prop)};
         if(ratio < 0.1) {
-            auto r{tempo::random()};
-            
-//            std::cout << (r%100) << " <= " << static_cast<unsigned long>(ratio * 1000) << "?\n";
-            
-            if((r%100) <= static_cast<unsigned long>(ratio * 1000))
-            {
-                doprop = true;
-            }
+          auto r{tempo::random()};
+          if ((r % 100) <= static_cast<unsigned long>(ratio * 1000)) {
+            doprop = true;
+          }
         }
     }
  
@@ -1172,8 +1168,6 @@ template <typename T> void CumulativeEdgeFinding<T>::detection() {
             }
           }
 
-
-
           if (alpha != -1 or beta != -1) {
             growLeftCutToTime(lct(i));
           }
@@ -1199,12 +1193,13 @@ void CumulativeEdgeFinding<T>::computeExplanation(const int i) {
   auto k{leftcut_pointer - 1};
   auto j{lct_order[k]};
 
-  if (i != n and lct(j) != lct(prec[i])) {
-    std::cout << "bug prec[" << task[i].id() << "] = " << task[prec[i]].id()
-              << " lct(Omega) = " << lct(j) << " / lct(prec) = " << lct(prec[i])
-              << " @" << solver.num_cons_propagations << "\n";
-    exit(1);
-  }
+  //  if (i != n and lct(j) != lct(prec[i])) {
+  //    std::cout << "bug prec[" << task[i].id() << "] = " << task[prec[i]].id()
+  //              << " lct(Omega) = " << lct(j) << " / lct(prec) = " <<
+  //              lct(prec[i])
+  //              << " @" << solver.num_cons_propagations << "\n";
+  //    exit(1);
+  //  }
 
   assert(i == n or lct(j) == lct(prec[i]));
 
@@ -1229,13 +1224,13 @@ void CumulativeEdgeFinding<T>::computeExplanation(const int i) {
 
   do {
     if (ect(j) > t) {
-        
-        auto saved_sign{sign};
-        sign = bound::lower;
+
+      auto saved_sign{sign};
+      sign = bound::lower;
       explanation[h].push_back(task[j].start.after(est(j)));
       explanation[h].push_back(task[j].end.before(lct(j)));
-        sign = saved_sign;
-        
+      sign = saved_sign;
+
 #ifdef DBG_SEF
       if (DBG_SEF and debug_flag >= 0) {
         std::cout << "task " << std::setw(3) << task[j].id() << ": "
