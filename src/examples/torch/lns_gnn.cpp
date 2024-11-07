@@ -28,9 +28,11 @@ int main(int argc, char **argv) {
     std::string gnnLocation;
     std::string featureExtractorConf;
     lns::PolicyDecayConfig config;
-    lns::AssumptionMode assumptionMode;
+    lns::AssumptionMode assumptionMode = lns::AssumptionMode::GreedySkip;
     lns::RelaxationPolicyParams destroyParameters{.relaxRatio = 0.9, .ratioDecay = 1, .numScheduleSlices = 4};
     lns::RelaxPolicy destroyType;
+    double exhaustionThreshold = 0.01;
+    double minCertainty = 0.9;
     double sporadicIncrement = 0.001;
     double exhaustionProbability = 0.1;
     unsigned numThreads = std::max(1u, std::thread::hardware_concurrency() / 2);
@@ -38,15 +40,14 @@ int main(int argc, char **argv) {
                                  cli::ArgSpec("gnn-loc", "Location of the GNN model", false, gnnLocation),
                                  cli::ArgSpec("feat-config", "Location of the feature extractor config", false,
                                               featureExtractorConf),
-                                 cli::ArgSpec("confidence", "minimum confidence of GNN", false,
-                                              config.minCertainty),
+                                 cli::ArgSpec("confidence", "minimum confidence of GNN", false, minCertainty),
                                  cli::ArgSpec("min-fail", "lower bound solver failure rate", false,
                                               config.minFailRatio),
                                  cli::ArgSpec("max-fail", "upper bound solver failure rate", false,
                                               config.maxFailRatio),
                                  cli::ArgSpec("exhaustion-threshold",
                                               "fix rate lower threshold at which a new region should be chosen",
-                                              false, config.exhaustionThreshold),
+                                              false, exhaustionThreshold),
                                  cli::ArgSpec("exhaustion-prob",
                                               "probability of choosing a new region even when GNN is not exhausted",
                                               false, exhaustionProbability),
@@ -75,7 +76,7 @@ int main(int argc, char **argv) {
     auto problemInfo = loadSchedulingProblem(opt);
     torch::set_num_threads(numThreads);
     nn::GNNRepair gnnRepair(*problemInfo.solver, gnnLocation, featureExtractorConf, problemInfo.instance,
-                            config, assumptionMode);
+                            config, assumptionMode, minCertainty, exhaustionThreshold);
 
     std::cout << "-- root search probability increment " << sporadicIncrement << std::endl;
     std::cout << "-- exhaustion probability " << exhaustionProbability << std::endl;
