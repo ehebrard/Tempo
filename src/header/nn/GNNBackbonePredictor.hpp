@@ -162,7 +162,7 @@ namespace tempo::nn {
          * @tparam AssumptionInterface
          * @param s
          */
-        template<heuristics::assumption_interface AssumptionInterface>
+        template<lns::assumption_interface AssumptionInterface>
         void fix(AssumptionInterface &s) {
             const auto numLits = maxNumLiterals();
             if (numLits == 0) {
@@ -172,7 +172,7 @@ namespace tempo::nn {
             tempo::util::ScopeWatch sw(profiler, "repair");
             numFixed = fixPolicy.select(s, numLits, failCount, gnnCache);
             if (solver.getOptions().verbosity >= Options::YACKING) {
-                if (s.getState() == heuristics::AssumptionState::Fail) {
+                if (s.getState() == lns::AssumptionState::Fail) {
                     std::cout << "-- failed to fix literals\n";
                 } else {
                     std::cout << "-- fixing " << numFixed << " / " << predictor.numLiterals()

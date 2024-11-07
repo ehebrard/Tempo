@@ -633,7 +633,7 @@ public:
     
     template <typename S> void optimize(S &objective);
     
-    template <typename S, heuristics::relaxation_policy P>
+    template <typename S, lns::relaxation_policy P>
     void largeNeighborhoodSearch(S &objective, P &&relaxationPolicy);
     
     boolean_state satisfiable();
@@ -2922,7 +2922,7 @@ void Solver<T>::optimize(S &objective) {
 }
 
 template <typename T>
-template <typename S, heuristics::relaxation_policy P>
+template <typename S, lns::relaxation_policy P>
 void Solver<T>::largeNeighborhoodSearch(S &objective, P &&relaxationPolicy) {
     objective.X.extract(*this);
     objective_var = objective.X.id();
@@ -2952,16 +2952,16 @@ void Solver<T>::largeNeighborhoodSearch(S &objective, P &&relaxationPolicy) {
     
 
     while (objective.gap() and not KillHandler::instance().signalReceived() and not searchCancelled) {
-        heuristics::AssumptionProxy surrogate = *this;
+        lns::AssumptionProxy surrogate = *this;
         std::forward<P>(relaxationPolicy).relax(surrogate);
 
         // return to level 0 if there is no relaxation
-        if (surrogate.getState() == heuristics::AssumptionState::Empty) {
+        if (surrogate.getState() == lns::AssumptionState::Empty) {
           restoreState(0);
         }
 
         auto satisfiability = UnknownState;
-        if (surrogate.getState() != heuristics::AssumptionState::Fail) {
+        if (surrogate.getState() != lns::AssumptionState::Fail) {
 
           //            std::cout << "FIXED " << (assumption_stamp -
           //            ground_stamp) << " LITERALS\n";
@@ -2989,7 +2989,7 @@ void Solver<T>::largeNeighborhoodSearch(S &objective, P &&relaxationPolicy) {
         } else {
 
             // no assumptions made and still failure => no improving solution exists
-            if (surrogate.getState() == heuristics::AssumptionState::Empty and
+            if (surrogate.getState() == lns::AssumptionState::Empty and
                 not KillHandler::instance().signalReceived()) {
                 objective.setDual(objective.primalBound());
             } else {

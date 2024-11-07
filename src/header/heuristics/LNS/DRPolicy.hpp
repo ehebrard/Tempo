@@ -20,7 +20,7 @@ namespace tempo {
     class Solver;
 }
 
-namespace tempo::heuristics {
+namespace tempo::lns {
     /**
      * @brief Destroy policy interface
      */

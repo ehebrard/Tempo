@@ -21,7 +21,7 @@ namespace tempo {
     class Solver;
 }
 
-namespace tempo::heuristics {
+namespace tempo::lns {
 
     /**
      * @brief State of the AssumptionInterface used by the solver to determine followup actions

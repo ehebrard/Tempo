@@ -29,7 +29,7 @@ namespace tempo::lns {
     struct BestN {
         constexpr void reset() noexcept {};
 
-        template<concepts::scalar T, heuristics::assumption_interface AI>
+        template<concepts::scalar T, assumption_interface AI>
         std::size_t select(AI &proxy, std::size_t numLiterals, unsigned,
                            const std::vector<std::pair<Literal<T>, double>> & weightedLiterals) {
             using namespace std::views;
@@ -57,7 +57,7 @@ namespace tempo::lns {
             cache.clear();
         }
 
-        template<heuristics::assumption_interface AI>
+        template<assumption_interface AI>
         std::size_t select(AI &proxy, std::size_t numLiterals, unsigned numFails,
                            const std::vector<std::pair<Literal<T>, double>> & weightedLiterals) {
             if (numFails == 0 and not cache.empty()) {
@@ -171,7 +171,7 @@ public:
         cache.clear();
     }
 
-    template<heuristics::assumption_interface AI>
+    template<assumption_interface AI>
     std::size_t select(AI &proxy, std::size_t numLiterals, unsigned numFails,
                        const std::vector<std::pair<Literal<T>, double>> & weightedLiterals) {
         using namespace std::views;
@@ -254,7 +254,7 @@ public:
     class TaskFix {
         static_assert(traits::always_false_v<T>, "Implementation incomplete, do not use!");
         std::vector<std::pair<Interval<T>, double>> tasks;
-        heuristics::detail::TaskVarMap<T> map;
+        lns::detail::TaskVarMap<T> map;
         std::vector<Literal<T>> cache{};
         std::size_t varsPerTask = 0;
         std::size_t lastNumTasks = 0;
@@ -290,7 +290,7 @@ public:
             cache.clear();
         }
 
-        template<heuristics::assumption_interface AI>
+        template<assumption_interface AI>
         std::size_t select(AI &proxy, std::size_t numLiterals, unsigned numFails,
                            const std::vector<std::pair<Literal<T>, double>> & weightedLiterals) {
             const auto numTasks = numLiterals / varsPerTask;

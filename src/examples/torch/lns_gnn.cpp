@@ -18,9 +18,9 @@
 #include "heuristics/LNS/DRPolicy.hpp"
 #include "heuristics/LNS/relaxation_policy_factories.hpp"
 
-namespace h = tempo::heuristics;
+namespace lns = tempo::lns;
 
-using RP = h::RelaxationPolicy<Time, ResourceConstraint>;
+using RP = lns::RelaxationPolicy<Time, ResourceConstraint>;
 
 
 int main(int argc, char **argv) {
@@ -28,8 +28,8 @@ int main(int argc, char **argv) {
     std::string gnnLocation;
     std::string featureExtractorConf;
     nn::PolicyConfig config;
-    h::RelaxationPolicyParams destroyParameters{.relaxRatio = 0.9, .ratioDecay = 1, .numScheduleSlices = 4};
-    h::RelaxPolicy destroyType;
+    lns::RelaxationPolicyParams destroyParameters{.relaxRatio = 0.9, .ratioDecay = 1, .numScheduleSlices = 4};
+    lns::RelaxPolicy destroyType;
     double sporadicIncrement = 0.001;
     double exhaustionProbability = 0.1;
     unsigned numThreads = std::max(1u, std::thread::hardware_concurrency() / 2);
@@ -79,12 +79,12 @@ int main(int argc, char **argv) {
 
     std::cout << "-- root search probability increment " << sporadicIncrement << std::endl;
     std::cout << "-- exhaustion probability " << exhaustionProbability << std::endl;
-    h::GenericDestroyPolicy<Time, RP> destroy(
-            h::make_relaxation_policy(destroyType, problemInfo.instance.tasks(), problemInfo.constraints,
-                                      destroyParameters));
+    lns::GenericDestroyPolicy<Time, RP> destroy(
+            lns::make_relaxation_policy(destroyType, problemInfo.instance.tasks(), problemInfo.constraints,
+                                        destroyParameters));
     std::cout << "-- using destroy policy " << destroyType << std::endl;
-    auto policy = heuristics::make_sporadic_root_search(sporadicIncrement,
-                                                        heuristics::make_RD_policy(destroy, gnnRepair,
+    auto policy = lns::make_sporadic_root_search(sporadicIncrement,
+                                                        lns::make_RD_policy(destroy, gnnRepair,
                                                                                    exhaustionProbability));
     MinimizationObjective objective(problemInfo.instance.schedule().duration);
     util::StopWatch sw;
