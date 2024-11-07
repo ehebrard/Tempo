@@ -163,9 +163,12 @@ int main(int argc, char *argv[]) {
     namespace h = tempo::heuristics;
     auto parser = tempo::getBaseParser();
     bool useLNS;
+//    bool tt_reasoning;
     h::RelaxationPolicyParams policyParams;
     h::RelaxPolicy policyType;
-    cli::detail::configureParser(parser, cli::SwitchSpec("lns", "activate large neighborhood search",
+    cli::detail::configureParser(parser,
+//                                 cli::SwitchSpec("no-ttef", "switch tt reasoning off in edge-finding", false, tt_reasoning, true),
+                                 cli::SwitchSpec("lns", "activate large neighborhood search",
                                                          useLNS, false),
                                  cli::ArgSpec("relax-decay", "relaxation ratio decay",
                                               false, policyParams.ratioDecay, 0.5),

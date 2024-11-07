@@ -1923,7 +1923,7 @@ public:
 //#ifdef DBG_SEF
         if (solver.getOptions().edge_finding) {
                   solver.postStrongEdgeFinding(schedule, capacity,
-                  this->begin(), this->end(), this->begDemand());
+                  this->begin(), this->end(), this->begDemand(), solver.getOptions().tt_edge_finding);
         }
 //#endif
         

@@ -137,6 +137,7 @@ private:
   std::vector<Interval<T>> task;
   std::vector<NumericVar<T>> demand;
   bool sign{bound::lower};
+  bool timetable_reasoning{true};
 
   // mapping from the tasks that need to be adjusted to the corresponding
   // left-cut interval
@@ -172,17 +173,18 @@ private:
   int leftcut_pointer;
 
   int &get_shared_pointer(const int evt) {
+      int n{3+timetable_reasoning};
     auto evti{evt - 1};
-    auto i{(evti) / 4};
-    switch ((evti % 4)) {
+    auto i{(evti) / n};
+    switch ((evti % n)) {
     case 0:
       return est_shared[i];
     case 1:
-      return lst_shared[i];
-    case 2:
       return ect_shared[i];
-    default:
+    case 2:
       return lct_shared[i];
+    default:
+      return lst_shared[i];
     }
   }
 
@@ -213,7 +215,7 @@ public:
   template <typename ItTask, typename ItNVar>
   CumulativeEdgeFinding(Solver<T> &solver, const Interval<T> sched,
                         const NumericVar<T> capacity, const ItTask beg_task,
-                        const ItTask end_task, const ItNVar beg_dem);
+                        const ItTask end_task, const ItNVar beg_dem, const bool tt);
   virtual ~CumulativeEdgeFinding();
 
   // helpers
@@ -394,8 +396,8 @@ template <typename T>
 template <typename ItTask, typename ItNVar>
 CumulativeEdgeFinding<T>::CumulativeEdgeFinding(
     Solver<T> &solver, const Interval<T> sched, const NumericVar<T> cap,
-    const ItTask beg_task, const ItTask end_task, const ItNVar beg_dem)
-    : solver(solver), num_explanations(0, &(solver.getEnv())) {
+    const ItTask beg_task, const ItTask end_task, const ItNVar beg_dem, const bool tt)
+    : solver(solver), timetable_reasoning(tt), num_explanations(0, &(solver.getEnv())) {
   schedule = sched, capacity = cap;
 
   Constraint<T>::priority = Priority::Low;
@@ -427,9 +429,11 @@ CumulativeEdgeFinding<T>::CumulativeEdgeFinding(
 
   for (unsigned i = 0; i < ip; ++i) {
     est_[i] = profile.create_element();
-    lst_[i] = profile.create_element();
     ect_[i] = profile.create_element();
     lct_[i] = profile.create_element();
+    if (timetable_reasoning) {
+      lst_[i] = profile.create_element();
+    }
   }
   data.resize(profile.size() + 1);
 
@@ -480,19 +484,22 @@ template <typename T> void CumulativeEdgeFinding<T>::initialiseProfile() {
   // initialise the timepoints with the values from the domains
   for (auto i : lct_order) {
     est_shared[i] = est_[i];
-    lst_shared[i] = lst_[i];
     ect_shared[i] = ect_[i];
     lct_shared[i] = lct_[i];
 
     profile[est_[i]].time = est(i);
-    profile[lst_[i]].time = lst(i);
     profile[ect_[i]].time = ect(i);
     profile[lct_[i]].time = lct(i);
 
     profile[est_[i]].increment = profile[est_[i]].incrementMax = 0;
-    profile[lst_[i]].increment = profile[lst_[i]].incrementMax = 0;
     profile[ect_[i]].increment = profile[ect_[i]].incrementMax = 0;
     profile[lct_[i]].increment = profile[lct_[i]].incrementMax = 0;
+
+    if (timetable_reasoning) {
+      lst_shared[i] = lst_[i];
+      profile[lst_[i]].time = lst(i);
+      profile[lst_[i]].increment = profile[lst_[i]].incrementMax = 0;
+    }
   }
 
   std::sort(event_ordering.begin(), event_ordering.end(),
@@ -767,7 +774,7 @@ template <typename T> void CumulativeEdgeFinding<T>::addExternalFixedPart(const 
 
 
 
-  template <typename T> void CumulativeEdgeFinding<T>::rmExternalFixedPart(const int i, const int j) {
+template <typename T> void CumulativeEdgeFinding<T>::rmExternalFixedPart(const int i, const int j) {
 
 #ifdef DBG_SEF
   if (DBG_SEF and debug_flag > 3) {
@@ -1043,9 +1050,13 @@ template <typename T> void CumulativeEdgeFinding<T>::adjustment() {
     // compute the profile without i, but to record the overlap and
     // slackUnder
     setLeftCutToTime(lct(j) + Gap<T>::epsilon());
-    addExternalFixedPart(i, j);
+    if (timetable_reasoning) {
+      addExternalFixedPart(i, j);
+    }
     scheduleOmega(i, lct(j), true);
-    rmExternalFixedPart(i, j);
+    if (timetable_reasoning) {
+      rmExternalFixedPart(i, j);
+    }
 
     // t1 is the latest time points between est(i) and contact[i]
     //auto t1{profile[contact[i]].time < est(i) ? est_shared[i] : contact[i]};
@@ -1112,7 +1123,7 @@ template <typename T> void CumulativeEdgeFinding<T>::adjustment() {
     }
 
     pruning.push_back(task[i].start.after(adjustment));
-    computeExplanation(i, true);
+    computeExplanation(i, timetable_reasoning);
 
     in_conflict.pop_back();
     prec[i] = -1;
@@ -1185,11 +1196,15 @@ template <typename T> void CumulativeEdgeFinding<T>::detection() {
             shrinkLeftCutToTime(lct(alpha) + Gap<T>::epsilon());
 
             assert(est(i) < lct(alpha));
-            addExternalFixedPart(i, alpha);
+            if (timetable_reasoning) {
+              addExternalFixedPart(i, alpha);
+            }
             addPrime(i, alpha);
             auto ect_i_H = scheduleOmega(i, lct(alpha));
             rmPrime(i, alpha);
-            rmExternalFixedPart(i, alpha);
+            if (timetable_reasoning) {
+              rmExternalFixedPart(i, alpha);
+            }
 
             if (ect_i_H > lct(alpha) ) {
 #ifdef DBG_SEF
@@ -1217,11 +1232,15 @@ template <typename T> void CumulativeEdgeFinding<T>::detection() {
 
             assert(est(i) < lct(beta));
 
-            addExternalFixedPart(i, beta);
+            if (timetable_reasoning) {
+              addExternalFixedPart(i, beta);
+            }
             addPrime(i, beta);
             auto ect_i_H = scheduleOmega(i, lct(beta));
             rmPrime(i, beta);
-            rmExternalFixedPart(i, beta);
+            if (timetable_reasoning) {
+              rmExternalFixedPart(i, beta);
+            }
 
             if (ect_i_H > lct(beta)) {
 

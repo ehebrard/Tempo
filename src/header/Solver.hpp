@@ -554,7 +554,7 @@ public:
     template <typename ItTask, typename ItNVar>
     void postStrongEdgeFinding(const Interval<T> s, const NumericVar<T> c,
                                const ItTask beg_task, const ItTask end_task,
-                               const ItNVar beg_dem);
+                               const ItNVar beg_dem, const bool tt);
     
     // create and post the time-tabling propagator for the cumulative constraint
     template <typename ItTask, typename ItNVar>
@@ -3513,8 +3513,8 @@ template <typename T>
 template <typename ItTask, typename ItNVar>
 void Solver<T>::postStrongEdgeFinding(
     const Interval<T> s, const NumericVar<T> c, const ItTask beg_task,
-    const ItTask end_task, const ItNVar beg_dem) {
-  post(new CumulativeEdgeFinding<T>(*this, s, c, beg_task, end_task, beg_dem));
+    const ItTask end_task, const ItNVar beg_dem, const bool tt) {
+  post(new CumulativeEdgeFinding<T>(*this, s, c, beg_task, end_task, beg_dem, tt));
 }
 
 template <typename T> double Solver<T>::looseness(const Literal<T> &l) const {

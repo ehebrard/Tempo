@@ -73,6 +73,11 @@ auto tempo::getBaseParser() -> Parser {
     cmd.add<SwitchArg>(opt.edge_finding, "", "no-edge-finding",
                        "do not use edge-finding", true);
     
+    cmd.add<SwitchArg>(opt.tt_edge_finding, "", "tt-ef", "use timetabling reasoning within edge-finding",
+                       false);
+    cmd.add<SwitchArg>(opt.tt_edge_finding, "", "no-tt-ef",
+                       "do not use timetabling reasoning within edge-finding", true);
+    
     cmd.add<SwitchArg>(opt.time_tabling, "", "time-tabling", "use time-tabling",
                        false);
     cmd.add<SwitchArg>(opt.time_tabling, "", "no-time-tabling",
