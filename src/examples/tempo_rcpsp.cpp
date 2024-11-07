@@ -249,7 +249,7 @@ int main(int argc, char *argv[]) {
             
             if(makespan < ub_makespan) {
                 
-                std::cout << "load improving sgs solution " << makespan << std::endl;
+                std::cout << "-- load improving sgs solution " << makespan << std::endl;
                 
                 sgs.load();
                 ub_makespan = makespan;
