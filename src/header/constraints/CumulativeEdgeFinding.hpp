@@ -1141,17 +1141,15 @@ template <typename T> void CumulativeEdgeFinding<T>::adjustment() {
     /*if (ect(i) < lct(j)) {
 
       if (available < minenergy(i)) {
-        maxoverflow = data[t3].overlap - data[t3].slackUnder -
-                      data[t1].overlap + data[t1].slackUnder;
+        maxoverflow = data[t3].overlap - data[t3].slackUnder - data[t1].overlap + data[t1].slackUnder;
 
       } else {
-        maxoverflow = data[t2].overlap - data[t3].slackUnder -
-                      data[t1].overlap + data[t1].slackUnder;
+        maxoverflow = data[t2].overlap - data[t3].slackUnder - data[t1].overlap + data[t1].slackUnder;
       }
     } else {
-      maxoverflow = data[t3].overlap - data[t3].slackUnder - data[t1].overlap +
-                    data[t1].slackUnder;
+      maxoverflow = data[t3].overlap - data[t3].slackUnder - data[t1].overlap + data[t1].slackUnder;
     }*/
+    //std::cout<< "t3 " << t3 << " t1 " << t1 << std::endl;
     maxoverflow = data[t3].overlap - data[t3].slackUnder - data[t1].overlap + data[t1].slackUnder;
 
 #ifdef DBG_SEF
@@ -1201,6 +1199,7 @@ template <typename T> void CumulativeEdgeFinding<T>::detection() {
     in_conflict.pop_back();
   }
 
+
   auto stop{lct_order.rend()};
   --stop;
 
@@ -1247,14 +1246,43 @@ template <typename T> void CumulativeEdgeFinding<T>::detection() {
           rmPrime(i, j);
 
           computeBound(i);
+          if (alpha != -1) {
 
+            assert(lct(lct_order[leftcut_pointer]) > lct(alpha));
+            shrinkLeftCutToTime(lct(alpha) + Gap<T>::epsilon());
 
-          if (beta != -1) {
+            assert(est(i) < lct(alpha));
 
-            assert(lct(lct_order[leftcut_pointer]) > lct(beta));
-            shrinkLeftCutToTime(lct(beta) + Gap<T>::epsilon());
+            addPrime(i, alpha);
+            auto ect_i_H = scheduleOmega(i, lct(alpha));
+            rmPrime(i, alpha);
+
+            if (ect_i_H > lct(alpha) ) {
+#ifdef DBG_SEF
+              if (DBG_SEF and debug_flag > 0) {
+                std::cout << "  - alpha = " << alpha << " (task "
+                          << task[alpha].id() << "), contact = " << contact[i]
+                          << " [" << lct(alpha) << ".."
+                          << profile[contact[i]].time << "]" << std::endl;
+
+                assert(contact[i] != -1);
+              }
+#endif
+
+              prec[i] = alpha;
+              in_conflict.push_back(i);
+
+            }
+          }
+
+          if (prec[i] == -1 and beta != -1) {
+
+            //assert(lct(lct_order[leftcut_pointer]) > lct(beta));
+            //shrinkLeftCutToTime(lct(beta) + Gap<T>::epsilon());
+            setLeftCutToTime(lct(beta) + Gap<T>::epsilon());
 
             assert(est(i) < lct(beta));
+
 
             addPrime(i, beta);
             auto ect_i_H = scheduleOmega(i, lct(beta));
@@ -1272,42 +1300,14 @@ template <typename T> void CumulativeEdgeFinding<T>::detection() {
                 assert(contact[i] != -1);
               }
 #endif
+
               prec[i] = beta;
               in_conflict.push_back(i);
             }
           }
 
-          if (alpha != -1) {
 
-            assert(lct(lct_order[leftcut_pointer]) > lct(alpha));
-            shrinkLeftCutToTime(lct(alpha) + Gap<T>::epsilon());
 
-            assert(est(i) < lct(alpha));
-
-            addPrime(i, alpha);
-            auto ect_i_H = scheduleOmega(i, lct(alpha));
-            rmPrime(i, alpha);
-
-            if (ect_i_H > lct(alpha)) {
-
-#ifdef DBG_SEF
-              if (DBG_SEF and debug_flag > 0) {
-                std::cout << "  - alpha = " << alpha << " (task "
-                          << task[alpha].id() << "), contact = " << contact[i]
-                          << " [" << lct(alpha) << ".."
-                          << profile[contact[i]].time << "]" << std::endl;
-
-                assert(contact[i] != -1);
-              }
-#endif
-              if (prec[i] != -1){
-                in_conflict.pop_back();
-              }
-              prec[i] = alpha;
-              in_conflict.push_back(i);
-
-            }
-          }
           if (alpha != -1 or beta != -1) {
             growLeftCutToTime(lct(i));
           }
