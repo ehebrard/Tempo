@@ -12,8 +12,8 @@
 
 #include "Literal.hpp"
 #include "util/traits.hpp"
-#include "RelaxationInterface.hpp"
-#include "RelaxationPolicy.hpp"
+#include "relaxation_interface.hpp"
+#include "relaxation_policies.hpp"
 
 namespace tempo {
     template<typename T>

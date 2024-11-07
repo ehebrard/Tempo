@@ -15,8 +15,8 @@
 #include "util/Options.hpp"
 #include "Model.hpp"
 #include "util/Profiler.hpp"
-#include "heuristics/RelaxationInterface.hpp"
-#include "heuristics/RelaxationPolicy.hpp"
+#include "heuristics/LNS/relaxation_interface.hpp"
+#include "heuristics/LNS/relaxation_policies.hpp"
 #include "Solver.hpp"
 
 namespace tempo::nn {

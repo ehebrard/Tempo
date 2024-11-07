@@ -13,7 +13,7 @@
 #include "util/traits.hpp"
 #include "util/Options.hpp"
 #include "Model.hpp"
-#include "RelaxationPolicy.hpp"
+#include "relaxation_policies.hpp"
 
 namespace tempo::heuristics {
 

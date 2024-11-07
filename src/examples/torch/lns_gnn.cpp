@@ -15,8 +15,8 @@
 #include "../helpers/git_sha.hpp"
 #include "nn/GNNBackbonePredictor.hpp"
 #include "util/Profiler.hpp"
-#include "heuristics/DRPolicy.hpp"
-#include "heuristics/relaxation_policy_factories.hpp"
+#include "heuristics/LNS/DRPolicy.hpp"
+#include "heuristics/LNS/relaxation_policy_factories.hpp"
 
 namespace h = tempo::heuristics;
 

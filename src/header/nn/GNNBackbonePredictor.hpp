@@ -15,7 +15,7 @@
 #include <variant>
 #include <Iterators.hpp>
 
-#include "heuristics/RelaxationInterface.hpp"
+#include "heuristics/LNS/relaxation_interface.hpp"
 #include "util/traits.hpp"
 #include "util/SchedulingProblemHelper.hpp"
 #include "Literal.hpp"

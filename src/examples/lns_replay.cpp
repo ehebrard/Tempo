@@ -13,7 +13,7 @@
 #include "helpers/cli.hpp"
 #include "helpers/shell.hpp"
 #include "helpers/git_sha.hpp"
-#include "heuristics/RelaxationPolicy.hpp"
+#include "heuristics/LNS/relaxation_policies.hpp"
 
 int main(int argc, char **argv) {
     using namespace tempo;

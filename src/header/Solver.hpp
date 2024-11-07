@@ -45,7 +45,7 @@
 #include "constraints/FullTransitivity.hpp"
 #include "constraints/PseudoBoolean.hpp"
 #include "constraints/Transitivity.hpp"
-#include "heuristics/RelaxationInterface.hpp"
+#include "heuristics/LNS/relaxation_interface.hpp"
 #include "heuristics/heuristic_factories.hpp"
 #include "heuristics/impl/DecayingEventActivityMap.hpp"
 #include "util/KillHandler.hpp"

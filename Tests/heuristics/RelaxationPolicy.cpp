@@ -9,7 +9,7 @@
 #include <ranges>
 
 #include "testing.hpp"
-#include "heuristics/RelaxationPolicy.hpp"
+#include "heuristics/LNS/relaxation_policies.hpp"
 
 template<typename ...Args>
 auto Lit(Args ...args) {

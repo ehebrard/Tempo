@@ -4,8 +4,8 @@
 * @brief LNS relaxation policy interface.
 */
 
-#ifndef TEMPO_RELAXATIONINTERFACE_HPP
-#define TEMPO_RELAXATIONINTERFACE_HPP
+#ifndef TEMPO_RELAXATION_INTERFACE_HPP
+#define TEMPO_RELAXATION_INTERFACE_HPP
 
 #include <concepts>
 #include <filesystem>
@@ -414,4 +414,4 @@ namespace tempo::heuristics {
     };
 }
 
-#endif //TEMPO_RELAXATIONINTERFACE_HPP
+#endif //TEMPO_RELAXATION_INTERFACE_HPP

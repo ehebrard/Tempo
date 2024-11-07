@@ -29,7 +29,7 @@
 
 #include "Global.hpp"
 #include "Model.hpp"
-#include "RelaxationInterface.hpp"
+#include "relaxation_interface.hpp"
 #include "util/Options.hpp"
 #include "util/serialization.hpp"
 #include "util/factory_pattern.hpp"

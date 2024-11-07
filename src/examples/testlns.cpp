@@ -33,7 +33,7 @@
 #include "util/Profiler.hpp"
 #include "helpers/shell.hpp"
 #include "helpers/git_sha.hpp"
-#include "heuristics/relaxation_policy_factories.hpp"
+#include "heuristics/LNS/relaxation_policy_factories.hpp"
 
 using namespace tempo;
 
