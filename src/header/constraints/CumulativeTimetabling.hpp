@@ -1,10 +1,6 @@
 /************************************************
  * Tempo CumulativeTimetabling.hpp
- * Implementation of the "strong edge-finding" algorithm as described in
- * Vincent Gingras and Claude-Guy Quimper. 2016. Generalizing the edge-finder
- *rule for the cumulative constraint. In Proceedings of the Twenty-Fifth
- *International Joint Conference on Artificial Intelligence (IJCAI'16). AAAI
- *Press, 3103–3109.
+ * Implementation of a naive "time-tabling" algorithm, copied from or-tools
  *
  * Copyright 2024 Emmanuel Hebrard
  *
@@ -36,7 +32,7 @@
 #include "Explanation.hpp"
 #include "Global.hpp"
 #include "Model.hpp"
-#include "constraints/Constraint.hpp"
+#include "constraints/CumulativePropagatorInterface.hpp"
 #include "util/List.hpp"
 
 
@@ -65,18 +61,71 @@ std::ostream &operator<<(std::ostream &os, const ProfileDelta<T> &x) {
 }
 
 
+//
+//template<typename T>
+//class Solver;
+//
+//
+//template <typename T> class CumulativePropagatorInterface : public Constraint<T> {
+//protected:
+//  Solver<T> &solver;
+//  NumericVar<T> capacity;
+//
+//  std::vector<Interval<T>> task;
+//    std::vector<NumericVar<T>> demand;
+//  bool sign{true};
+//    
+//    std::vector<Literal<T>> pruning;
+//    std::vector<std::vector<Literal<T>>> explanation;
+//    Reversible<size_t> num_explanations;
+//    
+//
+//public:
+//  template <typename ItTask, typename ItNVar>
+//    CumulativePropagatorInterface(Solver<T> &solver, const NumericVar<T> capacity,
+//                        const ItTask beg_task, const ItTask end_task,
+//                        const ItNVar beg_dem);
+////  virtual ~CumulativePropagatorInterface();
+//
+//  // helpers
+//  T est(const unsigned i) const;
+//  T lst(const unsigned i) const;
+//  T ect(const unsigned i) const;
+//  T lct(const unsigned i) const;
+//  T minduration(const unsigned i) const;
+//  T maxduration(const unsigned i) const;
+//    T mindemand(const unsigned i) const;
+//
+//  void post(const int idx) override;
+//    bool notify(const Literal<T>, const int rank) override;
+//    void doPruning();
+//
+//  // create a new explanation for a new pruning
+//  hint newExplanation();
+//  // add to explanation[h] the tasks contributing to the profile on interval
+//  // [l,u), except i
+////  void computeExplanation(const hint h, const int i, const T l, const T u);
+//
+//  // function used in explanation
+//  void xplain(const Literal<T> l, const hint h,
+//              std::vector<Literal<T>> &Cl) override;
+//
+//
+//  std::ostream &display(std::ostream &os) const override;
+////  std::ostream &print_reason(std::ostream &os, const hint h) const override;
+//  std::string prettyTask(const int i) const;
+//  std::string asciiArt(const int i) const;
+////  void printProfile();
+//};
 
-template<typename T>
-class Solver;
-
-template <typename T> class CumulativeTimetabling : public Constraint<T> {
+template <typename T> class CumulativeTimetabling : public CumulativePropagatorInterface<T> {
 private:
-  Solver<T> &solver;
-  NumericVar<T> capacity;
-
-  std::vector<Interval<T>> task;
-  std::vector<NumericVar<T>> demand;
-  bool sign{true};
+//  Solver<T> &solver;
+//  NumericVar<T> capacity;
+//
+//  std::vector<Interval<T>> task;
+//  std::vector<NumericVar<T>> demand;
+//  bool sign{true};
 
   typedef std::vector<ProfileDelta<T>> Profile;
 
@@ -85,135 +134,178 @@ private:
   Profile profile_non_unique_time_;
   std::vector<int> est_order;
 
-  std::vector<Literal<T>> pruning;
-  std::vector<std::vector<Literal<T>>> explanation;
-  std::vector<std::vector<Literal<T>>> alt_explanation;
-  Reversible<size_t> num_explanations;
+//  std::vector<Literal<T>> pruning;
+//  std::vector<std::vector<Literal<T>>> explanation;
+////  std::vector<std::vector<Literal<T>>> alt_explanation;
+//  Reversible<size_t> num_explanations;
+    
+#ifdef STATS_TT
+    long unsigned int num_prop{0};
+    long unsigned int num_useful{0};
+    long unsigned int num_pruning{0};
+#endif
 
 public:
   template <typename ItTask, typename ItNVar>
   CumulativeTimetabling(Solver<T> &solver, const NumericVar<T> capacity,
                         const ItTask beg_task, const ItTask end_task,
                         const ItNVar beg_dem);
-  virtual ~CumulativeTimetabling();
+//  virtual ~CumulativeTimetabling();
 
   // helpers
-  T est(const unsigned i) const;
-  T lst(const unsigned i) const;
-  T ect(const unsigned i) const;
-  T lct(const unsigned i) const;
-  T minduration(const unsigned i) const;
-  T maxduration(const unsigned i) const;
-  T mindemand(const unsigned i) const;
-  T maxdemand(const unsigned i) const;
-  T energy(const unsigned i) const;
+//  T est(const unsigned i) const;
+//  T lst(const unsigned i) const;
+//  T ect(const unsigned i) const;
+//  T lct(const unsigned i) const;
+//  T minduration(const unsigned i) const;
+//  T maxduration(const unsigned i) const;
+//  T mindemand(const unsigned i) const;
+//  T maxdemand(const unsigned i) const;
+//  T energy(const unsigned i) const;
 
-  bool notify(const Literal<T>, const int rank) override;
-  void post(const int idx) override;
+//  bool notify(const Literal<T>, const int rank) override;
+//  void post(const int idx) override;
   void propagate() override;
 
   void buildProfile();
   void computeAdjustments();
   void pushTask(const int i, int profile_index, const T usage);
-  void doPruning();
+    
+    void computeExplanation(const hint h, const int i, const T l, const T u);
+  
+//    void doPruning();
+//
+//  // create a new explanation for a new pruning
+//  hint newExplanation();
+//  // add to explanation[h] the tasks contributing to the profile on interval
+//  // [l,u), except i
+//  void computeExplanation(const hint h, const int i, const T l, const T u);
+//
+//  // function used in explanation
+//  void xplain(const Literal<T> l, const hint h,
+//              std::vector<Literal<T>> &Cl) override;
 
-  // create a new explanation for a new pruning
-  hint newExplanation();
-  // add to explanation[h] the tasks contributing to the profile on interval
-  // [l,u), except i
-  void computeExplanation(const hint h, const int i, const T l, const T u);
-
-  // function used in explanation
-  void xplain(const Literal<T> l, const hint h,
-              std::vector<Literal<T>> &Cl) override;
-
-  std::ostream &display(std::ostream &os) const override;
-
-  std::ostream &print_reason(std::ostream &os, const hint h) const override;
-
-  std::string prettyTask(const int i) const;
-  std::string asciiArt(const int i) const;
+//  std::ostream &display(std::ostream &os) const override;
+//
+//  std::ostream &print_reason(std::ostream &os, const hint h) const override;
+//
+//  std::string prettyTask(const int i) const;
+//  std::string asciiArt(const int i) const;
+    
+    std::ostream &print_reason(std::ostream &os, const hint h) const override;
+    
   void printProfile();
 };
 
 
-template <typename T>
-std::string CumulativeTimetabling<T>::prettyTask(const int i) const {
-  std::stringstream ss;
-  ss << "t" << task[i].id() << ": ["
-     << (sign == bound::lower ? est(i) : -lct(i)) << ".."
-     << (sign == bound::lower ? lct(i) : -est(i)) << "] (p=" << minduration(i)
-     << ", c=" << mindemand(i) << ")";
-  return ss.str();
-}
 
-template <typename T>
-std::string CumulativeTimetabling<T>::asciiArt(const int i) const {
-  std::stringstream ss;
-  ss << std::setw(3) << std::right << mindemand(i) << "x" << std::setw(3)
-     << std::left << minduration(i) << " " << std::right;
-  for (auto k{0}; k < est(i); ++k) {
-    ss << " ";
-  }
-  ss << "[";
-  for (auto k{est(i) + 1}; k < ect(i); ++k) {
-    ss << "=";
-  }
-  if (lct(i) == Constant::Infinity<T>) {
-    ss << "=... " << est(i) << "...";
-  } else {
-    for (auto k{ect(i)}; k < lct(i); ++k) {
-      ss << ".";
-    }
-    ss << "] " << est(i) << ".." << lct(i);
-  }
-  return ss.str();
-}
+//
+//
+//template <typename T> class CumulativeTimetablingFixedDemand : public CumulativePropagatorInterface<T> {
+//private:
+//
+//    std::vector<int> demand_order;
+//    
+//public:
+//  template <typename ItTask, typename ItNVar>
+//    CumulativeTimetablingFixedDemand(Solver<T> &solver, const NumericVar<T> capacity,
+//                        const ItTask beg_task, const ItTask end_task,
+//                        const ItNVar beg_dem);
+//
+//  void propagate() override;
+//
+//};
 
-template <typename T> T CumulativeTimetabling<T>::est(const unsigned i) const {
-  return (sign == bound::lower ? task[i].getEarliestStart(solver)
-                               : -task[i].getLatestEnd(solver));
-}
 
-template <typename T> T CumulativeTimetabling<T>::lst(const unsigned i) const {
-  return (sign == bound::lower ? task[i].getLatestStart(solver)
-                               : -task[i].getEarliestEnd(solver));
-}
+//
+//template <typename T>
+//std::string CumulativePropagatorInterface<T>::prettyTask(const int i) const {
+//  std::stringstream ss;
+//  ss << "t" << task[i].id() << ": ["
+//     << (sign == bound::lower ? est(i) : -lct(i)) << ".."
+//     << (sign == bound::lower ? lct(i) : -est(i)) << "] (p=" << minduration(i)
+//     << ", c=" << mindemand(i) << ")";
+//  return ss.str();
+//}
+//
+//template <typename T>
+//std::string CumulativePropagatorInterface<T>::asciiArt(const int i) const {
+//  std::stringstream ss;
+//  ss << std::setw(3) << std::right << mindemand(i) << "x" << std::setw(3)
+//     << std::left << minduration(i) << " " << std::right;
+//  for (auto k{0}; k < est(i); ++k) {
+//    ss << " ";
+//  }
+//  ss << "[";
+//  for (auto k{est(i) + 1}; k < ect(i); ++k) {
+//    ss << "=";
+//  }
+//  if (lct(i) == Constant::Infinity<T>) {
+//    ss << "=... " << est(i) << "...";
+//  } else {
+//    for (auto k{ect(i)}; k < lct(i); ++k) {
+//      ss << ".";
+//    }
+//    ss << "] " << est(i) << ".." << lct(i);
+//  }
+//  return ss.str();
+//}
+//
+//template <typename T> T CumulativePropagatorInterface<T>::est(const unsigned i) const {
+//  return (sign == bound::lower ? task[i].getEarliestStart(solver)
+//                               : -task[i].getLatestEnd(solver));
+//}
+//
+//template <typename T> T CumulativePropagatorInterface<T>::lst(const unsigned i) const {
+//  return (sign == bound::lower ? task[i].getLatestStart(solver)
+//                               : -task[i].getEarliestEnd(solver));
+//}
+//
+//template <typename T> T CumulativePropagatorInterface<T>::ect(const unsigned i) const {
+//  return (sign == bound::lower ? task[i].getEarliestEnd(solver)
+//                               : -task[i].getLatestStart(solver));
+//}
+//
+//template <typename T> T CumulativePropagatorInterface<T>::lct(const unsigned i) const {
+//  return (sign == bound::lower ? task[i].getLatestEnd(solver)
+//                               : -task[i].getEarliestStart(solver));
+//}
+//
+//template <typename T>
+//T CumulativePropagatorInterface<T>::minduration(const unsigned i) const {
+//  return task[i].minDuration(solver);
+//}
+//
+//template <typename T>
+//T CumulativePropagatorInterface<T>::maxduration(const unsigned i) const {
+//  return task[i].maxDuration(solver);
+//}
+//
+//template <typename T>
+//T CumulativePropagatorInterface<T>::mindemand(const unsigned i) const {
+//  return demand[i].min(solver);
+//}
 
-template <typename T> T CumulativeTimetabling<T>::ect(const unsigned i) const {
-  return (sign == bound::lower ? task[i].getEarliestEnd(solver)
-                               : -task[i].getLatestStart(solver));
-}
-
-template <typename T> T CumulativeTimetabling<T>::lct(const unsigned i) const {
-  return (sign == bound::lower ? task[i].getLatestEnd(solver)
-                               : -task[i].getEarliestStart(solver));
-}
-
-template <typename T>
-T CumulativeTimetabling<T>::minduration(const unsigned i) const {
-  return task[i].minDuration(solver);
-}
-
-template <typename T>
-T CumulativeTimetabling<T>::maxduration(const unsigned i) const {
-  return task[i].maxDuration(solver);
-}
-
-template <typename T>
-T CumulativeTimetabling<T>::mindemand(const unsigned i) const {
-  return demand[i].min(solver);
-}
-
-template <typename T>
-T CumulativeTimetabling<T>::maxdemand(const unsigned i) const {
-  return demand[i].max(solver);
-}
-
-template <typename T>
-T CumulativeTimetabling<T>::energy(const unsigned i) const {
-  return mindemand(i) * minduration(i);
-}
+//
+//template <typename T>
+//template <typename ItTask, typename ItNVar>
+//CumulativePropagatorInterface<T>::CumulativePropagatorInterface(Solver<T> &solver,
+//                                                const NumericVar<T> cap,
+//                                                const ItTask beg_task,
+//                                                const ItTask end_task,
+//                                                                  const ItNVar beg_dem)
+//    : solver(solver), num_explanations(0, &(solver.getEnv())) {
+//  capacity = cap;
+//
+//  Constraint<T>::priority = Priority::Medium;
+//
+//        auto dp{beg_dem};
+//  for (auto jp{beg_task}; jp != end_task; ++jp) {
+//    task.push_back(*jp);
+//      demand.push_back(*dp);
+//      ++dp;
+//  }
+//}
 
 template <typename T>
 template <typename ItTask, typename ItNVar>
@@ -222,63 +314,70 @@ CumulativeTimetabling<T>::CumulativeTimetabling(Solver<T> &solver,
                                                 const ItTask beg_task,
                                                 const ItTask end_task,
                                                 const ItNVar beg_dem)
-    : solver(solver), num_explanations(0, &(solver.getEnv())) {
-  capacity = cap;
+: CumulativePropagatorInterface<T>(solver, cap, beg_task, end_task, beg_dem) {
 
-  Constraint<T>::priority = Priority::Medium;
-
-  auto dp{beg_dem};
-  for (auto jp{beg_task}; jp != end_task; ++jp) {
-    task.push_back(*jp);
-    demand.push_back(*dp);
-    ++dp;
-  }
-
-  est_order.resize(task.size());
-  std::iota(est_order.begin(), est_order.end(), 0);
+    est_order.resize(CumulativePropagatorInterface<T>::task.size());
+    std::iota(est_order.begin(), est_order.end(), 0);
+    
+    Constraint<T>::priority = Priority::Medium;
+    
 }
+//
+//template <typename T>
+//template <typename ItTask, typename ItNVar>
+//CumulativeTimetablingFixedDemand<T>::CumulativeTimetablingFixedDemand(Solver<T> &solver,
+//                                                const NumericVar<T> cap,
+//                                                const ItTask beg_task,
+//                                                const ItTask end_task,
+//                                                const ItNVar beg_dem)
+//: CumulativePropagatorInterface<T>(solver, cap, beg_task, end_task, beg_dem) {
+//
+//    demand_order.resize(CumulativePropagatorInterface<T>::task.size());
+//    std::iota(demand_order.begin(), demand_order.end(), 0);
+//    
+//    std::sort(demand_order.begin(), demand_order.end(),
+//              [&](const int a, const int b) { return CumulativePropagatorInterface<T>::mindemand(a) > CumulativePropagatorInterface<T>::mindemand(b); });
+//
+//}
 
-template <typename T> CumulativeTimetabling<T>::~CumulativeTimetabling() {}
-
-
-template <typename T> void CumulativeTimetabling<T>::post(const int idx) {
-
-  Constraint<T>::cons_id = idx;
-  Constraint<T>::idempotent = true;
-
-#ifdef DBG_CEDGEFINDING
-  if (DBG_CEDGEFINDING) {
-    std::cout << "post " << *this << std::endl;
-  }
-#endif
-
-  for (size_t i{0}; i < task.size(); ++i) {
-    solver.wake_me_on(lb<T>(task[i].start.id()), this->id());
-    solver.wake_me_on(ub<T>(task[i].end.id()), this->id());
-    solver.wake_me_on(lb<T>(demand[i].id()), this->id());
-  }
-}
-
-template <typename T>
-bool CumulativeTimetabling<T>::notify(const Literal<T>, const int) {
-  return true;
-}
+//template <typename T> void CumulativePropagatorInterface<T>::post(const int idx) {
+//
+//  Constraint<T>::cons_id = idx;
+//  Constraint<T>::idempotent = true;
+//
+//#ifdef DBG_CEDGEFINDING
+//  if (DBG_CEDGEFINDING) {
+//    std::cout << "post " << *this << std::endl;
+//  }
+//#endif
+//
+//  for (size_t i{0}; i < task.size(); ++i) {
+//    solver.wake_me_on(lb<T>(task[i].start.id()), this->id());
+//    solver.wake_me_on(ub<T>(task[i].end.id()), this->id());
+//    solver.wake_me_on(lb<T>(demand[i].id()), this->id());
+//  }
+//}
+//
+//template <typename T>
+//bool CumulativePropagatorInterface<T>::notify(const Literal<T>, const int) {
+//  return true;
+//}
 
 template <typename T> void CumulativeTimetabling<T>::buildProfile() {
 
   mandatory_parts.clear();
   profile_non_unique_time_.clear();
-  auto n{task.size()};
+  auto n{CumulativePropagatorInterface<T>::task.size()};
   for (unsigned i{0}; i < n; ++i) {
-    if (task[i].mustExist(solver) and lst(i) < ect(i) and mindemand(i) > 0) {
-      profile_non_unique_time_.emplace_back(lst(i), +mindemand(i));
-      profile_non_unique_time_.emplace_back(ect(i), -mindemand(i));
+    if (CumulativePropagatorInterface<T>::task[i].mustExist(CumulativePropagatorInterface<T>::solver) and CumulativePropagatorInterface<T>::lst(i) < CumulativePropagatorInterface<T>::ect(i) and CumulativePropagatorInterface<T>::mindemand(i) > 0) {
+      profile_non_unique_time_.emplace_back(CumulativePropagatorInterface<T>::lst(i), +CumulativePropagatorInterface<T>::mindemand(i));
+      profile_non_unique_time_.emplace_back(CumulativePropagatorInterface<T>::ect(i), -CumulativePropagatorInterface<T>::mindemand(i));
       mandatory_parts.push_back(i);
 
 #ifdef DBG_TT
       if (DBG_TT) {
-        std::cout << "mandatory part on t" << task[i].id() << ": [" << lst(i)
-                  << ".." << ect(i) << "]\n";
+        std::cout << "mandatory part on t" << CumulativePropagatorInterface<T>::task[i].id() << ": [" << CumulativePropagatorInterface<T>::lst(i)
+                  << ".." << CumulativePropagatorInterface<T>::ect(i) << "]\n";
       }
 #endif
     }
@@ -308,7 +407,7 @@ template <typename T> void CumulativeTimetabling<T>::buildProfile() {
   // Scan to find max usage.
   T max_usage = 0;
   T l{-Constant::Infinity<T>};
-  T max_cap{capacity.max(solver)};
+  T max_cap{CumulativePropagatorInterface<T>::capacity.max(CumulativePropagatorInterface<T>::solver)};
   for (const ProfileDelta<T> &step : profile_unique_time_) {
     usage += step.delta;
     if (usage > max_usage) {
@@ -329,8 +428,8 @@ template <typename T> void CumulativeTimetabling<T>::buildProfile() {
   assert(usage == 0);
 
   if (max_cap < max_usage) {
-    hint h{newExplanation()};
-    computeExplanation(h, -1, l, l + 1);
+    hint h{CumulativePropagatorInterface<T>::newExplanation()};
+      computeExplanation(h, -1, l, l + 1);
     throw Failure<T>({this, h});
   }
 
@@ -341,13 +440,13 @@ template <typename T> void CumulativeTimetabling<T>::buildProfile() {
 // Update the start min for all tasks. Runs in O(n^2) and Omega(n).
 template <typename T> void CumulativeTimetabling<T>::computeAdjustments() {
   std::sort(est_order.begin(), est_order.end(),
-            [&](const int a, const int b) { return est(a) < est(b); });
+            [&](const int a, const int b) { return CumulativePropagatorInterface<T>::est(a) < CumulativePropagatorInterface<T>::est(b); });
   T usage = 0;
   int profile_index = 0;
   for (auto i : est_order) {
-    auto est_i{est(i)};
+    auto est_i{CumulativePropagatorInterface<T>::est(i)};
 
-    if (est_i == lst(i) and lct(i) == ect(i))
+    if (est_i == CumulativePropagatorInterface<T>::lst(i) and CumulativePropagatorInterface<T>::lct(i) == CumulativePropagatorInterface<T>::ect(i))
       continue;
 
     while (est_i > profile_unique_time_[profile_index].time) {
@@ -373,7 +472,7 @@ template <typename T> void CumulativeTimetabling<T>::pushTask(const int i, int p
 #endif
 
   // Init
-  if (mindemand(i) == 0) { // Demand can be null, nothing to propagate.
+  if (CumulativePropagatorInterface<T>::mindemand(i) == 0) { // Demand can be null, nothing to propagate.
     return;
   }
 
@@ -381,14 +480,14 @@ template <typename T> void CumulativeTimetabling<T>::pushTask(const int i, int p
 
   hint h{Constant::NoHint};
 
-  const T residual_capacity = (capacity.max(solver) - mindemand(i));
-  const T duration = minduration(i);
+  const T residual_capacity = (CumulativePropagatorInterface<T>::capacity.max(CumulativePropagatorInterface<T>::solver) - CumulativePropagatorInterface<T>::mindemand(i));
+  const T duration = CumulativePropagatorInterface<T>::minduration(i);
 
   const ProfileDelta<T> &first_prof_delta = profile_unique_time_[profile_index];
 
-  T new_start_min = est(i);
+  T new_start_min = CumulativePropagatorInterface<T>::est(i);
 
-  assert(first_prof_delta.time >= est(i));
+  assert(first_prof_delta.time >= CumulativePropagatorInterface<T>::est(i));
   // The check above is with a '>='. Let's first treat the '>' case
   if (first_prof_delta.time > new_start_min) {
     // There was no profile delta at a time between interval->StartMin()
@@ -398,39 +497,39 @@ template <typename T> void CumulativeTimetabling<T>::pushTask(const int i, int p
 
 #ifdef DBG_TT
     if (DBG_TT) {
-      std::cout << "lst(i)=" << lst(i) << ", ect(i)=" << ect(i)
+      std::cout << "lst(i)=" << CumulativePropagatorInterface<T>::lst(i) << ", ect(i)=" << CumulativePropagatorInterface<T>::ect(i)
                 << " step.time=" << first_prof_delta.time << std::endl;
     }
 #endif
 
-    assert((lst(i) >= first_prof_delta.time) or (lst(i) >= ect(i)));
+    assert((CumulativePropagatorInterface<T>::lst(i) >= first_prof_delta.time) or (CumulativePropagatorInterface<T>::lst(i) >= CumulativePropagatorInterface<T>::ect(i)));
     // The 'usage' given in argument is valid at first_prof_delta.time. To
     // compute the usage at the start min, we need to remove the last delta.
     const T usage_at_start_min = usage - first_prof_delta.delta;
     if (usage_at_start_min > residual_capacity) {
 
 #ifndef OLD_EXPL
-      h = newExplanation();
+      h = CumulativePropagatorInterface<T>::newExplanation();
       auto prev_start_min{new_start_min};
 #endif
 
       new_start_min = profile_unique_time_[profile_index].time;
 
 #ifndef OLD_EXPL
-      computeExplanation(h, i, prev_start_min, new_start_min);
-      if (sign == bound::lower) {
-        pruning.push_back(task[i].start.after(new_start_min));
-        explanation[h].push_back(task[i].start.after(prev_start_min));
+        computeExplanation(h, i, prev_start_min, new_start_min);
+      if (CumulativePropagatorInterface<T>::sign == bound::lower) {
+          CumulativePropagatorInterface<T>::pruning.push_back(CumulativePropagatorInterface<T>::task[i].start.after(new_start_min));
+          CumulativePropagatorInterface<T>::explanation[h].push_back(CumulativePropagatorInterface<T>::task[i].start.after(prev_start_min));
       } else {
-        pruning.push_back(task[i].end.before(-new_start_min));
-        explanation[h].push_back(task[i].end.before(-prev_start_min));
+          CumulativePropagatorInterface<T>::pruning.push_back(CumulativePropagatorInterface<T>::task[i].end.before(-new_start_min));
+          CumulativePropagatorInterface<T>::explanation[h].push_back(CumulativePropagatorInterface<T>::task[i].end.before(-prev_start_min));
       }
 #endif
     }
 
 #ifdef DBG_TT
     if (DBG_TT) {
-      std::cout << " usage @est(" << task[i].id() << ")=" << est(i) << " is "
+      std::cout << " usage @est(" << CumulativePropagatorInterface<T>::task[i].id() << ")=" << CumulativePropagatorInterface<T>::est(i) << " is "
                 << usage_at_start_min << ", residual capacity is "
                 << residual_capacity << "\n";
     }
@@ -438,16 +537,16 @@ template <typename T> void CumulativeTimetabling<T>::pushTask(const int i, int p
   }
 
   // Influence of current task
-  const T start_max = lst(i);
-  const T end_min = ect(i);
-  const T demand_min = (start_max < end_min ? mindemand(i) : 0);
+  const T start_max = CumulativePropagatorInterface<T>::lst(i);
+  const T end_min = CumulativePropagatorInterface<T>::ect(i);
+  const T demand_min = (start_max < end_min ? CumulativePropagatorInterface<T>::mindemand(i) : 0);
 
   while (profile_unique_time_[profile_index].time <
          (duration + new_start_min)) {
 
 #ifdef DBG_TT
     if (DBG_TT) {
-      std::cout << " t" << task[i].id() << " cannot fit @" << new_start_min
+      std::cout << " t" << CumulativePropagatorInterface<T>::task[i].id() << " cannot fit @" << new_start_min
                 << " because it would finish at " << (duration + new_start_min)
                 << ", i.e., later than next chunck ("
                 << profile_unique_time_[profile_index].time
@@ -472,81 +571,81 @@ template <typename T> void CumulativeTimetabling<T>::pushTask(const int i, int p
 
 #ifdef DBG_TT
       if (DBG_TT) {
-        std::cout << " t" << task[i].id()
+        std::cout << " t" << CumulativePropagatorInterface<T>::task[i].id()
                   << " cannot be put in parallel: usage=" << usage
                   << ", residual capacity=" << residual_capacity << "\n";
       }
 #endif
 
 #ifndef OLD_EXPL
-      h = newExplanation();
+      h = CumulativePropagatorInterface<T>::newExplanation();
       auto prev_start_min{new_start_min};
 #endif
 
       new_start_min = profile_unique_time_[profile_index].time;
 
 #ifndef OLD_EXPL
-      computeExplanation(
+        computeExplanation(
           h, i,
-          std::min(new_start_min, prev_start_min + minduration(i)) -
+          std::min(new_start_min, prev_start_min + CumulativePropagatorInterface<T>::minduration(i)) -
               Gap<T>::epsilon(),
           new_start_min);
-      if (sign == bound::lower) {
-        pruning.push_back(task[i].start.after(new_start_min));
-        explanation[h].push_back(task[i].start.after(prev_start_min));
+      if (CumulativePropagatorInterface<T>::sign == bound::lower) {
+          CumulativePropagatorInterface<T>::pruning.push_back(CumulativePropagatorInterface<T>::task[i].start.after(new_start_min));
+          CumulativePropagatorInterface<T>::explanation[h].push_back(CumulativePropagatorInterface<T>::task[i].start.after(prev_start_min));
       } else {
-        pruning.push_back(task[i].end.before(-new_start_min));
-        explanation[h].push_back(task[i].end.before(-prev_start_min));
+          CumulativePropagatorInterface<T>::pruning.push_back(CumulativePropagatorInterface<T>::task[i].end.before(-new_start_min));
+          CumulativePropagatorInterface<T>::explanation[h].push_back(CumulativePropagatorInterface<T>::task[i].end.before(-prev_start_min));
       }
 #endif
 
-      assert(new_start_min > est(i));
+      assert(new_start_min > CumulativePropagatorInterface<T>::est(i));
     }
     usage += profile_unique_time_[profile_index].delta;
   }
 
 #ifdef DBG_TT
   if (DBG_TT) {
-    std::cout << " t" << task[i].id() << " can fit @" << new_start_min << "\n";
+    std::cout << " t" << CumulativePropagatorInterface<T>::task[i].id() << " can fit @" << new_start_min << "\n";
   }
 #endif
 
 #ifdef OLD_EXPL
-  if (est(i) < new_start_min) {
-    h = newExplanation();
-    computeExplanation(h, i, est(i), new_start_min);
+  if (CumulativePropagatorInterface<T>::est(i) < new_start_min) {
+    h = CumulativePropagatorInterface<T>::newExplanation();
+      computeExplanation(h, i, CumulativePropagatorInterface<T>::est(i), new_start_min);
 
     if (sign == bound::lower) {
-      pruning.push_back(task[i].start.after(new_start_min));
-      explanation[h].push_back(task[i].start.after(est(i)));
+        CumulativePropagatorInterface<T>::pruning.push_back(task[i].start.after(new_start_min));
+        CumulativePropagatorInterface<T>::explanation[h].push_back(task[i].start.after(est(i)));
     } else {
-      pruning.push_back(task[i].end.before(-new_start_min));
-      explanation[h].push_back(task[i].end.before(-est(i)));
+        CumulativePropagatorInterface<T>::pruning.push_back(CumulativePropagatorInterface<T>::task[i].end.before(-new_start_min));
+        CumulativePropagatorInterface<T>::explanation[h].push_back(CumulativePropagatorInterface<T>::task[i].end.before(-est(i)));
     }
   }
 #endif
 
 }
-
-template <typename T> hint CumulativeTimetabling<T>::newExplanation() {
-  auto e_idx{num_explanations};
-  if (explanation.size() <= e_idx) {
-    explanation.resize(e_idx + 1);
-  } else {
-    explanation[e_idx].clear();
-  }
-  ++num_explanations;
-  return static_cast<hint>(e_idx);
-}
+//
+//template <typename T> hint CumulativePropagatorInterface<T>::newExplanation() {
+//  auto e_idx{num_explanations};
+//  if (explanation.size() <= e_idx) {
+//    explanation.resize(e_idx + 1);
+//  } else {
+//    explanation[e_idx].clear();
+//  }
+//  ++num_explanations;
+//  return static_cast<hint>(e_idx);
+//}
 
 
 template <typename T> void CumulativeTimetabling<T>::computeExplanation(const hint h, const int x, const T l, const T u) {
   bool swap{false};
   auto lb{l};
   auto ub{u};
-  if (sign == bound::upper) {
+  if (CumulativePropagatorInterface<T>::sign == bound::upper) {
     swap = true;
-    sign = bound::lower;
+      CumulativePropagatorInterface<T>::sign = bound::lower;
     lb = -u;
     ub = -l;
   }
@@ -554,7 +653,7 @@ template <typename T> void CumulativeTimetabling<T>::computeExplanation(const hi
 #ifdef DBG_EXPLCTT
   if (DBG_EXPLCTT) {
     std::cout << " b/c profile overload in [" << l << ".." << u
-              << "] capacity = " << capacity.max(solver) << std::endl;
+              << "] capacity = " << CumulativePropagatorInterface<T>::capacity.max(CumulativePropagatorInterface<T>::solver) << std::endl;
   }
 #endif
 
@@ -567,14 +666,14 @@ template <typename T> void CumulativeTimetabling<T>::computeExplanation(const hi
       }
 #endif
 
-      if (lst(i) <= ub and ect(i) > lb) {
-        explanation[h].push_back(task[i].start.before(std::max(lst(i), lb)));
-        explanation[h].push_back(task[i].end.after(std::min(ect(i), ub)));
+      if (CumulativePropagatorInterface<T>::lst(i) <= ub and CumulativePropagatorInterface<T>::ect(i) > lb) {
+          CumulativePropagatorInterface<T>::explanation[h].push_back(CumulativePropagatorInterface<T>::task[i].start.before(std::max(CumulativePropagatorInterface<T>::lst(i), lb)));
+          CumulativePropagatorInterface<T>::explanation[h].push_back(CumulativePropagatorInterface<T>::task[i].end.after(std::min(CumulativePropagatorInterface<T>::ect(i), ub)));
 
 #ifdef DBG_EXPLCTT
         if (DBG_EXPLCTT) {
-          std::cout << task[i].start.before(std::max(lst(i), lb)) << " and "
-                    << task[i].end.after(std::min(ect(i), ub)) << std::endl;
+          std::cout << CumulativePropagatorInterface<T>::task[i].start.before(std::max(CumulativePropagatorInterface<T>::lst(i), lb)) << " and "
+                    << CumulativePropagatorInterface<T>::task[i].end.after(std::min(CumulativePropagatorInterface<T>::ect(i), ub)) << std::endl;
         }
 #endif
 
@@ -587,7 +686,7 @@ template <typename T> void CumulativeTimetabling<T>::computeExplanation(const hi
     }
 
   if (swap) {
-    sign = bound::upper;
+      CumulativePropagatorInterface<T>::sign = bound::upper;
     lb = -u;
     ub = -l;
   }
@@ -595,34 +694,61 @@ template <typename T> void CumulativeTimetabling<T>::computeExplanation(const hi
 
 //
 
+//
+//template <typename T> void CumulativePropagatorInterface<T>::doPruning() {
+//    
+//#ifdef STATS_TT
+//    num_pruning += pruning.size();
+//    if(not pruning.empty()) {
+//        ++num_useful;
+//        std::cout << "TT" << this->id() << ": " << static_cast<double>(num_useful)/static_cast<double>(num_prop) << " (" << num_pruning << ")\n";
+////        std::cout << "TT" << this->id() << ": " << num_useful << "/" << num_prop << " (" << num_pruning << ")\n";
+//    }
+//#endif
+//    
+//
+//#ifdef DBG_TT
+//  if (DBG_TT) {
+//    if (not pruning.empty())
+//      std::cout << "apply pruning" << std::endl;
+//  }
+//#endif
+//
+//  auto h{static_cast<hint>(num_explanations - pruning.size())};
+//  for (auto p : pruning) {
+//#ifdef DBG_TT
+//    if (DBG_TT) {
+//      std::cout << "pruning (" << this->id() << "/"
+//                << solver.num_cons_propagations << "): " << p << std::endl;
+//    }
+//#endif
+//
+//    solver.set(p, {this, h++});
+//  }
+//  pruning.clear();
+//}
 
-template <typename T> void CumulativeTimetabling<T>::doPruning() {
-
-#ifdef DBG_TT
-  if (DBG_TT) {
-    if (not pruning.empty())
-      std::cout << "apply pruning" << std::endl;
-  }
-#endif
-
-  auto h{static_cast<hint>(num_explanations - pruning.size())};
-  for (auto p : pruning) {
-#ifdef DBG_TT
-    if (DBG_TT) {
-      std::cout << "pruning (" << this->id() << "/"
-                << solver.num_cons_propagations << "): " << p << std::endl;
-    }
-#endif
-
-    solver.set(p, {this, h++});
-  }
-  pruning.clear();
-}
+//template <typename T> void CumulativeTimetablingFixedDemand<T>::propagate() {
+//    
+//    for(auto i : demand_order) {
+//        
+//        
+//        
+//        
+//        
+//    }
+//    
+//}
 
 
 template <typename T> void CumulativeTimetabling<T>::propagate() {
-  sign = bound::lower;
-  pruning.clear();
+    
+#ifdef STATS_TT
+    ++num_prop;
+#endif
+    
+    CumulativePropagatorInterface<T>::sign = bound::lower;
+    CumulativePropagatorInterface<T>::pruning.clear();
 
 #ifdef DBG_TT
   if (DBG_TT) {
@@ -660,20 +786,20 @@ template <typename T> void CumulativeTimetabling<T>::propagate() {
 #endif
 
     computeAdjustments();
-    doPruning();
+      CumulativePropagatorInterface<T>::doPruning();
 
-    sign ^= 1;
-  } while (sign != bound::lower);
+      CumulativePropagatorInterface<T>::sign ^= 1;
+  } while (CumulativePropagatorInterface<T>::sign != bound::lower);
 }
 
-template <typename T>
-void CumulativeTimetabling<T>::xplain(const Literal<T>, const hint h,
-                                      std::vector<Literal<T>> &Cl) {
-
-  for (auto p : explanation[h]) {
-    Cl.push_back(p);
-  }
-}
+//template <typename T>
+//void CumulativePropagatorInterface<T>::xplain(const Literal<T>, const hint h,
+//                                      std::vector<Literal<T>> &Cl) {
+//
+//  for (auto p : explanation[h]) {
+//    Cl.push_back(p);
+//  }
+//}
 
 template <typename T> void CumulativeTimetabling<T>::printProfile() {
   T time{0};
@@ -740,21 +866,21 @@ template <typename T> void CumulativeTimetabling<T>::printProfile() {
   }
 }
 
-template <typename T>
-std::ostream &CumulativeTimetabling<T>::display(std::ostream &os) const {
-  os << "Cumulative Time-Tabling";
-
-#ifdef DBG_CEDGEFINDING
-  os << "[" << this->id() << "]";
-#endif
-
-  os << "(";
-  for (auto &t : task) {
-    std::cout << " t" << t.id();
-  }
-  std::cout << " )";
-  return os;
-}
+//template <typename T>
+//std::ostream &CumulativePropagatorInterface<T>::display(std::ostream &os) const {
+//  os << "Cumulative Time-Tabling";
+//
+//#ifdef DBG_CEDGEFINDING
+//  os << "[" << this->id() << "]";
+//#endif
+//
+//  os << "(";
+//  for (auto &t : task) {
+//    std::cout << " t" << t.id();
+//  }
+//  std::cout << " )";
+//  return os;
+//}
 
 template <typename T>
 std::ostream &CumulativeTimetabling<T>::print_reason(std::ostream &os, const hint) const {

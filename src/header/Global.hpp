@@ -91,6 +91,8 @@ using hint = int;
 //#define DBG_TT true //(this->id() == 3049 and solver.num_cons_propagations >= 3914)
 //#define DBG_EXPLCTT true
 
+//#define STATS true
+
 
 // priority values for constraint propagation
 enum class Priority {

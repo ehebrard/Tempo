@@ -133,8 +133,8 @@ auto tempo::getBaseParser() -> Parser {
 
     cmd.add<ValueArg<int>>(
             opt.greedy_runs, "", "greedy-runs",
-            "number of randomized greedy runs (default 1)",
-            false, 1, "int");
+            "number of randomized greedy runs (default 1000)",
+            false, 1000, "int");
 
     cmd.add<ValueArg<unsigned long>>(
         opt.search_limit, "", "search-limit",

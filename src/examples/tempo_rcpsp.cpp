@@ -24,6 +24,8 @@
 #include "Solver.hpp"
 #include "heuristics/Greedy.hpp"
 #include "util/parsing/rcpsp.hpp"
+#include "helpers/cli.hpp"
+#include "heuristics/relaxation_policy_factories.hpp"
 
 
 using namespace tempo;
@@ -157,10 +159,27 @@ void printResources(const Solver<T>& S, const std::vector<std::vector<Interval<T
 
 // implementation of a scheduling solver
 int main(int argc, char *argv[]) {
+    
+    namespace h = tempo::heuristics;
+    auto parser = tempo::getBaseParser();
+    bool useLNS;
+    h::RelaxationPolicyParams policyParams;
+    h::RelaxPolicy policyType;
+    cli::detail::configureParser(parser, cli::SwitchSpec("lns", "activate large neighborhood search",
+                                                         useLNS, false),
+                                 cli::ArgSpec("relax-decay", "relaxation ratio decay",
+                                              false, policyParams.ratioDecay, 0.5),
+                                 cli::ArgSpec("relax-ratio", "initial relaxation ratio",
+                                              false, policyParams.relaxRatio, 0.5),
+                                 cli::ArgSpec("relax-slices", "number of schedule slices",
+                                              false, policyParams.numScheduleSlices, 4),
+                                 cli::ArgSpec("lns-policy", "lns relaxation policy", false, policyType, h::RelaxPolicy::RandomTasks));
+    
 
-  Options opt = tempo::parse(argc, argv);
-  Solver<int> S(opt);
-  seed(opt.seed);
+    parser.parse(argc, argv);
+    Options opt = parser.getOptions();
+    Solver<> S(opt);
+    seed(opt.seed);
 
   // an interval standing for the makespan of schedule
   auto schedule{S.newInterval(0, Constant::Infinity<int>, 0, 0, 0,
@@ -230,7 +249,7 @@ int main(int argc, char *argv[]) {
             
             if(makespan < ub_makespan) {
                 
-                std::cout << "load improving sgs solution " << makespan << std::endl;
+                std::cout << "-- load improving sgs solution " << makespan << std::endl;
                 
                 sgs.load();
                 ub_makespan = makespan;
@@ -250,6 +269,8 @@ int main(int argc, char *argv[]) {
             
             S.post(schedule.duration < ub_makespan);
         } catch(Failure<int>& f) {
+            if (opt.verbosity >= Options::QUIET)
+                S.displaySummary(std::cout, "optimal");
             optimal = true;
         }
         
@@ -258,16 +279,22 @@ int main(int argc, char *argv[]) {
 
   // search
     if (not optimal) {
+        
         auto ub{std::min(opt.ub, ub_makespan)};
-        
-//        std::cout << "repost ub = " << ub << "\n";
-        
         S.post(schedule.end.before(ub));
         
-        
-//        std::cout << "minimize\n";
-        
-        S.minimize(schedule.duration);
+        if(useLNS) {
+            
+            MinimizationObjective<int> objective(schedule.duration);
+            auto policy = h::make_relaxation_policy(policyType, intervals, resources, policyParams);
+            std::cout << "-- using relaxation policy " << policyType << std::endl;
+            S.largeNeighborhoodSearch(objective, policy);
+            
+        } else {
+                
+            S.minimize(schedule.duration);
+            
+        }
     }
   
     if (opt.print_sol) {
