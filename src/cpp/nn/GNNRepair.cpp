@@ -4,7 +4,7 @@
 * @brief
 */
 
-#include "nn/GNNBackbonePredictor.hpp"
+#include "nn/GNNRepair.hpp"
 
 namespace tempo::nn {
 

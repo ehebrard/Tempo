@@ -1,7 +1,7 @@
 /**
 * @author Tim Luchterhand
 * @date 07.11.24
-* @brief Contains literal selection policies for GNN based relax / repair LNS-policies
+* @brief Contains literal selection policies for relax / repair LNS-policies
 */
 
 #ifndef TEMPO_FIX_POLICIES_HPP

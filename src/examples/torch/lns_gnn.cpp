@@ -13,7 +13,7 @@
 #include "../helpers/cli.hpp"
 #include "../helpers/shell.hpp"
 #include "../helpers/git_sha.hpp"
-#include "nn/GNNBackbonePredictor.hpp"
+#include "nn/GNNRepair.hpp"
 #include "util/Profiler.hpp"
 #include "heuristics/LNS/DRPolicy.hpp"
 #include "heuristics/LNS/relaxation_policy_factories.hpp"
@@ -74,8 +74,8 @@ int main(int argc, char **argv) {
                                               numThreads));
     auto problemInfo = loadSchedulingProblem(opt);
     torch::set_num_threads(numThreads);
-    nn::GNNBackbonePredictor gnnRepair(*problemInfo.solver, gnnLocation, featureExtractorConf, problemInfo.instance,
-                                       config);
+    nn::GNNRepair gnnRepair(*problemInfo.solver, gnnLocation, featureExtractorConf, problemInfo.instance,
+                            config);
 
     std::cout << "-- root search probability increment " << sporadicIncrement << std::endl;
     std::cout << "-- exhaustion probability " << exhaustionProbability << std::endl;

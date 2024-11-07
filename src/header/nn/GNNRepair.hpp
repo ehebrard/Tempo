@@ -4,8 +4,8 @@
 * @brief GNN based relaxation policy based on edge predictor
 */
 
-#ifndef TEMPO_GNNBACKBONEPREDICTOR_HPP
-#define TEMPO_GNNBACKBONEPREDICTOR_HPP
+#ifndef TEMPO_GNNREPAIR_HPP
+#define TEMPO_GNNREPAIR_HPP
 
 #include <filesystem>
 #include <vector>
@@ -68,7 +68,7 @@ namespace tempo::nn {
      * @tparam R resource type
      */
     template<concepts::scalar T, SchedulingResource R>
-    class GNNBackbonePredictor {
+    class GNNRepair {
         using FixPolicy = lns::VariantFix<lns::BestN, lns::GreedyFix<T>, lns::OptimalFix<T>>;
         GNNPrecedencePredictor<T, R> predictor;
         const Solver<T> &solver;
@@ -100,13 +100,13 @@ namespace tempo::nn {
         }
 
     public:
-        GNNBackbonePredictor(const GNNBackbonePredictor &) = default;
-        GNNBackbonePredictor(GNNBackbonePredictor &&) = default;
+        GNNRepair(const GNNRepair &) = default;
+        GNNRepair(GNNRepair &&) = default;
 
         /**
          * Dtor. Prints timing information if solver verbosity allows it
          */
-        ~GNNBackbonePredictor() {
+        ~GNNRepair() {
             if (solver.getOptions().verbosity >= Options::YACKING) {
                 profiler.printAll<std::chrono::milliseconds>(std::cout);
             }
@@ -122,10 +122,10 @@ namespace tempo::nn {
          * @param relaxationDecay decay factor applied to the relaxation ratio on each relaxation fail
          * @param minCertainty minimum GNN prediction certainty
          */
-        GNNBackbonePredictor(const Solver<T> &solver, const fs::path &modelLocation,
-                             const fs::path &featureExtractorConfigLocation,
-                             const SchedulingProblemHelper<T, R> &problemInstance,
-                             const PolicyConfig &config) :
+        GNNRepair(const Solver<T> &solver, const fs::path &modelLocation,
+                  const fs::path &featureExtractorConfigLocation,
+                  const SchedulingProblemHelper<T, R> &problemInstance,
+                  const PolicyConfig &config) :
                 predictor(modelLocation, featureExtractorConfigLocation, problemInstance,
                           problemInstance.getSearchLiterals(solver)),
                           solver(solver), config(config), fixRatio(config.fixRatio) {
@@ -288,4 +288,4 @@ namespace tempo::nn {
     };
 }
 
-#endif //TEMPO_GNNBACKBONEPREDICTOR_HPP
+#endif //TEMPO_GNNREPAIR_HPP
