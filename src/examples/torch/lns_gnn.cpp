@@ -27,7 +27,8 @@ int main(int argc, char **argv) {
     using namespace tempo;
     std::string gnnLocation;
     std::string featureExtractorConf;
-    nn::PolicyConfig config;
+    lns::PolicyDecayConfig config;
+    lns::AssumptionMode assumptionMode;
     lns::RelaxationPolicyParams destroyParameters{.relaxRatio = 0.9, .ratioDecay = 1, .numScheduleSlices = 4};
     lns::RelaxPolicy destroyType;
     double sporadicIncrement = 0.001;
@@ -61,8 +62,7 @@ int main(int argc, char **argv) {
                                               config.fixRatio),
                                  cli::ArgSpec("decay", "relaxation ratio reactivity on failure", false,
                                               config.decay),
-                                 cli::ArgSpec("assumption-mode", "how to make assumptions", false,
-                                              config.assumptionMode),
+                                 cli::ArgSpec("assumption-mode", "how to make assumptions", false, assumptionMode),
                                  cli::SwitchSpec("decrease-on-success", "whether to decrease fix rate even on success",
                                                  config.decreaseOnSuccess, false),
                                  cli::ArgSpec("retry-limit", "number of fails before decreasing relaxation ratio",
@@ -75,7 +75,7 @@ int main(int argc, char **argv) {
     auto problemInfo = loadSchedulingProblem(opt);
     torch::set_num_threads(numThreads);
     nn::GNNRepair gnnRepair(*problemInfo.solver, gnnLocation, featureExtractorConf, problemInfo.instance,
-                            config);
+                            config, assumptionMode);
 
     std::cout << "-- root search probability increment " << sporadicIncrement << std::endl;
     std::cout << "-- exhaustion probability " << exhaustionProbability << std::endl;
