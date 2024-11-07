@@ -1803,45 +1803,121 @@ public:
     using iterators::const_zip_enumerate;
     using std::views::drop;
 
+      bool opt_flag{false};
     disjunctiveLiterals.fill(this->size(), this->size(), Contradiction<T>);
-    for(auto [taskIdxA, taskA, demandA] : const_zip_enumerate(*this, demand)) {
-        for (auto [taskIdxB, taskB, demandB]: const_zip_enumerate(*this | drop(taskIdxA + 1),
-                                                                  demand | drop(taskIdxA + 1), taskIdxA + 1)) {
-        auto ea_before_sb{taskA.end.before(taskB.start)};
-        auto eb_before_sa{taskB.end.before(taskA.start)};
-
-        if (demandA.min(solver) + demandB.min(solver) > capacity.max(solver)) {
-          //              std::cout << "disjunct " << *a << " / " << *b <<
-          //              std::endl;
-
-          auto d{solver.newDisjunct(eb_before_sa, ea_before_sb)};
-
-          //              std::cout << "**disjunct " << solver.pretty(d==true)
-          //              << " <> " << solver.pretty(d==false) << std::endl;
-
-          disjunctiveLiterals(taskIdxA, taskIdxB) = solver.boolean.getLiteral(false, d);
-          disjunctiveLiterals(taskIdxB, taskIdxA) = solver.boolean.getLiteral(true, d);
-          solver.addToSearch(d);
-
-        } else {
-
-          auto ba{solver.newDisjunct(~ea_before_sb, ea_before_sb)};
-          //              std::cout << "disjunct " << solver.pretty(ba==true) <<
-          //              " <> " << solver.pretty(ba==false) << std::endl;
-
-          auto bb{solver.newDisjunct(eb_before_sa, ~eb_before_sa)};
-          //              std::cout << "disjunct " << solver.pretty(bb==true) <<
-          //              " <> " << solver.pretty(bb==false) << std::endl;
-
-          disjunctiveLiterals(taskIdxA, taskIdxB) = solver.boolean.getLiteral(false, ba);
-          disjunctiveLiterals(taskIdxB, taskIdxA) = solver.boolean.getLiteral(true, bb);
-          solver.addToSearch(ba);
-          solver.addToSearch(bb);
-        }
+      for(auto [taskIdxA, intervalA, demandA] : const_zip_enumerate(*this, demand)) {
+          for (auto [taskIdxB, intervalB, demandB]: const_zip_enumerate(*this | drop(taskIdxA + 1),
+                                                                    demand | drop(taskIdxA + 1), taskIdxA + 1)) {
+              auto ea_before_sb{intervalA.end.before(intervalB.start)};
+              auto eb_before_sa{intervalB.end.before(intervalA.start)};
+              
+              if(intervalA.isOptional(solver) or intervalB.isOptional(solver)) {
+                  opt_flag = true;
+                  
+                  auto x_ab{solver.newDisjunct(Constant::NoEdge<T>, ea_before_sb)};
+                  auto x_ba{solver.newDisjunct(Constant::NoEdge<T>, eb_before_sa)};
+                  auto x_anb{solver.newDisjunct(Constant::NoEdge<T>, ~ea_before_sb)};
+                  auto x_bna{solver.newDisjunct(Constant::NoEdge<T>, ~eb_before_sa)};
+                  
+                  disjunctiveLiterals(taskIdxA, taskIdxB) = solver.boolean.getLiteral(true, x_anb); // a is not before b
+                  disjunctiveLiterals(taskIdxB, taskIdxA) = solver.boolean.getLiteral(true, x_bna); // b is not before a
+                  solver.addToSearch(x_ab);
+                  solver.addToSearch(x_ba);
+                  solver.addToSearch(x_anb);
+                  solver.addToSearch(x_bna);
+                  
+                  
+                  // if a and b exist, then either a is not before b or b is not before a
+                  std::vector<Literal<T>> cl{x_anb == true, x_bna == false};
+                  if (intervalA.isOptional(solver))
+                    cl.push_back(intervalA.exist == false);
+                  if (intervalB.isOptional(solver))
+                    cl.push_back(intervalB.exist == false);
+                  solver.clauses.add(cl.begin(), cl.end());
+                  
+                  // to avoid setting useless constraints
+                  // (~intervalA.exist -> ( ~x_ab and ~x_ba and ~x_anb and ~x_bna)
+                   cl.clear();
+                  if (intervalA.isOptional(solver)) {
+                      cl.push_back(intervalA.exist == true);
+                      cl.push_back(x_ab == false);
+                      solver.clauses.add(cl.begin(), cl.end());
+                      
+                      cl.pop_back();
+                      cl.push_back(x_ba == false);
+                      solver.clauses.add(cl.begin(), cl.end());
+                      
+                      cl.pop_back();
+                      cl.push_back(x_anb == false);
+                      solver.clauses.add(cl.begin(), cl.end());
+                      
+                      cl.pop_back();
+                      cl.push_back(x_bna == false);
+                      solver.clauses.add(cl.begin(), cl.end());
+                  }
+                  
+                  cl.clear();
+                  if (intervalB.isOptional(solver)) {
+                      cl.push_back(intervalB.exist == true);
+                      cl.push_back(x_ab == false);
+                      solver.clauses.add(cl.begin(), cl.end());
+                      
+                      cl.pop_back();
+                      cl.push_back(x_ba == false);
+                      solver.clauses.add(cl.begin(), cl.end());
+                      
+                      cl.pop_back();
+                      cl.push_back(x_anb == false);
+                      solver.clauses.add(cl.begin(), cl.end());
+                      
+                      cl.pop_back();
+                      cl.push_back(x_bna == false);
+                      solver.clauses.add(cl.begin(), cl.end());
+                  }
+                  
+                  // to enforce the disjunction // is it necessary ?
+                  cl.clear();
+                  cl.push_back(x_ab == false);
+                  cl.push_back(x_ba == false);
+                  solver.clauses.add(cl.begin(), cl.end());
+                  
+                  // if a is before b, then a cannot not be before b
+                  cl.clear();
+                  cl.push_back(x_ab == false);
+                  cl.push_back(x_bna == false);
+                  solver.clauses.add(cl.begin(), cl.end());
+                  cl.clear();
+                  cl.push_back(x_ba == false);
+                  cl.push_back(x_anb == false);
+                  solver.clauses.add(cl.begin(), cl.end());
+                  
+                  
+              } else {
+                  if (demandA.min(solver) + demandB.min(solver) > capacity.max(solver)) {
+                      auto d{solver.newDisjunct(eb_before_sa, ea_before_sb)};
+                      disjunctiveLiterals(taskIdxA, taskIdxB) = solver.boolean.getLiteral(false, d); // a is not before b (<-> b is before a)
+                      disjunctiveLiterals(taskIdxB, taskIdxA) = solver.boolean.getLiteral(true, d); // b is not before a (<-> a is before b)
+                      solver.addToSearch(d);
+                  } else {
+                      auto ba{solver.newDisjunct(~ea_before_sb, ea_before_sb)};
+                      auto bb{solver.newDisjunct(eb_before_sa, ~eb_before_sa)};
+                      disjunctiveLiterals(taskIdxA, taskIdxB) = solver.boolean.getLiteral(false, ba); // a is not before b
+                      disjunctiveLiterals(taskIdxB, taskIdxA) = solver.boolean.getLiteral(true, bb); // b is not before a
+                      solver.addToSearch(ba);
+                      solver.addToSearch(bb);
+                  }
+              }
+          }
       }
-    }
 
     if (std::distance(this->begin(), this->end()) > 1) {
+        
+        if (opt_flag) {
+          std::cout
+              << "cumulative for optional intervals is not implemented. Aborting\n";
+          exit(0);
+        }
+        
       solver.postCumulative(capacity, *this, demand, disjunctiveLiterals);
 
 //#ifdef DBG_SEF

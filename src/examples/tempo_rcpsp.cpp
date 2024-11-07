@@ -269,6 +269,8 @@ int main(int argc, char *argv[]) {
             
             S.post(schedule.duration < ub_makespan);
         } catch(Failure<int>& f) {
+            if (opt.verbosity >= Options::QUIET)
+                S.displaySummary(std::cout, "optimal");
             optimal = true;
         }
         
