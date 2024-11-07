@@ -232,7 +232,7 @@ namespace tempo {
          * gets the mapping function from tasks to variables
          * @return mapping from variables to tasks
          */
-        [[nodiscard]] auto getMapping() const noexcept -> VarTaskMapping {
+        [[nodiscard]] auto getMapping() const noexcept -> const VarTaskMapping & {
             return v2t;
         }
 
