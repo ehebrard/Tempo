@@ -247,7 +247,7 @@ public:
   T scheduleOmega(const int i, const T max_lct, const bool adjustment = false);
   int makeNewEvent(const T t);
 
-  void computeBound(const int i);
+  void computeBound(const int i, std::vector<T> externalEnergy);
   void doPruning();
 
   // initialise the profile with every tasks
@@ -260,6 +260,9 @@ public:
   void growLeftCutToTime(const T t);
   void rmTask(const int i);
   void addTask(const int i);
+
+  std::vector<T> energyFixedPartExternalTasks();
+  T fixedPartEnergy(const int i, const int j);
 
   // function used in explanation
   void computeExplanation(const int i, const bool fixedPart = false);
@@ -797,27 +800,78 @@ template <typename T> void CumulativeEdgeFinding<T>::rmExternalFixedPart(const i
   }
 }
 
+template <typename T> T CumulativeEdgeFinding<T>::fixedPartEnergy(const int i, const int j){
+    T E = 0;
+    if (lct(i) > lct(j) and lst(i) < ect(i) and lst(i) < lct(j))
+        E = std::max(0, std::min(ect(i), lct(j)) - lst(i)) * mindemand(i);
+    return E;
+}
+
+template <typename T> std::vector<T> CumulativeEdgeFinding<T>::energyFixedPartExternalTasks(){
+    std::vector<T> energy;
+    int n = static_cast<int>(lct_order.size());
+    energy.resize(n, 0);
+    for (auto k{0}; k < n; ++k){
+        auto j{lct_order[k]};
+        int E = 0;
+        for (auto l{k+1}; l < n; ++l){
+            auto i{lct_order[l]};
+            E += fixedPartEnergy(i,j);
+        }
+        energy[j] = E;
+        while (k+1 < n and lct(lct_order[k+1]) == lct(lct_order[k])){
+            auto q{lct_order[k+1]};
+            energy[q] = energy[lct_order[k]];
+            ++k;
+        }
+    }
+    return energy;
+}
+
+
+
 template <typename T>
-void CumulativeEdgeFinding<T>::computeBound(const int i) {
+void CumulativeEdgeFinding<T>::computeBound(const int i, std::vector<T> externalEnergy) {
   T E{0};
   alpha = -1;
   beta = -1;
   T minSlack[2] = {Constant::Infinity<T>, Constant::Infinity<T>};
-  for (auto j : lct_order) {
-    if (lct(j) == lct(i))
-      break;
-    E += minenergy(j);
-    if (lct(j) <= ect(i) and est(i) < lct(j)) {
-      auto slack{(capacity.max(solver) - mindemand(i)) * lct(j) - E};
-      if (slack < minSlack[0] and data[lct_shared[j]].overflow > 0) {
-        minSlack[0] = slack;
-        alpha = j;
+  if (timetable_reasoning){
+    for (auto j : lct_order) {
+      if (lct(j) == lct(i))
+        break;
+      E += minenergy(j);
+      if (lct(j) <= ect(i) and est(i) < lct(j)) {
+        auto slack{(capacity.max(solver) - mindemand(i)) * lct(j) - E - externalEnergy[j] + fixedPartEnergy(i,j)};
+        if (slack < minSlack[0] and data[lct_shared[j]].overflow > 0) {
+          minSlack[0] = slack;
+          alpha = j;
+        }
+      } else if (lct(j) > ect(i)) {
+        auto slack{capacity.max(solver) * lct(j) - E - externalEnergy[j] + fixedPartEnergy(i,j)};
+        if (slack < minSlack[1] and data[lct_shared[j]].overflow > 0) {
+          minSlack[1] = slack;
+          beta = j;
+        }
       }
-    } else if (lct(j) > ect(i)) {
-      auto slack{capacity.max(solver) * lct(j) - E};
-      if (slack < minSlack[1] and data[lct_shared[j]].overflow > 0) {
-        minSlack[1] = slack;
-        beta = j;
+    }
+  } else{
+    for (auto j : lct_order) {
+      if (lct(j) == lct(i))
+        break;
+      E += minenergy(j);
+      if (lct(j) <= ect(i) and est(i) < lct(j)) {
+        auto slack{(capacity.max(solver) - mindemand(i)) * lct(j) - E};
+        if (slack < minSlack[0] and data[lct_shared[j]].overflow > 0) {
+          minSlack[0] = slack;
+          alpha = j;
+        }
+      } else if (lct(j) > ect(i)) {
+        auto slack{capacity.max(solver) * lct(j) - E};
+        if (slack < minSlack[1] and data[lct_shared[j]].overflow > 0) {
+          minSlack[1] = slack;
+          beta = j;
+        }
       }
     }
   }
@@ -1142,6 +1196,13 @@ template <typename T> void CumulativeEdgeFinding<T>::detection() {
     prec[in_conflict.back()] = -1;
     in_conflict.pop_back();
   }
+  auto n{static_cast<int>(lct_order.size())};
+  std::vector<T> externalEnergy;
+  externalEnergy.resize(n, 0);
+  if (timetable_reasoning) {
+    externalEnergy = energyFixedPartExternalTasks();
+  }
+
 
 
   auto stop{lct_order.rend()};
@@ -1185,11 +1246,20 @@ template <typename T> void CumulativeEdgeFinding<T>::detection() {
       if (lct(i) != ect(i)) {
         if (est(i) < lct(j)) {
 
+          if (timetable_reasoning) {
+            addExternalFixedPart(i, j);
+          }
           addPrime(i, j);
           scheduleOmega(i, lct(j));
           rmPrime(i, j);
+          if (timetable_reasoning) {
+            rmExternalFixedPart(i, j);
+          }
 
-          computeBound(i);
+          computeBound(i, externalEnergy);
+
+
+
           if (alpha != -1) {
 
             assert(lct(lct_order[leftcut_pointer]) > lct(alpha));
@@ -1320,8 +1390,8 @@ void CumulativeEdgeFinding<T>::computeExplanation(const int i, const bool fixedP
       if (p != i and lct(p) > lct(j) and lst(p) < ect(p) and lst(p) < lct(j) and ect(p) > t and i != n){
         auto saved_sign{sign};
         sign = bound::lower;
-        explanation[h].push_back(task[p].start.after(lst(p)));
-        explanation[h].push_back(task[p].end.before(ect(p)));
+        explanation[h].push_back(task[p].start.before(lst(p)));
+        explanation[h].push_back(task[p].end.after(ect(p)));
         sign = saved_sign;
       }
     }
