@@ -706,6 +706,7 @@ template <typename T> void CumulativeEdgeFinding<T>::propagate() {
             return;
         }
 #endif
+    
  
     
   sign = bound::lower;
@@ -727,6 +728,21 @@ template <typename T> void CumulativeEdgeFinding<T>::propagate() {
       }
     }
 #endif
+      
+      
+//      T min{Constant::Infinity<T>};
+//      T max{-Constant::Infinity<T>};
+//      for(auto i : lct_order) {
+//          if(est(i) < lst(i)) {
+//              min = std::min(min, est(i));
+//              max = std::max(max, lct(i));
+//          }
+//      }
+//      if(min > 0 or max < lct(lct_order.back())) {
+//          std::cout << static_cast<double>(max - min) / static_cast<double>(lct(lct_order.back())) << std::endl
+//          << "[" << min << ".." << max << "] / " << lct(lct_order.back()) << std::endl;
+//      }
+      
       
     initialiseProfile();
 
