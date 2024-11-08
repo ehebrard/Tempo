@@ -3553,7 +3553,7 @@ std::ostream &Solver<T>::displayHeader(std::ostream &os,
                                           const int width) const {
   os << std::right << std::setw(width)
      << " objective   failures   branches    nds/s    lvl   clauses  size";
-  os << "   cpu         wall time\n";
+  os << "   cpu         wall-time\n";
   return os;
 }
 
