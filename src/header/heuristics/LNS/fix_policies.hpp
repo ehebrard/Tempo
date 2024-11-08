@@ -24,16 +24,42 @@ namespace tempo::lns {
     PENUM(AssumptionMode, BestN, GreedySkip, GreedyInverse, Optimal)
 
     /**
-     * @brief Fix policy that simply takes the best N edges predicted by the GNN
+     * @brief Literal ordering type. Literals are ordered by their weight either in ascending or descending order or
+     * they are unordered
      */
+    enum class OrderType {
+        Unordered,
+        Ascending,
+        Descending
+    };
+
+    /**
+     * @brief Fix policy that simply takes the best N edges predicted by the GNN
+     * @tparam OT Assumes that literals are ordered by their weights according to the given ordering type
+     */
+    template<OrderType OT>
     struct BestN {
+
         constexpr void reset() noexcept {};
 
         template<concepts::scalar T, assumption_interface AI>
         std::size_t select(AI &proxy, std::size_t numLiterals, unsigned,
                            const std::vector<std::pair<Literal<T>, double>> & weightedLiterals) {
             using namespace std::views;
-            proxy.makeAssumptions(weightedLiterals | take(numLiterals) | elements<0>);
+            switch (OT) {
+                case OrderType::Unordered: {
+                    auto copy = weightedLiterals;
+                    std::ranges::sort(copy, {}, [](const auto &elem) { return -std::get<1>(elem); });
+                    proxy.makeAssumptions(copy | elements<0>);
+                    break;
+                }
+                case OrderType::Ascending:
+                    proxy.makeAssumptions(weightedLiterals | reverse | take(numLiterals) | elements<0>);
+                    break;
+                case OrderType::Descending:
+                    proxy.makeAssumptions(weightedLiterals | take(numLiterals) | elements<0>);
+                    break;
+            }
             return std::min(numLiterals, weightedLiterals.size());
         }
     };
@@ -41,11 +67,26 @@ namespace tempo::lns {
     /**
      * @brief Fix policy that tries to fix N edges in a greedy fashion
      * @tparam T timing type
+     * @tparam OT Assumes that literals are ordered by their weights according to the given ordering type
      */
-    template<concepts::scalar T>
+    template<concepts::scalar T, OrderType OT>
     class GreedyFix {
         std::vector<Literal<T>> cache;
         bool inverse;
+
+        auto getLiterals(const auto &weightedLits) const {
+            using namespace std::views;
+            using enum OrderType;
+            if constexpr (OT == Unordered) {
+                auto copy = weightedLits;
+                std::ranges::sort(copy, {}, [](const auto &elem) { return -std::get<1>(elem); });
+                return std::ranges::owning_view(std::move(copy)) | elements<0>;
+            } else if constexpr (OT == Ascending) {
+                return weightedLits | reverse | elements<0>;
+            } else {
+                return weightedLits | elements<0>;
+            }
+        }
     public:
         /**
          * Ctor
@@ -72,7 +113,7 @@ namespace tempo::lns {
             std::size_t litCount = 0;
             std::vector<Literal<T>> newAssumptions;
             newAssumptions.reserve(numLiterals);
-            for (auto lit: weightedLiterals | std::views::elements<0>) {
+            for (auto lit: getLiterals(weightedLiterals)) {
                 if (litCount == numLiterals) {
                     break;
                 }
@@ -316,6 +357,8 @@ public:
      */
     template<typename ...Ts>
     struct VariantFix : public std::variant<Ts...> {
+        using std::variant<Ts...>::variant;
+
         DYNAMIC_DISPATCH_VOID(reset, EMPTY)
 
         DYNAMIC_DISPATCH_FORWARD(select, EMPTY)

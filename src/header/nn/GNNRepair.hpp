@@ -39,7 +39,8 @@ namespace tempo::nn {
      */
     template<concepts::scalar T, SchedulingResource R>
     class GNNRepair {
-        using FixPolicy = lns::VariantFix<lns::BestN, lns::GreedyFix<T>, lns::OptimalFix<T>>;
+        using FixPolicy = lns::VariantFix<lns::BestN<lns::OrderType::Descending>,
+                lns::GreedyFix<T, lns::OrderType::Descending>, lns::OptimalFix<T>>;
         GNNPrecedencePredictor<T, R> predictor;
         mutable tempo::util::Profiler profiler{};
         std::vector<std::pair<Literal<T>, double>> gnnCache;
@@ -99,12 +100,14 @@ namespace tempo::nn {
             }
 
             using enum lns::AssumptionMode;
+            using enum lns::OrderType;
+            using GF = lns::GreedyFix<T, lns::OrderType::Descending>;
             switch(assumptionMode) {
                 case GreedySkip:
-                    fixPolicy.template emplace<lns::GreedyFix<T>>(false);
+                    fixPolicy.template emplace<GF>(false);
                     break;
                 case GreedyInverse:
-                    fixPolicy.template emplace<lns::GreedyFix<T>>(true);
+                    fixPolicy.template emplace<GF>(true);
                     break;
                 case Optimal:
                     fixPolicy.template emplace<lns::OptimalFix<T>>(100, 50, false);
