@@ -67,7 +67,7 @@ using hint = int;
 //#define DBG_BELLMAN_EXPL (sched.num_choicepoints >= 4172)
 //#define DEBUG_HEURISTICS
 //#define DBG_UP
-//#define DBG_CL 47
+#define DBG_CL 100000000
 //#define
 //#define DBG_CLPLUS 1000000000
 //#define DBG_TRANSITIVITY true //(m_schedule.num_choicepoints >= 4064)
@@ -79,7 +79,7 @@ using hint = int;
 //#define DBG_FTRANS true //m_solver.num_choicepoints >= 900
 //#define DBG_BELLMAN_FT true
 //#define DBG_EXPL_FTRANS true
-//#define DBG_SEF solver.num_cons_propagations >= 9805
+//#define DBG_SEF true solver.num_cons_propagations >= 9805
 //solver.num_choicepoints >= 5708
 //(this->solver.num_cons_propagations >= 81918) //(this->id() == 1729 and m_solver.num_choicepoints >= 5708)
 //#define DBG_EXTRACT true

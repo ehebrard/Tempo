@@ -27,7 +27,7 @@ along with minicsp.  If not, see <http://www.gnu.org/licenses/>.
 
 #include "Solver.hpp"
 #include "heuristics/Greedy.hpp"
-#include "util/parsing/rcpsp.hpp"
+#include "util/parsing/psplib.hpp"
 
 
 using namespace tempo;
@@ -65,7 +65,7 @@ int main(int argc, char *argv[]) {
     std::vector<Interval<>> intervals;
     std::vector<std::pair<int, int>> precedences;
 
-    rcpsp::parse(opt.instance_file, S, schedule, intervals, tasks_requirements,
+    psplib::parse(opt.instance_file, S, schedule, intervals, tasks_requirements,
                  task_demands, resource_capacities, precedences);
 
     std::vector<std::vector<Interval<int>>> resource_tasks(

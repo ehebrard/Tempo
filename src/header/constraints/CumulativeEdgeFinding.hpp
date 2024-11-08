@@ -228,7 +228,8 @@ public:
   T mindemand(const unsigned i) const;
   T maxdemand(const unsigned i) const;
   T minenergy(const unsigned i) const;
-  //    bool hasFixedPart(const unsigned i) const;
+      bool hasFixedPart(const unsigned i) const;
+    bool isLstWithoutFixedPart(const unsigned i) const;
   //    T overlapedFixedPartEnergy(const unsigned i, const unsigned j) const;
   //    std::vector<T> overlapedFixedPartEnergy();
 
@@ -361,10 +362,10 @@ T CumulativeEdgeFinding<T>::minenergy(const unsigned i) const {
   return mindemand(i) * minduration(i);
 }
 
-//template <typename T>
-//bool CumulativeEdgeFinding<T>::hasFixedPart(const unsigned i) const {
-//  return lst(i) < ect(i);
-//}
+template <typename T>
+bool CumulativeEdgeFinding<T>::hasFixedPart(const unsigned i) const {
+  return lst(i) < ect(i);
+}
 
 // template <typename T>
 // T CumulativeEdgeFinding<T>::overlapedFixedPartEnergy(const unsigned i, const
@@ -480,6 +481,15 @@ template <typename T> void CumulativeEdgeFinding<T>::clearData() {
   }
 }
 
+template <typename T> bool CumulativeEdgeFinding<T>::isLstWithoutFixedPart(const unsigned evt) const {
+    if(timetable_reasoning and ((evt-1) % 4) == 3) {
+        if(not hasFixedPart((evt-1) / 4)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 template <typename T> void CumulativeEdgeFinding<T>::initialiseProfile() {
 
   profile.clear();
@@ -513,16 +523,48 @@ template <typename T> void CumulativeEdgeFinding<T>::initialiseProfile() {
   // populate the profile and merges duplicate times
   profile.add_front(event_ordering[0]);
   auto previous{event_ordering[0]};
+    
+//    auto x = previous-1;
+//    std::cout << " -" ;
+//    switch(x % 4) {
+//        case 0 : std::cout << "est";
+//            break;
+//        case 1 : std::cout << "ect";
+//            break;
+//        case 2 : std::cout << "lct";
+//            break;
+//        default: std::cout << "lst";
+//            break;
+//    }
+//    std::cout << "(" << task[(x / 4)].id() << ") = " << profile[previous].time << " (" << prettyTask(x / 4) << ") -- " << hasFixedPart(x/4) << "\n";
+//
+    
   for (unsigned i{1}; i < event_ordering.size(); ++i) {
     auto current{event_ordering[i]};
+      if(isLstWithoutFixedPart(current))
+          continue;
+      
+//      if(timetable_reasoning and ((current-1) % 4) == 3) {
+//          if(not hasFixedPart((current-1) / 4)) {
+//              continue;
+//          }
+//      }
+  
+      
     if (profile[previous].time == profile[current].time) {
       get_shared_pointer(current) = previous;
+//        std::cout << "point to previous\n";
     } else {
       get_shared_pointer(current) = current;
       profile.add_after(previous, current);
+//        std::cout << "add new\n";
       previous = current;
     }
   }
+//    
+//    std::cout << profile << std::endl;
+//    
+//    exit(1);
 
   // add tasks in lct order and make overload checks along the way
   leftcut_pointer = 0;
@@ -642,8 +684,6 @@ template <typename T> void CumulativeEdgeFinding<T>::growLeftCutToTime(const T t
 
 template <typename T> void CumulativeEdgeFinding<T>::propagate() {
     
- 
-    
 #ifdef STATS
     bool doprop{true};
     if(num_prop > 100) {
@@ -687,7 +727,7 @@ template <typename T> void CumulativeEdgeFinding<T>::propagate() {
       }
     }
 #endif
-
+      
     initialiseProfile();
 
 #ifdef DBG_SEF
@@ -1134,11 +1174,8 @@ template <typename T> void CumulativeEdgeFinding<T>::adjustment() {
     if (DBG_SEF and debug_flag > 3) {
       std::cout << prettyTask(i) << "\n"
                 << prettyTask(j) << "\n"
-                << "available = " << available << "\n"
                 << "t1 = " << profile[t1].time << ", ov=" << data[t1].overlap
                 << ", su=" << data[t1].slackUnder << "\n"
-                << "t2 = " << profile[t2].time << ", ov=" << data[t2].overlap
-                << ", su=" << data[t2].slackUnder << "\n"
                 << "t3 = " << profile[t3].time << ", ov=" << data[t3].overlap
                 << ", su=" << data[t3].slackUnder << "\n";
     }
@@ -1366,12 +1403,12 @@ void CumulativeEdgeFinding<T>::computeExplanation(const int i, const bool fixedP
   auto k{leftcut_pointer - 1};
   auto j{lct_order[k]};
 
-  if (i != n and lct(j) != lct(prec[i])) {
-    std::cout << "bug prec[" << task[i].id() << "] = " << task[prec[i]].id()
-              << " lct(Omega) = " << lct(j) << " / lct(prec) = " << lct(prec[i])
-              << " @" << solver.num_cons_propagations << "\n";
-    exit(1);
-  }
+//  if (i != n and lct(j) != lct(prec[i])) {
+//    std::cout << "bug prec[" << task[i].id() << "] = " << task[prec[i]].id()
+//              << " lct(Omega) = " << lct(j) << " / lct(prec) = " << lct(prec[i])
+//              << " @" << solver.num_cons_propagations << "\n";
+//    exit(1);
+//  }
 
   assert(i == n or lct(j) == lct(prec[i]));
 
