@@ -205,8 +205,15 @@ private:
   Reversible<size_t> num_explanations;
   std::vector<Literal<T>> pruning;
     
+    unsigned median_pruning_level{0};
+    long unsigned int median_pruning{0};
+    long unsigned int total_pruning{0};
+//    long unsigned int total_calls{0};
+//    std::vector<long unsigned int> num_calls;
+    std::vector<long unsigned int> num_pruning;
+    
 #ifdef STATS
-    long unsigned int num_prop{0};
+//    long unsigned int num_prop{0};
     long unsigned int num_useful{0};
     long unsigned int num_pruning{0};
 #endif
@@ -469,7 +476,11 @@ template <typename T> void CumulativeEdgeFinding<T>::post(const int idx) {
 
 template <typename T>
 bool CumulativeEdgeFinding<T>::notify(const Literal<T>, const int) {
-  return true;
+//    auto lvl = static_cast<unsigned>(solver.level());
+//    if(lvl >= num_pruning.size() or lvl < median_pruning_level-3)
+//        return true;
+//    return false;
+    return true;
 }
 
 template <typename T> void CumulativeEdgeFinding<T>::clearData() {
@@ -691,7 +702,7 @@ template <typename T> void CumulativeEdgeFinding<T>::propagate() {
         if(ratio < 0.1) {
             auto r{tempo::random()};
             
-//            std::cout << (r%100) << " <= " << static_cast<unsigned long>(ratio * 1000) << "?\n";
+            //            std::cout << (r%100) << " <= " << static_cast<unsigned long>(ratio * 1000) << "?\n";
             
             if((r%100) <= static_cast<unsigned long>(ratio * 1000))
             {
@@ -699,73 +710,134 @@ template <typename T> void CumulativeEdgeFinding<T>::propagate() {
             }
         }
     }
- 
-        if(doprop) {
-            ++num_prop;
-        } else {
-            return;
-        }
-#endif
     
- 
-    
-  sign = bound::lower;
-
-  do {
-    pruning.clear();
-
-    std::sort(lct_order.begin(), lct_order.end(),
-              [this](const int i, const int j) { return lct(i) < lct(j); });
-
-#ifdef DBG_SEF
-    if (DBG_SEF and debug_flag > 0) {
-      std::cout << "\n\nstart ("
-                << (sign == bound::lower ? "forward" : "backward")
-                << ") propagation (" << capacity.max(solver) << ")\n";
-      for (auto j : lct_order) {
-        std::cout << "task " << std::setw(3) << task[j].id() << ": "
-                  << asciiArt(j) << std::endl;
-      }
+    if(doprop) {
+        ++num_prop;
+    } else {
+        return;
     }
 #endif
-      
-      
-//      T min{Constant::Infinity<T>};
-//      T max{-Constant::Infinity<T>};
-//      for(auto i : lct_order) {
-//          if(est(i) < lst(i)) {
-//              min = std::min(min, est(i));
-//              max = std::max(max, lct(i));
-//          }
-//      }
-//      if(min > 0 or max < lct(lct_order.back())) {
-//          std::cout << static_cast<double>(max - min) / static_cast<double>(lct(lct_order.back())) << std::endl
-//          << "[" << min << ".." << max << "] / " << lct(lct_order.back()) << std::endl;
-//      }
-      
-      
-    initialiseProfile();
-
+    
+//    ++num_prop;
+    size_t l = static_cast<size_t>(solver.level());
+    if(num_pruning.size() <= l) {
+//        num_calls.resize(l+1,0);
+        num_pruning.resize(l+1,0);
+    }
+//    num_calls[l] += 1;
+    
+    
+    sign = bound::lower;
+    
+    
+    unsigned some_pruning{0};
+    
+    do {
+        pruning.clear();
+        
+        std::sort(lct_order.begin(), lct_order.end(),
+                  [this](const int i, const int j) { return lct(i) < lct(j); });
+        
 #ifdef DBG_SEF
-    verify("after init-profile");
+        if (DBG_SEF and debug_flag > 0) {
+            std::cout << "\n\nstart ("
+            << (sign == bound::lower ? "forward" : "backward")
+            << ") propagation (" << capacity.max(solver) << ")\n";
+            for (auto j : lct_order) {
+                std::cout << "task " << std::setw(3) << task[j].id() << ": "
+                << asciiArt(j) << std::endl;
+            }
+        }
 #endif
-
-    detection();
-
+        
+        
+        //      T min{Constant::Infinity<T>};
+        //      T max{-Constant::Infinity<T>};
+        //      for(auto i : lct_order) {
+        //          if(est(i) < lst(i)) {
+        //              min = std::min(min, est(i));
+        //              max = std::max(max, lct(i));
+        //          }
+        //      }
+        //      if(min > 0 or max < lct(lct_order.back())) {
+        //          std::cout << "[" << min << ".." << max << "]" << std::endl;
+        //      }
+        
+        
+        initialiseProfile();
+        
 #ifdef DBG_SEF
-    verify("after detection");
+        verify("after init-profile");
 #endif
-
-    adjustment();
-
+        
+        detection();
+        
 #ifdef DBG_SEF
-    verify("after adjustment");
+        verify("after detection");
 #endif
-
-    doPruning();
-    sign ^= 1;
-  } while (sign != bound::lower);
+        
+        adjustment();
+        
+#ifdef DBG_SEF
+        verify("after adjustment");
+#endif
+        
+        if(not pruning.empty()) {
+            some_pruning += pruning.size();
+            doPruning();
+        }
+        sign ^= 1;
+    } while (sign != bound::lower);
+    
+    if(some_pruning) {
+//        auto update{false};
+        num_pruning[l] += some_pruning;
+        total_pruning += some_pruning;
+        
+//        if(this->id() == 1729)
+//            std::cout << this->id() << ": pruning @" << l << " (total=" << total_pruning << ", median=" << median_pruning << " @" << median_pruning_level << ")" << std::endl;
+        
+        if(l <= median_pruning_level) {
+            median_pruning += some_pruning;
+        }
+        if(l < median_pruning_level) {
+            while(2 * (median_pruning - num_pruning[median_pruning_level]) > total_pruning) {
+                median_pruning -= num_pruning[median_pruning_level--];
+                
+//                if(median_pruning > total_pruning) {
+//                    std::cout << "bug on " << this->id() << std::endl;
+//                    exit(1);
+//                }
+                
+//                update = true;
+            }
+        } else if(l > median_pruning_level) {
+            while(2 * median_pruning <= total_pruning) {
+                median_pruning += num_pruning[++median_pruning_level];
+//                update = true;
+            }
+        }
+        
+//        if(this->id() == 1729 and update) {
+//            for(unsigned i{0}; i<num_pruning.size(); ++i) {
+//                if(i == median_pruning_level)
+//                    std::cout << " **" << num_pruning[i] ;
+//                else
+//                    std::cout << " " << num_pruning[i] ;
+//            }
+//            std::cout << std::endl;
+//        }
+    }
+    
+//    if((num_prop % 1000) == 0) {
+//        for(unsigned i{0}; i<num_calls.size(); ++i) {
+//            std::cout << i << ": " << num_pruning[i] << "/" << num_calls[i] << std::endl;
+//        }
+//    }
+    
 }
+
+
 
 template <typename T> void CumulativeEdgeFinding<T>::addPrime(const int i, const int j) {
 
@@ -1262,6 +1334,8 @@ template <typename T> void CumulativeEdgeFinding<T>::detection() {
   auto n{static_cast<int>(lct_order.size())};
   std::vector<T> externalEnergy;
   externalEnergy.resize(n, 0);
+    
+    // A garder
   /*if (timetable_reasoning) {
     externalEnergy = energyFixedPartExternalTasks();
   }*/
