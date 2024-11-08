@@ -836,7 +836,7 @@ void CumulativeEdgeFinding<T>::computeBound(const int i, std::vector<T> external
   alpha = -1;
   beta = -1;
   T minSlack[2] = {Constant::Infinity<T>, Constant::Infinity<T>};
-  if (timetable_reasoning){
+  //if (timetable_reasoning){
     for (auto j : lct_order) {
       if (lct(j) == lct(i))
         break;
@@ -855,7 +855,7 @@ void CumulativeEdgeFinding<T>::computeBound(const int i, std::vector<T> external
         }
       }
     }
-  } else{
+  /*} else{
     for (auto j : lct_order) {
       if (lct(j) == lct(i))
         break;
@@ -874,7 +874,7 @@ void CumulativeEdgeFinding<T>::computeBound(const int i, std::vector<T> external
         }
       }
     }
-  }
+  }*/
 }
 
 template <typename T>
@@ -1100,6 +1100,15 @@ template <typename T> void CumulativeEdgeFinding<T>::adjustment() {
     auto i{in_conflict.back()};
 
     auto j{prec[i]};
+    auto minEct{Constant::Infinity<T>};
+    auto minEnergy{Constant::Infinity<T>};
+    auto time{profile[contact[i]].time};
+    for (auto k : lct_order){
+        if (ect(k) > time and lct(k) <= lct(j)){
+          minEct = std::min(minEct, ect(k));
+          minEnergy = std::min(minEnergy, minenergy(k));
+        }
+    }
 
     // compute the profile without i, but to record the overlap and
     // slackUnder
@@ -1149,6 +1158,8 @@ template <typename T> void CumulativeEdgeFinding<T>::adjustment() {
     }*/
     //std::cout<< "t3 " << t3 << " t1 " << t1 << std::endl;
     maxoverflow = data[t3].overlap - data[t3].slackUnder - data[t1].overlap + data[t1].slackUnder;
+    if (isFeasible[i] and minEnergy > data[t3].slackUnder - data[t1].slackUnder)
+        maxoverflow = data[t3].overlap - data[t1].overlap;
 
 #ifdef DBG_SEF
     if (DBG_SEF and debug_flag > 3) {
@@ -1170,13 +1181,12 @@ template <typename T> void CumulativeEdgeFinding<T>::adjustment() {
       } else {
         adjustment = std::min(
             next->time,
-            t->time + maxoverflow / (data[t.index].consumption -
-                                     capacity.max(solver) + mindemand(i)));
+            t->time + maxoverflow / (data[t.index].consumption - capacity.max(solver) + mindemand(i)));
         break;
       }
     }
 
-    pruning.push_back(task[i].start.after(adjustment));
+    pruning.push_back(task[i].start.after(std::max(adjustment, minEct)));
     computeExplanation(i, timetable_reasoning);
 
     in_conflict.pop_back();
@@ -1199,9 +1209,9 @@ template <typename T> void CumulativeEdgeFinding<T>::detection() {
   auto n{static_cast<int>(lct_order.size())};
   std::vector<T> externalEnergy;
   externalEnergy.resize(n, 0);
-  if (timetable_reasoning) {
+  /*if (timetable_reasoning) {
     externalEnergy = energyFixedPartExternalTasks();
-  }
+  }*/
 
 
 
@@ -1246,15 +1256,15 @@ template <typename T> void CumulativeEdgeFinding<T>::detection() {
       if (lct(i) != ect(i)) {
         if (est(i) < lct(j)) {
 
-          if (timetable_reasoning) {
+          /*if (timetable_reasoning) {
             addExternalFixedPart(i, j);
-          }
+          }*/
           addPrime(i, j);
           scheduleOmega(i, lct(j));
           rmPrime(i, j);
-          if (timetable_reasoning) {
+          /*if (timetable_reasoning) {
             rmExternalFixedPart(i, j);
-          }
+          }*/
 
           computeBound(i, externalEnergy);
 
