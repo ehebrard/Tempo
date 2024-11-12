@@ -134,7 +134,7 @@ private:
   std::vector<Interval<T>> task;
   std::vector<NumericVar<T>> demand;
     
-    Matrix<Literal<T>> precedence;
+    Matrix<Literal<T>> not_before;
     
   bool sign{bound::lower};
   bool timetable_reasoning{true};
@@ -247,6 +247,11 @@ public:
   void detection();
   void addPrime(const int i, const int j);
   void rmPrime(const int i, const int j);
+    
+    void add_j_representation(const int i, const int j);
+    void rm_j_representation(const int i, const int j);
+    void add_i_representation(const int i, const int j);
+    void rm_i_representation(const int i, const int j);
 
   void addExternalFixedPart(const int i, const int j);
   void rmExternalFixedPart(const int i, const int j);
@@ -380,7 +385,7 @@ template <typename ItTask, typename ItNVar>
 CumulativeOverlapFinding<T>::CumulativeOverlapFinding(
     Solver<T> &solver, const Interval<T> sched, const NumericVar<T> cap,
     const ItTask beg_task, const ItTask end_task, const ItNVar beg_dem, Matrix<Literal<T>> lits, const bool tt)
-    : solver(solver), timetable_reasoning(tt), num_explanations(0, &(solver.getEnv())) {
+    : solver(solver), not_before(std::move(lits)), timetable_reasoning(tt), num_explanations(0, &(solver.getEnv())) {
   schedule = sched, capacity = cap;
 
   Constraint<T>::priority = Priority::Low;
@@ -424,6 +429,21 @@ CumulativeOverlapFinding<T>::CumulativeOverlapFinding(
   std::iota(lct_order.begin(), lct_order.end(), 0);
   event_ordering.resize(profile.size());
   std::iota(event_ordering.begin(), event_ordering.end(), 1);
+        
+//        std::cout << capacity.max(solver) << std::endl;
+//        for(unsigned i{0}; i<task.size(); ++i) {
+//            
+//            std::cout << std::endl << std::endl;
+//            for(unsigned j{0}; j<task.size(); ++j) {
+//                std::cout << task[i].start.id() << ":" << demand[i].min(solver) << " <> " << task[j].start.id() << ":" << demand[j].min(solver)
+//                 << " -- " << solver.pretty(not_before(i,j)) << " // "
+//                 << solver.pretty(~not_before(i,j)) << std::endl;
+//            }
+//            
+//        }
+//        
+//        exit(1);
+        
 }
 
 template <typename T> CumulativeOverlapFinding<T>::~CumulativeOverlapFinding() {}
@@ -638,9 +658,6 @@ template <typename T> void CumulativeOverlapFinding<T>::growLeftCutToTime(const 
 }
 
 template <typename T> void CumulativeOverlapFinding<T>::propagate() {
-
-
-std::cout<< "hello "<< std::endl;
     
 #ifdef STATS
     bool doprop{true};
@@ -714,34 +731,34 @@ template <typename T> void CumulativeOverlapFinding<T>::forwardpropagate() {
         setLeftCutToTime(lct(j) + Gap<T>::epsilon());
         auto ect{scheduleomega(j, lct(j))};
         if (ect > lct(j)) {
-          auto h{static_cast<hint>(num_explanations)};
-          computeExplanation(j);
-          throw Failure<T>({this, h});
+            auto h{static_cast<hint>(num_explanations)};
+            computeExplanation(j);
+            throw Failure<T>({this, h});
         } else {
             for (auto i : lct_order) {
                 if (i != j and (ect(i) > est(j) or lct(i) > lst(j))) {
                     rmTask(j);
-                    add_j_reprensetation(i,j);
+                    add_j_representation(i,j);
                     if (lct(i) <= lct(j)) {
                         rmTask(i);
                     }
-                    add_i_reprensetation(i,j);
+                    add_i_representation(i,j);
                     auto ect_h{scheduleomega(j, lct(j))};
-                    if (ect_h > lct(j) {
+                    if (ect_h > lct(j)) {
                         // filte the variable b_i_j to false
                     }
-                    rm_j_reprensetation(i,j);
-                    rm_i_reprensetation(i,j);
+                    rm_j_representation(i,j);
+                    rm_i_representation(i,j);
                 }
             }
         }
     }
 }
 
-template <typename T> void CumulativeOverlapFinding<T>::add_j_reprensetation(const int i, const int j) {
+template <typename T> void CumulativeOverlapFinding<T>::add_j_representation(const int i, const int j) {
     profile[ect_shared[i]].increment += mindemand(j);
     profile[ect_shared[i]].incrementMax += mindemand(j);
-    auto next{profile.at(ect_share[j])};
+    auto next{profile.at(ect_shared[j])};
     while (next->time < ect(i) + minduration(j))
         ++next;
     if (next->time == ect(i) + minduration(j))
@@ -754,16 +771,16 @@ template <typename T> void CumulativeOverlapFinding<T>::add_j_reprensetation(con
     profile[lct_shared[j]].incrementMax -= mindemand(i);
 }
 
-  template <typename T> void CumulativeOverlapFinding<T>::rm_j_reprensetation(const int i, const int j) {
+  template <typename T> void CumulativeOverlapFinding<T>::rm_j_representation(const int, const int) {
 
 }
 
-template <typename T> void CumulativeOverlapFinding<T>::add_i_reprensetation(const int i, const int j) {
+template <typename T> void CumulativeOverlapFinding<T>::add_i_representation(const int, const int) {
 
 
 }
 
-template <typename T> void CumulativeOverlapFinding<T>::rm_i_reprensetation(const int i, const int j) {
+template <typename T> void CumulativeOverlapFinding<T>::rm_i_representation(const int, const int) {
 
 
 }
