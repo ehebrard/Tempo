@@ -1927,6 +1927,11 @@ public:
         }
 //#endif
         
+        if (solver.getOptions().overlap_finding) {
+                  solver.postOverlapFinding(schedule, capacity,
+                  this->begin(), this->end(), this->begDemand(), solver.getOptions().tt_edge_finding);
+        }
+        
       if (solver.getOptions().time_tabling) {
         solver.postTimetabling(capacity, this->begin(), this->end(),
                                this->begDemand());

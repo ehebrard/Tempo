@@ -73,6 +73,11 @@ auto tempo::getBaseParser() -> Parser {
     cmd.add<SwitchArg>(opt.edge_finding, "", "no-edge-finding",
                        "do not use edge-finding", true);
     
+    cmd.add<SwitchArg>(opt.overlap_finding, "", "overlap-finding", "use overlap-finding",
+                       false);
+    cmd.add<SwitchArg>(opt.overlap_finding, "", "no-overlap-finding",
+                       "do not use overlap-finding", true);
+    
     cmd.add<SwitchArg>(opt.tt_edge_finding, "", "tt-ef", "use timetabling reasoning within edge-finding",
                        false);
     cmd.add<SwitchArg>(opt.tt_edge_finding, "", "no-tt-ef",

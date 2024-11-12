@@ -109,6 +109,7 @@ public:
 
   bool learning{true};
   bool edge_finding{true};
+    bool overlap_finding{true};
     bool time_tabling{true};
     bool tt_edge_finding{true};
   bool transitivity{true};

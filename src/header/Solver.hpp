@@ -38,6 +38,7 @@
 #include "constraints/Cardinality.hpp"
 #include "constraints/CumulativeCheck.hpp"
 #include "constraints/CumulativeEdgeFinding.hpp"
+#include "constraints/CumulativeOverlapFinding.hpp"
 #include "constraints/CumulativeTimetabling.hpp"
 #include "constraints/DisjunctiveEdgeFinding.hpp"
 #include "constraints/EdgeConstraint.hpp"
@@ -553,6 +554,12 @@ public:
     // create and post the strong edge-finding propagator for the cumulative constraint
     template <typename ItTask, typename ItNVar>
     void postStrongEdgeFinding(const Interval<T> s, const NumericVar<T> c,
+                               const ItTask beg_task, const ItTask end_task,
+                               const ItNVar beg_dem, const bool tt);
+    
+    // create and post the strong edge-finding propagator for the cumulative constraint
+    template <typename ItTask, typename ItNVar>
+    void postOverlapFinding(const Interval<T> s, const NumericVar<T> c,
                                const ItTask beg_task, const ItTask end_task,
                                const ItNVar beg_dem, const bool tt);
     
@@ -3515,6 +3522,14 @@ void Solver<T>::postStrongEdgeFinding(
     const Interval<T> s, const NumericVar<T> c, const ItTask beg_task,
     const ItTask end_task, const ItNVar beg_dem, const bool tt) {
   post(new CumulativeEdgeFinding<T>(*this, s, c, beg_task, end_task, beg_dem, tt));
+}
+
+template <typename T>
+template <typename ItTask, typename ItNVar>
+void Solver<T>::postOverlapFinding(
+    const Interval<T> s, const NumericVar<T> c, const ItTask beg_task,
+    const ItTask end_task, const ItNVar beg_dem, const bool tt) {
+  post(new CumulativeOverlapFinding<T>(*this, s, c, beg_task, end_task, beg_dem, tt));
 }
 
 template <typename T> double Solver<T>::looseness(const Literal<T> &l) const {
