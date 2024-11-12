@@ -39,90 +39,90 @@
 #include "Explanation.hpp"
 #include "Global.hpp"
 #include "Model.hpp"
-#include "constraints/Constraint.hpp"
+#include "constraints/CumulativeEdgeFinding.hpp"
 #include "util/List.hpp"
 namespace tempo {
 
-template <typename T = int> struct Timepoint {
+//template <typename T = int> struct Timepoint {
+//
+//  Timepoint() {}
+//  Timepoint(T time, T increment, T incrementMax)
+//      : time(time), increment(increment), incrementMax(incrementMax) {}
+//
+//  T time{0};
+//  T increment{0};
+//  T incrementMax{0};
+//
+//  void merge(const Timepoint<T> &t) {
+//    assert(t.time == time);
+//
+//    increment += t.increment;
+//    incrementMax += t.incrementMax;
+//  }
+//
+//  std::ostream &display(std::ostream &os) const {
+//    os << "(t=" << time << "|∂=" << increment << "|∂max=" << incrementMax
+//       << ")";
+//    return os;
+//  }
+//};
 
-  Timepoint() {}
-  Timepoint(T time, T increment, T incrementMax)
-      : time(time), increment(increment), incrementMax(incrementMax) {}
 
-  T time{0};
-  T increment{0};
-  T incrementMax{0};
+//template <typename T = int> struct Datapoint {
+//
+//  Datapoint() {}
+//  Datapoint(const T overflow, const T consumption, const T overlap,
+//            const T slackUnder, const T available)
+//      : overflow(overflow), consumption(consumption), overlap(overlap),
+//        slackUnder(slackUnder), available(available) {}
+//
+//  T overflow{0};
+//  T consumption{0};
+//  T overlap{0};
+//  T slackUnder{0};
+//  T available{0};
+//
+//  void reset() {
+//    overflow = 0;
+//    consumption = 0;
+//    overlap = 0;
+//    slackUnder = 0;
+//    available = 0;
+//  }
+//
+//  bool empty() {
+//    return (overflow == 0 and consumption == 0 and overlap == 0 and
+//            slackUnder == 0 and available == 0);
+//  }
+//
+//  std::ostream &display(std::ostream &os) const {
+//    if (overflow > 0)
+//      os << "overflow=" << overflow;
+//    if (consumption > 0)
+//      os << " consumption=" << consumption;
+//    if (overlap > 0)
+//      os << " overlap=" << overlap;
+//    if (slackUnder > 0)
+//      os << " slackUnder=" << slackUnder;
+//    if (available > 0)
+//      os << " available=" << available;
+//
+//    return os;
+//  }
+//};
+//
+//template <typename T>
+//std::ostream &operator<<(std::ostream &os, const Timepoint<T> &x) {
+//  return x.display(os);
+//}
+//
+//template <typename T>
+//std::ostream &operator<<(std::ostream &os, const Datapoint<T> &x) {
+//  return x.display(os);
+//}
 
-  void merge(const Timepoint<T> &t) {
-    assert(t.time == time);
-
-    increment += t.increment;
-    incrementMax += t.incrementMax;
-  }
-
-  std::ostream &display(std::ostream &os) const {
-    os << "(t=" << time << "|∂=" << increment << "|∂max=" << incrementMax
-       << ")";
-    return os;
-  }
-};
-
-
-template <typename T = int> struct Datapoint {
-
-  Datapoint() {}
-  Datapoint(const T overflow, const T consumption, const T overlap,
-            const T slackUnder, const T available)
-      : overflow(overflow), consumption(consumption), overlap(overlap),
-        slackUnder(slackUnder), available(available) {}
-
-  T overflow{0};
-  T consumption{0};
-  T overlap{0};
-  T slackUnder{0};
-  T available{0};
-
-  void reset() {
-    overflow = 0;
-    consumption = 0;
-    overlap = 0;
-    slackUnder = 0;
-    available = 0;
-  }
-
-  bool empty() {
-    return (overflow == 0 and consumption == 0 and overlap == 0 and
-            slackUnder == 0 and available == 0);
-  }
-
-  std::ostream &display(std::ostream &os) const {
-    if (overflow > 0)
-      os << "overflow=" << overflow;
-    if (consumption > 0)
-      os << " consumption=" << consumption;
-    if (overlap > 0)
-      os << " overlap=" << overlap;
-    if (slackUnder > 0)
-      os << " slackUnder=" << slackUnder;
-    if (available > 0)
-      os << " available=" << available;
-
-    return os;
-  }
-};
-
-template <typename T>
-std::ostream &operator<<(std::ostream &os, const Timepoint<T> &x) {
-  return x.display(os);
-}
-
-template <typename T>
-std::ostream &operator<<(std::ostream &os, const Datapoint<T> &x) {
-  return x.display(os);
-}
-
-template<typename T>
-class Solver;
+//template<typename T>
+//class Solver;
 
 template <typename T> class CumulativeOverlapFinding : public Constraint<T> {
 private:
@@ -627,7 +627,7 @@ template <typename T> void CumulativeOverlapFinding<T>::growLeftCutToTime(const 
 }
 
 template <typename T> void CumulativeOverlapFinding<T>::propagate() {
-
+    
 #ifdef STATS
     bool doprop{true};
     if(num_prop > 100) {
