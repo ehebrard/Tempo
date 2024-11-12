@@ -301,27 +301,36 @@ std::string CumulativeEdgeFinding<T>::prettyTask(const int i) const {
 
 template <typename T>
 std::string CumulativeEdgeFinding<T>::asciiArt(const int i) const {
-  std::stringstream ss;
-  ss << std::setw(3) << std::right << mindemand(i) << "x" << std::setw(3)
-     << std::left << minduration(i) << " " << std::right;
-  for (auto k{0}; k < est(i); ++k) {
-    ss << " ";
-  }
-  ss << "[";
-  for (auto k{est(i) + 1}; k < ect(i); ++k) {
-    ss << "=";
-  }
-  if (ect(i) < lct(i))
-    ss << "|";
-  if (lct(i) == Constant::Infinity<T>) {
-    ss << "... " << est(i) << "...";
-  } else {
-    for (auto k{ect(i) + 1}; k < lct(i); ++k) {
-      ss << ".";
+    std::stringstream ss;
+    ss << std::setw(3) << std::right << mindemand(i) << "x" << std::setw(3)
+    << std::left << minduration(i) << " " << std::right;
+    for (auto k{0}; k < est(i); ++k) {
+        ss << " ";
     }
-    ss << "] " << est(i) << "-" << ect(i) << ".." << lct(i);
-  }
-  return ss.str();
+    auto est_i{est(i)};
+    auto ect_i{ect(i)};
+    
+    if (est_i == -Constant::Infinity<T>) {
+        ss << "..." ;
+        est_i = -1;
+        ect_i = minduration(i);
+    } else {
+        ss << "[";
+    }
+    for (auto k{est_i + 1}; k < ect(i); ++k) {
+        ss << "=";
+    }
+    if (ect_i < lct(i))
+        ss << "|";
+    if (lct(i) == Constant::Infinity<T>) {
+        ss << "... " << est(i) << "...";
+    } else {
+        for (auto k{ect_i + 1}; k < lct(i); ++k) {
+            ss << ".";
+        }
+        ss << "] " << est(i) << "-" << ect(i) << ".." << lct(i);
+    }
+    return ss.str();
 }
 
 template <typename T> T CumulativeEdgeFinding<T>::est(const unsigned i) const {
