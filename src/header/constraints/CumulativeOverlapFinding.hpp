@@ -134,7 +134,7 @@ private:
   std::vector<Interval<T>> task;
   std::vector<NumericVar<T>> demand;
     
-    Matrix<Literal<T>> not_before;
+  Matrix<Literal<T>> not_before;
     
   bool sign{bound::lower};
   bool timetable_reasoning{true};
@@ -715,7 +715,7 @@ template <typename T> void CumulativeOverlapFinding<T>::forwardpropagate() {
             throw Failure<T>({this, h});
         } else {
             for (auto i : lct_order) {
-                if (i != j and ect(i) <= lst(j) and (ect(i) > est(j) or lct(i) > lst(j))) {
+                if (i != j and solver.boolean.isUndefined(not_before(i,j).variable()) and (ect(i) > est(j) or lct(i) > lst(j))) {
                     
 #ifdef DBG_COF
     if (DBG_COF and debug_flag > 0) {
@@ -729,17 +729,19 @@ template <typename T> void CumulativeOverlapFinding<T>::forwardpropagate() {
                     
                     rmTask(j);
                     auto ect_j_event{add_j_representation(i,j)};
+
                     if (lct(i) <= lct(j)) {
                         rmTask(i);
                     }
                     auto lct_i_event{add_i_representation(i,j)};
+
                     auto ect_h{scheduleOmega(j, lct(j))};
                     if (ect_h > lct(j)) {
                         // filter the variable b_i_j to false
                         std::cout << "pruning!!: " << solver.pretty(not_before(i,j)) << "\n";
 //                        solver.set(not_before(i,j), {this})
                         pruning.push_back(not_before(i,j));
-                        computeExplanation(j, timetable_reasoning);
+                        computeExplanation(j);
                         exit(1);
                     }
                     rm_i_representation(i,lct_i_event);
@@ -787,9 +789,11 @@ template <typename T> int CumulativeOverlapFinding<T>::add_i_representation(cons
     profile[ect_shared[i]].increment -= mindemand(i);
     if(lct(i) <= lst(j)) {
         profile[lct_shared[i]].incrementMax -= mindemand(i);
-    } else if(timetable_reasoning) {
+        new_lct_i_event = lct_shared[i];
+    } /*else if(timetable_reasoning) {
         profile[lst_shared[j]].incrementMax -= mindemand(i);
-    } else {
+        new_lct_i_event = lst_shared[j];
+    }*/ else {
         auto target{lst(j)};
         auto t{profile.at(lct_shared[i])};
         while(target < t->time) {
