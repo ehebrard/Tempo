@@ -232,6 +232,12 @@ public:
   void post(const int idx) override;
   void propagate() override;
 
+
+
+
+
+  void forwardpropagate();
+
   void adjustment();
   void detection();
   void addPrime(const int i, const int j);
@@ -627,6 +633,9 @@ template <typename T> void CumulativeOverlapFinding<T>::growLeftCutToTime(const 
 }
 
 template <typename T> void CumulativeOverlapFinding<T>::propagate() {
+
+
+std::cout<< "hello "<< std::endl;
     
 #ifdef STATS
     bool doprop{true};
@@ -694,6 +703,66 @@ template <typename T> void CumulativeOverlapFinding<T>::propagate() {
     sign ^= 1;
   } while (sign != bound::lower);
 }
+
+template <typename T> void CumulativeOverlapFinding<T>::forwardpropagate() {
+    for (auto j : lct_order) {
+        setLeftCutToTime(lct(j) + Gap<T>::epsilon());
+        auto ect{scheduleomega(j, lct(j))};
+        if (ect > lct(j)) {
+          auto h{static_cast<hint>(num_explanations)};
+          computeExplanation(j);
+          throw Failure<T>({this, h});
+        } else {
+            for (auto i : lct_order) {
+                if (i != j and (ect(i) > est(j) or lct(i) > lst(j))) {
+                    rmTask(j);
+                    add_j_reprensetation(i,j);
+                    if (lct(i) <= lct(j)) {
+                        rmTask(i);
+                    }
+                    add_i_reprensetation(i,j);
+                    auto ect_h{scheduleomega(j, lct(j))};
+                    if (ect_h > lct(j) {
+                        // filte the variable b_i_j to false
+                    }
+                    rm_j_reprensetation(i,j);
+                    rm_i_reprensetation(i,j);
+                }
+            }
+        }
+    }
+}
+
+template <typename T> void CumulativeOverlapFinding<T>::add_j_reprensetation(const int i, const int j) {
+    profile[ect_shared[i]].increment += mindemand(j);
+    profile[ect_shared[i]].incrementMax += mindemand(j);
+    auto next{profile.at(ect_share[j])};
+    while (next->time < ect(i) + minduration(j))
+        ++next;
+    if (next->time == ect(i) + minduration(j))
+        profile[next].increment -= mindemand(j);
+    else {
+        auto new_event{makeNewEvent(ect(i) + minduration(j))};
+        profile.add_after(--next.index, new_event);
+        profile[++next].increment -= mindemand(j);
+    }
+    profile[lct_shared[j]].incrementMax -= mindemand(i);
+}
+
+  template <typename T> void CumulativeOverlapFinding<T>::rm_j_reprensetation(const int i, const int j) {
+
+}
+
+template <typename T> void CumulativeOverlapFinding<T>::add_i_reprensetation(const int i, const int j) {
+
+
+}
+
+template <typename T> void CumulativeOverlapFinding<T>::rm_i_reprensetation(const int i, const int j) {
+
+
+}
+
 
 template <typename T> void CumulativeOverlapFinding<T>::addPrime(const int i, const int j) {
 
