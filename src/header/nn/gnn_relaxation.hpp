@@ -154,7 +154,7 @@ namespace tempo::nn {
             tempo::util::ScopeWatch sw(profiler, "gnn lns policy update");
             auto sol = solutions.popLast();
             qualityFactor = solutions.getMakespan(sol) / static_cast<double>(solutions.bestMakespan());
-            predictor.updateConfidence(solver, sol);
+            predictor.updateConfidence(solver, sol.boolean);
             gnnCache = predictor.getLiterals();
             if (verbosity >= Options::YACKING) {
                 std::cout << "-- Updating GNN confidence values" << std::endl;

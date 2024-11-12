@@ -16,6 +16,7 @@
 #include "util/traits.hpp"
 #include "Literal.hpp"
 #include "Solver.hpp"
+#include "Solution.hpp"
 
 namespace tempo::lns {
 
@@ -82,7 +83,7 @@ namespace tempo::lns {
             }
 
             this->emplace_back(solver);
-            makespanValue = this->back().lower_bound(makespan);
+            makespanValue = this->back().numeric.lower(makespan);
         }
 
         T bestMakespan() const noexcept {
@@ -90,11 +91,11 @@ namespace tempo::lns {
         }
 
         T getMakespan() const noexcept {
-            return this->back().lower_bound(makespan);
+            return this->back().numeric.lower(makespan);
         }
 
         T getMakespan(const Solution<T> &sol) const noexcept {
-            return sol.lower_bound(makespan);
+            return sol.numeric.lower(makespan);
         }
     };
 

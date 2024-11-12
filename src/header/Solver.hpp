@@ -60,34 +60,6 @@ namespace tempo {
 //! T is the numeric variable domain type
 template<typename T> class Solver;
 
-template <typename T> class Solution {
-    
-public:
-    Solution();
-    Solution(const Solver<T> &);
-    void load(const Solver<T> &);
-    
-    bool value(const BooleanVar<T> x) const;
-    bool value(const var_t x) const;
-    bool solution_value(const var_t x) const;
-    
-    T lower_bound(const NumericVar<T> x) const;
-    T lower_bound(const var_t x) const;
-    
-    T upper_bound(const NumericVar<T> x) const;
-    T upper_bound(const var_t x) const;
-    
-    bool reachable(const Solver<T> &) const;
-    var_t discrepancy(const Solver<T> &) const;
-    
-    std::ostream &display(std::ostream &os) const;
-    std::istream &load(std::istream &is) ;
-    
-private:
-    std::vector<bool> boolean_variable;
-    std::vector<T> numeric_lower_bound;
-    std::vector<T> numeric_upper_bound;
-};
 
 //! Boolean variables and literals manager
 /*!
@@ -886,135 +858,6 @@ private:
 };
 
 
-template <typename T> Solution<T>::Solution() {}
-
-template <typename T> Solution<T>::Solution(const Solver<T> &solver) {
-    load(solver);
-}
-
-template <typename T> void Solution<T>::load(const Solver<T> &solver) {
-    var_t end_bool{static_cast<var_t>(solver.boolean.size())};
-    boolean_variable.resize(end_bool);
-    for(var_t i{0}; i<end_bool; ++i) {
-        boolean_variable[i] = solver.boolean.isTrue(i);
-    }
-    
-//    solver.boolean.bestSolution();
-    numeric_lower_bound = solver.numeric.bestSolution(bound::lower);
-    numeric_upper_bound = solver.numeric.bestSolution(bound::upper);
-}
-
-//template <typename T> void Solution<T>::push(const Solver<T> &solver) {
-//    boolean_variable = solver.boolean.bestSolution();
-//    numeric_lower_bound = solver.numeric.bestSolution(bound::lower);
-//    numeric_upper_bound = solver.numeric.bestSolution(bound::upper);
-//}
-
-template <typename T> bool Solution<T>::value(const BooleanVar<T> x) const {
-    return boolean_variable[x.id()];
-}
-
-template <typename T> bool Solution<T>::value(const var_t x) const {
-    return boolean_variable[x];
-}
-
-template <typename T> T Solution<T>::lower_bound(const NumericVar<T> x) const {
-    return -numeric_lower_bound[x.id()];
-}
-
-template <typename T> T Solution<T>::lower_bound(const var_t x) const {
-    return -numeric_lower_bound[x];
-}
-
-template <typename T> T Solution<T>::upper_bound(const NumericVar<T> x) const {
-    return numeric_upper_bound[x.id()];
-}
-
-template <typename T> T Solution<T>::upper_bound(const var_t x) const {
-    return numeric_upper_bound[x];
-}
-
-template <typename T> bool Solution<T>::reachable(const Solver<T> &S) const {
-//    bool canreach{true};
-//
-//    var_t end_bool{static_cast<var_t>(boolean_variable.size())};
-//    var_t end_num{static_cast<var_t>(numeric_lower_bound.size())};
-//
-//    for(var_t i{1}; canreach and i<end_bool; ++i) {
-//        if(value(i))
-//            canreach = not S.boolean.isFalse(i);
-//        else
-//            canreach = not S.boolean.isTrue(i);
-//    }
-//    for(var_t i{1}; canreach and i<end_num; ++i) {
-//        canreach = (S.numeric.lower(i) <= lower_bound(i) and S.numeric.upper(i) >= upper_bound(i));
-//    }
-//
-//    return canreach;
-    return discrepancy(S) == 0;
-}
-
-template <typename T> var_t Solution<T>::discrepancy(const Solver<T> &S) const {
-    bool canreach{true};
-    
-    var_t end_bool{static_cast<var_t>(boolean_variable.size())};
-    var_t end_num{static_cast<var_t>(numeric_lower_bound.size())};
-    
-    var_t i{1};
-    for(; canreach and i<end_bool; ++i) {
-        if(value(i))
-            canreach = not S.boolean.isFalse(i);
-        else
-            canreach = not S.boolean.isTrue(i);
-    }
-    if(i < end_bool)
-        return i;
-    
-    i = 1;
-    for(; canreach and i<end_num; ++i) {
-        canreach = (S.numeric.lower(i) <= lower_bound(i) and S.numeric.upper(i) >= upper_bound(i));
-    }
-    if(i < end_num)
-        return -i;
-    
-    return 0;
-}
-
-template <typename T> std::ostream & Solution<T>::display(std::ostream &os) const {
-    os << boolean_variable.size() << " " << numeric_lower_bound.size();
-    for(auto b : boolean_variable) {
-        os << " " << b;
-    }
-    for(auto l : numeric_lower_bound) {
-        os << " " << l ;
-    }
-    for(auto u : numeric_upper_bound) {
-        os << " " << u ;
-    }
-    return os;
-}
-
-template <typename T> std::istream &Solution<T>::load(std::istream &is) {
-    size_t nb;
-    size_t nn;
-    bool v;
-    is >> nb;
-    is >> nn;
-    boolean_variable.resize(nb);
-    numeric_lower_bound.resize(nn);
-    numeric_upper_bound.resize(nn);
-    for(size_t i{0}; i<nb; ++i) {
-        is >> v;
-        boolean_variable[i] = v;
-    }
-    for(size_t i{0}; i<nn; ++i) {
-        is >> numeric_lower_bound[i];
-    }
-    for(size_t i{0}; i<nn; ++i) {
-        is >> numeric_upper_bound[i];
-    }
-    return is;
-}
 
 /*!
  GraphExplainer implementation
@@ -3842,16 +3685,6 @@ template <typename T> void Solver<T>::writeLiteral(const Literal<T> l) const {
 template <typename T>
 std::ostream &operator<<(std::ostream &os, const Solver<T> &x) {
   return x.display(os);
-}
-
-template <typename T>
-std::ostream &operator<<(std::ostream &os, const Solution<T> &x) {
-  return x.display(os);
-}
-
-template <typename T>
-std::istream &operator>>(std::istream &is, Solution<T> &x) {
-  return x.load(is);
 }
 
 }

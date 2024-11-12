@@ -23,11 +23,6 @@
 namespace tempo::nn {
     namespace fs = std::filesystem;
 
-    template<typename P, typename T>
-    concept edge_provider = requires(const P provider, Literal<T> lit) {
-        { provider.getEdge(lit) } -> std::same_as<DistanceConstraint<T>>;
-    };
-
     template<typename P>
     concept boolean_value_provider = requires(const P provider, var_t x) {
         { provider.value(x) } -> std::same_as<bool>;
