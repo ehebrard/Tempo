@@ -26,6 +26,8 @@
 // Created by Roger Kameugne on 12/11/2024.
 //
 
+
+
 #ifndef CUMULATIVEOVERLAPFINDING_HPP
 #define CUMULATIVEOVERLAPFINDING_HPP
 
@@ -131,6 +133,9 @@ private:
   Interval<T> schedule;
   std::vector<Interval<T>> task;
   std::vector<NumericVar<T>> demand;
+    
+    Matrix<Literal<T>> precedence;
+    
   bool sign{bound::lower};
   bool timetable_reasoning{true};
 
@@ -210,7 +215,7 @@ public:
   template <typename ItTask, typename ItNVar>
   CumulativeOverlapFinding(Solver<T> &solver, const Interval<T> sched,
                         const NumericVar<T> capacity, const ItTask beg_task,
-                        const ItTask end_task, const ItNVar beg_dem, const bool tt);
+                        const ItTask end_task, const ItNVar beg_dem, Matrix<Literal<T>> lits, const bool tt);
   virtual ~CumulativeOverlapFinding();
 
   // helpers
@@ -368,7 +373,7 @@ template <typename T>
 template <typename ItTask, typename ItNVar>
 CumulativeOverlapFinding<T>::CumulativeOverlapFinding(
     Solver<T> &solver, const Interval<T> sched, const NumericVar<T> cap,
-    const ItTask beg_task, const ItTask end_task, const ItNVar beg_dem, const bool tt)
+    const ItTask beg_task, const ItTask end_task, const ItNVar beg_dem, Matrix<Literal<T>> lits, const bool tt)
     : solver(solver), timetable_reasoning(tt), num_explanations(0, &(solver.getEnv())) {
   schedule = sched, capacity = cap;
 

@@ -561,7 +561,7 @@ public:
     template <typename ItTask, typename ItNVar>
     void postOverlapFinding(const Interval<T> s, const NumericVar<T> c,
                                const ItTask beg_task, const ItTask end_task,
-                               const ItNVar beg_dem, const bool tt);
+                               const ItNVar beg_dem, Matrix<Literal<T>> lits, const bool tt);
     
     // create and post the time-tabling propagator for the cumulative constraint
     template <typename ItTask, typename ItNVar>
@@ -2760,8 +2760,6 @@ template <typename T> void Solver<T>::initializeSearch() {
         
         propag_pointer = 1;
 
-        //        definition_stamp = numLiteral();
-
         propagate();
 
         initialized = true;
@@ -2775,13 +2773,16 @@ void Solver<T>::setBranchingHeuristic(H &&h) {
 }
 
 template <typename T> boolean_state Solver<T>::satisfiable() {
-    initializeSearch();
-    auto satisfiability{search()};
+    
+    auto satisfiability{UnknownState};
+    try {
+        initializeSearch();
+    } catch(Failure<T>& f) {
+        satisfiability = FalseState;
+    }
+    
+    satisfiability = search();
     if (satisfiability == TrueState) {
-//        boolean.saveSolution();
-//        numeric.saveSolution();
-//        ++num_solutions;
-//        SolutionFound.trigger(*this);
         saveSolution();
     }
     if(options.verbosity >= Options::QUIET)
@@ -2883,9 +2884,13 @@ template <typename S>
 void Solver<T>::optimize(S &objective) {
     objective.X.extract(*this);
     objective_var = objective.X.id();
-    initializeSearch();
-    //    if(options.verbosity >= Options::QUIET)
-    //    displayHeader(std::cout);
+    
+    try {
+        initializeSearch();
+    } catch(Failure<T>& f) {
+//        satisfiability = FalseState;
+        objective.setDual(objective.primalBound());
+    }
     
     while (objective.gap() and not KillHandler::instance().signalReceived() and
            not searchCancelled and
@@ -3528,8 +3533,8 @@ template <typename T>
 template <typename ItTask, typename ItNVar>
 void Solver<T>::postOverlapFinding(
     const Interval<T> s, const NumericVar<T> c, const ItTask beg_task,
-    const ItTask end_task, const ItNVar beg_dem, const bool tt) {
-  post(new CumulativeOverlapFinding<T>(*this, s, c, beg_task, end_task, beg_dem, tt));
+    const ItTask end_task, const ItNVar beg_dem, Matrix<Literal<T>> lits, const bool tt) {
+  post(new CumulativeOverlapFinding<T>(*this, s, c, beg_task, end_task, beg_dem, lits, tt));
 }
 
 template <typename T> double Solver<T>::looseness(const Literal<T> &l) const {

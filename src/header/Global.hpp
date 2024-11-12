@@ -44,11 +44,11 @@ using boolean_state = int;
 using hint = int;
 //#define NoHint -1
 //
-//#define DBG_BOUND num_cons_propagations >= 11897
-//#define DBG_CBOUND solver.num_cons_propagations >= 11897
+//#define DBG_BOUND num_cons_propagations >= 0
+//#define DBG_CBOUND solver.num_cons_propagations >= 0
 //#define DBG_CLBOUND false //cl->id == 80 //solver.num_choicepoints >= 10527
-//#define DBG_BBOUND num_cons_propagations >= 11897
-//#define DBG_TRACE 33                      // 183 //1+2+4+32+128
+//#define DBG_BBOUND num_cons_propagations >= 0
+//#define DBG_TRACE 17                      // 183 //1+2+4+32+128
 #define SEARCH 1
 #define DOMAINS 2
 #define BRANCH 4
@@ -67,7 +67,7 @@ using hint = int;
 //#define DBG_BELLMAN_EXPL (sched.num_choicepoints >= 4172)
 //#define DEBUG_HEURISTICS
 //#define DBG_UP
-#define DBG_CL 100000000
+//#define DBG_CL 100000000
 //#define
 //#define DBG_CLPLUS 1000000000
 //#define DBG_TRANSITIVITY true //(m_schedule.num_choicepoints >= 4064)

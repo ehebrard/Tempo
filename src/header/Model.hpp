@@ -1929,7 +1929,7 @@ public:
         
         if (solver.getOptions().overlap_finding) {
                   solver.postOverlapFinding(schedule, capacity,
-                  this->begin(), this->end(), this->begDemand(), solver.getOptions().tt_edge_finding);
+                  this->begin(), this->end(), this->begDemand(), disjunctiveLiterals, solver.getOptions().tt_edge_finding);
         }
         
       if (solver.getOptions().time_tabling) {
