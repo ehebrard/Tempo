@@ -42,9 +42,9 @@ namespace tempo::lns {
 
         constexpr void reset() noexcept {};
 
-        template<concepts::scalar T, assumption_interface AI>
+        template<concepts::scalar T, assumption_interface AI, concepts::scalar C>
         std::size_t select(AI &proxy, std::size_t numLiterals, unsigned,
-                           const std::vector<std::pair<Literal<T>, double>> & weightedLiterals) {
+                           const std::vector<std::pair<Literal<T>, C>> & weightedLiterals) {
             using namespace std::views;
             switch (OT) {
                 case OrderType::Unordered: {
@@ -98,9 +98,9 @@ namespace tempo::lns {
             cache.clear();
         }
 
-        template<assumption_interface AI>
+        template<assumption_interface AI, concepts::scalar C>
         std::size_t select(AI &proxy, std::size_t numLiterals, unsigned numFails,
-                           const std::vector<std::pair<Literal<T>, double>> & weightedLiterals) {
+                           const std::vector<std::pair<Literal<T>, C>> & weightedLiterals) {
             if (numFails == 0 and not cache.empty()) {
                 proxy.makeAssumptions(cache | std::views::take(numLiterals));
                 return std::min(numLiterals, cache.size());
@@ -212,9 +212,9 @@ public:
         cache.clear();
     }
 
-    template<assumption_interface AI>
+    template<assumption_interface AI, concepts::scalar C>
     std::size_t select(AI &proxy, std::size_t numLiterals, unsigned numFails,
-                       const std::vector<std::pair<Literal<T>, double>> & weightedLiterals) {
+                       const std::vector<std::pair<Literal<T>, C>> & weightedLiterals) {
         using namespace std::views;
         using ST = int;
         if (numFails == 0 and not cache.empty()) {

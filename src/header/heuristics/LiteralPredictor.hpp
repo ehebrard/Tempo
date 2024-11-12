@@ -43,7 +43,7 @@ namespace tempo::heuristics {
          * Gets a list of literals ordered by their prediction confidence
          * @return vector of pair(literal, confidence) ordered by confidence in descending order
          */
-        auto getLiterals() const -> std::vector<std::pair<Literal<T>, double>> {
+        auto getLiterals() const {
             static_assert(LiteralWeighter<Impl, T>);
             using namespace std::views;
             using Hax = LiteralPredictor*;

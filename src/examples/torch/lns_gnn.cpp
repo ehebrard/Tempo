@@ -17,6 +17,7 @@
 #include "util/Profiler.hpp"
 #include "heuristics/LNS/DRPolicy.hpp"
 #include "heuristics/LNS/relaxation_policy_factories.hpp"
+#include "nn/gnn_relaxation.hpp"
 
 namespace lns = tempo::lns;
 
@@ -36,7 +37,9 @@ int main(int argc, char **argv) {
     double sporadicIncrement = 0.001;
     double exhaustionProbability = 0.1;
     unsigned numThreads = std::max(1u, std::thread::hardware_concurrency() / 2);
+    bool useDRPolicy = false;
     auto opt = cli::parseOptions(argc, argv,
+                                 cli::SwitchSpec("dr", "use destroy-repair policy", useDRPolicy, false),
                                  cli::ArgSpec("gnn-loc", "Location of the GNN model", false, gnnLocation),
                                  cli::ArgSpec("feat-config", "Location of the feature extractor config", false,
                                               featureExtractorConf),
@@ -75,22 +78,33 @@ int main(int argc, char **argv) {
                                               numThreads));
     auto problemInfo = loadSchedulingProblem(opt);
     torch::set_num_threads(numThreads);
-    nn::GNNRepair gnnRepair(*problemInfo.solver, gnnLocation, featureExtractorConf, problemInfo.instance,
-                            config, assumptionMode, minCertainty, exhaustionThreshold);
 
-    std::cout << "-- root search probability increment " << sporadicIncrement << std::endl;
-    std::cout << "-- exhaustion probability " << exhaustionProbability << std::endl;
-    lns::GenericDestroyPolicy<Time, RP> destroy(
-            lns::make_relaxation_policy(destroyType, problemInfo.instance.tasks(), problemInfo.constraints,
-                                        destroyParameters));
-    std::cout << "-- using destroy policy " << destroyType << std::endl;
-    auto policy = lns::make_sporadic_root_search(sporadicIncrement,
-                                                        lns::make_RD_policy(destroy, gnnRepair,
-                                                                                   exhaustionProbability));
+
     MinimizationObjective objective(problemInfo.instance.schedule().duration);
-    util::StopWatch sw;
-    problemInfo.solver->largeNeighborhoodSearch(objective, policy);
-    auto [start, end] = sw.getTiming();
+    long elapsedTime;
+    if (useDRPolicy) {
+        std::cout << "-- root search probability increment " << sporadicIncrement << std::endl;
+        std::cout << "-- exhaustion probability " << exhaustionProbability << std::endl;
+        nn::GNNRepair gnnRepair(*problemInfo.solver, gnnLocation, featureExtractorConf, problemInfo.instance,
+                                config, assumptionMode, minCertainty, exhaustionThreshold);
+        lns::GenericDestroyPolicy<Time, RP> destroy(
+                lns::make_relaxation_policy(destroyType, problemInfo.instance.tasks(), problemInfo.constraints,
+                                            destroyParameters));
+        std::cout << "-- using destroy policy " << destroyType << std::endl;
+        auto policy = lns::make_sporadic_root_search(sporadicIncrement,
+                                                     lns::make_RD_policy(destroy, gnnRepair,
+                                                                         exhaustionProbability));
+        util::StopWatch sw;
+        problemInfo.solver->largeNeighborhoodSearch(objective, policy);
+        elapsedTime = sw.elapsed<std::chrono::milliseconds>();
+    } else {
+        nn::GNNRelax policy(*problemInfo.solver, gnnLocation, featureExtractorConf, problemInfo.instance, config,
+                            assumptionMode, exhaustionThreshold, exhaustionProbability);
+        util::StopWatch sw;
+        problemInfo.solver->largeNeighborhoodSearch(objective, policy);
+        elapsedTime = sw.elapsed<std::chrono::milliseconds>();
+    }
+
     if (problemInfo.solver->numeric.hasSolution()) {
         auto makespan = problemInfo.solver->numeric.lower(problemInfo.instance.schedule().duration);
         std::cout << "-- makespan " << makespan << std::endl;
@@ -99,8 +113,7 @@ int main(int argc, char **argv) {
         }
     }
 
-    std::cout << "-- total duration: " << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count()
-              << "ms" << std::endl;
+    std::cout << "-- total duration: " << elapsedTime << "ms" << std::endl;
     std::cout << "-- date: " << shell::getTimeStamp() << std::endl;
     std::cout << "-- commit: " << GitSha << std::endl;
     return 0;
