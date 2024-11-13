@@ -18,7 +18,7 @@
 #include "GraphBuilder.hpp"
 #include "util/SchedulingProblemHelper.hpp"
 #include "heuristics/LiteralPredictor.hpp"
-#include "Solver.hpp"
+#include "Solution.hpp"
 
 namespace tempo::nn {
     namespace fs = std::filesystem;
@@ -62,28 +62,22 @@ namespace tempo::nn {
         /**
          * Update confidences using the current state of the solver
          * @param solver Solver that represents the current state of the search
-         * @throws std::runtime_error if no solution has been found yet
          */
-        template<boolean_value_provider BVP>
-        void updateConfidence(const Solver<T> &solver, const BVP &boolValProvider) {
-            const auto &boolean = solver.boolean;
-            if (not boolean.hasSolution()) {
-                throw std::runtime_error("solver needs to have found at least one solution");
-            }
-
-            const auto graph = graphBuilder.getGraph(
-                    makeSolverState(graphBuilder.getProblem().getTaskDistances(solver), solver));
+        void updateConfidence(const Solver<T> &solver, const Solution<T> &solution) {
+            auto state = makeSolverState(TaskDistanceView(graphBuilder.getProblem().tasks(), solution.numeric),
+                                         solution);
+            const auto graph = graphBuilder.getGraph(state);
             const auto edgeHeatMap = gnn.getHeatMap(graph);
             const auto &mapping = graphBuilder.getProblem().getMapping();
             for (auto [lit, confidence]: iterators::zip(this->literals, literalConfidences)) {
-                const auto &edge = boolean.getEdge(lit);
+                const auto &edge = solver.boolean.getEdge(lit);
                 const auto tFrom = mapping(edge.from);
                 const auto tTo = mapping(edge.to);
                 const auto forward = probabilityMass(tFrom, tTo, edgeHeatMap);
                 const auto backward = probabilityMass(tTo, tFrom, edgeHeatMap);
                 confidence = (forward + backward) / 2;
                 BooleanVar var(lit);
-                lit = var == boolValProvider.value(var.id());
+                lit = var == solution.boolean.value(var);
             }
         }
 
