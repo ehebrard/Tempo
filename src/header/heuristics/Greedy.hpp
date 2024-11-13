@@ -211,19 +211,25 @@ void ScheduleGenerationScheme<T>::load() {
     for(auto I : intervals) {
         
 //        std::cout << i << "/" << best_start_time.size() << std::endl;
-        
-        std::cout << "post " << I.start << " <= " << best_start_time[i] << std::endl;
-        
-        solver.post(I.start <= best_start_time[i]);
-        
-        std::cout << "post " << I.start << " >= " << best_start_time[i] << std::endl;
-        
-        solver.post(I.start >= best_start_time[i]);
-        ++i;
+
+#ifdef DBG_RPROF
+std::cout << "post " << I.start << " <= " << best_start_time[i] << std::endl;
+#endif
+
+solver.post(I.start <= best_start_time[i]);
+
+#ifdef DBG_RPROF
+std::cout << "post " << I.start << " >= " << best_start_time[i] << std::endl;
+#endif
+
+solver.post(I.start >= best_start_time[i]);
+++i;
     }
-    
+
+#ifdef DBG_RPROF
     std::cout << "propagate\n";
-    
+#endif
+
     solver.propagate();
     solver.saveSolution();
     solver.restoreState(s);

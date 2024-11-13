@@ -1,5 +1,5 @@
 /************************************************
-* Tempo CumulativeEdgeFinding.hpp
+ * Tempo CumulativeOverlapFinding.hpp
  * Implementation of the "strong edge-finding" algorithm as described in
  * Vincent Gingras and Claude-Guy Quimper. 2016. Generalizing the edge-finder
  *rule for the cumulative constraint. In Proceedings of the Twenty-Fifth
@@ -133,9 +133,9 @@ private:
   Interval<T> schedule;
   std::vector<Interval<T>> task;
   std::vector<NumericVar<T>> demand;
-    
+
   Matrix<Literal<T>> not_before;
-    
+
   bool sign{bound::lower};
   bool timetable_reasoning{true};
 
@@ -173,7 +173,7 @@ private:
   int leftcut_pointer;
 
   int &get_shared_pointer(const int evt) {
-      int n{3+timetable_reasoning};
+    int n{3 + timetable_reasoning};
     auto evti{evt - 1};
     auto i{(evti) / n};
     switch ((evti % n)) {
@@ -214,8 +214,9 @@ private:
 public:
   template <typename ItTask, typename ItNVar>
   CumulativeOverlapFinding(Solver<T> &solver, const Interval<T> sched,
-                        const NumericVar<T> capacity, const ItTask beg_task,
-                        const ItTask end_task, const ItNVar beg_dem, Matrix<Literal<T>> lits, const bool tt);
+                           const NumericVar<T> capacity, const ItTask beg_task,
+                           const ItTask end_task, const ItNVar beg_dem,
+                           Matrix<Literal<T>> lits, const bool tt);
   virtual ~CumulativeOverlapFinding();
 
   // helpers
@@ -228,8 +229,8 @@ public:
   T mindemand(const unsigned i) const;
   T maxdemand(const unsigned i) const;
   T minenergy(const unsigned i) const;
-      bool hasFixedPart(const unsigned i) const;
-    bool isLstWithoutFixedPart(const unsigned i) const;
+  bool hasFixedPart(const unsigned i) const;
+  bool isLstWithoutFixedPart(const unsigned i) const;
   //    T overlapedFixedPartEnergy(const unsigned i, const unsigned j) const;
   //    std::vector<T> overlapedFixedPartEnergy();
 
@@ -237,21 +238,17 @@ public:
   void post(const int idx) override;
   void propagate() override;
 
-
-
-
-
   void forwardpropagate();
 
   void adjustment();
   void detection();
   void addPrime(const int i, const int j);
   void rmPrime(const int i, const int j);
-    
-    int add_j_representation(const int i, const int j);
-    void rm_j_representation(const int i, const int j, const int ej);
-    int add_i_representation(const int i, const int j);
-    void rm_i_representation(const int i, const int ei);
+
+  int add_j_representation(const int i, const int j);
+  void rm_j_representation(const int i, const int j, const int ej);
+  int add_i_representation(const int i, const int j);
+  void rm_i_representation(const int i, const int ei);
 
   void addExternalFixedPart(const int i, const int j);
   void rmExternalFixedPart(const int i, const int j);
@@ -321,20 +318,20 @@ std::string CumulativeOverlapFinding<T>::asciiArt(const int i) const {
     } else {
         ss << "[";
     }
-  for (auto k{est_i + 1}; k < ect(i); ++k) {
-    ss << "=";
-  }
-  if (ect_i < lct(i))
-    ss << "|";
-  if (lct(i) == Constant::Infinity<T>) {
-    ss << "... " << est(i) << "...";
-  } else {
-    for (auto k{ect_i + 1}; k < lct(i); ++k) {
-      ss << ".";
+    for (auto k{est_i + 1}; k < ect(i); ++k) {
+      ss << "=";
     }
-    ss << "] " << est(i) << "-" << ect(i) << ".." << lct(i);
-  }
-  return ss.str();
+    if (ect_i < lct(i))
+      ss << "|";
+    if (lct(i) == Constant::Infinity<T>) {
+      ss << "... " << est(i) << "...";
+    } else {
+      for (auto k{ect_i + 1}; k < lct(i); ++k) {
+        ss << ".";
+      }
+      ss << "] " << est(i) << "-" << ect(i) << ".." << lct(i);
+    }
+    return ss.str();
 }
 
 template <typename T> T CumulativeOverlapFinding<T>::est(const unsigned i) const {
@@ -387,14 +384,14 @@ bool CumulativeOverlapFinding<T>::hasFixedPart(const unsigned i) const {
   return lst(i) < ect(i);
 }
 
-
-
 template <typename T>
 template <typename ItTask, typename ItNVar>
 CumulativeOverlapFinding<T>::CumulativeOverlapFinding(
     Solver<T> &solver, const Interval<T> sched, const NumericVar<T> cap,
-    const ItTask beg_task, const ItTask end_task, const ItNVar beg_dem, Matrix<Literal<T>> lits, const bool tt)
-    : solver(solver), not_before(std::move(lits)), timetable_reasoning(tt), num_explanations(0, &(solver.getEnv())) {
+    const ItTask beg_task, const ItTask end_task, const ItNVar beg_dem,
+    Matrix<Literal<T>> lits, const bool tt)
+    : solver(solver), not_before(std::move(lits)), timetable_reasoning(tt),
+      num_explanations(0, &(solver.getEnv())) {
   schedule = sched, capacity = cap;
 
   Constraint<T>::priority = Priority::Low;
@@ -438,21 +435,22 @@ CumulativeOverlapFinding<T>::CumulativeOverlapFinding(
   std::iota(lct_order.begin(), lct_order.end(), 0);
   event_ordering.resize(profile.size());
   std::iota(event_ordering.begin(), event_ordering.end(), 1);
-        
-//        std::cout << capacity.max(solver) << std::endl;
-//        for(unsigned i{0}; i<task.size(); ++i) {
-//            
-//            std::cout << std::endl << std::endl;
-//            for(unsigned j{0}; j<task.size(); ++j) {
-//                std::cout << task[i].start.id() << ":" << demand[i].min(solver) << " <> " << task[j].start.id() << ":" << demand[j].min(solver)
-//                 << " -- " << solver.pretty(not_before(i,j)) << " // "
-//                 << solver.pretty(~not_before(i,j)) << std::endl;
-//            }
-//            
-//        }
-//        
-//        exit(1);
-        
+
+  //        std::cout << capacity.max(solver) << std::endl;
+  //        for(unsigned i{0}; i<task.size(); ++i) {
+  //
+  //            std::cout << std::endl << std::endl;
+  //            for(unsigned j{0}; j<task.size(); ++j) {
+  //                std::cout << task[i].start.id() << ":" <<
+  //                demand[i].min(solver) << " <> " << task[j].start.id() << ":"
+  //                << demand[j].min(solver)
+  //                 << " -- " << solver.pretty(not_before(i,j)) << " // "
+  //                 << solver.pretty(~not_before(i,j)) << std::endl;
+  //            }
+  //
+  //        }
+  //
+  //        exit(1);
 }
 
 template <typename T> CumulativeOverlapFinding<T>::~CumulativeOverlapFinding() {}
@@ -532,18 +530,14 @@ template <typename T> void CumulativeOverlapFinding<T>::initialiseProfile() {
   profile.add_front(event_ordering[0]);
   auto previous{event_ordering[0]};
 
-
-
   for (unsigned i{1}; i < event_ordering.size(); ++i) {
     auto current{event_ordering[i]};
-      if(isLstWithoutFixedPart(current))
-          continue;
-
-
+    if (isLstWithoutFixedPart(current))
+      continue;
 
     if (profile[previous].time == profile[current].time) {
       get_shared_pointer(current) = previous;
-   } else {
+    } else {
       get_shared_pointer(current) = current;
       profile.add_after(previous, current);
       previous = current;
@@ -552,48 +546,48 @@ template <typename T> void CumulativeOverlapFinding<T>::initialiseProfile() {
 
   // add tasks in lct order and make overload checks along the way
   leftcut_pointer = 0;
-    
-    
-//#ifdef DBG_COF
-//  verify("init profile");
-//#endif
-//  for (unsigned k{0}; k < task.size(); ++k) {
-//    if (k + 1 < task.size() and lct(lct_order[k]) == lct(lct_order[k + 1])) {
-//#ifdef DBG_COF
-//      if (DBG_COF and debug_flag > 3) {
-//        std::cout << "passing on t" << task[lct_order[k]].id() << std::endl;
-//      }
-//#endif
-//      continue;
-//    }
-//
-//    auto i{lct_order[k]};
-//    auto t{lct(i)};
-//    growLeftCutToTime(t + Gap<T>::epsilon());
-//
-//#ifdef DBG_COF
-//    std::stringstream ss;
-//    ss << "checking t" << task[i].id();
-//    verify(ss.str().c_str());
-//    if (DBG_COF and debug_flag > 3) {
-//      std::cout << ss.str() << std::endl;
-//    }
-//#endif
-//
-//    auto ect_omega{scheduleOmega(i, t)};
-//    if (ect_omega == Constant::Infinity<T>) {
-//      prec[i] = i;
-//      auto h{static_cast<hint>(num_explanations)};
-//      computeExplanation(i);
-//      throw Failure<T>({this, h});
-//    } else if (schedule.end.min(solver) < ect_omega) {
-//      auto s{static_cast<int>(task.size())};
-//      prec[s] = i;
-//      contact[s] = contact[i];
-//      pruning.push_back(schedule.end.after(ect_omega));
-//      computeExplanation(s);
-//    }
-//  }
+
+  //#ifdef DBG_COF
+  //  verify("init profile");
+  //#endif
+  //  for (unsigned k{0}; k < task.size(); ++k) {
+  //    if (k + 1 < task.size() and lct(lct_order[k]) == lct(lct_order[k + 1]))
+  //    {
+  //#ifdef DBG_COF
+  //      if (DBG_COF and debug_flag > 3) {
+  //        std::cout << "passing on t" << task[lct_order[k]].id() << std::endl;
+  //      }
+  //#endif
+  //      continue;
+  //    }
+  //
+  //    auto i{lct_order[k]};
+  //    auto t{lct(i)};
+  //    growLeftCutToTime(t + Gap<T>::epsilon());
+  //
+  //#ifdef DBG_COF
+  //    std::stringstream ss;
+  //    ss << "checking t" << task[i].id();
+  //    verify(ss.str().c_str());
+  //    if (DBG_COF and debug_flag > 3) {
+  //      std::cout << ss.str() << std::endl;
+  //    }
+  //#endif
+  //
+  //    auto ect_omega{scheduleOmega(i, t)};
+  //    if (ect_omega == Constant::Infinity<T>) {
+  //      prec[i] = i;
+  //      auto h{static_cast<hint>(num_explanations)};
+  //      computeExplanation(i);
+  //      throw Failure<T>({this, h});
+  //    } else if (schedule.end.min(solver) < ect_omega) {
+  //      auto s{static_cast<int>(task.size())};
+  //      prec[s] = i;
+  //      contact[s] = contact[i];
+  //      pruning.push_back(schedule.end.after(ect_omega));
+  //      computeExplanation(s);
+  //    }
+  //  }
 }
 
 template <typename T> void CumulativeOverlapFinding<T>::rmTask(const int i) {
@@ -640,17 +634,17 @@ void CumulativeOverlapFinding<T>::setLeftCutToTime(const T t) {
         }
         
 #ifdef DBG_COF
-    if (DBG_COF and debug_flag > 4) {
-        std::cout << "[grown full (to " << leftcut_pointer << "-th task)]\n";
-    }
+        if (DBG_COF and debug_flag > 4) {
+          std::cout << "[grown full (to " << leftcut_pointer << "-th task)]\n";
+        }
         verify("after grow-full");
 #endif
-        
+
     } else if (leftcut_pointer < static_cast<int>(lct_order.size()) and
-              lct(lct_order[leftcut_pointer]) < t) {
-        growLeftCutToTime(t);
+               lct(lct_order[leftcut_pointer]) < t) {
+      growLeftCutToTime(t);
     } else {
-        shrinkLeftCutToTime(t);
+      shrinkLeftCutToTime(t);
     }
 }
 
@@ -658,21 +652,21 @@ template <typename T> void CumulativeOverlapFinding<T>::shrinkLeftCutToTime(cons
 
 #ifdef DBG_COF
   verify("before shrink-leftcut");
-    if (DBG_COF and debug_flag > 4) {
-        std::cout << "[shrink (cur=" << leftcut_pointer << ")]\n";
+  if (DBG_COF and debug_flag > 4) {
+    std::cout << "[shrink (cur=" << leftcut_pointer << ")]\n";
     }
 #endif
-  // remove the tasks that have a lct equal to or larger than t
-  while (leftcut_pointer-- > 0 and t <= lct(lct_order[leftcut_pointer])) {
-    rmTask(lct_order[leftcut_pointer]);
-  }
-  ++leftcut_pointer;
+    // remove the tasks that have a lct equal to or larger than t
+    while (leftcut_pointer-- > 0 and t <= lct(lct_order[leftcut_pointer])) {
+      rmTask(lct_order[leftcut_pointer]);
+    }
+    ++leftcut_pointer;
 
 #ifdef DBG_COF
     if (DBG_COF and debug_flag > 4) {
         std::cout << "[shrank to " << leftcut_pointer << "-th task]\n";
     }
-verify("after shrink-leftcut");
+    verify("after shrink-leftcut");
 #endif
 }
 
@@ -680,27 +674,26 @@ template <typename T> void CumulativeOverlapFinding<T>::growLeftCutToTime(const 
 
 #ifdef DBG_COF
   verify("before grow-leftcut");
-    if (DBG_COF and debug_flag > 4) {
-        std::cout << "[grow (cur=" << leftcut_pointer << ")]\n";
+  if (DBG_COF and debug_flag > 4) {
+    std::cout << "[grow (cur=" << leftcut_pointer << ")]\n";
     }
 #endif
 
-  // add the tasks that have a lct strictly smaller than t
-  int n{static_cast<int>(task.size())};
-  while (leftcut_pointer < n and t > lct(lct_order[leftcut_pointer])) {
-    addTask(lct_order[leftcut_pointer++]);
-  }
+    // add the tasks that have a lct strictly smaller than t
+    int n{static_cast<int>(task.size())};
+    while (leftcut_pointer < n and t > lct(lct_order[leftcut_pointer])) {
+      addTask(lct_order[leftcut_pointer++]);
+    }
 
 #ifdef DBG_COF
     if (DBG_COF and debug_flag > 4) {
         std::cout << "[grown to " << leftcut_pointer << "-th task]\n";
     }
-  verify("after grow-leftcut");
+    verify("after grow-leftcut");
 #endif
 }
 
 template <typename T> void CumulativeOverlapFinding<T>::propagate() {
-
 
   sign = bound::lower;
 
@@ -740,18 +733,20 @@ template <typename T> void CumulativeOverlapFinding<T>::forwardpropagate() {
     for (auto j : lct_order) {
         
 #ifdef DBG_COF
-    if (DBG_COF and debug_flag > 0) {
-      std::cout << "* explore task "  << std::left << std::setw(3) << task[j].id() << std::endl;
-    }
+      if (DBG_COF and debug_flag > 0) {
+        std::cout << "* explore task " << std::left << std::setw(3)
+                  << task[j].id() << std::endl;
+      }
 #endif
         
         setLeftCutToTime(lct(j) + Gap<T>::epsilon());
         auto ect_omega{scheduleOmega(j, lct(j))};
         
 #ifdef DBG_COF
-    if (DBG_COF and debug_flag > 0) {
-      std::cout << "* ect(omega) = " << ect_omega << " / " << lct(j) << std::endl;
-    }
+        if (DBG_COF and debug_flag > 0) {
+          std::cout << "* ect(omega) = " << ect_omega << " / " << lct(j)
+                    << std::endl;
+        }
 #endif
         
         if (ect_omega > lct(j)) {
@@ -766,10 +761,11 @@ template <typename T> void CumulativeOverlapFinding<T>::forwardpropagate() {
                 if (i != j and solver.boolean.isUndefined(not_before(i,j).variable()) and (ect(i) > est(j) or lct(i) > lst(j))) {
                     
 #ifdef DBG_COF
-    if (DBG_COF and debug_flag > 0) {
-      std::cout << " - assume task "  << std::left << std::setw(3) << task[i].id() << " << task "
-                  << task[j].id() << std::endl;
-    }
+                  if (DBG_COF and debug_flag > 0) {
+                    std::cout << " - assume task " << std::left << std::setw(3)
+                              << task[i].id() << " << task " << task[j].id()
+                              << std::endl;
+                  }
 #endif
                     
                     auto saved_size{profile.size()};
@@ -783,15 +779,30 @@ template <typename T> void CumulativeOverlapFinding<T>::forwardpropagate() {
 
                     auto ect_h{scheduleOmega(j, lct(j))};
                     if (ect_h > lct(j)) {
-                        // filter the variable b_i_j to false
-                        std::cout << "pruning!!: " << solver.pretty(not_before(i,j)) << "\n";
-//                        solver.set(not_before(i,j), {this})
-                        pruning.push_back(not_before(i,j));
-                        computeExplanation(j);
-                        exit(1);
-                    } else {
-                        std::cout << "no pruning\n";
+                      // filter the variable b_i_j to false
+                      //                        std::cout << "pruning!!: " <<
+                      //                        solver.pretty(not_before(i,j))
+                      //                        << "\n";
+                      //                        solver.set(not_before(i,j),
+                      //                        {this})
+                      pruning.push_back(not_before(i, j));
+
+                      auto h{num_explanations};
+                      computeExplanation(j);
+
+                      if (ect(i) > est(j)) {
+                        explanation[h].push_back(task[i].start.after(est(i)));
+                      }
+                      if (lct(i) > lst(j)) {
+                        explanation[h].push_back(task[j].end.before(lct(j)));
+                      }
+
+                      //                        exit(1);
                     }
+
+                    //                    else {
+                    //                        std::cout << "no pruning\n";
+                    //                    }
                     rm_i_representation(i,lct_i_event);
                     rm_j_representation(i,j,ect_j_event);
                     
@@ -804,9 +815,9 @@ template <typename T> void CumulativeOverlapFinding<T>::forwardpropagate() {
                     while (profile.size() > saved_size) {
                       profile.pop_back();
                     }
-                    
-                    std::cout << "profile after:\n" << profile << std::endl;
-                    
+
+                    //                    std::cout << "profile after:\n" <<
+                    //                    profile << std::endl;
                 }
             }
             
@@ -819,7 +830,7 @@ template <typename T> int CumulativeOverlapFinding<T>::add_j_representation(cons
     
 #ifdef DBG_COF
     if (DBG_COF and debug_flag > 0) {
-      std::cout << "  - add rep for "  << task[j].id() << std::endl;
+      std::cout << "  - add rep for " << task[j].id() << std::endl;
     }
 #endif
     
@@ -828,17 +839,17 @@ template <typename T> int CumulativeOverlapFinding<T>::add_j_representation(cons
     profile[ect_shared[i]].incrementMax += mindemand(j);
     auto t{profile.at(ect_shared[j])};
     auto target{ect(i) + minduration(j)};
-    
-    std::cout << " ect(j) should be " << target << std::endl;
-    
+
+    //    std::cout << " ect(j) should be " << target << std::endl;
+
     while (t->time < target)
         ++t;
     if (t->time == target) {
-        
-        std::cout << " found it! " << std::endl;
-        
-        t->increment -= mindemand(j);
-        new_ect_j_event = t.index;
+
+      //        std::cout << " found it! " << std::endl;
+
+      t->increment -= mindemand(j);
+      new_ect_j_event = t.index;
     } else {
         
         
@@ -847,10 +858,9 @@ template <typename T> int CumulativeOverlapFinding<T>::add_j_representation(cons
         --t;
         profile.add_after(t.index, new_ect_j_event);
         profile[new_ect_j_event].increment -= mindemand(j);
-        
-        std::cout << " must create it " << profile[new_ect_j_event] << " and insert after " << profile[t.index] << std::endl;
-        
-        
+
+        //        std::cout << " must create it " << profile[new_ect_j_event] <<
+        //        " and insert after " << profile[t.index] << std::endl;
     }
     profile[lct_shared[j]].incrementMax -= mindemand(j);
     return new_ect_j_event;
@@ -872,22 +882,23 @@ template <typename T> int CumulativeOverlapFinding<T>::add_i_representation(cons
         profile[lct_shared[i]].incrementMax -= mindemand(i);
         new_lct_i_event = lct_shared[i];
     } /*else if(timetable_reasoning) {
-        profile[lst_shared[j]].incrementMax -= mindemand(i);
-        new_lct_i_event = lst_shared[j];
-    }*/ else {
-        auto target{lst(j)};
-        auto t{profile.at(lct_shared[i])};
-        while(target < t->time) {
-            --t;
-        }
-        if(t->time == target) {
-            t->incrementMax -= mindemand(i);
-            new_lct_i_event = t.index;
-        } else {
-            new_lct_i_event = makeNewEvent(lst(j));
-            profile.add_after(t.index, new_lct_i_event);
-            profile[new_lct_i_event].incrementMax -= mindemand(i);
-        }
+       profile[lst_shared[j]].incrementMax -= mindemand(i);
+       new_lct_i_event = lst_shared[j];
+       }*/
+    else {
+      auto target{lst(j)};
+      auto t{profile.at(lct_shared[i])};
+      while (target < t->time) {
+        --t;
+      }
+      if (t->time == target) {
+        t->incrementMax -= mindemand(i);
+        new_lct_i_event = t.index;
+      } else {
+        new_lct_i_event = makeNewEvent(lst(j));
+        profile.add_after(t.index, new_lct_i_event);
+        profile[new_lct_i_event].incrementMax -= mindemand(i);
+      }
     }
     return new_lct_i_event;
 }
@@ -948,8 +959,8 @@ template <typename T> void CumulativeOverlapFinding<T>::addExternalFixedPart(con
     std::cout << "ADD " << task[i].id() << "'" << std::endl;
   }
 #endif
-  for (auto k : lct_order){
-    if (lct(k) > lct(j) and lst(k) < ect(k) and lst(k) < lct(j) and k != i){
+  for (auto k : lct_order) {
+    if (lct(k) > lct(j) and lst(k) < ect(k) and lst(k) < lct(j) and k != i) {
       profile[lst_shared[k]].increment += mindemand(k);
       profile[lst_shared[k]].incrementMax += mindemand(k);
 
@@ -973,8 +984,8 @@ template <typename T> void CumulativeOverlapFinding<T>::rmExternalFixedPart(cons
     std::cout << "ADD " << task[i].id() << "'" << std::endl;
   }
 #endif
-  for (auto k : lct_order){
-    if (lct(k) > lct(j) and lst(k) < ect(k) and lst(k) < lct(j) and k != i){
+  for (auto k : lct_order) {
+    if (lct(k) > lct(j) and lst(k) < ect(k) and lst(k) < lct(j) and k != i) {
       profile[lst_shared[k]].increment -= mindemand(k);
       profile[lst_shared[k]].incrementMax -= mindemand(k);
 
@@ -1025,24 +1036,26 @@ void CumulativeOverlapFinding<T>::computeBound(const int i, std::vector<T> exter
   alpha = -1;
   beta = -1;
   T minSlack[2] = {Constant::Infinity<T>, Constant::Infinity<T>};
-  //if (timetable_reasoning){
-    for (auto j : lct_order) {
-      if (lct(j) == lct(i))
-        break;
-      E += minenergy(j);
-      if (lct(j) <= ect(i) and est(i) < lct(j)) {
-        auto slack{(capacity.max(solver) - mindemand(i)) * lct(j) - E - externalEnergy[j] + fixedPartEnergy(i,j)};
-        if (slack < minSlack[0] and data[lct_shared[j]].overflow > 0) {
-          minSlack[0] = slack;
-          alpha = j;
-        }
-      } else if (lct(j) > ect(i)) {
-        auto slack{capacity.max(solver) * lct(j) - E - externalEnergy[j] + fixedPartEnergy(i,j)};
-        if (slack < minSlack[1] and data[lct_shared[j]].overflow > 0) {
-          minSlack[1] = slack;
-          beta = j;
-        }
+  // if (timetable_reasoning){
+  for (auto j : lct_order) {
+    if (lct(j) == lct(i))
+      break;
+    E += minenergy(j);
+    if (lct(j) <= ect(i) and est(i) < lct(j)) {
+      auto slack{(capacity.max(solver) - mindemand(i)) * lct(j) - E -
+                 externalEnergy[j] + fixedPartEnergy(i, j)};
+      if (slack < minSlack[0] and data[lct_shared[j]].overflow > 0) {
+        minSlack[0] = slack;
+        alpha = j;
       }
+    } else if (lct(j) > ect(i)) {
+      auto slack{capacity.max(solver) * lct(j) - E - externalEnergy[j] +
+                 fixedPartEnergy(i, j)};
+      if (slack < minSlack[1] and data[lct_shared[j]].overflow > 0) {
+        minSlack[1] = slack;
+        beta = j;
+      }
+    }
     }
 }
 
@@ -1059,202 +1072,204 @@ int CumulativeOverlapFinding<T>::makeNewEvent(const T t) {
 
 template <typename T>
 T CumulativeOverlapFinding<T>::scheduleOmega(const int i, const T max_lct,
-                                          const bool adjustment) {
+                                             const bool adjustment) {
 
   auto saved_size{profile.size()};
 
 #ifdef DBG_COF
-  if (DBG_COF and debug_flag > 2) {
-    std::cout << "[schedule tasks until t=" << max_lct
-              << "] profile=" << std::endl
-              << profile;
-  }
-#endif
-
-  if (adjustment) {
-    clearData();
-
-#ifdef DBG_COF
     if (DBG_COF and debug_flag > 2) {
-      auto next{profile.begin()};
-      auto stop{profile.end()};
-
-      while (next != stop and next->time <= max_lct) {
-        auto t{next};
-        ++next;
-        std::cout << *t << ": " << data[t.index] << std::endl;
-      }
+      std::cout << "[schedule tasks until t=" << max_lct
+                << "] profile=" << std::endl
+                << profile;
     }
 #endif
-  }
-
-  auto next{profile.begin()};
-
-  T C{capacity.max(solver)};
-  T overflow = 0;
-  T omega_ect{-Constant::Infinity<T>};
-  T S{0};
-  T h_req{0};
-
-  T overlap{0};
-  T slackUnder{0};
-  T available{0};
-  T h{mindemand(i)};
-  isFeasible[i] = true;
-
-  auto stop{profile.end()};
-
-  while (next != stop and next->time <= max_lct) {
-    auto t{next};
-    ++next;
-
-#ifdef DBG_COF
-    if (DBG_COF and debug_flag > 2) {
-      std::cout << "jump to e_" << t.index << " = t_" << t->time << ":";
-    }
-#endif
-
-    data[t.index].overflow = overflow;
-
-    auto l = next->time - t->time;
 
     if (adjustment) {
-      data[t.index].overlap = overlap;
-      data[t.index].slackUnder = slackUnder;
-      data[t.index].available = available;
-    }
-
-    // S is the sum of demands of the tasks that could be processed at time
-    S += t->incrementMax;
-    // h_max is the min between the resource's capacity and the total of the
-    // demands
-    auto h_max{std::min(S, C)};
-    // h_req is the total demand counting tasks processed at their earliest
-    h_req += t->increment;
-    // h_cons is the amount of resource actually used in the optimistic scenario
-    // (min between what is required + due from earlier, and what is available)
-    auto h_cons{std::min(h_req + overflow, h_max)};
-
-    if (overflow > 0 and (h_cons - h_req) > 0) {
-      auto al{std::max(Gap<T>::epsilon(), overflow / (h_cons - h_req))};
-      // there is some overflow, and it will be resorbed by the next time point
-      if (al < l) {
-        l = al;
-        auto new_event{makeNewEvent(t->time + l)};
-        profile.add_after(t.index, new_event);
-
-#ifdef DBG_COF
-        if (DBG_COF and debug_flag > 4) {
-          std::cout << " [create tmp event " << *(profile.at(new_event))
-                    << " before " << *next << " b/c " << al << "] ";
-        }
-#endif
-
-        next = profile.at(new_event);
-      }
-    }
-
-    // overflow is the deficit on resource for that period (because tasks are
-    // set to their earliest)profile[est_[ip]].time = _est;
-    overflow += (h_req - h_cons) * l;
-
-    if (overflow > 0)
-      isFeasible[i] = false;
-
-    if (adjustment) {
-      overlap += (std::max(h_cons - (C - h), 0) * l);
-      slackUnder += (std::max(std::min(C - h, h_max) - h_cons, 0) * l);
-      available += (std::min(C - h_cons, h) * l);
-
-      data[t.index].consumption = h_cons;
-    }
-
-    if (overflow > 0)
-      omega_ect = Constant::Infinity<T>;
-    else if (h_cons > 0)
-      omega_ect = profile[profile.next(t.index)].time;
-
-#ifdef DBG_COF
-    if (DBG_COF and debug_flag > 2) {
-      std::cout << " h_max=" << h_max << ", h_req=" << h_req
-                << ", h_cons=" << h_cons << " (" << data[t.index] << ")";
-      if (omega_ect == Constant::Infinity<T>)
-        std::cout << ", ect=inf";
-      else if (omega_ect != -Constant::Infinity<T>)
-        std::cout << ", ect=" << omega_ect;
-
-      std::cout << std::endl;
-    }
-
-    assert(h_cons >= 0 or next->time <= max_lct);
-#endif
-  }
-
-  if (not adjustment) {
-    contact[i] = -1;
-      
-#ifdef DBG_COF
-      if (DBG_COF and debug_flag > 4) {
-          std::cout << "search contact\n";
-      }
-#endif
-
-    auto t{next};
-    if (overflow == 0 and omega_ect > schedule.end.min(solver)) {
-        
-#ifdef DBG_COF
-      if (DBG_COF and debug_flag > 5) {
-          std::cout << "go to overflow (bound pruning)\n";
-      }
-#endif
-        
-        auto limit{profile.begin()};
-      while (data[t.index].overflow == 0 and t != limit) {
-        --t;
-      }
-      overflow = data[t.index].overflow;
-#ifdef DBG_COF
-      if (DBG_COF and debug_flag > 5) {
-        std::cout << "hack overflow " << *t << ": " << data[t.index]
-                  << std::endl;
-      }
-#endif
-    }
-
-    if (overflow > 0) {
-      contact[i] = profile.begin().index;
-        
-#ifdef DBG_COF
-      if (DBG_COF and debug_flag > 5) {
-          std::cout << "normal contact\n";
-      }
-#endif
-
-      do {
-        --t;
-        if (data[t.index].overflow < overflow) {
-          contact[i] = t.index;
-          break;
-        }
-      } while (t != profile.begin());
+      clearData();
 
 #ifdef DBG_COF
       if (DBG_COF and debug_flag > 2) {
-        std::cout << "contact[" << task[i].id() << "] = " << profile[contact[i]]
-                  << " (" << contact[i]
-                  << ") contact time = " << profile[contact[i]].time << ": "
-                  << data[contact[i]] << std::endl;
+        auto next{profile.begin()};
+        auto stop{profile.end()};
+
+        while (next != stop and next->time <= max_lct) {
+          auto t{next};
+          ++next;
+          std::cout << *t << ": " << data[t.index] << std::endl;
+        }
       }
 #endif
     }
-  }
 
-  //    contact[i] = resetProfile(contact[i], saved_size);
-  while (profile.size() > saved_size) {
-    profile.pop_back();
-  }
+    auto next{profile.begin()};
 
-  return omega_ect;
+    T C{capacity.max(solver)};
+    T overflow = 0;
+    T omega_ect{-Constant::Infinity<T>};
+    T S{0};
+    T h_req{0};
+
+    T overlap{0};
+    T slackUnder{0};
+    T available{0};
+    T h{mindemand(i)};
+    isFeasible[i] = true;
+
+    auto stop{profile.end()};
+
+    while (next != stop and next->time <= max_lct) {
+      auto t{next};
+      ++next;
+
+#ifdef DBG_COF
+      if (DBG_COF and debug_flag > 2) {
+        std::cout << "jump to e_" << t.index << " = t_" << t->time << ":";
+      }
+#endif
+
+      data[t.index].overflow = overflow;
+
+      auto l = next->time - t->time;
+
+      if (adjustment) {
+        data[t.index].overlap = overlap;
+        data[t.index].slackUnder = slackUnder;
+        data[t.index].available = available;
+      }
+
+      // S is the sum of demands of the tasks that could be processed at time
+      S += t->incrementMax;
+      // h_max is the min between the resource's capacity and the total of the
+      // demands
+      auto h_max{std::min(S, C)};
+      // h_req is the total demand counting tasks processed at their earliest
+      h_req += t->increment;
+      // h_cons is the amount of resource actually used in the optimistic
+      // scenario (min between what is required + due from earlier, and what is
+      // available)
+      auto h_cons{std::min(h_req + overflow, h_max)};
+
+      if (overflow > 0 and (h_cons - h_req) > 0) {
+        auto al{std::max(Gap<T>::epsilon(), overflow / (h_cons - h_req))};
+        // there is some overflow, and it will be resorbed by the next time
+        // point
+        if (al < l) {
+          l = al;
+          auto new_event{makeNewEvent(t->time + l)};
+          profile.add_after(t.index, new_event);
+
+#ifdef DBG_COF
+          if (DBG_COF and debug_flag > 4) {
+            std::cout << " [create tmp event " << *(profile.at(new_event))
+                      << " before " << *next << " b/c " << al << "] ";
+          }
+#endif
+
+          next = profile.at(new_event);
+        }
+      }
+
+      // overflow is the deficit on resource for that period (because tasks are
+      // set to their earliest)profile[est_[ip]].time = _est;
+      overflow += (h_req - h_cons) * l;
+
+      if (overflow > 0)
+        isFeasible[i] = false;
+
+      if (adjustment) {
+        overlap += (std::max(h_cons - (C - h), 0) * l);
+        slackUnder += (std::max(std::min(C - h, h_max) - h_cons, 0) * l);
+        available += (std::min(C - h_cons, h) * l);
+
+        data[t.index].consumption = h_cons;
+      }
+
+      if (overflow > 0)
+        omega_ect = Constant::Infinity<T>;
+      else if (h_cons > 0)
+        omega_ect = profile[profile.next(t.index)].time;
+
+#ifdef DBG_COF
+      if (DBG_COF and debug_flag > 2) {
+        std::cout << " h_max=" << h_max << ", h_req=" << h_req
+                  << ", h_cons=" << h_cons << " (" << data[t.index] << ")";
+        if (omega_ect == Constant::Infinity<T>)
+          std::cout << ", ect=inf";
+        else if (omega_ect != -Constant::Infinity<T>)
+          std::cout << ", ect=" << omega_ect;
+
+        std::cout << std::endl;
+      }
+
+      assert(h_cons >= 0 or next->time <= max_lct);
+#endif
+    }
+
+    if (not adjustment) {
+      contact[i] = -1;
+
+#ifdef DBG_COF
+      if (DBG_COF and debug_flag > 4) {
+        std::cout << "search contact\n";
+      }
+#endif
+
+      auto t{next};
+      if (overflow == 0 and omega_ect > schedule.end.min(solver)) {
+
+#ifdef DBG_COF
+        if (DBG_COF and debug_flag > 5) {
+          std::cout << "go to overflow (bound pruning)\n";
+        }
+#endif
+
+        auto limit{profile.begin()};
+        while (data[t.index].overflow == 0 and t != limit) {
+          --t;
+        }
+        overflow = data[t.index].overflow;
+#ifdef DBG_COF
+        if (DBG_COF and debug_flag > 5) {
+          std::cout << "hack overflow " << *t << ": " << data[t.index]
+                    << std::endl;
+        }
+#endif
+      }
+
+      if (overflow > 0) {
+        contact[i] = profile.begin().index;
+
+#ifdef DBG_COF
+        if (DBG_COF and debug_flag > 5) {
+          std::cout << "normal contact\n";
+        }
+#endif
+
+        do {
+          --t;
+          if (data[t.index].overflow < overflow) {
+            contact[i] = t.index;
+            break;
+          }
+        } while (t != profile.begin());
+
+#ifdef DBG_COF
+        if (DBG_COF and debug_flag > 2) {
+          std::cout << "contact[" << task[i].id()
+                    << "] = " << profile[contact[i]] << " (" << contact[i]
+                    << ") contact time = " << profile[contact[i]].time << ": "
+                    << data[contact[i]] << std::endl;
+        }
+#endif
+      }
+    }
+
+    //    contact[i] = resetProfile(contact[i], saved_size);
+    while (profile.size() > saved_size) {
+      profile.pop_back();
+    }
+
+    return omega_ect;
 }
 
 template <typename T> void CumulativeOverlapFinding<T>::doPruning() {
@@ -1263,15 +1278,18 @@ template <typename T> void CumulativeOverlapFinding<T>::doPruning() {
     num_pruning += pruning.size();
     if(not pruning.empty()) {
         ++num_useful;
-//        std::cout << "EF" << this->id() << ": " << num_useful << "/" << num_prop << " (" << num_pruning << ")\n";
-//        std::cout << "EF" << this->id() << ": " << static_cast<double>(num_useful)/static_cast<double>(num_prop) << " (" << num_pruning << ")\n";
+        //        std::cout << "EF" << this->id() << ": " << num_useful << "/"
+        //        << num_prop << " (" << num_pruning << ")\n"; std::cout << "EF"
+        //        << this->id() << ": " <<
+        //        static_cast<double>(num_useful)/static_cast<double>(num_prop)
+        //        << " (" << num_pruning << ")\n";
     }
 #endif
 
-  auto h{static_cast<hint>(num_explanations - pruning.size())};
-  for (auto p : pruning) {
-    solver.set(p, {this, h++});
-  }
+    auto h{static_cast<hint>(num_explanations - pruning.size())};
+    for (auto p : pruning) {
+      solver.set(p, {this, h++});
+    }
 }
 
 template <typename T> void CumulativeOverlapFinding<T>::adjustment() {
@@ -1292,11 +1310,11 @@ template <typename T> void CumulativeOverlapFinding<T>::adjustment() {
     auto minEct{Constant::Infinity<T>};
     auto minEnergy{Constant::Infinity<T>};
     auto time{profile[contact[i]].time};
-    for (auto k : lct_order){
-        if (ect(k) > time and lct(k) <= lct(j)){
-          minEct = std::min(minEct, ect(k));
-          minEnergy = std::min(minEnergy, minenergy(k));
-        }
+    for (auto k : lct_order) {
+      if (ect(k) > time and lct(k) <= lct(j)) {
+        minEct = std::min(minEct, ect(k));
+        minEnergy = std::min(minEnergy, minenergy(k));
+      }
     }
 
     // compute the profile without i, but to record the overlap and
@@ -1311,12 +1329,12 @@ template <typename T> void CumulativeOverlapFinding<T>::adjustment() {
     }
 
     // t1 is the latest time points between est(i) and contact[i]
-    //auto t1{profile[contact[i]].time < est(i) ? est_shared[i] : contact[i]};
+    // auto t1{profile[contact[i]].time < est(i) ? est_shared[i] : contact[i]};
     auto t1{contact[i]};
 
     // available
-    //auto available{data[lct_shared[j]].available - data[t1].available};
-    //auto t2{ect_shared[i]};
+    // auto available{data[lct_shared[j]].available - data[t1].available};
+    // auto t2{ect_shared[i]};
     auto t3{lct_shared[j]};
 
 #ifdef DBG_COF
@@ -1333,19 +1351,23 @@ template <typename T> void CumulativeOverlapFinding<T>::adjustment() {
     T maxoverflow;
     /*if (ect(i) < lct(j)) {
 
-      if (available < minenergy(i)) {
-        maxoverflow = data[t3].overlap - data[t3].slackUnder - data[t1].overlap + data[t1].slackUnder;
+     if (available < minenergy(i)) {
+     maxoverflow = data[t3].overlap - data[t3].slackUnder - data[t1].overlap +
+     data[t1].slackUnder;
 
-      } else {
-        maxoverflow = data[t2].overlap - data[t3].slackUnder - data[t1].overlap + data[t1].slackUnder;
-      }
-    } else {
-      maxoverflow = data[t3].overlap - data[t3].slackUnder - data[t1].overlap + data[t1].slackUnder;
-    }*/
-    //std::cout<< "t3 " << t3 << " t1 " << t1 << std::endl;
-    maxoverflow = data[t3].overlap - data[t3].slackUnder - data[t1].overlap + data[t1].slackUnder;
+     } else {
+     maxoverflow = data[t2].overlap - data[t3].slackUnder - data[t1].overlap +
+     data[t1].slackUnder;
+     }
+     } else {
+     maxoverflow = data[t3].overlap - data[t3].slackUnder - data[t1].overlap +
+     data[t1].slackUnder;
+     }*/
+    // std::cout<< "t3 " << t3 << " t1 " << t1 << std::endl;
+    maxoverflow = data[t3].overlap - data[t3].slackUnder - data[t1].overlap +
+                  data[t1].slackUnder;
     if (isFeasible[i] and minEnergy > data[t3].slackUnder - data[t1].slackUnder)
-        maxoverflow = data[t3].overlap - data[t1].overlap;
+      maxoverflow = data[t3].overlap - data[t1].overlap;
 
 #ifdef DBG_COF
     if (DBG_COF and debug_flag > 3) {
@@ -1367,7 +1389,8 @@ template <typename T> void CumulativeOverlapFinding<T>::adjustment() {
       } else {
         adjustment = std::min(
             next->time,
-            t->time + maxoverflow / (data[t.index].consumption - capacity.max(solver) + mindemand(i)));
+            t->time + maxoverflow / (data[t.index].consumption -
+                                     capacity.max(solver) + mindemand(i)));
         break;
       }
     }
@@ -1396,10 +1419,8 @@ template <typename T> void CumulativeOverlapFinding<T>::detection() {
   std::vector<T> externalEnergy;
   externalEnergy.resize(n, 0);
   /*if (timetable_reasoning) {
-    externalEnergy = energyFixedPartExternalTasks();
-  }*/
-
-
+   externalEnergy = energyFixedPartExternalTasks();
+   }*/
 
   auto stop{lct_order.rend()};
   --stop;
@@ -1443,18 +1464,16 @@ template <typename T> void CumulativeOverlapFinding<T>::detection() {
         if (est(i) < lct(j)) {
 
           /*if (timetable_reasoning) {
-            addExternalFixedPart(i, j);
-          }*/
+           addExternalFixedPart(i, j);
+           }*/
           addPrime(i, j);
           scheduleOmega(i, lct(j));
           rmPrime(i, j);
           /*if (timetable_reasoning) {
-            rmExternalFixedPart(i, j);
-          }*/
+           rmExternalFixedPart(i, j);
+           }*/
 
           computeBound(i, externalEnergy);
-
-
 
           if (alpha != -1) {
 
@@ -1472,7 +1491,7 @@ template <typename T> void CumulativeOverlapFinding<T>::detection() {
               rmExternalFixedPart(i, alpha);
             }
 
-            if (ect_i_H > lct(alpha) ) {
+            if (ect_i_H > lct(alpha)) {
 #ifdef DBG_COF
               if (DBG_COF and debug_flag > 0) {
                 std::cout << "  - alpha = " << alpha << " (task "
@@ -1486,14 +1505,13 @@ template <typename T> void CumulativeOverlapFinding<T>::detection() {
 
               prec[i] = alpha;
               in_conflict.push_back(i);
-
             }
           }
 
           if (prec[i] == -1 and beta != -1) {
 
-            //assert(lct(lct_order[leftcut_pointer]) > lct(beta));
-            //shrinkLeftCutToTime(lct(beta) + Gap<T>::epsilon());
+            // assert(lct(lct_order[leftcut_pointer]) > lct(beta));
+            // shrinkLeftCutToTime(lct(beta) + Gap<T>::epsilon());
             setLeftCutToTime(lct(beta) + Gap<T>::epsilon());
 
             assert(est(i) < lct(beta));
@@ -1526,8 +1544,6 @@ template <typename T> void CumulativeOverlapFinding<T>::detection() {
             }
           }
 
-
-
           if (alpha != -1 or beta != -1) {
             growLeftCutToTime(lct(i));
           }
@@ -1552,12 +1568,13 @@ void CumulativeOverlapFinding<T>::computeExplanation(const int i, const bool fix
   auto k{leftcut_pointer - 1};
   auto j{lct_order[k]};
 
-//  if (i != n and lct(j) != lct(prec[i])) {
-//    std::cout << "bug prec[" << task[i].id() << "] = " << task[prec[i]].id()
-//              << " lct(Omega) = " << lct(j) << " / lct(prec) = " << lct(prec[i])
-//              << " @" << solver.num_cons_propagations << "\n";
-//    exit(1);
-//  }
+  //  if (i != n and lct(j) != lct(prec[i])) {
+  //    std::cout << "bug prec[" << task[i].id() << "] = " << task[prec[i]].id()
+  //              << " lct(Omega) = " << lct(j) << " / lct(prec) = " <<
+  //              lct(prec[i])
+  //              << " @" << solver.num_cons_propagations << "\n";
+  //    exit(1);
+  //  }
 
   assert(i == n or lct(j) == lct(prec[i]));
 
@@ -1580,10 +1597,11 @@ void CumulativeOverlapFinding<T>::computeExplanation(const int i, const bool fix
   }
 #endif
 
-  if (fixedPart){
-    for (auto l{k+1}; l < n; ++l){
+  if (fixedPart) {
+    for (auto l{k + 1}; l < n; ++l) {
       auto p{lct_order[l]};
-      if (p != i and lct(p) > lct(j) and lst(p) < ect(p) and lst(p) < lct(j) and ect(p) > t and i != n){
+      if (p != i and lct(p) > lct(j) and lst(p) < ect(p) and lst(p) < lct(j) and
+          ect(p) > t and i != n) {
         auto saved_sign{sign};
         sign = bound::lower;
         explanation[h].push_back(task[p].start.before(lst(p)));
@@ -1596,13 +1614,11 @@ void CumulativeOverlapFinding<T>::computeExplanation(const int i, const bool fix
   do {
     if (ect(j) > t) {
 
-        auto saved_sign{sign};
-        sign = bound::lower;
-        explanation[h].push_back(task[j].start.after(est(j)));
-        explanation[h].push_back(task[j].end.before(lct(j)));
-        sign = saved_sign;
-
-
+      auto saved_sign{sign};
+      sign = bound::lower;
+      explanation[h].push_back(task[j].start.after(est(j)));
+      explanation[h].push_back(task[j].end.before(lct(j)));
+      sign = saved_sign;
 
 #ifdef DBG_COF
       if (DBG_COF and debug_flag >= 0) {
@@ -1611,7 +1627,7 @@ void CumulativeOverlapFinding<T>::computeExplanation(const int i, const bool fix
       }
 #endif
     }
-  } while (k > 0 and lct(j=lct_order[--k]) > t);
+  } while (k > 0 and lct(j = lct_order[--k]) > t);
     if (prec[i] != i and i != n) {
         if(sign == bound::lower)
             explanation[h].push_back(task[i].start.after(est(i)));
@@ -1620,15 +1636,15 @@ void CumulativeOverlapFinding<T>::computeExplanation(const int i, const bool fix
     }
 
 #ifdef DBG_COF
-  if (DBG_COF and debug_flag >= 0) {
-    std::cout << std::endl;
-  }
+    if (DBG_COF and debug_flag >= 0) {
+      std::cout << std::endl;
+    }
 #endif
 }
 
 template <typename T>
 void CumulativeOverlapFinding<T>::xplain(const Literal<T>, const hint h,
-                                      std::vector<Literal<T>> &Cl) {
+                                         std::vector<Literal<T>> &Cl) {
 
   for (auto p : explanation[h]) {
     Cl.push_back(p);
