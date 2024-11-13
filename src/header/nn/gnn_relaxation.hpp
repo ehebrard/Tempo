@@ -49,6 +49,11 @@ namespace tempo::nn {
         int verbosity;
 
     public:
+        GNNRelax(const GNNRelax &) = default;
+        GNNRelax(GNNRelax &&) = default;
+        GNNRelax &operator=(const GNNRelax &) = default;
+        GNNRelax &operator=(GNNRelax &&) = default;
+
         GNNRelax(const Solver<T> &solver, const fs::path &modelLocation,
                  const fs::path &featureExtractorConfigLocation, const SchedulingProblemHelper<T, R> &problemInstance,
                  const lns::PolicyDecayConfig decayConfig, lns::AssumptionMode assumptionMode,
@@ -123,6 +128,12 @@ namespace tempo::nn {
         void notifyFailure(unsigned numFailures) {
             policyDecay.notifyFailure(numFailures);
             exhaustIfNecessary();
+        }
+
+        ~GNNRelax() {
+            if (verbosity >= Options::YACKING) {
+                profiler.printAll<std::chrono::milliseconds>(std::cout);
+            }
         }
 
     private:

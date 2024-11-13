@@ -50,7 +50,7 @@ namespace tempo::lns {
                 case OrderType::Unordered: {
                     auto copy = weightedLiterals;
                     std::ranges::sort(copy, {}, [](const auto &elem) { return -std::get<1>(elem); });
-                    proxy.makeAssumptions(copy | elements<0>);
+                    proxy.makeAssumptions(copy | elements<0> | take(numLiterals));
                     break;
                 }
                 case OrderType::Ascending:
