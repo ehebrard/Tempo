@@ -101,7 +101,7 @@ namespace tempo::lns {
         template<assumption_interface AI, concepts::scalar C>
         std::size_t select(AI &proxy, std::size_t numLiterals, unsigned numFails,
                            const std::vector<std::pair<Literal<T>, C>> & weightedLiterals) {
-            if (numFails == 0 and not cache.empty()) {
+            if (numFails == 0 and numLiterals <= cache.size()) {
                 proxy.makeAssumptions(cache | std::views::take(numLiterals));
                 return std::min(numLiterals, cache.size());
             }
