@@ -13,7 +13,7 @@
 #include "util/SubscribableEvent.hpp"
 #include "Global.hpp"
 #include "nn/GNNEdgePolarityPredictor.hpp"
-#include "BaseBooleanHeuristic.hpp"
+#include "heuristics/BaseBooleanHeuristic.hpp"
 #include "util/SchedulingProblemHelper.hpp"
 
 namespace fs = std::filesystem;
@@ -23,7 +23,7 @@ namespace tempo {
     class Solver;
 }
 
-namespace tempo::heuristics {
+namespace tempo::nn {
 
     /**
      * @brief Full guidance GNN based value branching heuristic.
@@ -34,7 +34,7 @@ namespace tempo::heuristics {
      * @note This Value branching heuristic is only ment to be used for scheduling problems
      */
     template<concepts::scalar T, SchedulingResource R>
-    class GNNFullGuidance: public BaseBooleanHeuristic<GNNFullGuidance<T, R>> {
+    class GNNFullGuidance: public heuristics::BaseBooleanHeuristic<GNNFullGuidance<T, R>> {
         nn::GNNEdgePolarityPredictor<T, R> polarityPredictor;
     public:
 
@@ -47,10 +47,9 @@ namespace tempo::heuristics {
          * @param problem initial description of the problem
          */
         GNNFullGuidance(double epsilon, const fs::path &modelLocation, const fs::path &featureExtractorConfigLocation,
-                        SchedulingProblemHelper <T, R> problem) : BaseBooleanHeuristic<GNNFullGuidance<T, R>>(epsilon),
-                                                                  polarityPredictor(modelLocation,
-                                                                                    featureExtractorConfigLocation,
-                                                                                    std::move(problem)) {}
+                        SchedulingProblemHelper<T, R> problem)
+                : heuristics::BaseBooleanHeuristic<GNNFullGuidance<T, R>>(epsilon),
+                  polarityPredictor(modelLocation, featureExtractorConfigLocation, std::move(problem)) {}
 
         /**
          * BaseBooleanHeuristic interface

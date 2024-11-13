@@ -20,61 +20,13 @@
 #include "Model.hpp"
 #include "util/Matrix.hpp"
 #include "util/traits.hpp"
-#include "util/distance.hpp"
+#include "util/task_distance.hpp"
 #include "Literal.hpp"
 
 namespace tempo {
 
     namespace detail {
 
-        template<typename T, typename Arc>
-        void getDistances(Matrix<T> &matrix, const std::vector<std::vector<Arc>> &adjacency, bool incoming) noexcept {
-            for (auto [src, neighbors] : iterators::enumerate(adjacency, 0)) {
-                for (const auto &dest : neighbors) {
-                    const auto s = incoming ? static_cast<int>(dest) : src;
-                    const auto d = incoming ? src : static_cast<int>(dest);
-                    matrix(s, d) = dest.label();
-                }
-            }
-        }
-
-        template<typename Arc>
-        concept labeled_arc = concepts::same_template<Arc, LabeledEdge> or
-                              concepts::same_template<Arc, StampedLabeledEdge>;
-
-        template<typename P, typename T>
-        concept bound_provider = requires(const P instance, var_t var) {
-            { instance.upper(var) } -> std::same_as<T>;
-            { instance.lower(var) } -> std::same_as<T>;
-        };
-
-        template<concepts::scalar T, bound_provider<T> BoundProvider>
-        class TaskDistanceFunction {
-            const std::vector<Interval<T>> &tasks;
-            const BoundProvider &boundProvider;
-            Matrix<T> graphDistances;
-        public:
-
-            template<labeled_arc Arc>
-            TaskDistanceFunction(const std::vector<Interval<T>> &tasks, const DirectedGraph<Arc> &varGraph,
-                                 const BoundProvider &boundProvider) :
-                    tasks(tasks), boundProvider(boundProvider),
-                    graphDistances(varGraph.size(), varGraph.size(), InfiniteDistance<T>) {
-                getDistances(graphDistances, varGraph.forward(), false);
-                getDistances(graphDistances, varGraph.backward(), true);
-            }
-
-            [[nodiscard]] T operator()(unsigned taskFrom, unsigned taskTo) const {
-                if (taskFrom == taskTo) {
-                    return 0;
-                }
-
-                const auto srcVar = tasks[taskFrom].start;
-                const auto destVar = tasks[taskTo].end;
-                const auto boundDistance = boundProvider.upper(destVar.id()) - boundProvider.lower(srcVar.id());
-                return std::min(graphDistances(srcVar.id(), destVar.id()), boundDistance) + destVar.offset();
-            }
-        };
     }
 
     template<typename T>
@@ -232,7 +184,7 @@ namespace tempo {
          * gets the mapping function from tasks to variables
          * @return mapping from variables to tasks
          */
-        [[nodiscard]] auto getMapping() const noexcept -> VarTaskMapping {
+        [[nodiscard]] auto getMapping() const noexcept -> const VarTaskMapping & {
             return v2t;
         }
 
@@ -252,10 +204,10 @@ namespace tempo {
          * @param boundProvider object that provides upper and lower bounds
          * @return distance function object that provides distances between tasks
          */
-        template<detail::bound_provider<T> BoundProvider, detail::labeled_arc Arc>
+        template<bound_provider BoundProvider, labeled_arc Arc>
         [[nodiscard]] auto getTaskDistances(const DirectedGraph<Arc> &varGraph,
                                             const BoundProvider &boundProvider) const {
-            return detail::TaskDistanceFunction<T, BoundProvider>(t, varGraph, boundProvider);
+            return TaskDistanceFunction<T, BoundProvider>(t, varGraph, boundProvider);
         }
 
         /**
@@ -265,7 +217,7 @@ namespace tempo {
          */
         [[nodiscard]] auto getTaskDistances(const Solver<T> &solver) const {
             using BP = std::remove_cvref_t<decltype(solver.numeric)>;
-            return detail::TaskDistanceFunction<T, BP>(t, solver.core, solver.numeric);
+            return TaskDistanceFunction<T, BP>(t, solver.core, solver.numeric);
         }
 
         /**

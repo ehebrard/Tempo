@@ -14,7 +14,7 @@
 #include <nlohmann/json.hpp>
 
 #include "util/traits.hpp"
-#include "util/distance.hpp"
+#include "util/edge_distance.hpp"
 #include "util/serialization.hpp"
 #include "util/SchedulingProblemHelper.hpp"
 #include "tensor_utils.hpp"

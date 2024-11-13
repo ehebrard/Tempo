@@ -96,7 +96,7 @@ endif ()
 
 file(GLOB SOURCES ${CMAKE_SOURCE_DIR}/src/cpp/*.cpp ${CMAKE_SOURCE_DIR}/src/cpp/util/*.cpp
         ${CMAKE_SOURCE_DIR}/src/cpp/constraints/*.cpp ${CMAKE_SOURCE_DIR}/src/cpp/heuristics/*.cpp
-        ${CMAKE_CURRENT_BINARY_DIR}/git_sha.cpp)
+        ${CMAKE_SOURCE_DIR}/src/cpp/heuristics/LNS/*.cpp ${CMAKE_CURRENT_BINARY_DIR}/git_sha.cpp)
 
 file(GLOB EXAMPLE_HELPER_SOURCES ${CMAKE_SOURCE_DIR}/src/examples/helpers/*.cpp)
 

@@ -15,7 +15,7 @@
 #include "RankingHeuristic.hpp"
 #include "heuristics/impl/DecayingEventActivityMap.hpp"
 #include "util/SubscribableEvent.hpp"
-#include "util/distance.hpp"
+#include "util/edge_distance.hpp"
 
 namespace tempo {
     template<typename T>

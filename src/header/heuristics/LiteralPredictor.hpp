@@ -4,8 +4,8 @@
 * @brief
 */
 
-#ifndef TEMPO_PRECEDENCEPREDICTOR_HPP
-#define TEMPO_PRECEDENCEPREDICTOR_HPP
+#ifndef TEMPO_LITERALPREDICTOR_HPP
+#define TEMPO_LITERALPREDICTOR_HPP
 
 #include <vector>
 #include <concepts>
@@ -16,41 +16,43 @@
 
 namespace tempo::heuristics {
 
+    template<typename P, typename T>
+    concept LiteralWeighter = requires(const P instance, Literal<T> lit, std::size_t idx) {
+        { instance.getCertainty(lit, idx) } -> concepts::scalar;
+        { instance.getPolarity(lit, idx) } -> std::same_as<Literal<T>>;
+    };
+
     /**
-     * @brief Precedence predictor CRTP helper class
+     * @brief Literal predictor CRTP helper class
      * @details @copybrief
      * @tparam Impl actual implementation
      * @tparam T timing type
      */
     template<typename Impl, concepts::scalar T>
-    class PrecedencePredictor : public crtp<Impl, PrecedencePredictor, T>{
+    class LiteralPredictor : public crtp<Impl, LiteralPredictor, T>{
     protected:
         std::vector<Literal<T>> literals;
-        std::vector<double> massesPos;
-        std::vector<double> massesNeg;
     public:
         /**
          * Ctor
          * @param literals all possible search literals
          */
-        explicit PrecedencePredictor(std::vector<Literal<T>> literals) : literals(std::move(literals)),
-                                                                         massesPos(this->literals.size(), 0),
-                                                                         massesNeg(this->literals.size(), 0) {}
+        explicit LiteralPredictor(std::vector<Literal<T>> literals) noexcept : literals(std::move(literals)) {}
 
         /**
          * Gets a list of literals ordered by their prediction confidence
          * @return vector of pair(literal, confidence) ordered by confidence in descending order
          */
-        auto getLiterals() const -> std::vector<std::pair<Literal<T>, double>> {
+        auto getLiterals() const {
+            static_assert(LiteralWeighter<Impl, T>);
             using namespace std::views;
-            using Hax = PrecedencePredictor*;
+            using Hax = LiteralPredictor*;
             // Dont worry! const_cast is necessary because of this issue in the standard (poison pills for ranges)
             // https://www.open-std.org/JTC1/SC22/WG21/docs/papers/2022/p2602r2.html
-            auto zip = iterators::zip(const_cast<Hax>(this)->literals, const_cast<Hax>(this)->massesPos,
-                                      const_cast<Hax>(this)->massesNeg) | transform([this](auto tpl) {
-                auto [lit, pos, neg] = tpl;
-                return std::make_pair(pos > neg ? lit : ~lit, this->getImpl().getCertainty(pos, neg));
-            });
+            auto zip = iterators::enumerate(const_cast<Hax>(this)->literals) | transform([this](auto tpl) {
+                auto [idx, lit] = tpl;
+                return std::make_pair(this->getImpl().getPolarity(lit, idx), this->getImpl().getCertainty(lit, idx));
+            }) | common;
 
             std::vector ret(zip.begin(), zip.end());
             std::ranges::sort(ret, {}, [](const auto &tpl) { return -std::get<1>(tpl); });
@@ -63,11 +65,12 @@ namespace tempo::heuristics {
          * @return list of literals where the prediction confidence is above confidenceThreshold
          */
         auto getLiterals(double confidenceThreshold) const -> std::vector<Literal<T>> {
+            static_assert(LiteralWeighter<Impl, T>);
             std::vector<Literal<T>> ret;
-            for (auto [lit, pos, neg] : iterators::zip(literals, massesPos, massesNeg)) {
-                auto certainty = this->getImpl().getCertainty(pos, neg);
+            for (auto [idx, lit] : iterators::const_enumerate(literals)) {
+                auto certainty = this->getImpl().getCertainty(lit, idx);
                 if (certainty > confidenceThreshold) {
-                    ret.emplace_back(pos > neg ? lit : ~lit);
+                    ret.emplace_back(this->getImpl().getPolarity(lit, idx));
                 }
             }
 
@@ -84,4 +87,4 @@ namespace tempo::heuristics {
     };
 }
 
-#endif //TEMPO_PRECEDENCEPREDICTOR_HPP
+#endif //TEMPO_LITERALPREDICTOR_HPP

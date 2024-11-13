@@ -2,6 +2,7 @@
  * @author Tim Luchterhand
  * @date 30.04.24.
  */
+#include <iostream>
 
 #include "nn/tensor_utils.hpp"
 

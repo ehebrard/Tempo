@@ -34,6 +34,7 @@
 #include "util/Profiler.hpp"
 #include "helpers/shell.hpp"
 #include "helpers/git_sha.hpp"
+#include "Solution.hpp"
 
 using namespace tempo;
 
