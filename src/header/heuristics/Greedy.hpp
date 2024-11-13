@@ -212,17 +212,17 @@ void ScheduleGenerationScheme<T>::load() {
         
 //        std::cout << i << "/" << best_start_time.size() << std::endl;
         
-//        std::cout << "post " << I.start << " <= " << best_start_time[i] << std::endl;
+        std::cout << "post " << I.start << " <= " << best_start_time[i] << std::endl;
         
         solver.post(I.start <= best_start_time[i]);
         
-//        std::cout << "post " << I.start << " >= " << best_start_time[i] << std::endl;
+        std::cout << "post " << I.start << " >= " << best_start_time[i] << std::endl;
         
         solver.post(I.start >= best_start_time[i]);
         ++i;
     }
     
-//    std::cout << "propagate\n";
+    std::cout << "propagate\n";
     
     solver.propagate();
     solver.saveSolution();
