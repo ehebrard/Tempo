@@ -40,6 +40,9 @@ namespace tempo::lns {
 
     std::ostream &operator<<(std::ostream &os, const PolicyDecayConfig &config);
 
+    /**
+     * @brief Class that decays a ratio value on different conditions using a specified decay scheme.
+     */
     class PolicyDecay {
         PolicyDecayConfig config;
         unsigned failCount = 0;
@@ -48,26 +51,72 @@ namespace tempo::lns {
         unsigned verbosity;
         double currentFixRatio;
     public:
+        /**
+         * Ctor
+         * @param config decay configuration
+         * @param numLiterals number of literals
+         * @param verbosity verbosity for logging
+         */
         explicit PolicyDecay(const PolicyDecayConfig &config, unsigned numLiterals, unsigned verbosity) noexcept;
 
+        /**
+         * Calculate the decay factor given a fail ratio according to the decay policy
+         * @param failRatio fail ratio
+         * @return the decay factor according to the decay policy
+         */
         [[nodiscard]] double decayFactor(double failRatio) const;
 
+        /**
+         * Calculate the fail ratio (number of fails since the last iterations with respect to the number of literals)
+         * @param fails current number of solver fails
+         * @return fail ratio
+         */
         [[nodiscard]] double calcFailRatio(unsigned fails) const noexcept;
 
+        /**
+         * Get the current LNS iterations fail count
+         * @return
+         */
         [[nodiscard]] unsigned getFailCount() const noexcept;
 
+        /**
+         * Manually reset the failed LNS iterations count (not the solver fail count)
+         */
         void resetFailCount() noexcept;
 
+        /**
+         * Get the current fix ratio
+         * @return current fix ratio
+         */
         [[nodiscard]] double getFixRatio() const noexcept;
 
+        /**
+         * Manually set the fix ratio
+         * @param fixRatio new value
+         */
         void setFixRatio(double fixRatio) noexcept;
 
+        /**
+         * Manually set the number of literals
+         * @param numLiterals
+         */
         void setNumLiterals(unsigned numLiterals) noexcept;
 
+        /**
+         * Reset the fix ratio to the value specified in the config
+         */
         void resetFixRatio() noexcept;
 
+        /**
+         * Call this method after a successful LNS iteration to update the fix ratio according to the decay policy
+         * @param numFails number of solver fails thus far
+         */
         void notifySuccess(unsigned numFails);
 
+        /**
+         * Call this method after a failed LNS iteration to update the fix ratio according to the decay policy
+         * @param numFails number of solver fails thus far
+         */
         void notifyFailure(unsigned numFails);
 
     };

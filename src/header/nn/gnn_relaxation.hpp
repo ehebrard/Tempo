@@ -26,6 +26,11 @@
 
 namespace tempo::nn {
 
+    /**
+     * @brief GNN relaxation policy
+     * @tparam T timing type
+     * @tparam R resource type
+     */
     template<concepts::scalar T, SchedulingResource R>
     class GNNRelax {
         // --- helpers
@@ -54,6 +59,17 @@ namespace tempo::nn {
         GNNRelax &operator=(const GNNRelax &) = default;
         GNNRelax &operator=(GNNRelax &&) = default;
 
+        /**
+         * Ctor
+         * @param solver instance of the solver
+         * @param modelLocation path to GNN location
+         * @param featureExtractorConfigLocation path to feature extractor config
+         * @param problemInstance problem instance helper
+         * @param decayConfig fix ratio decay policy config
+         * @param assumptionMode how to make assumptions
+         * @param exhaustionThreshold fix ratio threshold at which a new solution is explored
+         * @param exhaustionProbability probability with which a new solution is explored even if not exhausted
+         */
         GNNRelax(const Solver<T> &solver, const fs::path &modelLocation,
                  const fs::path &featureExtractorConfigLocation, const SchedulingProblemHelper<T, R> &problemInstance,
                  const lns::PolicyDecayConfig decayConfig, lns::AssumptionMode assumptionMode,
@@ -97,6 +113,11 @@ namespace tempo::nn {
             return static_cast<std::size_t>(predictor.numLiterals() * policyDecay.getFixRatio() * qualityFactor);
         }
 
+        /**
+         * Relaxation policy interface
+         * @tparam AI assumption interface type
+         * @param proxy assumption interface
+         */
         template<lns::assumption_interface AI>
         void relax(AI &proxy) {
             const auto &solver = proxy.getSolver();
@@ -120,16 +141,27 @@ namespace tempo::nn {
             }
         }
 
+        /**
+         * Relaxation policy interface
+         * @param numFailures current number of solver fails
+         */
         void notifySuccess(unsigned numFailures) {
             policyDecay.notifySuccess(numFailures);
             exhaustIfNecessary();
         }
 
+        /**
+         * Relaxation policy interface
+         * @param numFailures current number of solver fails
+         */
         void notifyFailure(unsigned numFailures) {
             policyDecay.notifyFailure(numFailures);
             exhaustIfNecessary();
         }
 
+        /**
+         * Dtor. Prints profiling information if verbosity allows it
+         */
         ~GNNRelax() {
             if (verbosity >= Options::YACKING) {
                 profiler.printAll<std::chrono::milliseconds>(std::cout);
