@@ -82,8 +82,8 @@ int main(int argc, char **argv) {
 
     MinimizationObjective objective(problemInfo.instance.schedule().duration);
     long elapsedTime;
+    std::cout << "-- root search probability increment " << sporadicIncrement << std::endl;
     if (useDRPolicy) {
-        std::cout << "-- root search probability increment " << sporadicIncrement << std::endl;
         std::cout << "-- exhaustion probability " << exhaustionProbability << std::endl;
         nn::GNNRepair gnnRepair(*problemInfo.solver, gnnLocation, featureExtractorConf, problemInfo.instance,
                                 config, assumptionMode, minCertainty, exhaustionThreshold);
@@ -101,7 +101,8 @@ int main(int argc, char **argv) {
         nn::GNNRelax policy(*problemInfo.solver, gnnLocation, featureExtractorConf, problemInfo.instance, config,
                             assumptionMode, exhaustionThreshold, exhaustionProbability);
         util::StopWatch sw;
-        problemInfo.solver->largeNeighborhoodSearch(objective, policy);
+        problemInfo.solver->largeNeighborhoodSearch(objective,
+                                                    lns::make_sporadic_root_search(sporadicIncrement, policy));
         elapsedTime = sw.elapsed<std::chrono::milliseconds>();
     }
 
