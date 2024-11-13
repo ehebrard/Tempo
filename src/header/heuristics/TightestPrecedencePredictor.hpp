@@ -69,7 +69,7 @@ namespace tempo::heuristics {
             return std::pow(std::abs(2 * pos / (pos + neg) - 1), 0.1);
         }
 
-        double getPolarity(Literal<T> lit, std::size_t idx) const {
+        Literal<T> getPolarity(Literal<T> lit, std::size_t idx) const {
             return massesPos[idx] > massesNeg[idx] ? lit : ~lit;
         }
     };
