@@ -1192,15 +1192,29 @@ T CumulativeOverlapFinding<T>::scheduleOmega(const int i, const T max_lct,
 
   if (not adjustment) {
     contact[i] = -1;
+      
+#ifdef DBG_COF
+      if (DBG_COF and debug_flag > 4) {
+          std::cout << "search contact\n";
+      }
+#endif
 
     auto t{next};
     if (overflow == 0 and omega_ect > schedule.end.min(solver)) {
-      while (data[t.index].overflow == 0) {
+        
+#ifdef DBG_COF
+      if (DBG_COF and debug_flag > 5) {
+          std::cout << "go to overflow (bound pruning)\n";
+      }
+#endif
+        
+        auto limit{profile.begin()};
+      while (data[t.index].overflow == 0 and t != limit) {
         --t;
       }
       overflow = data[t.index].overflow;
 #ifdef DBG_COF
-      if (DBG_COF and debug_flag > 0) {
+      if (DBG_COF and debug_flag > 5) {
         std::cout << "hack overflow " << *t << ": " << data[t.index]
                   << std::endl;
       }
@@ -1209,6 +1223,12 @@ T CumulativeOverlapFinding<T>::scheduleOmega(const int i, const T max_lct,
 
     if (overflow > 0) {
       contact[i] = profile.begin().index;
+        
+#ifdef DBG_COF
+      if (DBG_COF and debug_flag > 5) {
+          std::cout << "normal contact\n";
+      }
+#endif
 
       do {
         --t;

@@ -87,7 +87,7 @@ using hint = int;
 //#define DBG_SPANNING true
 //#define DBG_LIST true
 //#define DBGP0 true
-#define DBG_RPROF true
+//#define DBG_RPROF true
 //#define DBG_EXTRACT_SUM true
 //#define DBG_TT true //(this->id() == 3049 and solver.num_cons_propagations >= 3914)
 //#define DBG_EXPLCTT true
