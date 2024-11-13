@@ -7,7 +7,7 @@
 
 #include "RankingHeuristic.hpp"
 #include "Global.hpp"
-#include "util/distance.hpp"
+#include "util/edge_distance.hpp"
 
 namespace tempo::heuristics {
 

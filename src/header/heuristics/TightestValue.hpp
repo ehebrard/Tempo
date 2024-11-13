@@ -13,7 +13,7 @@
 #include "Global.hpp"
 #include "Literal.hpp"
 #include "util/traits.hpp"
-#include "util/distance.hpp"
+#include "util/edge_distance.hpp"
 
 
 namespace tempo::heuristics {

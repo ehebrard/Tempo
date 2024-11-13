@@ -11,7 +11,7 @@
 #include <Iterators.hpp>
 
 #include "util/traits.hpp"
-#include "util/distance.hpp"
+#include "util/edge_distance.hpp"
 #include "util/IntFinity.hpp"
 #include "LiteralPredictor.hpp"
 

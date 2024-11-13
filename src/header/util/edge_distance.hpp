@@ -4,8 +4,8 @@
 * @brief contains util functions for measuring distances on edges
 */
 
-#ifndef TEMPO_DISTANCE_HPP
-#define TEMPO_DISTANCE_HPP
+#ifndef TEMPO_EDGE_DISTANCE_HPP
+#define TEMPO_EDGE_DISTANCE_HPP
 
 #include <optional>
 
@@ -133,4 +133,4 @@ namespace tempo {
     }
 }
 
-#endif //TEMPO_DISTANCE_HPP
+#endif //TEMPO_EDGE_DISTANCE_HPP

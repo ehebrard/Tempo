@@ -8,7 +8,7 @@
 #include <vector>
 
 #include "testing.hpp"
-#include "util/distance.hpp"
+#include "util/edge_distance.hpp"
 
 
 TEST(util, distance_bound_estimation) {
