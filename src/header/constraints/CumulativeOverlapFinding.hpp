@@ -808,10 +808,9 @@ template <typename T> void CumulativeOverlapFinding<T>::forwardpropagate() {
                     std::cout << "profile after:\n" << profile << std::endl;
                     
                 }
-                
-                addTask(j);
-                
             }
+            
+            addTask(j);
         }
     }
 }
