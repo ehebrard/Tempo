@@ -83,6 +83,8 @@ auto tempo::getBaseParser() -> Parser {
     cmd.add<SwitchArg>(opt.tt_edge_finding, "", "no-tt-ef",
                        "do not use timetabling reasoning within edge-finding", true);
     
+    cmd.add<ValueArg<int>>(opt.incomplete_edge_finding, "", "incomplete-edge-finding", "stop edge-finding at level median - value", false, -std::numeric_limits<int>::max(), "int");
+    
     cmd.add<SwitchArg>(opt.time_tabling, "", "time-tabling", "use time-tabling",
                        false);
     cmd.add<SwitchArg>(opt.time_tabling, "", "no-time-tabling",

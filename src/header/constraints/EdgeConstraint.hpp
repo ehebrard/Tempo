@@ -81,7 +81,11 @@ template <typename T> void EdgeConstraint<T>::post(const int idx) {
 }
 
 template <typename T>
-bool EdgeConstraint<T>::notify(const Literal<T>, const int) {
+bool EdgeConstraint<T>::notify(const Literal<T>
+#ifdef DBG_EDGECONS
+                l
+#endif
+                               , const int) {
 
 #ifdef DBG_EDGECONS
   if (DBG_EDGECONS) {
@@ -156,7 +160,7 @@ void EdgeConstraint<T>::xplain(const Literal<T>, const hint,
 
 template <typename T>
 std::ostream &EdgeConstraint<T>::display(std::ostream &os) const {
-  os << "watcher [" << edge << "] => [" << p << "]";
+  os << "watcher [" << edge << "] => [" << m_solver.boolean.getEdge(p) << "]";
   return os;
 }
 

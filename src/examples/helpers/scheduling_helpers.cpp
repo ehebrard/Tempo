@@ -42,10 +42,11 @@ static auto parseCumulative(const tempo::Options &options, tempo::Solver<Time> &
     std::vector<std::vector<std::size_t>> resources; // elems are the resource requirements of a task
     std::vector<std::vector<int>> demands; // elems are the resource demands of a task
     std::vector<std::pair<int, int>> p;
+    std::vector<std::vector<int>> g;
     std::vector<ResourceUnit> capacities; // resource capacities
     std::vector<tempo::DistanceConstraint<Time>> precedences;
     if (options.input_format == "rcpsp") {
-        rcpsp::parse(options.instance_file, solver, schedule, tasks, resources, demands, capacities, p, &precedences);
+        rcpsp::parse(options.instance_file, solver, schedule, tasks, resources, demands, capacities, p, g, &precedences);
     } else {
         return {};
     }

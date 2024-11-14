@@ -196,13 +196,18 @@ int main(int argc, char *argv[]) {
     std::vector<int> resource_capacities;
   std::vector<Interval<>> intervals;
   std::vector<std::pair<int, int>> precedences;
+    std::vector<std::vector<int>> graph;
 
   if (opt.input_format == "rcp")
     rcpsp::parse(opt.instance_file, S, schedule, intervals, tasks_requirements,
-                 task_demands, resource_capacities, precedences);
+                 task_demands, resource_capacities, precedences, graph);
   else
     psplib::parse(opt.instance_file, S, schedule, intervals, tasks_requirements,
-                  task_demands, resource_capacities, precedences);
+                  task_demands, resource_capacities, precedences, graph);
+    
+    for(auto &neighbors : graph) {
+        std::sort(neighbors.begin(), neighbors.end());
+    }
 
   //      for(auto i : intervals) {
   //          std::cout << i.id() << ": " << i << std::endl;
@@ -248,7 +253,7 @@ int main(int argc, char *argv[]) {
         
         S.initializeSearch();
         
-        ScheduleGenerationScheme<int> sgs(S, tasks_requirements, task_demands, resource_capacities, intervals, precedences);
+        ScheduleGenerationScheme<int> sgs(S, tasks_requirements, task_demands, resource_capacities, intervals, precedences, graph);
         
         for(auto i{0}; i<opt.greedy_runs; ++i) {
             auto makespan{sgs.run()};

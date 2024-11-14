@@ -555,13 +555,13 @@ public:
     template <typename ItTask, typename ItNVar>
     void postStrongEdgeFinding(const Interval<T> s, const NumericVar<T> c,
                                const ItTask beg_task, const ItTask end_task,
-                               const ItNVar beg_dem, const bool tt);
+                               const ItNVar beg_dem, const bool tt, const bool approx);
     
     // create and post the strong edge-finding propagator for the cumulative constraint
     template <typename ItTask, typename ItNVar>
     void postOverlapFinding(const Interval<T> s, const NumericVar<T> c,
                                const ItTask beg_task, const ItTask end_task,
-                               const ItNVar beg_dem, Matrix<Literal<T>> lits, const bool tt);
+                               const ItNVar beg_dem, Matrix<Literal<T>> lits);
     
     // create and post the time-tabling propagator for the cumulative constraint
     template <typename ItTask, typename ItNVar>
@@ -1024,6 +1024,7 @@ void GraphExplainer<T>::xplain(const Literal<T> l, const hint h,
                                std::vector<Literal<T>> &Cl) {
     
     if (l == Contradiction<T>) {
+        
         auto s{Literal<T>::sgn(h)};
         auto x{Literal<T>::var(h)};
         auto end_cycle{x};
@@ -1095,6 +1096,9 @@ void BoundExplainer<T>::xplain(const Literal<T> l, const hint h,
 
         #ifdef DBG_TRACE
                 if (DBG_CBOUND and (DBG_TRACE & LEARNING)) {
+                    
+                    std::cout << lidx  << " AND " << uidx << ": ";
+                    
                     if(lidx > 0)
                         std::cout << solver.getLiteral(lidx);
                     else
@@ -1112,28 +1116,43 @@ void BoundExplainer<T>::xplain(const Literal<T> l, const hint h,
         #endif
 
         Literal<T> le{Truism<T>};
-        Explanation<T> exp;
+        Literal<T> nle;
+        Explanation<T> exp{Constant::NoReason<T>};
         
         if (lidx < uidx) {
             if(lidx > 0)
                 le = solver.getLiteral(lidx);
+            else
+                nle = solver.getLiteral(uidx);
             exp = solver.getReason(uidx);
         } else {
             if(uidx > 0)
                 le = solver.getLiteral(uidx);
+            else
+                nle = solver.getLiteral(lidx);
             exp = solver.getReason(lidx);
         }
 
         #ifdef DBG_TRACE
                 if (DBG_CBOUND and (DBG_TRACE & LEARNING)) {
-                    std::cout << " => " << le << " AND " << exp << std::endl;
+                    if(le != Truism<T>)
+                        std::cout << " => " << le << " AND " << exp << std::endl;
+                    else
+                        std::cout << " => " << nle << " AND " << exp << std::endl;
                 }
         #endif
 
+                       
         if(le != Truism<T>) {
             Cl.push_back(le);
+            nle = ~le;
+//            exp.explain(~le, Cl);
         }
-        exp.explain(~le, Cl);
+//                       else {
+////            exp.explain(Contradiction<T>, Cl);
+//            
+//        }
+                       exp.explain(nle, Cl);
         
     } else {
         std::cout << "explain lit " << l << " due to constraint "
@@ -1386,6 +1405,11 @@ template <typename T> void NumericStore<T>::set(Literal<T> l) {
     
     assert(bound[s][v] > l.value());
     
+//    if(v <= 0 or v >= bound[s].size()) {
+//        std::cout << "HERE!!: " << s << "." << v <<": " << l.value() << "\n";
+//        exit(1);
+//    }
+    
     bound[s][v] = l.value();
     bound_index[s][v].push_back(static_cast<index_t>(solver.numLiteral() - 1));
 }
@@ -1480,21 +1504,25 @@ index_t NumericStore<T>::lastLitIndex(const bool s, const var_t x) const {
     return bound_index[s][x].back();
 }
 
+// get the highest index in the literal stack of literal p directly entailing literal l
+//
 template <typename T>
 index_t NumericStore<T>::litIndex(const Literal<T> l) const {
     
+//    std::cout << "beg lit-index\n";
+//    
 //    std::cout << l << std::endl;
-//    
+////    
 //    std::cout << l.sign() << " " << l.variable() << "/" << bound_index[l.sign()].size() << std::endl;
-//    
-//    
-//    if(bound_index[l.sign()][l.variable()].size() == 0) {
-//                std::cout << "wtf?\n";
-//                exit(1);
-//    }
-//    
-//    if(bound_index[l.sign()][l.variable()].size() == 1)
-//        return bound_index[l.sign()][l.variable()].back();
+////    
+////    
+////    if(bound_index[l.sign()][l.variable()].size() == 0) {
+////                std::cout << "wtf?\n";
+////                exit(1);
+////    }
+////    
+////    if(bound_index[l.sign()][l.variable()].size() == 1)
+////        return bound_index[l.sign()][l.variable()].back();
         
     auto i{bound_index[l.sign()][l.variable()].rbegin()};
     
@@ -1505,6 +1533,10 @@ index_t NumericStore<T>::litIndex(const Literal<T> l) const {
     
     while (solver.getLiteral(*(i + 1)).value() <= l.value())
         ++i;
+    
+    
+//    std::cout << "end lit-index\n";
+    
     return *i;
 }
 
@@ -2004,7 +2036,7 @@ template <typename T> void Solver<T>::backtrack(Explanation<T> &e) {
 template <typename T>
 index_t Solver<T>::propagationLevel(const Literal<T> l) const {
     if (l.isNumeric()) {
-        return numeric.litIndex(l);
+        return (l.variable() == Constant::K ? 0 : numeric.litIndex(l));
     } else {
         return boolean.litIndex(l);
     }
@@ -2175,7 +2207,7 @@ template <typename T> void Solver<T>::decisionCut(Explanation<T> &e) {
             if (l == Contradiction<T>) {
                 std::cout << "contradiction";
             } else {
-              std::cout << pretty(l); //<< " @" << propagationLevel(l);
+              std::cout << "{" << pretty(l) << "}"; //<< " @" << propagationLevel(l);
             }
             std::cout << " by " << exp << std::endl;
         }
@@ -2194,6 +2226,9 @@ template <typename T> void Solver<T>::decisionCut(Explanation<T> &e) {
         while (not lit_buffer.empty()) {
           l = lit_buffer.back();
           lit_buffer.pop_back();
+            
+//            std::cout << " *** " << pretty(l) << std::endl;
+            
           auto lvl{propagationLevel(l)};
           if (lvl >= ground_stamp) {
 
@@ -2319,7 +2354,7 @@ template <typename T> void Solver<T>::analyze(Explanation<T> &e) {
               if (l == Contradiction<T>) {
                 std::cout << "contradiction";
               } else {
-                std::cout << pretty(l) << " @" << propagationLevel(l);
+                std::cout << "|" << pretty(l) << "|" << " @" << propagationLevel(l);
               }
               std::cout << " by " << exp << std::endl;
             }
@@ -2354,15 +2389,18 @@ template <typename T> void Solver<T>::analyze(Explanation<T> &e) {
               //#endif
 
               //@TODO: remove
-              auto p_lvl{propagationLevel(p)};
 
 #ifdef DBG_TRACE
                 if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
                   std::cout << " ** " << pretty(p) << " (" << ground_stamp
-                            << "/" << p_lvl << "/" << decision_stamp << ")";
+//                            << "/" << p_lvl
+                    << "/" << decision_stamp << ")";
                   std::cout.flush();
                 }
 #endif
+                
+                auto p_lvl{propagationLevel(p)};
+                
 
                 //@TODO: need to separate decisions from ground facts in
                 // Explanation
@@ -2781,9 +2819,11 @@ template <typename T> boolean_state Solver<T>::satisfiable() {
         satisfiability = FalseState;
     }
     
-    satisfiability = search();
-    if (satisfiability == TrueState) {
-        saveSolution();
+    if(satisfiability == UnknownState) {
+        satisfiability = search();
+        if (satisfiability == TrueState) {
+            saveSolution();
+        }
     }
     if(options.verbosity >= Options::QUIET)
         displaySummary(
@@ -3525,16 +3565,16 @@ template <typename T>
 template <typename ItTask, typename ItNVar>
 void Solver<T>::postStrongEdgeFinding(
     const Interval<T> s, const NumericVar<T> c, const ItTask beg_task,
-    const ItTask end_task, const ItNVar beg_dem, const bool tt) {
-  post(new CumulativeEdgeFinding<T>(*this, s, c, beg_task, end_task, beg_dem, tt));
+    const ItTask end_task, const ItNVar beg_dem, const bool tt, const bool approx) {
+  post(new CumulativeEdgeFinding<T>(*this, s, c, beg_task, end_task, beg_dem, tt, approx));
 }
 
 template <typename T>
 template <typename ItTask, typename ItNVar>
 void Solver<T>::postOverlapFinding(
     const Interval<T> s, const NumericVar<T> c, const ItTask beg_task,
-    const ItTask end_task, const ItNVar beg_dem, Matrix<Literal<T>> lits, const bool tt) {
-  post(new CumulativeOverlapFinding<T>(*this, s, c, beg_task, end_task, beg_dem, lits, tt));
+    const ItTask end_task, const ItNVar beg_dem, Matrix<Literal<T>> lits) {
+  post(new CumulativeOverlapFinding<T>(*this, s, c, beg_task, end_task, beg_dem, lits));
 }
 
 template <typename T> double Solver<T>::looseness(const Literal<T> &l) const {

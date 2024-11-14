@@ -44,11 +44,11 @@ using boolean_state = int;
 using hint = int;
 //#define NoHint -1
 //
-//#define DBG_BOUND num_cons_propagations >= 0
-//#define DBG_CBOUND solver.num_cons_propagations >= 0
+//#define DBG_BOUND options.verbosity > 10
+//#define DBG_CBOUND solver.getOptions().verbosity > 10
 //#define DBG_CLBOUND false //cl->id == 80 //solver.num_choicepoints >= 10527
-//#define DBG_BBOUND num_cons_propagations >= 0
-//#define DBG_TRACE 17                      // 183 //1+2+4+32+128
+//#define DBG_BBOUND solver.getOptions().verbosity > 10
+//#define DBG_TRACE 305                     // 183 //1+2+4+32+128
 #define SEARCH 1
 #define DOMAINS 2
 #define BRANCH 4
@@ -60,6 +60,7 @@ using hint = int;
 #define DCUT 256
 
 //#define DBG_MINIMIZATION
+//#define DBG_EDGECONS true
 //#define DBG_EDGEFINDING (m_solver.num_cons_propagations >= 0)
 //#define DBG_EXPLEF true      //(m_schedule.num_fails > 236)
 //#define DBG_THETA (m_schedule.num_fails >= 481)
@@ -81,13 +82,14 @@ using hint = int;
 //#define DBG_EXPL_FTRANS true
 //#define DBG_SEF solver.num_cons_propagations >= 0
 //#define DBG_COF solver.num_cons_propagations >= 0
-// solver.num_choicepoints >= 5708
-//(this->solver.num_cons_propagations >= 81918) //(this->id() == 1729 and
-// m_solver.num_choicepoints >= 5708) #define DBG_EXTRACT true #define
-// DBG_SPANNING true #define DBG_LIST true #define DBGP0 true #define DBG_RPROF
-// true #define DBG_EXTRACT_SUM true #define DBG_TT true //(this->id() == 3049
-// and solver.num_cons_propagations >= 3914) #define DBG_EXPLCTT true
-
+//#define DBG_EXTRACT true
+//#define DBG_SPANNING true
+//#define DBG_LIST true
+//#define DBGP0 true
+//#define DBG_RPROF true
+//#define DBG_EXTRACT_SUM true
+//#define DBG_TT true //(this->id() == 3049
+//#define DBG_EXPLCTT true
 //#define STATS true
 
 
@@ -192,6 +194,7 @@ constexpr Integer ceil_division(Integer x, Integer y) {
 double cpu_time(void);
 
 void seed(const unsigned long s);
+void setSeed(const unsigned long x_, const unsigned long y_, const unsigned long z_);
 
 unsigned long random(void);
 

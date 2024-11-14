@@ -144,6 +144,7 @@ private:
   std::vector<NumericVar<T>> demand;
   bool sign{bound::lower};
   bool timetable_reasoning{true};
+    int approximation{-Constant::Infinity<int>};
 
   // mapping from the tasks that need to be adjusted to the corresponding
   // left-cut interval
@@ -229,7 +230,7 @@ public:
   CumulativeEdgeFinding(Solver<T> &solver, const Interval<T> sched,
                         const NumericVar<T> capacity, const ItTask beg_task,
                         const ItTask end_task, const ItNVar beg_dem,
-                        const bool tt);
+                        const bool tt, const bool approx);
   virtual ~CumulativeEdgeFinding();
 
   // helpers
@@ -432,8 +433,8 @@ template <typename ItTask, typename ItNVar>
 CumulativeEdgeFinding<T>::CumulativeEdgeFinding(
     Solver<T> &solver, const Interval<T> sched, const NumericVar<T> cap,
     const ItTask beg_task, const ItTask end_task, const ItNVar beg_dem,
-    const bool tt)
-    : solver(solver), timetable_reasoning(tt),
+    const bool tt, const bool approx)
+    : solver(solver), timetable_reasoning(tt), approximation(approx),
       num_explanations(0, &(solver.getEnv())) {
   schedule = sched, capacity = cap;
 
@@ -502,10 +503,14 @@ template <typename T> void CumulativeEdgeFinding<T>::post(const int idx) {
 
 template <typename T>
 bool CumulativeEdgeFinding<T>::notify(const Literal<T>, const int) {
-  //    auto lvl = static_cast<unsigned>(solver.level());
-  //    if(lvl >= num_pruning.size() or lvl < median_pruning_level-3)
-  //        return true;
-  //    return false;
+    if(approximation != -Constant::Infinity<int>) {
+            auto lvl = static_cast<unsigned>(solver.level());
+            if(lvl >= num_pruning.size() or lvl < median_pruning_level-approximation)
+                return true;
+        
+//        std::cout << "ignore literal " << approximation << "\n";
+            return false;
+    }
   return true;
 }
 

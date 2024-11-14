@@ -94,7 +94,8 @@ public:
                              std::vector<std::vector<T>>& task_demands,
                              std::vector<T>& resource_capacities,
                              std::vector<Interval<T>>& intervals,
-                             std::vector<std::pair<int,int>>& precedences);
+                             std::vector<std::pair<int,int>>& precedences,
+                             std::vector<std::vector<int>>& graph);
     
     void clear();
     T run();
@@ -113,6 +114,7 @@ private:
     std::vector<T>& resource_capacities;
     std::vector<Interval<T>>& intervals;
     std::vector<std::pair<int,int>>& precedences;
+    std::vector<std::vector<int>>& graph;
     
     BacktrackEnvironment env;
     
@@ -142,13 +144,15 @@ ScheduleGenerationScheme<T>::ScheduleGenerationScheme(Solver<T> &solver,
                          std::vector<std::vector<T>>& task_demands,
                          std::vector<T>& resource_capacities,
                          std::vector<Interval<T>>& intervals,
-                         std::vector<std::pair<int,int>>& precedences) :
+                         std::vector<std::pair<int,int>>& precedences,
+                                                      std::vector<std::vector<int>>& graph          ) :
 solver(solver),
 tasks_requirements(tasks_requirements),
 task_demands(task_demands),
 resource_capacities(resource_capacities),
 intervals(intervals),
-precedences(precedences)
+precedences(precedences),
+graph(graph)
 , precedence_graph(&env)
 {
     
@@ -159,15 +163,44 @@ precedences(precedences)
     precedence_graph.resize(intervals.size());
     
     int n{static_cast<int>(intervals.size())};
-    for(auto prec : precedences) {
-        auto x{prec.first};
-        auto y{prec.second};
-        if(x >= 0 and y<n) {
-            if(tasks.has(y))
-                tasks.remove_back(y);
-            precedence_graph.add(x,y);
+//    for(auto prec : precedences) {
+//        auto x{prec.first};
+//        auto y{prec.second};
+//        if(x >= 0 and y<n) {
+//            if(tasks.has(y))
+//                tasks.remove_back(y);
+//            std::cout << x << " / " << y << std::endl;
+//            precedence_graph.add(x,y);
+//        }
+//    }
+    
+//    std::cout << "VS\n";
+    
+    for(int x{0}; x<n; ++x) {
+        for(unsigned yi{0}; yi<graph[x].size(); ++yi) {
+            auto y{graph[x][yi]};
+            if(yi == graph[x].size() - 1 or y != graph[x][yi+1]) {
+                if(x >= 0 and y<n) {
+                    if(tasks.has(y))
+                        tasks.remove_back(y);
+//                    std::cout << x << " / " << y << std::endl;
+                    precedence_graph.add(x,y);
+                }
+            }
         }
     }
+    
+//    exit(1);
+    
+//    for(auto &neighbors : graph) {
+//        auto x{prec.first};
+//        auto y{prec.second};
+//        if(x >= 0 and y<n) {
+//            if(tasks.has(y))
+//                tasks.remove_back(y);
+//            precedence_graph.add(x,y);
+//        }
+//    }
     
     for(auto t : tasks) {
         sources.push_back(t);

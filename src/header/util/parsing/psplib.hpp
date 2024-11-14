@@ -16,6 +16,7 @@ parse(const std::string &fn, Solver<int> &model, Interval<int> &schedule,
       std::vector<std::vector<size_t>> &resources,
       std::vector<std::vector<int>> &demands, std::vector<int> &capacities,
       std::vector<std::pair<int, int>> &precedences,
+      std::vector<std::vector<int>> &graph,
       std::vector<DistanceConstraint<int>> *distConstraints = nullptr) {
   using std::cerr;
   try {
@@ -77,6 +78,7 @@ parse(const std::string &fn, Solver<int> &model, Interval<int> &schedule,
         gotnjob = true;
         resources.resize(nj);
         demands.resize(nj);
+          graph.resize(nj);
       } else if (not gotjobcrap) {
         //                std::cout << " ** job crap again\n";
         iss >> probe;
@@ -92,6 +94,8 @@ parse(const std::string &fn, Solver<int> &model, Interval<int> &schedule,
         for (auto i{0}; i < nsucc; ++i) {
           iss >> succ;
           precedences.emplace_back(job - 2, succ - 2);
+            if(job > 1)
+                graph[job-2].push_back(succ-2);
           //                    edges.push_back(job);
           //                    edges.push_back(succ);
         }

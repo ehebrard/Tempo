@@ -10,6 +10,13 @@ double tempo::cpu_time(void) {
 
 static unsigned long x = 123456789, y = 362436069, z = 521288629;
 
+void tempo::setSeed(const unsigned long x_, const unsigned long y_, const unsigned long z_) {
+    x = x_;
+    y = y_;
+    z = z_;
+}
+
+
 void tempo::seed(const unsigned long s) {
   x = s;
   y = 362436069;

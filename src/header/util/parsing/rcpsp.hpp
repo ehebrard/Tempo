@@ -15,7 +15,9 @@ inline void parse(const std::string &fn, Solver<int> &model, Interval<int> &sche
            std::vector<Interval<int>> &intervals,
            std::vector<std::vector<size_t>> &resources,
            std::vector<std::vector<int>> &demands, std::vector<int> &capacities,
-           std::vector<std::pair<int, int>> &precedences, std::vector<DistanceConstraint<int>> *distConstraints = nullptr) {
+           std::vector<std::pair<int, int>> &precedences,
+                  std::vector<std::vector<int>> &graph,
+                  std::vector<DistanceConstraint<int>> *distConstraints = nullptr) {
   using std::cerr;
   try {
     std::ifstream ifs(fn);
@@ -37,6 +39,9 @@ inline void parse(const std::string &fn, Solver<int> &model, Interval<int> &sche
 
     resources.resize(nj - 2);
     demands.resize(nj - 2);
+      
+//      std::cout << "resize " << (nj-2) << std::endl;
+      graph.resize(nj - 2);
 
     for (auto m{0}; m < nm; ++m) {
       ifs >> capa;
@@ -60,6 +65,11 @@ inline void parse(const std::string &fn, Solver<int> &model, Interval<int> &sche
       for (auto i{0}; i < nsucc; ++i) {
         ifs >> succ;
         precedences.emplace_back(j - 1, succ - 2);
+          
+//          std::cout << graph.size() << " / " << j << std::endl;
+          
+          if(j > 0)
+              graph[j-1].push_back(succ-2);
       }
 
       if (j > 0 and j < nj - 1) {
