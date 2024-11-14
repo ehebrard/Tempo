@@ -24,6 +24,7 @@
 
 #include "Solver.hpp"
 #include "Model.hpp"
+#include "util/random.hpp"
 #include <algorithm>
 #include <cstddef>
 #include <limits>

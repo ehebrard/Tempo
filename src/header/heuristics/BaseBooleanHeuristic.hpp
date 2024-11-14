@@ -29,6 +29,7 @@
 #include "Literal.hpp"
 #include "util/crtp.hpp"
 #include "util/traits.hpp"
+#include "util/random.hpp"
 #include "heuristics/heuristic_interface.hpp"
 
 namespace tempo::heuristics {

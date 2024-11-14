@@ -14,6 +14,7 @@
 #include "Global.hpp"
 #include "Constant.hpp"
 #include "util/traits.hpp"
+#include "util/random.hpp"
 #include "Literal.hpp"
 #include "Solver.hpp"
 #include "Solution.hpp"

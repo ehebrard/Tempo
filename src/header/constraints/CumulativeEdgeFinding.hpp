@@ -38,6 +38,7 @@
 #include "Model.hpp"
 #include "constraints/Constraint.hpp"
 #include "util/List.hpp"
+#include "util/random.hpp"
 
 
 //#define FULL_TT_REASONING

@@ -33,6 +33,7 @@
 #include "util/Options.hpp"
 #include "util/serialization.hpp"
 #include "util/factory_pattern.hpp"
+#include "util/random.hpp"
 
 namespace tempo::lns {
 

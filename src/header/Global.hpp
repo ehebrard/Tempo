@@ -193,16 +193,6 @@ constexpr Integer ceil_division(Integer x, Integer y) {
 //
 double cpu_time(void);
 
-void seed(const unsigned long s);
-void setSeed(const unsigned long x_, const unsigned long y_, const unsigned long z_);
-
-unsigned long random(void);
-
-template<unsigned long Res>
-bool randomEventOccurred(double probability) noexcept {
-    return random() % Res < static_cast<unsigned long>(probability * Res);
-}
-
 } // namespace tempo
 
 #endif // _TEMPO_SCHEDULING_HPP
