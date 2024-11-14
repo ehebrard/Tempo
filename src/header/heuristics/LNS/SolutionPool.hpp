@@ -61,7 +61,7 @@ namespace tempo::lns {
 
         T popRandom() {
             auto it = this->begin() + random() % this->size();
-            auto elem = std::move(*this);
+            auto elem = std::move(*it);
             this->erase(it);
             return elem;
         }
