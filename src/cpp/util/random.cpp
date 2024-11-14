@@ -29,4 +29,6 @@ namespace tempo {
 
         return z;
     }
+
+    auto RNG::operator()() const noexcept -> unsigned long { return random(); }
 }

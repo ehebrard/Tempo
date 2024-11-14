@@ -51,8 +51,7 @@ namespace tempo::lns {
         }
 
         T &peekRandom() noexcept {
-            auto idx = random() % this->size();
-            return operator[](idx);
+            return random_select(*this);
         }
 
         const T&peekRandom() const noexcept {
@@ -60,7 +59,7 @@ namespace tempo::lns {
         }
 
         T popRandom() {
-            auto it = this->begin() + random() % this->size();
+            auto it = random_select_iterator(*this);
             auto elem = std::move(*it);
             this->erase(it);
             return elem;

@@ -101,7 +101,7 @@ namespace tempo::lns {
          */
         template<assumption_interface AI>
         void relax(AI &s) {
-            bool randomlyExhausted = randomEventOccurred<Resolution>(exhaustionProbability);
+            bool randomlyExhausted = random_event_occurred<Resolution>(exhaustionProbability);
             if (repair.exhausted() or randomlyExhausted) {
                 if (s.getSolver().getOptions().verbosity >= Options::YACKING) {
                     std::cout << "-- " << (randomlyExhausted ? "randomly " : "");

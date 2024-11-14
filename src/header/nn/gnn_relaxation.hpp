@@ -171,7 +171,7 @@ namespace tempo::nn {
     private:
         void exhaustIfNecessary() {
             const auto fixRatio = std::min(numFixed, maxNumLiterals()) / static_cast<double>(predictor.numLiterals());
-            bool randomExhaust = randomEventOccurred<10000>(exhaustionProbability);
+            bool randomExhaust = random_event_occurred(exhaustionProbability);
             if (fixRatio >= exhaustionThreshold and not randomExhaust) {
                 return;
             }
