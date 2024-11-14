@@ -9,7 +9,7 @@
 #include <ranges>
 
 #include "testing.hpp"
-#include "heuristics/RelaxationPolicy.hpp"
+#include "heuristics/LNS/relaxation_policies.hpp"
 
 template<typename ...Args>
 auto Lit(Args ...args) {
@@ -19,7 +19,6 @@ auto Lit(Args ...args) {
 auto makeTestTaskMap() {
     using namespace tempo;
     using namespace std::views;
-    namespace h = heuristics;
     namespace t = tempo::testing;
     using std::ranges::subrange;
     using M = Matrix<Literal<int>>;
@@ -39,7 +38,7 @@ auto makeTestTaskMap() {
     };
 
     return std::make_pair(
-            h::detail::TaskVarMap<int>(tasks | transform([](const auto &t) { return Interval<int>(t); }), resources),
+            lns::detail::TaskVarMap<int>(tasks | transform([](const auto &t) { return Interval<int>(t); }), resources),
             std::move(tasks));
 }
 

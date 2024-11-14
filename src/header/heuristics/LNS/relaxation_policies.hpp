@@ -29,12 +29,12 @@
 
 #include "Global.hpp"
 #include "Model.hpp"
-#include "RelaxationInterface.hpp"
+#include "relaxation_interface.hpp"
 #include "util/Options.hpp"
 #include "util/serialization.hpp"
 #include "util/factory_pattern.hpp"
 
-namespace tempo::heuristics {
+namespace tempo::lns {
 
 
 template<resource_expression R>
@@ -413,7 +413,7 @@ auto make_sporadic_root_search(double rootProbabilityIncrement, P &&policy) {
  */
 template<typename T>
 class PolicyReplay {
-    std::vector<typename heuristics::LoggingAssumptionProxy<T>::PolicyTrace> trace;
+    std::vector<typename LoggingAssumptionProxy<T>::PolicyTrace> trace;
     std::size_t idx = 0;
 public:
     /**
@@ -427,8 +427,8 @@ public:
      * Relaxation interface. Replays the assumptions previously made by the recorded policy
      * @param s assumption proxy to
      */
-    void relax(heuristics::AssumptionProxy<T> &s) {
-        using enum heuristics::PolicyAction;
+    void relax(AssumptionProxy<T> &s) {
+        using enum PolicyAction;
         if (idx >= trace.size()) {
             throw std::runtime_error("Assumption list exhausted. Cannot make any more assumptions.");
         }

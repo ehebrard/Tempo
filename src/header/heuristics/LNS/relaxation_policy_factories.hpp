@@ -13,9 +13,9 @@
 #include "util/traits.hpp"
 #include "util/Options.hpp"
 #include "Model.hpp"
-#include "RelaxationPolicy.hpp"
+#include "relaxation_policies.hpp"
 
-namespace tempo::heuristics {
+namespace tempo::lns {
 
     /**
      * @brief Relaxation policy type

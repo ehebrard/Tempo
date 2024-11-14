@@ -13,14 +13,14 @@
 #include "helpers/cli.hpp"
 #include "helpers/shell.hpp"
 #include "helpers/git_sha.hpp"
-#include "heuristics/RelaxationPolicy.hpp"
+#include "heuristics/LNS/relaxation_policies.hpp"
 
 int main(int argc, char **argv) {
     using namespace tempo;
     std::string policyTrace;
     auto opt = cli::parseOptions(argc, argv, cli::ArgSpec("trace", "Location of the policy trace", false, policyTrace));
     auto [solver, problem, _, optSol, _1] = loadSchedulingProblem(opt);
-    heuristics::PolicyReplay<int> policy(policyTrace);
+    lns::PolicyReplay<int> policy(policyTrace);
     MinimizationObjective objective(problem.schedule().duration);
     solver->largeNeighborhoodSearch(objective, policy);
     if (solver->numeric.hasSolution()) {

@@ -33,7 +33,7 @@
 #include "util/Profiler.hpp"
 #include "helpers/shell.hpp"
 #include "helpers/git_sha.hpp"
-#include "heuristics/relaxation_policy_factories.hpp"
+#include "heuristics/LNS/relaxation_policy_factories.hpp"
 
 using namespace tempo;
 
@@ -151,11 +151,11 @@ void printResources(const Solver<T>& S, const std::vector<Interval<T>>& interval
 
 // implementation of a scheduling solver
 int main(int argc, char *argv[]) {
-  namespace h = tempo::heuristics;
+  namespace lns = tempo::lns;
   auto parser = tempo::getBaseParser();
   bool profileHeuristic;
-  h::RelaxationPolicyParams policyParams;
-  h::RelaxPolicy policyType;
+  lns::RelaxationPolicyParams policyParams;
+  lns::RelaxPolicy policyType;
   cli::detail::configureParser(parser, cli::SwitchSpec("heuristic-profiling", "activate heuristic profiling",
                                                        profileHeuristic, false),
                                cli::ArgSpec("relax-decay", "relaxation ratio decay",
@@ -300,7 +300,7 @@ int main(int argc, char *argv[]) {
     
     if(not optimal) {
         MinimizationObjective<int> objective(schedule.duration);
-        auto policy = h::make_relaxation_policy(policyType, intervals, resources, policyParams);
+        auto policy = lns::make_relaxation_policy(policyType, intervals, resources, policyParams);
         std::cout << "-- using relaxation policy " << policyType << std::endl;
         S.largeNeighborhoodSearch(objective, policy);
     }

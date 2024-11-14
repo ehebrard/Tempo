@@ -18,7 +18,7 @@
 #include "util/traits.hpp"
 #include "torch_types.hpp"
 #include "heat_map_utils.hpp"
-#include "heuristics/PrecedencePredictor.hpp"
+#include "heuristics/LiteralPredictor.hpp"
 
 namespace tempo {
     template<typename T>
@@ -35,7 +35,9 @@ namespace tempo::nn {
      * @tparam R resource type
      */
     template<concepts::scalar T, SchedulingResource R>
-    class GNNPrecedencePredictor : public heuristics::PrecedencePredictor<GNNPrecedencePredictor<T, R>, T> {
+    class GNNPrecedencePredictor : public heuristics::LiteralPredictor<GNNPrecedencePredictor<T, R>, T> {
+        std::vector<double> massesPos;
+        std::vector<double> massesNeg;
         EdgeRegressor gnn;
         GraphBuilder<T, R> graphBuilder;
     public:
@@ -49,8 +51,9 @@ namespace tempo::nn {
          */
         GNNPrecedencePredictor(const fs::path &modelLocation, const fs::path &featureExtractorConfigLocation,
                                SchedulingProblemHelper<T, R> problemInstance, std::vector<Literal<T>> literals) :
-                heuristics::PrecedencePredictor<GNNPrecedencePredictor<T, R>, T>(std::move(literals)), gnn(
-                modelLocation), graphBuilder(featureExtractorConfigLocation, std::move(problemInstance)) {
+                heuristics::LiteralPredictor<GNNPrecedencePredictor<T, R>, T>(std::move(literals)),
+                massesPos(this->numLiterals(), 0), massesNeg(this->numLiterals()), gnn(modelLocation),
+                graphBuilder(featureExtractorConfigLocation, std::move(problemInstance)) {
             for (auto l: this->literals) {
                 if (not l.hasSemantic() or not l.isBoolean()) {
                     throw std::runtime_error("all literals need to be boolean and have a semantic");
@@ -106,9 +109,15 @@ namespace tempo::nn {
          * @param mNeg negative evidence for a literal
          * @return confidence value in [0, 1]
          */
-        static double getCertainty(DataType mPos, DataType mNeg) {
+        double getCertainty(Literal<T>, std::size_t idx) const {
+            auto mPos = massesPos[idx];
+            auto mNeg = massesNeg[idx];
             // = |m1 - m2| / (m1 + m2)
             return std::abs(2.0 * mPos / (mPos + mNeg) - 1);
+        }
+
+        Literal<T> getPolarity(Literal<T> lit, std::size_t idx) const {
+            return massesPos[idx] > massesNeg[idx] ? lit : ~lit;
         }
     };
 }

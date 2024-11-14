@@ -24,7 +24,7 @@
 #include "Solver.hpp"
 #include "helpers/cli.hpp"
 #include "heuristics/Greedy.hpp"
-#include "heuristics/relaxation_policy_factories.hpp"
+#include "heuristics/LNS/relaxation_policy_factories.hpp"
 #include "util/parsing/psplib.hpp"
 #include "util/parsing/rcpsp.hpp"
 
@@ -159,13 +159,11 @@ void printResources(const Solver<T>& S, const std::vector<std::vector<Interval<T
 
 // implementation of a scheduling solver
 int main(int argc, char *argv[]) {
-    
-    namespace h = tempo::heuristics;
     auto parser = tempo::getBaseParser();
     bool useLNS;
 //    bool tt_reasoning;
-    h::RelaxationPolicyParams policyParams;
-    h::RelaxPolicy policyType;
+    lns::RelaxationPolicyParams policyParams;
+    lns::RelaxPolicy policyType;
     cli::detail::configureParser(parser,
 //                                 cli::SwitchSpec("no-ttef", "switch tt reasoning off in edge-finding", false, tt_reasoning, true),
                                  cli::SwitchSpec("lns", "activate large neighborhood search",
@@ -176,7 +174,7 @@ int main(int argc, char *argv[]) {
                                               false, policyParams.relaxRatio, 0.5),
                                  cli::ArgSpec("relax-slices", "number of schedule slices",
                                               false, policyParams.numScheduleSlices, 4),
-                                 cli::ArgSpec("lns-policy", "lns relaxation policy", false, policyType, h::RelaxPolicy::RandomTasks));
+                                 cli::ArgSpec("lns-policy", "lns relaxation policy", false, policyType, lns::RelaxPolicy::RandomTasks));
     
 
     parser.parse(argc, argv);
@@ -298,7 +296,7 @@ int main(int argc, char *argv[]) {
         if(useLNS) {
             
             MinimizationObjective<int> objective(schedule.duration);
-            auto policy = h::make_relaxation_policy(policyType, intervals, resources, policyParams);
+            auto policy = lns::make_relaxation_policy(policyType, intervals, resources, policyParams);
             std::cout << "-- using relaxation policy " << policyType << std::endl;
             S.largeNeighborhoodSearch(objective, policy);
             

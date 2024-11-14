@@ -30,7 +30,7 @@
 #include <Iterators.hpp>
 
 #include "util/traits.hpp"
-#include "util/distance.hpp"
+#include "util/edge_distance.hpp"
 #include "util/Matrix.hpp"
 #include "Literal.hpp"
 #include "constraints/Cardinality.hpp"
