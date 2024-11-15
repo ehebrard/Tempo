@@ -4,6 +4,11 @@
 * @brief
 */
 
+#include <algorithm>
+#include <cassert>
+#include <numeric>
+#include <Iterators.hpp>
+
 #include "util/random.hpp"
 
 namespace tempo {
@@ -31,4 +36,47 @@ namespace tempo {
     }
 
     auto RNG::operator()() const noexcept -> unsigned long { return random(); }
+
+    std::size_t DistributionSampler::random() const noexcept {
+        auto rVal = tempo::random() % cdf.back();
+        auto res = std::ranges::upper_bound(cdf, rVal);
+        assert(res != cdf.end());
+        return std::distance(cdf.begin(), res);
+    }
+
+    DistributionSampler::DistributionSampler(std::vector<unsigned long> cdf): cdf(std::move(cdf)) {
+        if (this->cdf.empty()) {
+            throw std::runtime_error("empty CDF");
+        }
+    }
+
+    auto DistributionSampler::getCDF() const noexcept -> const std::vector<unsigned long> & {
+        return cdf;
+    }
+
+    std::size_t ReplacementDistributionSampler::random() {
+        using namespace std::views;
+        if (exhausted()) {
+            throw std::runtime_error("sample is exhausted");
+        }
+
+        const auto idx = sampler.random();
+        unsigned long decrement = sampler.cdf[idx];
+        if (idx > 0) {
+            decrement -= sampler.cdf[idx - 1];
+        }
+
+        const auto ret = indices[idx];
+        auto source =
+                iterators::zip(sampler.cdf | transform([decrement](auto val) { return val - decrement; }), indices) |
+                drop(idx + 1);
+        auto destination = iterators::zip_i(sampler.cdf.begin() + idx, indices.begin() + idx);
+        std::ranges::copy(source, destination);
+        sampler.cdf.pop_back(); indices.pop_back();
+        return ret;
+    }
+
+    bool ReplacementDistributionSampler::exhausted() const noexcept {
+        return indices.empty();
+    }
 }
