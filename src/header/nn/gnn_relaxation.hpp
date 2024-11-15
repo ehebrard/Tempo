@@ -35,7 +35,7 @@ namespace tempo::nn {
     class GNNRelax {
         // --- helpers
         using FixPolicy = lns::VariantFix<lns::BestN<lns::OrderType::Ascending>,
-                lns::GreedyFix<T, lns::OrderType::Ascending>>;
+                lns::GreedyFix<T, lns::OrderType::Ascending>, lns::SampleFix<true>>;
         GNNRelaxationPredictor<T, R> predictor;
         mutable tempo::util::Profiler profiler;
         FixPolicy fixPolicy;
@@ -91,6 +91,9 @@ namespace tempo::nn {
                     break;
                 case GreedyInverse:
                     fixPolicy.template emplace<GF>(true);
+                    break;
+                case Sample:
+                    fixPolicy.template emplace<lns::SampleFix<true>>();
                     break;
                 default:
                     throw std::runtime_error("unsupported assumption mode " + to_string(assumptionMode));
