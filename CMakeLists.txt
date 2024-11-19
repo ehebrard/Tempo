@@ -19,16 +19,12 @@ string(COMPARE EQUAL ${CMAKE_CXX_COMPILER_ID} "Clang" IS_CLANG)
 string(COMPARE LESS ${CMAKE_CXX_COMPILER_VERSION} "16" LESS_THAN_16)
 # Clangs ranges implementation is broken until clang-16 => only limited support of c++20 view features
 if (${IS_CLANG} AND ${LESS_THAN_16})
-    # This is a stable commit that does not make use of the c++20 view interface => no fancy pipe operator but at least
-    # clang won't complain
-    set(ITERATORS_COMMIT pre_cpp20_ranges)
-else ()
-    set(ITERATORS_COMMIT master)
+    add_compile_definitions(__STD_RANGES_DISABLED__)
 endif ()
 
 FetchContent_Declare(iterators
         GIT_REPOSITORY https://github.com/Timmifixedit/IteratorTools
-        GIT_TAG ${ITERATORS_COMMIT}
+        GIT_TAG master
 )
 FetchContent_MakeAvailable(iterators)
 include_directories(${iterators_SOURCE_DIR})
