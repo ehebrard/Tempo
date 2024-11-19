@@ -410,8 +410,10 @@ template <typename T> void FullTransitivity<T>::post(const int idx) {
 
   int n{static_cast<int>(_index_.size())};
   for (int x{0}; x < n; ++x) {
-    m_solver.wake_me_on(lb<T>(x), this->id());
-    m_solver.wake_me_on(ub<T>(x), this->id());
+    if (x > 0) {
+      m_solver.wake_me_on(lb<T>(x), this->id());
+      m_solver.wake_me_on(ub<T>(x), this->id());
+    }
     for (int y{0}; y < n; ++y) {
       if (literal[x][y] != Contradiction<T>)
         m_solver.wake_me_on(literal[x][y], this->id());

@@ -44,11 +44,11 @@ using boolean_state = int;
 using hint = int;
 //#define NoHint -1
 //
-#define DBG_BOUND true
-#define DBG_CBOUND true
-#define DBG_CLBOUND false //cl->id == 80 //solver.num_choicepoints >= 10527
-#define DBG_BBOUND true
-#define DBG_TRACE 307                     // 183 //1+2+4+32+128
+//#define DBG_BOUND true
+//#define DBG_CBOUND true
+//#define DBG_CLBOUND false //cl->id == 80 //solver.num_choicepoints >= 10527
+//#define DBG_BBOUND true
+//#define DBG_TRACE 307                     // 183 //1+2+4+32+128
 #define SEARCH 1
 #define DOMAINS 2
 #define BRANCH 4
@@ -58,6 +58,7 @@ using hint = int;
 #define QUEUE 64
 #define UNITPROPAGATION 128
 #define DCUT 256
+#define TRAIL 512
 
 //#define DBG_MINIMIZATION
 //#define DBG_EDGECONS true

@@ -1285,17 +1285,16 @@ template <typename T> void NumericStore<T>::undo(Literal<T> l) {
     
     auto s{l.sign()};
     auto v{l.variable()};
-    
-    
-    if(v == 0) {
-        std::cout << "undo zero " << bound_index[s][v].size() << ":";
-        for(auto k : bound_index[s][v]) {
-            std::cout << " " << k << ":" << solver.getLiteral(k).value() ;
-        }
-        std::cout << std::endl;
-    }
-    
-    
+
+    //
+    //    if(v == 0) {
+    //        std::cout << "undo zero " << bound_index[s][v].size() << ":";
+    //        for(auto k : bound_index[s][v]) {
+    //            std::cout << " " << k << ":" << solver.getLiteral(k).value() ;
+    //        }
+    //        std::cout << std::endl;
+    //    }
+
     bound_index[s][v].pop_back();
     bound[s][v] = solver.getLiteral(bound_index[s][v].back()).value();
 }
@@ -1443,12 +1442,12 @@ Solver<T>::Solver()
       propag_pointer(1, &env), propagation_queue(constraints),
       boolean_constraints(&env), numeric_constraints(&env),
       restartPolicy(*this), graph_exp(*this), bound_exp(*this) {
-//  trail.emplace_back(Constant::NoVar, Constant::Infinity<T>, detail::Numeric{});
-////          trail.emplace_back(Constant::NoVar, 0, detail::Numeric{});
-//  reason.push_back(Constant::NoReason<T>);
-//  core.newVertex(0);
-//          newConstant(0);
-          _newNumeric_(0,0);
+  // sentinel literal for initial bounds
+  trail.emplace_back(Constant::NoVar, Constant::Infinity<T>, detail::Numeric{});
+  reason.push_back(Constant::NoReason<T>);
+
+  // pointed-to by all constants
+  _newNumeric_(0, 0);
   seed(options.seed);
 }
 
@@ -1476,15 +1475,13 @@ Solver<T>::Solver(Options opt)
       propagation_queue(constraints), boolean_constraints(&env),
       numeric_constraints(&env), restartPolicy(*this), graph_exp(*this),
       bound_exp(*this) {
-//  trail.emplace_back(Constant::NoVar, Constant::Infinity<T>, detail::Numeric{});
-////          trail.emplace_back(Constant::NoVar, 0, detail::Numeric{});
-//  reason.push_back(Constant::NoReason<T>);
-//  core.newVertex(0);
-          
-//          std::cout << "hello\n";
-          
-//          newConstant(0);
-          _newNumeric_(0,0);
+
+  // sentinel literal for initial bounds
+  trail.emplace_back(Constant::NoVar, Constant::Infinity<T>, detail::Numeric{});
+  reason.push_back(Constant::NoReason<T>);
+
+  // pointed-to by all constants
+  _newNumeric_(0, 0);
   seed(options.seed);
 
 #ifdef DBG_CL
@@ -3621,7 +3618,7 @@ std::ostream &Solver<T>::displayTrail(std::ostream &os) const {
   //          }
   //      }
   size_t i{0};
-  size_t j{1};
+  size_t j{0};
   while (j < numLiteral()) {
     auto l{getLiteral(j)};
     if (i < decisions.size() and decisions[i] == l) {
@@ -3794,12 +3791,10 @@ std::ostream &Solver<T>::display(std::ostream &os, const bool dom,
 
 #ifdef DBG_TRACE
 template <typename T> void Solver<T>::printTrace() const {
-    
-    std::cout << "zero=" << numeric.lower(0) << "/" << numeric.upper(0) << std::endl;
-    
   if (DBG_TRACE & SEARCH) {
     display(std::cout, (DBG_TRACE & DOMAINS), (DBG_TRACE & BRANCH), false,
-            false, (DBG_TRACE & CLAUSES), false, false, false, false);
+            false, (DBG_TRACE & CLAUSES), false, false, false,
+            (DBG_TRACE & TRAIL));
   }
 }
 #endif

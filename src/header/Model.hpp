@@ -1919,10 +1919,10 @@ public:
         }
         
         solver.postCumulative(capacity, *this, demand, disjunctiveLiterals);
-        
-        solver.postCumulativeIncrementality(disjunctiveLiterals);
 
-//#ifdef DBG_SEF
+        //        solver.postCumulativeIncrementality(disjunctiveLiterals);
+
+        //#ifdef DBG_SEF
         if (solver.getOptions().edge_finding) {
                   solver.postStrongEdgeFinding(schedule, capacity,
                   this->begin(), this->end(), this->begDemand(), solver.getOptions().tt_edge_finding, solver.getOptions().incomplete_edge_finding);
