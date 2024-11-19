@@ -1918,7 +1918,9 @@ public:
           exit(0);
         }
         
-      solver.postCumulative(capacity, *this, demand, disjunctiveLiterals);
+        solver.postCumulative(capacity, *this, demand, disjunctiveLiterals);
+        
+        solver.postCumulativeIncrementality(disjunctiveLiterals);
 
 //#ifdef DBG_SEF
         if (solver.getOptions().edge_finding) {

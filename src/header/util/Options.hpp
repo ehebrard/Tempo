@@ -112,7 +112,7 @@ public:
     bool overlap_finding{true};
     bool time_tabling{true};
     bool tt_edge_finding{true};
-    int incomplete_edge_finding{true};
+    int incomplete_edge_finding{-std::numeric_limits<int>::max()};
   bool transitivity{true};
 
   bool dichotomy{false};

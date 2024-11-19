@@ -36,6 +36,7 @@
 #include "Objective.hpp"
 #include "Restart.hpp"
 #include "constraints/Cardinality.hpp"
+#include "constraints/Incrementality.hpp"
 #include "constraints/CumulativeCheck.hpp"
 #include "constraints/CumulativeEdgeFinding.hpp"
 #include "constraints/CumulativeOverlapFinding.hpp"
@@ -253,8 +254,21 @@ public:
     
     // saves the current solution
     void saveSolution() {
+        
+        if(bound[bound::lower][0] != 0)
+        {
+            std::cout << "BUG (LB)!\n";
+        }
+        
+        if(bound[bound::upper][0] != 0)
+        {
+            std::cout << "BUG (UB)!\n";
+        }
+        
         best_solution[bound::lower] = bound[bound::lower];
         best_solution[bound::upper] = bound[bound::upper];
+        
+//        std::cout << "savebest " << bound[bound::lower][0] << std::endl;
     }
     bool hasSolution() const { return not best_solution[bound::lower].empty(); }
     auto bestSolution(const int b) const noexcept -> const std::vector<T> & { return best_solution[b]; }
@@ -393,6 +407,12 @@ public:
     NumericVar<T> newNumeric(const T lb = -Constant::Infinity<T>,
                              const T ub = Constant::Infinity<T>);
     
+protected:
+    // force to not use views for constants
+    NumericVar<T> _newNumeric_(const T lb = -Constant::Infinity<T>,
+                             const T ub = Constant::Infinity<T>);
+    
+public:
     NumericVar<T> newConstant(const T k);
     NumericVar<T> newOffset(NumericVar<T> &x, const T k);
     // create an internal temporal variable and return a model object pointing
@@ -519,6 +539,9 @@ public:
     FullTransitivity<T> *postFullTransitivity(const ItRes beg_res,
                                               const ItRes end_res);
     
+    // create and post a propagator that defines "solved" regions, for incrementality purpose
+    void postCumulativeIncrementality(Matrix<Literal<T>> lits);
+    
     // create and post a checker based on intersection graph for the cumulative constraint
     template <concepts::typed_range<Interval<T>> Tasks, concepts::typed_range<NumericVar<T>> Demands>
     void postCumulative(const NumericVar<T> c, Tasks &&tasks, Demands &&demands, Matrix<Literal<T>> lits);
@@ -527,7 +550,7 @@ public:
     template <typename ItTask, typename ItNVar>
     void postStrongEdgeFinding(const Interval<T> s, const NumericVar<T> c,
                                const ItTask beg_task, const ItTask end_task,
-                               const ItNVar beg_dem, const bool tt, const bool approx);
+                               const ItNVar beg_dem, const bool tt, const int approx);
     
     // create and post the strong edge-finding propagator for the cumulative constraint
     template <typename ItTask, typename ItNVar>
@@ -1192,10 +1215,10 @@ bool BooleanStore<T>::falsified(const Literal<T> l) const {
  NumericStore implementation
  */
 template <typename T> NumericStore<T>::NumericStore(Solver<T> &s) : solver(s) {
-    // useful to have the constant 0 as a regular variable
-    // other constants can be TemporalVars pointing to the constant 0
-    //  newVar(0,0);
-    newVar(0);
+//    // useful to have the constant 0 as a regular variable
+//    // other constants can be TemporalVars pointing to the constant 0
+//    //  newVar(0,0);
+//    newVar(0);
 }
 
 template <typename T> size_t NumericStore<T>::size() const {
@@ -1236,6 +1259,7 @@ template <typename T> NumericVar<T> NumericStore<T>::newVar(const T b) {
     
     bound_index[bound::lower].resize(size());
     bound_index[bound::upper].resize(size());
+    
     bound_index[bound::lower].back().push_back(Constant::InfIndex);
     bound_index[bound::upper].back().push_back(Constant::InfIndex);
     
@@ -1258,8 +1282,20 @@ template <typename T> void NumericStore<T>::set(Literal<T> l) {
 }
 
 template <typename T> void NumericStore<T>::undo(Literal<T> l) {
+    
     auto s{l.sign()};
     auto v{l.variable()};
+    
+    
+    if(v == 0) {
+        std::cout << "undo zero " << bound_index[s][v].size() << ":";
+        for(auto k : bound_index[s][v]) {
+            std::cout << " " << k << ":" << solver.getLiteral(k).value() ;
+        }
+        std::cout << std::endl;
+    }
+    
+    
     bound_index[s][v].pop_back();
     bound[s][v] = solver.getLiteral(bound_index[s][v].back()).value();
 }
@@ -1356,8 +1392,8 @@ index_t NumericStore<T>::litIndex(const Literal<T> l) const {
 //    
 //    std::cout << l << std::endl;
 ////    
-//    std::cout << l.sign() << " " << l.variable() << "/" << bound_index[l.sign()].size() << std::endl;
-////    
+//    std::cout << l.sign() << " " << l.variable() << "/" << bound_index[l.sign()][l.variable()].size() << std::endl;
+////
 ////    
 ////    if(bound_index[l.sign()][l.variable()].size() == 0) {
 ////                std::cout << "wtf?\n";
@@ -1374,8 +1410,12 @@ index_t NumericStore<T>::litIndex(const Literal<T> l) const {
 //        exit(1);
 //    }
     
-    while (solver.getLiteral(*(i + 1)).value() <= l.value())
+    while (solver.getLiteral(*(i + 1)).value() <= l.value()) {
+        
+//        std::cout << solver.getLiteral(*(i + 1)).value() << std::endl;
+        
         ++i;
+    }
     
     
 //    std::cout << "end lit-index\n";
@@ -1403,9 +1443,12 @@ Solver<T>::Solver()
       propag_pointer(1, &env), propagation_queue(constraints),
       boolean_constraints(&env), numeric_constraints(&env),
       restartPolicy(*this), graph_exp(*this), bound_exp(*this) {
-  trail.emplace_back(Constant::NoVar, Constant::Infinity<T>, detail::Numeric{});
-  reason.push_back(Constant::NoReason<T>);
-  core.newVertex(0);
+//  trail.emplace_back(Constant::NoVar, Constant::Infinity<T>, detail::Numeric{});
+////          trail.emplace_back(Constant::NoVar, 0, detail::Numeric{});
+//  reason.push_back(Constant::NoReason<T>);
+//  core.newVertex(0);
+//          newConstant(0);
+          _newNumeric_(0,0);
   seed(options.seed);
 }
 
@@ -1433,9 +1476,15 @@ Solver<T>::Solver(Options opt)
       propagation_queue(constraints), boolean_constraints(&env),
       numeric_constraints(&env), restartPolicy(*this), graph_exp(*this),
       bound_exp(*this) {
-  trail.emplace_back(Constant::NoVar, Constant::Infinity<T>, detail::Numeric{});
-  reason.push_back(Constant::NoReason<T>);
-  core.newVertex(0);
+//  trail.emplace_back(Constant::NoVar, Constant::Infinity<T>, detail::Numeric{});
+////          trail.emplace_back(Constant::NoVar, 0, detail::Numeric{});
+//  reason.push_back(Constant::NoReason<T>);
+//  core.newVertex(0);
+          
+//          std::cout << "hello\n";
+          
+//          newConstant(0);
+          _newNumeric_(0,0);
   seed(options.seed);
 
 #ifdef DBG_CL
@@ -1530,7 +1579,8 @@ BooleanVar<T> Solver<T>::newDisjunct(const DistanceConstraint<T> &d1,
 //}
 
 template <typename T> NumericVar<T> Solver<T>::newConstant(const T k) {
-    return newNumeric(k, k);
+    return NumericVar(Constant::K, k);
+//    return newNumeric(k, k);
 }
 
 template <typename T>
@@ -1539,27 +1589,53 @@ NumericVar<T> Solver<T>::newOffset(NumericVar<T> &x, const T k) {
 }
 
 template <typename T>
+NumericVar<T> Solver<T>::_newNumeric_(const T lb, const T ub) {
+    auto x{numeric.newVar(Constant::Infinity<T>)};
+    
+//        std::cout << "new numeric var " << x << std::endl;
+    
+    changed.reserve(numeric.size());
+    clauses.newNumericVar(x.id());
+    numeric_constraints.resize(std::max(numConstraint(), 2 * numeric.size()));
+    core.newVertex(x.id());
+    
+    set(geq<T>(x.id(), lb));
+    set(leq<T>(x.id(), ub));
+    propagate();
+    
+    return x;
+}
+
+template <typename T>
 NumericVar<T> Solver<T>::newNumeric(const T lb, const T ub) {
     //    auto x{numeric.newVar(-lb, ub)};
     
     if (lb > ub) {
       throw Failure<T>({&bound_exp, Constant::NoHint});
-    } else if (lb == ub) {
+    }
+    else if (lb == ub) {
         return NumericVar(Constant::K, lb);
-    } else {
+    }
+    else {
+        return _newNumeric_(lb,ub);
         
-        auto x{numeric.newVar(Constant::Infinity<T>)};
         
-        changed.reserve(numeric.size());
-        clauses.newNumericVar(x.id());
-        numeric_constraints.resize(std::max(numConstraint(), 2 * numeric.size()));
-        core.newVertex(x.id());
-        
-        set(geq<T>(x.id(), lb));
-        set(leq<T>(x.id(), ub));
-        propagate();
-        
-        return x;
+//        auto x{numeric.newVar(Constant::Infinity<T>)};
+//        
+////        std::cout << "new numeric var " << x << std::endl;
+//        
+//        
+//        
+//        changed.reserve(numeric.size());
+//        clauses.newNumericVar(x.id());
+//        numeric_constraints.resize(std::max(numConstraint(), 2 * numeric.size()));
+//        core.newVertex(x.id());
+//        
+//        set(geq<T>(x.id(), lb));
+//        set(leq<T>(x.id(), ub));
+//        propagate();
+//        
+//        return x;
     }
 }
 
@@ -1717,6 +1793,22 @@ void Solver<T>::set(Literal<T> l, const Explanation<T> &e) {
 template <typename T>
 void Solver<T>::setNumeric(Literal<T> l, const Explanation<T> &e,
                            const bool do_update) {
+    
+    
+//    auto need_dbg{false};
+//    if(l.variable() == 0 and l.value() != 0) {
+//        std::cout << "set " << pretty(l) << "!\n";
+//        
+//        if(numeric.satisfied(l))
+//            std::cout << "(satisfied)\n";
+//        
+//        if(numeric.falsified(l)) {
+//            std::cout << "(falsified)\n";
+//            
+//            need_dbg = true;
+////            exit(1);
+//        }
+//    }
     
     if (not numeric.satisfied(l)) {
         
@@ -2786,7 +2878,6 @@ void Solver<T>::optimize(S &objective) {
                 displayProgress(std::cout);
             }
             
-            
             objective.apply(best, *this);
             saveSolution();
             restart(true);
@@ -3397,6 +3488,11 @@ void Solver<T>::postCumulative(const NumericVar<T> c, Tasks &&tasks, Demands &&d
 }
 
 template <typename T>
+void Solver<T>::postCumulativeIncrementality(Matrix<Literal<T>> lits) {
+  post(new Incrementality<T>(*this, std::move(lits)));
+}
+
+template <typename T>
 template <typename ItTask, typename ItNVar>
 void Solver<T>::postTimetabling(const NumericVar<T> c, const ItTask beg_task,
                                 const ItTask end_task, const ItNVar beg_dem) {
@@ -3408,7 +3504,7 @@ template <typename T>
 template <typename ItTask, typename ItNVar>
 void Solver<T>::postStrongEdgeFinding(
     const Interval<T> s, const NumericVar<T> c, const ItTask beg_task,
-    const ItTask end_task, const ItNVar beg_dem, const bool tt, const bool approx) {
+    const ItTask end_task, const ItNVar beg_dem, const bool tt, const int approx) {
   post(new CumulativeEdgeFinding<T>(*this, s, c, beg_task, end_task, beg_dem, tt, approx));
 }
 
@@ -3698,6 +3794,9 @@ std::ostream &Solver<T>::display(std::ostream &os, const bool dom,
 
 #ifdef DBG_TRACE
 template <typename T> void Solver<T>::printTrace() const {
+    
+    std::cout << "zero=" << numeric.lower(0) << "/" << numeric.upper(0) << std::endl;
+    
   if (DBG_TRACE & SEARCH) {
     display(std::cout, (DBG_TRACE & DOMAINS), (DBG_TRACE & BRANCH), false,
             false, (DBG_TRACE & CLAUSES), false, false, false, false);

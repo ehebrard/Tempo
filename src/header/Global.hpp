@@ -44,11 +44,11 @@ using boolean_state = int;
 using hint = int;
 //#define NoHint -1
 //
-//#define DBG_BOUND options.verbosity > 10
-//#define DBG_CBOUND solver.getOptions().verbosity > 10
-//#define DBG_CLBOUND false //cl->id == 80 //solver.num_choicepoints >= 10527
-//#define DBG_BBOUND solver.getOptions().verbosity > 10
-//#define DBG_TRACE 305                     // 183 //1+2+4+32+128
+#define DBG_BOUND true
+#define DBG_CBOUND true
+#define DBG_CLBOUND false //cl->id == 80 //solver.num_choicepoints >= 10527
+#define DBG_BBOUND true
+#define DBG_TRACE 307                     // 183 //1+2+4+32+128
 #define SEARCH 1
 #define DOMAINS 2
 #define BRANCH 4

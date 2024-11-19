@@ -179,6 +179,11 @@ int main(int argc, char *argv[]) {
 
     parser.parse(argc, argv);
     Options opt = parser.getOptions();
+    
+    
+//    std::cout << opt.incomplete_edge_finding << std::endl;
+//    exit(1);
+    
     Solver<> S(opt);
     seed(opt.seed);
 
