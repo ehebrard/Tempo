@@ -31,7 +31,7 @@ int main(int argc, char **argv) {
     lns::PolicyDecayConfig config;
     lns::AssumptionMode assumptionMode = lns::AssumptionMode::GreedySkip;
     lns::RelaxationPolicyParams destroyParameters{.relaxRatio = 0.9, .ratioDecay = 1, .numScheduleSlices = 4};
-    lns::RelaxPolicy destroyType;
+    lns::RelaxPolicy destroyType = lns::RelaxPolicy::RandomTasks;
     double exhaustionThreshold = 0.01;
     double minCertainty = 0.9;
     double sporadicIncrement = 0.001;
@@ -73,7 +73,7 @@ int main(int argc, char **argv) {
                                               false, config.retryLimit),
                                  cli::ArgSpec("decay-mode", "relaxation ratio decay mode on failure", false,
                                               config.decayMode),
-                                 cli::ArgSpec("destroy-mode", "destroy policy type", true, destroyType),
+                                 cli::ArgSpec("destroy-mode", "destroy policy type", false, destroyType),
                                  cli::ArgSpec("threads", "GNN inference threads", false,
                                               numThreads));
     auto problemInfo = loadSchedulingProblem(opt);

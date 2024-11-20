@@ -139,6 +139,9 @@ void RandomSubset<T>::relax(AI &s) const {
 
   fixed.resize(n);
   s.makeAssumptions(fixed);
+  if (s.getSolver().getOptions().verbosity >= Options::YACKING) {
+      std::cout << "-- fixing " << fixed.size() << " literals\n";
+  }
 }
 
 namespace detail {
