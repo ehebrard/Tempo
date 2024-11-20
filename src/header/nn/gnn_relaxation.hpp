@@ -72,7 +72,7 @@ namespace tempo::nn {
          */
         GNNRelax(const Solver<T> &solver, const fs::path &modelLocation,
                  const fs::path &featureExtractorConfigLocation, const SchedulingProblemHelper<T, R> &problemInstance,
-                 const lns::PolicyDecayConfig decayConfig, lns::AssumptionMode assumptionMode,
+                 const lns::PolicyDecayConfig &decayConfig, lns::AssumptionMode assumptionMode,
                  double exhaustionThreshold, double exhaustionProbability) :
                 predictor(modelLocation, featureExtractorConfigLocation, problemInstance,
                           problemInstance.getSearchLiterals(solver)),
