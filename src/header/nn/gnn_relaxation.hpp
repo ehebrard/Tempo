@@ -52,6 +52,7 @@ namespace tempo::nn {
         double exhaustionThreshold;
         double exhaustionProbability;
         int verbosity;
+        bool inferenceAllowed = true;
 
     public:
         GNNRelax(const GNNRelax &) = default;
@@ -79,7 +80,7 @@ namespace tempo::nn {
                           problemInstance.getSearchLiterals(solver)),
                 policyDecay(decayConfig, predictor.numLiterals(), solver.getOptions().verbosity),
                 solutions(problemInstance.schedule().duration), handle(solver.SolutionFound.subscribe_handled(
-                [this](const auto &s) { solutions.addSolution(s); })),
+                [this](const auto &s) { solutions.addSolution(s); })), gnnCache(predictor.getLiterals()),
                 exhaustionThreshold(exhaustionThreshold), exhaustionProbability(exhaustionProbability),
                 verbosity(solver.getOptions().verbosity) {
             using enum lns::AssumptionMode;
@@ -95,6 +96,7 @@ namespace tempo::nn {
                     break;
                 case Sample:
                     fixPolicy.template emplace<lns::SampleFix<true>>(sampleSmoothingFactor);
+                    inferenceAllowed = sampleSmoothingFactor != 1;
                     break;
                 default:
                     throw std::runtime_error("unsupported assumption mode " + to_string(assumptionMode));
@@ -107,6 +109,9 @@ namespace tempo::nn {
                           << "\t-- exhaust probability: " << exhaustionProbability << "\n";
                 if (assumptionMode == Sample) {
                     std::cout << "\t-- sample smoothing factor: " << sampleSmoothingFactor << "\n";
+                    if (sampleSmoothingFactor == 1) {
+                        std::cout << "\t-- GNN inference disabled due to maximum smoothing\n";
+                    }
                 }
                 std::cout << decayConfig << std::endl;
             }
@@ -195,6 +200,10 @@ namespace tempo::nn {
 
         bool runInference(const Solver<T> &solver) {
             using namespace std::views;
+            if (not inferenceAllowed) {
+                return true;
+            }
+
             if (maxNumLiterals() == 0 or solutions.empty()) {
                 gnnCache.clear();
                 return false;
