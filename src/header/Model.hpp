@@ -29,14 +29,14 @@
 #include <algorithm>
 #include <Iterators.hpp>
 
-#include "util/traits.hpp"
-#include "util/edge_distance.hpp"
-#include "util/Matrix.hpp"
 #include "Literal.hpp"
 #include "constraints/Cardinality.hpp"
+#include "constraints/Incrementality.hpp"
 #include "constraints/PseudoBoolean.hpp"
 #include "constraints/SumConstraint.hpp"
-
+#include "util/Matrix.hpp"
+#include "util/edge_distance.hpp"
+#include "util/traits.hpp"
 
 /// @TODO rewritte:
 /// ExpressionImpl should be an interface with var_id(); post(solver);
@@ -1905,6 +1905,13 @@ public:
                       disjunctiveLiterals(taskIdxB, taskIdxA) = solver.boolean.getLiteral(true, bb); // b is not before a
                       solver.addToSearch(ba);
                       solver.addToSearch(bb);
+
+                      // if a ends before b starts then b cannot end before a
+                      // starts
+                      std::vector<Literal<T>> cl{
+                          disjunctiveLiterals(taskIdxA, taskIdxB),
+                          disjunctiveLiterals(taskIdxB, taskIdxA)};
+                      solver.clauses.add(cl.begin(), cl.end());
                   }
               }
           }
@@ -1920,12 +1927,19 @@ public:
         
         solver.postCumulative(capacity, *this, demand, disjunctiveLiterals);
 
-        //        solver.postCumulativeIncrementality(disjunctiveLiterals);
+        //        solver.postCumulativeIncrementality(*this,
+        //        disjunctiveLiterals);
 
         //#ifdef DBG_SEF
         if (solver.getOptions().edge_finding) {
-                  solver.postStrongEdgeFinding(schedule, capacity,
-                  this->begin(), this->end(), this->begDemand(), solver.getOptions().tt_edge_finding, solver.getOptions().incomplete_edge_finding);
+          auto incr{new Incrementality<T>(solver, *this, disjunctiveLiterals)};
+
+          solver.postStrongEdgeFinding(
+              schedule, capacity, this->begin(), this->end(), this->begDemand(),
+              solver.getOptions().tt_edge_finding, incr,
+              solver.getOptions().incomplete_edge_finding);
+
+          solver.post(incr);
         }
 //#endif
         

@@ -540,8 +540,9 @@ public:
                                               const ItRes end_res);
     
     // create and post a propagator that defines "solved" regions, for incrementality purpose
-    void postCumulativeIncrementality(Matrix<Literal<T>> lits);
-    
+    template <concepts::typed_range<Interval<T>> Tasks>
+    void postCumulativeIncrementality(Tasks &&tasks, Matrix<Literal<T>> lits);
+
     // create and post a checker based on intersection graph for the cumulative constraint
     template <concepts::typed_range<Interval<T>> Tasks, concepts::typed_range<NumericVar<T>> Demands>
     void postCumulative(const NumericVar<T> c, Tasks &&tasks, Demands &&demands, Matrix<Literal<T>> lits);
@@ -550,8 +551,9 @@ public:
     template <typename ItTask, typename ItNVar>
     void postStrongEdgeFinding(const Interval<T> s, const NumericVar<T> c,
                                const ItTask beg_task, const ItTask end_task,
-                               const ItNVar beg_dem, const bool tt, const int approx);
-    
+                               const ItNVar beg_dem, const bool tt,
+                               Incrementality<T> *b, const int approx);
+
     // create and post the strong edge-finding propagator for the cumulative constraint
     template <typename ItTask, typename ItNVar>
     void postOverlapFinding(const Interval<T> s, const NumericVar<T> c,
@@ -2650,10 +2652,10 @@ template <typename T> void Solver<T>::learnConflict(Explanation<T> &e) {
 #ifdef DBG_TRACE
     if (DBG_BOUND and (DBG_TRACE & SEARCH)) {
       if (not learnt_clause.empty())
-        std::cout << "learn clause of size " << learnt_clause.size() << " @lvl" << level() << " and deduce "
-                  << pretty(learnt_clause[0]) << std::endl;
+        std::cout << "learn clause of size " << learnt_clause.size() << " @lvl"
+                  << level() << " and deduce " << pretty(learnt_clause[0]);
       else
-        std::cout << "learn empty clause!\n";
+        std::cout << "learn empty clause!";
 
       //        << ":";
       //        for (auto l : learnt_clause) {
@@ -2670,6 +2672,12 @@ template <typename T> void Solver<T>::learnConflict(Explanation<T> &e) {
     if ((env.level() - jump) < init_level)
         throw SearchExhausted();
     restoreState(env.level() - jump);
+
+#ifdef DBG_TRACE
+    if (DBG_BOUND and (DBG_TRACE & SEARCH)) {
+      std::cout << " @lvl " << level() << std::endl;
+    }
+#endif
 
     decisions.resize(decisions.size() - jump);
 
@@ -3485,8 +3493,11 @@ void Solver<T>::postCumulative(const NumericVar<T> c, Tasks &&tasks, Demands &&d
 }
 
 template <typename T>
-void Solver<T>::postCumulativeIncrementality(Matrix<Literal<T>> lits) {
-  post(new Incrementality<T>(*this, std::move(lits)));
+template <concepts::typed_range<Interval<T>> Tasks>
+void Solver<T>::postCumulativeIncrementality(Tasks &&tasks,
+                                             Matrix<Literal<T>> lits) {
+  post(new Incrementality<T>(*this, std::forward<Tasks>(tasks),
+                             std::move(lits)));
 }
 
 template <typename T>
@@ -3499,10 +3510,14 @@ void Solver<T>::postTimetabling(const NumericVar<T> c, const ItTask beg_task,
 
 template <typename T>
 template <typename ItTask, typename ItNVar>
-void Solver<T>::postStrongEdgeFinding(
-    const Interval<T> s, const NumericVar<T> c, const ItTask beg_task,
-    const ItTask end_task, const ItNVar beg_dem, const bool tt, const int approx) {
-  post(new CumulativeEdgeFinding<T>(*this, s, c, beg_task, end_task, beg_dem, tt, approx));
+void Solver<T>::postStrongEdgeFinding(const Interval<T> s,
+                                      const NumericVar<T> c,
+                                      const ItTask beg_task,
+                                      const ItTask end_task,
+                                      const ItNVar beg_dem, const bool tt,
+                                      Incrementality<T> *b, const int approx) {
+  post(new CumulativeEdgeFinding<T>(*this, s, c, beg_task, end_task, beg_dem,
+                                    tt, b, approx));
 }
 
 template <typename T>
