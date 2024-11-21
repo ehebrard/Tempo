@@ -12,6 +12,8 @@
 #include <optional>
 #include <vector>
 #include <concepts>
+#include <numeric>
+#include <algorithm>
 #include <stdexcept>
 
 #include "util/traits.hpp"
@@ -88,10 +90,7 @@ namespace tempo {
 
     namespace detail {
         template<typename R>
-        concept integer_range = std::ranges::range<R> and std::integral<std::ranges::range_value_t<R>>;
-
-        template<typename R>
-        concept float_range = std::ranges::range<R> and std::floating_point<std::ranges::range_value_t<R>>;
+        concept scalar_range = std::ranges::range<R> and concepts::scalar<std::ranges::range_value_t<R>>;
     }
 
     class ReplacementDistributionSampler ;
@@ -112,6 +111,46 @@ namespace tempo {
     class DistributionSampler {
         std::vector<unsigned long> cdf;
         friend class ReplacementDistributionSampler;
+        static constexpr auto FPTolerance = 1.05;
+
+        static bool conversionNeeded(auto val) noexcept {
+            if constexpr (std::integral<decltype(val)>) {
+                return false;
+            } else {
+                return val / static_cast<double>(static_cast<long>(val)) > FPTolerance;
+            }
+        }
+
+        template<concepts::scalar T>
+        static double smoothVal(T val, double mean, double lambda) noexcept {
+            return static_cast<double>((1 - lambda) * val + lambda * mean);
+        }
+
+        template<detail::scalar_range R>
+        void accumulate(const R&values, bool fpConversion, unsigned long fpPrecision) {
+            cdf.reserve(std::ranges::size(values));
+            unsigned long sum = 0;
+            auto converted = values | std::ranges::views::transform([fpConversion, fpPrecision](auto val) {
+                if constexpr (std::integral<decltype(val)>) {
+                    return val;
+                } else {
+                    if (fpConversion) {
+                        return val * fpPrecision;
+                    }
+
+                    return val;
+                }
+            });
+
+            for (auto val : converted) {
+                if (val < 0) {
+                    throw std::invalid_argument("negative probability mass");
+                }
+
+                sum += static_cast<unsigned long>(val);
+                cdf.emplace_back(sum);
+            }
+        }
 
     protected:
         [[nodiscard]] auto getCDF() const noexcept -> const std::vector<unsigned long>&;
@@ -127,36 +166,47 @@ namespace tempo {
          * Ctor
          * @tparam R pdf range type
          * @param pdf Probability density function. Does not need to sum to 1 but must not contain negative values
+         * @param smoothingFactor optional smoothing factor that brings pdf values closer to their mean value. 0
+         * corresponds to no smoothing, 1 creates a uniform distribution
+         * @param fpPrecision fixed point precision for float to integer conversion
          */
-        template<detail::integer_range R> requires(std::ranges::sized_range<R>)
-        explicit DistributionSampler(const R &pdf) {
-            unsigned long sum = 0;
-            cdf.reserve(std::ranges::size(pdf));
-            for (auto val : pdf) {
-                if (val < 0) {
-                    throw std::runtime_error("negative probability mass");
-                }
-
-                sum += val;
-                cdf.emplace_back(sum);
+        template<detail::scalar_range R> requires(std::ranges::sized_range<R>)
+        explicit DistributionSampler(const R &pdf, double smoothingFactor = 0, unsigned long fpPrecision = 10000) {
+            using T = std::ranges::range_value_t<R>;
+            if (std::ranges::empty(pdf)) {
+                throw std::invalid_argument("empty pdf");
             }
 
-            if (cdf.empty()) {
-                throw std::runtime_error("empty pdf");
+            if (smoothingFactor < 0 or smoothingFactor > 1) {
+                throw std::invalid_argument("Invalid smoothing factor");
             }
+
+            if (smoothingFactor == 1) {
+                auto values = std::views::iota(1ul, std::ranges::size(pdf) + 1);
+                cdf.assign(values.begin(), values.end());
+                return;
+            }
+
+            if (smoothingFactor == 0) {
+                bool convert = std::floating_point<T> and std::ranges::any_of(pdf, [](auto val) {
+                    return conversionNeeded(val);
+                });
+                accumulate(pdf, convert, fpPrecision);
+                return;
+            }
+
+            bool fpConversionNeeded = false;
+            std::vector<double> smoothed;
+            smoothed.reserve(std::ranges::size(pdf));
+            const auto mean = std::accumulate(std::ranges::begin(pdf), std::ranges::end(pdf), T(0)) /
+                              static_cast<double>(std::ranges::size(pdf));
+            for (auto v : pdf) {
+                smoothed.emplace_back(smoothVal(v, mean, smoothingFactor));
+                fpConversionNeeded |= conversionNeeded(smoothed.back());
+            }
+
+            accumulate(smoothed, fpConversionNeeded, fpPrecision);
         }
-
-        /**
-         * Ctor
-         * @tparam R pdf range type
-         * @param pdf Probability density function. Does not need to sum to 1 but must not contain negative values
-         * @param precision fixed point precision (default 4 digits)
-         */
-        template<detail::float_range R>
-        requires(std::ranges::sized_range<R>)
-        explicit DistributionSampler(const R &pdf, unsigned long precision = 10000):
-                DistributionSampler(pdf | std::views::transform(
-                        [precision](auto flt) { return static_cast<unsigned long>(flt * precision); })) {}
 
         /**
          * Gets the x-index selected according to the probability distribution
@@ -211,7 +261,7 @@ namespace tempo {
          */
         template<typename ...Args>
         explicit ReplacementDistributionSampler(Args &&...args): sampler(std::forward<Args>(args)...) {
-            std::ranges::iota_view values(std::size_t(0), sampler.cdf.size());
+            std::ranges::iota_view values(static_cast<std::size_t>(0), sampler.cdf.size());
             indices.assign(values.begin(), values.end());
         }
 
