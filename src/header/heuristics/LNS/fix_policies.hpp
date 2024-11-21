@@ -157,7 +157,7 @@ namespace tempo::lns {
          */
         explicit SampleFix(double smoothingFactor) noexcept: smoothingFactor(smoothingFactor) {}
 
-        template<concepts::scalar T, assumption_interface AI, concepts::scalar C>
+        template<concepts::scalar T, assumption_interface AI, std::floating_point C>
         std::size_t select(AI &proxy, std::size_t numLiterals, unsigned,
                            const std::vector<std::pair<Literal<T>, C>> & weightedLiterals) {
             using namespace std::views;
@@ -182,12 +182,11 @@ namespace tempo::lns {
         void reset() const noexcept {}
 
     private:
-        template<concepts::scalar T, concepts::scalar C>
+        template<concepts::scalar T, std::floating_point C>
         static auto getWeights(const std::vector<std::pair<Literal<T>, C>> & weightedLiterals) {
             using namespace std::views;
             if constexpr (InvertWeights) {
-                using W = std::conditional_t<std::is_unsigned_v<C>, double, C>;
-                return weightedLiterals | elements<1> | transform([](auto weight) { return 1.0 / W(weight); });
+                return weightedLiterals | elements<1> | transform([](auto weight) { return 1 - weight; });
             } else {
                 return weightedLiterals | elements<1>;
             }
