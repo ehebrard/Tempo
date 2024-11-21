@@ -26,6 +26,7 @@ using RP = lns::RelaxationPolicy<Time, ResourceConstraint>;
 
 int main(int argc, char **argv) {
     using namespace tempo;
+    namespace lns = tempo::lns;
     std::string gnnLocation;
     std::string featureExtractorConf;
     lns::PolicyDecayConfig config;
@@ -36,6 +37,7 @@ int main(int argc, char **argv) {
     double minCertainty = 0.9;
     double sporadicIncrement = 0.001;
     double exhaustionProbability = 0.1;
+    double sampleSmoothingFactor = 0;
     unsigned numThreads = std::max(1u, std::thread::hardware_concurrency() / 2);
     bool useDRPolicy = false;
     auto opt = cli::parseOptions(argc, argv,
@@ -70,6 +72,9 @@ int main(int argc, char **argv) {
                                                  "whether to monotonously decrease the fix ratio with no reset",
                                                  config.monotone, false),
                                  cli::ArgSpec("assumption-mode", "how to make assumptions", false, assumptionMode),
+                                 cli::ArgSpec("sample-smoothing-factor",
+                                              "smoothing factor for sample assumption policy", false,
+                                              sampleSmoothingFactor),
                                  cli::SwitchSpec("decrease-on-success", "whether to decrease fix rate even on success",
                                                  config.decreaseOnSuccess, false),
                                  cli::ArgSpec("retry-limit", "number of fails before decreasing relaxation ratio",
@@ -89,7 +94,7 @@ int main(int argc, char **argv) {
     if (useDRPolicy) {
         std::cout << "-- exhaustion probability " << exhaustionProbability << std::endl;
         nn::GNNRepair gnnRepair(*problemInfo.solver, gnnLocation, featureExtractorConf, problemInfo.instance,
-                                config, assumptionMode, minCertainty, exhaustionThreshold);
+                                config, assumptionMode, minCertainty, exhaustionThreshold, sampleSmoothingFactor);
         lns::GenericDestroyPolicy<Time, RP> destroy(
                 lns::make_relaxation_policy(destroyType, problemInfo.instance.tasks(), problemInfo.constraints,
                                             destroyParameters));
@@ -102,7 +107,7 @@ int main(int argc, char **argv) {
         elapsedTime = sw.elapsed<std::chrono::milliseconds>();
     } else {
         nn::GNNRelax policy(*problemInfo.solver, gnnLocation, featureExtractorConf, problemInfo.instance, config,
-                            assumptionMode, exhaustionThreshold, exhaustionProbability);
+                            assumptionMode, exhaustionThreshold, exhaustionProbability, sampleSmoothingFactor);
         util::StopWatch sw;
         problemInfo.solver->largeNeighborhoodSearch(objective,
                                                     lns::make_sporadic_root_search(sporadicIncrement, policy));

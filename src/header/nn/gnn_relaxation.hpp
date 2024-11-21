@@ -69,11 +69,12 @@ namespace tempo::nn {
          * @param assumptionMode how to make assumptions
          * @param exhaustionThreshold fix ratio threshold at which a new solution is explored
          * @param exhaustionProbability probability with which a new solution is explored even if not exhausted
+         * @param sampleSmoothingFactor smoothing factor for sample fix policy
          */
         GNNRelax(const Solver<T> &solver, const fs::path &modelLocation,
                  const fs::path &featureExtractorConfigLocation, const SchedulingProblemHelper<T, R> &problemInstance,
                  const lns::PolicyDecayConfig &decayConfig, lns::AssumptionMode assumptionMode,
-                 double exhaustionThreshold, double exhaustionProbability) :
+                 double exhaustionThreshold, double exhaustionProbability, double sampleSmoothingFactor = 0) :
                 predictor(modelLocation, featureExtractorConfigLocation, problemInstance,
                           problemInstance.getSearchLiterals(solver)),
                 policyDecay(decayConfig, predictor.numLiterals(), solver.getOptions().verbosity),
@@ -93,7 +94,7 @@ namespace tempo::nn {
                     fixPolicy.template emplace<GF>(true);
                     break;
                 case Sample:
-                    fixPolicy.template emplace<lns::SampleFix<true>>();
+                    fixPolicy.template emplace<lns::SampleFix<true>>(sampleSmoothingFactor);
                     break;
                 default:
                     throw std::runtime_error("unsupported assumption mode " + to_string(assumptionMode));
@@ -103,7 +104,10 @@ namespace tempo::nn {
                 std::cout << "-- GNN relaxation policy config\n"
                           << "\t-- fix policy " << assumptionMode << "\n"
                           << "\t-- exhaustion threshold: " << exhaustionThreshold << "\n"
-                          << "\t-- exhaust probability: " << exhaustionProbability << std::endl;
+                          << "\t-- exhaust probability: " << exhaustionProbability << "\n";
+                if (assumptionMode == Sample) {
+                    std::cout << "\t-- sample smoothing factor: " << sampleSmoothingFactor << "\n";
+                }
                 std::cout << decayConfig << std::endl;
             }
         }

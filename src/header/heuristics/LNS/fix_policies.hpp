@@ -149,6 +149,14 @@ namespace tempo::lns {
      */
     template<bool InvertWeights>
     struct SampleFix {
+        double smoothingFactor;
+
+        /**
+         * Ctor
+         * @param smoothingFactor smoothing factor to apply to the literal weights
+         */
+        explicit SampleFix(double smoothingFactor) noexcept: smoothingFactor(smoothingFactor) {}
+
         template<concepts::scalar T, assumption_interface AI, concepts::scalar C>
         std::size_t select(AI &proxy, std::size_t numLiterals, unsigned,
                            const std::vector<std::pair<Literal<T>, C>> & weightedLiterals) {
@@ -159,7 +167,7 @@ namespace tempo::lns {
                 return weightedLiterals.size();
             }
 
-            ReplacementDistributionSampler sampler(getWeights(weightedLiterals));
+            ReplacementDistributionSampler sampler(getWeights(weightedLiterals), smoothingFactor);
             std::size_t numFixed = 0;
             std::vector<Literal<T>> selection;
             selection.reserve(numLiterals);
