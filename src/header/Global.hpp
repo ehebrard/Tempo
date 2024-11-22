@@ -48,7 +48,7 @@ using hint = int;
 // #define DBG_CBOUND true
 // #define DBG_CLBOUND false //cl->id == 80 //solver.num_choicepoints >= 10527
 // #define DBG_BBOUND true
-// #define DBG_TRACE 1                     // 183 //1+2+4+32+128
+// #define DBG_TRACE 17                     // 183 //1+2+4+32+128
 #define SEARCH 1
 #define DOMAINS 2
 #define BRANCH 4
@@ -81,7 +81,7 @@ using hint = int;
 // #define DBG_FTRANS true //m_solver.num_choicepoints >= 900
 // #define DBG_BELLMAN_FT true
 // #define DBG_EXPL_FTRANS true
-//#define gDBG_SEF solver.num_cons_propagations >= 283301
+// #define DBG_SEF solver.num_cons_propagations >= 0
 // #define DBG_COF solver.num_cons_propagations >= 0
 // #define DBG_EXTRACT true
 // #define DBG_SPANNING true

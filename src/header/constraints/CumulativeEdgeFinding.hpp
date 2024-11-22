@@ -584,7 +584,7 @@ template <typename T> void CumulativeEdgeFinding<T>::initialiseProfile() {
     //    for (auto i : lct_order) {
     for (auto i{0}; i < n; ++i) {
         
-//        if (task[i].getEarliestEnd(solver) > bounds->lb) {
+        if (task[i].getEarliestEnd(solver) > bounds->lb) {
             
             lct_order.push_back(i);
             
@@ -610,14 +610,14 @@ template <typename T> void CumulativeEdgeFinding<T>::initialiseProfile() {
                 profile[lst_[i]].increment = profile[lst_[i]].incrementMax = 0;
                 event_ordering.push_back(lst_[i]);
             }
-//        }
-//#ifdef DBG_SEF
-//        else {
-//            std::cout << "task " << task[i].id()
-//            << " ignored (ect=" << task[i].getEarliestEnd(solver)
-//            << ", bound=" << bounds->lb << ")\n";
-//        }
-//#endif
+        }
+#ifdef DBG_SEF
+        else {
+            std::cout << "task " << task[i].id()
+            << " ignored (ect=" << task[i].getEarliestEnd(solver)
+            << ", bound=" << bounds->lb << ")\n";
+        }
+#endif
     }
     
     if(not lct_order.empty()) {
@@ -632,8 +632,8 @@ template <typename T> void CumulativeEdgeFinding<T>::initialiseProfile() {
         
         for (unsigned i{0}; i < event_ordering.size(); ++i) {
             auto current{event_ordering[i]};
-            if (isLstWithoutFixedPart(current))
-                continue;
+//            if (isLstWithoutFixedPart(current))
+//                continue;
             
             if (profile[previous].time == profile[current].time) {
                 get_shared_pointer(current) = previous;
@@ -1152,11 +1152,12 @@ void CumulativeEdgeFinding<T>::computeBound(const int i
 #endif
       
     if (lct(j) <= ect(i) and est(i) < lct(j)) {
-      auto slack{(capacity.max(solver) - mindemand(i)) * (lct(j) - start_time) - E
+        auto slack{(capacity.max(solver) - mindemand(i)) * (lct(j) - start_time) - E
 #ifdef FULL_TT_REASONING
-                 - externalEnergy[j]
+            - externalEnergy[j]
+            + fixedPartEnergy(i, j)
 #endif
-                 + fixedPartEnergy(i, j)};
+        };
         
         
         
@@ -1175,11 +1176,12 @@ void CumulativeEdgeFinding<T>::computeBound(const int i
         
         
     } else if (lct(j) > ect(i)) {
-      auto slack{capacity.max(solver) * (lct(j) - start_time) - E
+        auto slack{capacity.max(solver) * (lct(j) - start_time) - E
 #ifdef FULL_TT_REASONING
-                 - externalEnergy[j]
+            - externalEnergy[j]
+            + fixedPartEnergy(i, j)
 #endif
-                 + fixedPartEnergy(i, j)};
+        };
       if (slack < minSlack[1] and data[lct_shared[j]].overflow > 0) {
         minSlack[1] = slack;
         beta = j;
@@ -1556,19 +1558,29 @@ template <typename T> void CumulativeEdgeFinding<T>::adjustment() {
 //          exit(1);
 //      }
       if(sign == bound::lower) {
-          if(task[i].getEarliestStart(solver) > t) {
-              std::cout << "weird: " << t << " < " << task[i].getEarliestStart(solver) << "\n";
-              exit(1);
-          }
+//          if(task[i].getEarliestStart(solver) > t) {
+//              std::cout << "weird: " << t << " < " << task[i].getEarliestStart(solver) << "\n";
+//              exit(1);
+//          }
+          
+//          std::cout << "forward pruning\n";
+          
+          assert(t > task[i].getEarliestStart(solver));
+          
           pruning.push_back(task[i].start.after(t));
       }
       else {
-          if(task[i].getLatestEnd(solver) < t) {
-              std::cout << solver.num_cons_propagations << " weird: " << t << " > " << task[i].getLatestEnd(solver) << "\n";
-              std::cout << adjustment << " / " << minEct << std::endl;
-//              exit(1);
-          }
-          pruning.push_back(task[i].end.before(t));
+//          if(task[i].getLatestEnd(solver) < -t) {
+//              std::cout << solver.num_cons_propagations << " weird: " << -t << " > " << task[i].getLatestEnd(solver) << "\n";
+//              std::cout << adjustment << " / " << minEct << std::endl;
+////              exit(1);
+//          }
+          
+//          std::cout << "backward pruning\n";
+          
+          assert(-t > task[i].getLatestEnd(solver));
+          
+          pruning.push_back(task[i].end.before(-t));
       }
     computeExplanation(i, timetable_reasoning);
 
