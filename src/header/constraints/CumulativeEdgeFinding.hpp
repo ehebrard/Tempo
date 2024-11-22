@@ -222,6 +222,13 @@ private:
   //    long unsigned int total_calls{0};
   //    std::vector<long unsigned int> num_calls;
   std::vector<long unsigned int> num_pruning;
+    
+    
+//    List<Timepoint<T>> hprofile;
+//    std::vector<int> h_est;
+//    std::vector<int> h_lct;
+    
+    std::vector<std::pair<T,double>> hprofile;
 
 #ifdef STATS
   //    long unsigned int num_prop{0};
@@ -304,6 +311,9 @@ public:
 
   std::string prettyTask(const int i) const;
   std::string asciiArt(const int i) const;
+    
+    void checkLoad();
+    void printHProfile();
 
 #ifdef DBG_SEF
   void verify(const char *msg);
@@ -325,7 +335,17 @@ std::string CumulativeEdgeFinding<T>::asciiArt(const int i) const {
     std::stringstream ss;
     ss << std::setw(3) << std::right << mindemand(i) << "x" << std::setw(3)
     << std::left << minduration(i) << " " << std::right;
-    for (auto k{0}; k < est(i); ++k) {
+    auto k{0};
+    if(sign == bound::lower){
+        if(schedule.start.min(solver) > -Constant::Infinity<T>) {
+            k = schedule.start.min(solver);
+        }
+    } else {
+        if(schedule.end.max(solver) < Constant::Infinity<T>) {
+            k = -schedule.end.max(solver);
+        }
+    }
+    for (; k < est(i); ++k) {
         ss << " ";
     }
     auto est_i{est(i)};
@@ -349,7 +369,7 @@ std::string CumulativeEdgeFinding<T>::asciiArt(const int i) const {
         for (auto k{ect_i + 1}; k < lct(i); ++k) {
             ss << ".";
         }
-        ss << "] " << est(i) << "-" << ect(i) << ".." << lct(i);
+        ss << "] " << est(i) << ";" << ect(i) << ".." << lct(i);
     }
     return ss.str();
 }
@@ -464,6 +484,9 @@ CumulativeEdgeFinding<T>::CumulativeEdgeFinding(
   lst_shared.resize(ip);
   ect_shared.resize(ip);
   lct_shared.resize(ip);
+          
+//          h_est.resize(ip);
+//          h_lct.resize(ip);
 
   contact.resize(ip + 1, -1);
   minEct.resize(ip, 0);
@@ -477,6 +500,9 @@ CumulativeEdgeFinding<T>::CumulativeEdgeFinding(
     if (timetable_reasoning) {
       lst_[i] = profile.create_element();
     }
+      
+//      h_est[i] = hprofile.create_element();
+//      h_lct[i] = hprofile.create_element();
   }
   data.resize(profile.size() + 1);
 
@@ -508,6 +534,9 @@ template <typename T> void CumulativeEdgeFinding<T>::post(const int idx) {
 
 template <typename T>
 bool CumulativeEdgeFinding<T>::notify(const Literal<T>, const int) {
+    if(schedule.end.max(solver) == Constant::Infinity<int>)
+        return false;
+    
     if(approximation != -Constant::Infinity<int>) {
             auto lvl = static_cast<unsigned>(solver.level());
             if(lvl >= num_pruning.size() or lvl < median_pruning_level-approximation)
@@ -515,6 +544,8 @@ bool CumulativeEdgeFinding<T>::notify(const Literal<T>, const int) {
             return false;
     }
   return true;
+    
+//    return solver.level() < 10;
 }
 
 template <typename T> void CumulativeEdgeFinding<T>::clearData() {
@@ -536,82 +567,156 @@ template <typename T> bool CumulativeEdgeFinding<T>::isLstWithoutFixedPart(const
 }
 
 template <typename T> void CumulativeEdgeFinding<T>::initialiseProfile() {
-
+    
 #ifdef DBG_SEF
-  if (DBG_SEF) {
-    std::cout << "\nstep initialise-profile\n";
-  }
-#endif
-
-  profile.clear();
-
-  event_ordering.clear();
-  lct_order.clear();
-
-  // initialise the timepoints with the values from the domains
-  auto n{static_cast<int>(task.size())};
-  //    for (auto i : lct_order) {
-  for (auto i{0}; i < n; ++i) {
-
-    if (task[i].getEarliestEnd(solver) > bounds->lb) {
-
-      lct_order.push_back(i);
-
-      est_shared[i] = est_[i];
-      ect_shared[i] = ect_[i];
-      lct_shared[i] = lct_[i];
-
-      profile[est_[i]].time = est(i);
-      profile[ect_[i]].time = ect(i);
-      profile[lct_[i]].time = lct(i);
-
-      profile[est_[i]].increment = profile[est_[i]].incrementMax = 0;
-      profile[ect_[i]].increment = profile[ect_[i]].incrementMax = 0;
-      profile[lct_[i]].increment = profile[lct_[i]].incrementMax = 0;
-
-      event_ordering.push_back(est_[i]);
-      event_ordering.push_back(ect_[i]);
-      event_ordering.push_back(lct_[i]);
-
-      if (timetable_reasoning) {
-        lst_shared[i] = lst_[i];
-        profile[lst_[i]].time = lst(i);
-        profile[lst_[i]].increment = profile[lst_[i]].incrementMax = 0;
-        event_ordering.push_back(lst_[i]);
-      }
-    }
-#ifdef DBG_SEF
-    else {
-      std::cout << "task " << task[i].id()
-                << " ignored (ect=" << task[i].getEarliestEnd(solver)
-                << ", bound=" << bounds->lb << ")\n";
+    if (DBG_SEF) {
+        std::cout << "\nstep initialise-profile\n";
     }
 #endif
-  }
-
-  std::sort(event_ordering.begin(), event_ordering.end(),
-            [this](const int i, const int j) {
-              return this->profile[i].time < this->profile[j].time;
-            });
-
-  // populate the profile and merges duplicate times
-  profile.add_front(event_ordering[0]);
-  auto previous{event_ordering[0]};
-
-  for (unsigned i{1}; i < event_ordering.size(); ++i) {
-    auto current{event_ordering[i]};
-    if (isLstWithoutFixedPart(current))
-      continue;
-
-    if (profile[previous].time == profile[current].time) {
-      get_shared_pointer(current) = previous;
-    } else {
-      get_shared_pointer(current) = current;
-      profile.add_after(previous, current);
-      previous = current;
+    
+    profile.clear();
+    
+    event_ordering.clear();
+    lct_order.clear();
+    
+    // initialise the timepoints with the values from the domains
+    auto n{static_cast<int>(task.size())};
+    //    for (auto i : lct_order) {
+    for (auto i{0}; i < n; ++i) {
+        
+//        if (task[i].getEarliestEnd(solver) > bounds->lb) {
+            
+            lct_order.push_back(i);
+            
+            est_shared[i] = est_[i];
+            ect_shared[i] = ect_[i];
+            lct_shared[i] = lct_[i];
+            
+            profile[est_[i]].time = est(i);
+            profile[ect_[i]].time = ect(i);
+            profile[lct_[i]].time = lct(i);
+            
+            profile[est_[i]].increment = profile[est_[i]].incrementMax = 0;
+            profile[ect_[i]].increment = profile[ect_[i]].incrementMax = 0;
+            profile[lct_[i]].increment = profile[lct_[i]].incrementMax = 0;
+            
+            event_ordering.push_back(est_[i]);
+            event_ordering.push_back(ect_[i]);
+            event_ordering.push_back(lct_[i]);
+            
+            if (timetable_reasoning) {
+                lst_shared[i] = lst_[i];
+                profile[lst_[i]].time = lst(i);
+                profile[lst_[i]].increment = profile[lst_[i]].incrementMax = 0;
+                event_ordering.push_back(lst_[i]);
+            }
+//        }
+//#ifdef DBG_SEF
+//        else {
+//            std::cout << "task " << task[i].id()
+//            << " ignored (ect=" << task[i].getEarliestEnd(solver)
+//            << ", bound=" << bounds->lb << ")\n";
+//        }
+//#endif
     }
-  }
+    
+    if(not lct_order.empty()) {
+        std::sort(event_ordering.begin(), event_ordering.end(),
+                  [this](const int i, const int j) {
+            return this->profile[i].time < this->profile[j].time;
+        });
+        
+        // populate the profile and merges duplicate times
+        profile.add_front(event_ordering[0]);
+        auto previous{event_ordering[0]};
+        
+        for (unsigned i{0}; i < event_ordering.size(); ++i) {
+            auto current{event_ordering[i]};
+            if (isLstWithoutFixedPart(current))
+                continue;
+            
+            if (profile[previous].time == profile[current].time) {
+                get_shared_pointer(current) = previous;
+            } else {
+                get_shared_pointer(current) = current;
+                profile.add_after(previous, current);
+                previous = current;
+            }
+        }
+    }
+    
+    leftcut_pointer = 0;
 }
+
+
+template <typename T> void CumulativeEdgeFinding<T>::checkLoad() {
+//    event_ordering.resize(2 * task.size());
+//    std::iota(event_ordering.begin(), event_ordering.end(), 1);
+//    
+//    std::sort(event_ordering.begin(), event_ordering.end(),
+//              [this](const int i, const int j) {
+//        return this->hprofile[i].time < this->hprofile[j].time;
+//    });
+//    
+//    // populate the profile and merges duplicate times
+//    hprofile.add_front(event_ordering[0]);
+//    auto previous{event_ordering[0]};
+//    
+//    for (unsigned i{0}; i < event_ordering.size(); ++i) {
+//        auto current{event_ordering[i]};
+//        if (isLstWithoutFixedPart(current))
+//            continue;
+//        
+//        if (profile[previous].time == profile[current].time) {
+//            get_shared_pointer(current) = previous;
+//        } else {
+//            get_shared_pointer(current) = current;
+//            profile.add_after(previous, current);
+//            previous = current;
+//        }
+//    }
+//    
+//    if(schedule.end.max(solver) == Constant::Infinity<T>) {
+//        return;
+//    }
+    
+    auto C{capacity.max(solver)};
+    
+    hprofile.clear();
+    for(unsigned i{0}; i<task.size(); ++i) {
+        
+        auto r{task[i].getEarliestStart(solver)};
+        auto d{task[i].getLatestEnd(solver)};
+        auto e{static_cast<double>(minduration(i) * mindemand(i))};
+        
+        hprofile.emplace_back(r, e/((d-r) * C));
+        hprofile.emplace_back(d, -e/((d-r) * C));
+        
+//        std::cout << asciiArt(i) << ": " << r << "--" << d << std::endl;
+        
+    }
+    
+        std::sort(hprofile.begin(), hprofile.end(),
+                  [](const auto& i, const auto j) {
+            return i.first < j.first;
+        });
+    
+//    exit(1);
+}
+
+template <typename T> void CumulativeEdgeFinding<T>::printHProfile() {
+    double h{0};
+    T t{hprofile[0].first};
+    for(auto p : hprofile) {
+//        std::cout << "              " << p.first << "/" << p.second << std::endl;
+        if(p.first != t) {
+            std::cout << std::setw(4) << t << ": " << h << std::endl;
+            t = p.first;
+        }
+        h += p.second;
+    }
+}
+
 
 template <typename T> void CumulativeEdgeFinding<T>::overloadBound() {
 
@@ -625,7 +730,7 @@ template <typename T> void CumulativeEdgeFinding<T>::overloadBound() {
             [this](const int i, const int j) { return lct(i) < lct(j); });
 
   // add tasks in lct order and make overload checks along the way
-  leftcut_pointer = 0;
+//  leftcut_pointer = 0;
 #ifdef DBG_SEF
   verify("init profile");
 #endif
@@ -766,19 +871,15 @@ template <typename T> void CumulativeEdgeFinding<T>::propagate() {
   }
 #endif
 
-  //  if (bounds->free_tasks.size() <= 10)
-  //    std::cout << bounds->free_tasks << std::endl;
-  //
-  //    if(bounds->lb > 0)
-  //        std::cout << bounds->lb << ".." << bounds->ub << std::endl;
+    if(bounds->lb > bounds->ub)
+        return;
+    
 
-  //    ++num_prop;
   size_t l = static_cast<size_t>(solver.level());
   if (num_pruning.size() <= l) {
-    //        num_calls.resize(l+1,0);
     num_pruning.resize(l + 1, 0);
   }
-  //    num_calls[l] += 1;
+
 
   sign = bound::lower;
 
@@ -804,20 +905,13 @@ template <typename T> void CumulativeEdgeFinding<T>::propagate() {
       }
     }
 #endif
-
-    //      T min{Constant::Infinity<T>};
-    //      T max{-Constant::Infinity<T>};
-    //      for(auto i : lct_order) {
-    //          if(est(i) < lst(i)) {
-    //              min = std::min(min, est(i));
-    //              max = std::max(max, lct(i));
-    //          }
-    //      }
-    //      if(min > 0 or max < lct(lct_order.back())) {
-    //          std::cout << "[" << min << ".." << max << "]" << std::endl;
-    //      }
+      
+    checkLoad();
 
     initialiseProfile();
+      
+    if(lct_order.empty())
+        break;
 
 #ifdef DBG_SEF
     verify("after init-profile");
@@ -944,11 +1038,11 @@ template <typename T> void CumulativeEdgeFinding<T>::rmPrime(const int i, const 
 
 template <typename T> void CumulativeEdgeFinding<T>::addExternalFixedPart(const int i, const int j) {
 
-#ifdef DBG_SEF
-  if (DBG_SEF and debug_flag > 3) {
-    std::cout << "ADD " << task[i].id() << "'" << std::endl;
-  }
-#endif
+//#ifdef DBG_SEF
+//  if (DBG_SEF and debug_flag > 3) {
+//    std::cout << "ADD " << task[i].id() << "'" << std::endl;
+//  }
+//#endif
   for (auto k : lct_order) {
     if (lct(k) > lct(j) and lst(k) < ect(k) and lst(k) < lct(j) and k != i) {
       profile[lst_shared[k]].increment += mindemand(k);
@@ -969,11 +1063,11 @@ template <typename T> void CumulativeEdgeFinding<T>::addExternalFixedPart(const 
 
 template <typename T> void CumulativeEdgeFinding<T>::rmExternalFixedPart(const int i, const int j) {
 
-#ifdef DBG_SEF
-  if (DBG_SEF and debug_flag > 3) {
-    std::cout << "ADD " << task[i].id() << "'" << std::endl;
-  }
-#endif
+//#ifdef DBG_SEF
+//  if (DBG_SEF and debug_flag > 3) {
+//    std::cout << "ADD " << task[i].id() << "'" << std::endl;
+//  }
+//#endif
   for (auto k : lct_order) {
     if (lct(k) > lct(j) and lst(k) < ect(k) and lst(k) < lct(j) and k != i) {
       profile[lst_shared[k]].increment -= mindemand(k);
@@ -1031,24 +1125,57 @@ void CumulativeEdgeFinding<T>::computeBound(const int i
   T E{0};
   alpha = -1;
   beta = -1;
+    
+    auto start_time{(sign == bound::lower ? schedule.start.min(solver) : -schedule.end.max(solver))};
+    
+    
+#ifdef DBG_SEF
+    if (DBG_SEF and debug_flag > 3) {
+        std::cout << "compute bounds for t" << task[i].id() << ": start time = " << start_time << std::endl;
+    }
+#endif
+    
   T minSlack[2] = {Constant::Infinity<T>, Constant::Infinity<T>};
   // if (timetable_reasoning){
   for (auto j : lct_order) {
     if (lct(j) == lct(i))
       break;
     E += minenergy(j);
+      
+      
+      
+#ifdef DBG_SEF
+    if (DBG_SEF and debug_flag > 3) {
+        std::cout << " t" << std::left << std::setw(3) << task[j].id() << ": " << asciiArt(j) << " E = " << minenergy(j)
+        << " span = " << (lct(j) - start_time) << std::endl;
+    }
+#endif
+      
     if (lct(j) <= ect(i) and est(i) < lct(j)) {
-      auto slack{(capacity.max(solver) - mindemand(i)) * lct(j) - E
+      auto slack{(capacity.max(solver) - mindemand(i)) * (lct(j) - start_time) - E
 #ifdef FULL_TT_REASONING
                  - externalEnergy[j]
 #endif
                  + fixedPartEnergy(i, j)};
+        
+        
+        
       if (slack < minSlack[0] and data[lct_shared[j]].overflow > 0) {
         minSlack[0] = slack;
         alpha = j;
       }
+        
+#ifdef DBG_SEF
+    if (DBG_SEF and debug_flag > 3) {
+        std::cout << " slack (a) = " << slack << " --> " << minSlack[0] << " (" << task[alpha].id() << ")"
+        << " lct_j->time = " << profile[lct_shared[j]].time << " ov = " << data[lct_shared[j]].overflow
+        << std::endl;
+    }
+#endif
+        
+        
     } else if (lct(j) > ect(i)) {
-      auto slack{capacity.max(solver) * lct(j) - E
+      auto slack{capacity.max(solver) * (lct(j) - start_time) - E
 #ifdef FULL_TT_REASONING
                  - externalEnergy[j]
 #endif
@@ -1057,28 +1184,15 @@ void CumulativeEdgeFinding<T>::computeBound(const int i
         minSlack[1] = slack;
         beta = j;
       }
+        
+#ifdef DBG_SEF
+    if (DBG_SEF and debug_flag > 3) {
+        std::cout << " slack (b) = " << slack << " --> " << minSlack[1] << " (" << task[beta].id() << ")" << std::endl;
+    }
+#endif
+        
     }
   }
-  /*} else{
-   for (auto j : lct_order) {
-   if (lct(j) == lct(i))
-   break;
-   E += minenergy(j);
-   if (lct(j) <= ect(i) and est(i) < lct(j)) {
-   auto slack{(capacity.max(solver) - mindemand(i)) * lct(j) - E};
-   if (slack < minSlack[0] and data[lct_shared[j]].overflow > 0) {
-   minSlack[0] = slack;
-   alpha = j;
-   }
-   } else if (lct(j) > ect(i)) {
-   auto slack{capacity.max(solver) * lct(j) - E};
-   if (slack < minSlack[1] and data[lct_shared[j]].overflow > 0) {
-   minSlack[1] = slack;
-   beta = j;
-   }
-   }
-   }
-   }*/
 }
 
 template <typename T>
@@ -1313,11 +1427,46 @@ template <typename T> void CumulativeEdgeFinding<T>::adjustment() {
     auto minEct{Constant::Infinity<T>};
     auto minEnergy{Constant::Infinity<T>};
     auto time{profile[contact[i]].time};
+      
+      
+#ifdef DBG_SEF
+  if (DBG_SEF and debug_flag > 0) {
+    std::cout << "capacity = " << capacity.max(solver) << ". adjust t" << task[i].id() << " contact = " << time << " prec = t" << task[j].id() << "\n";
+      bool afterprec{false};
+      for(auto x : lct_order) {
+          if(lct(x) == lct(i))
+              break;
+          std::cout << "t" << std::left << std::setw(3) << task[x].id() << ": "
+                    << asciiArt(x) << (afterprec ? " ****" : "") << std::endl;
+          if(x == j) {
+              afterprec=true;
+          }
+      }
+      std::cout << "\nt" << std::left << std::setw(3) << task[i].id() << ": "
+      << asciiArt(i) << std::endl;
+  }
+#endif
+      
+      if(solver.num_cons_propagations == 283301) {
+          std::cout << "j=" << j << " time = " << time << std::endl;
+      }
+      
+      
     for (auto k : lct_order) {
+        
+        if(solver.num_cons_propagations == 283301) {
+            std::cout << k << ": " << ect(k) << " > " << time << " and " << lct(k) << " <= " << lct(j) ; //<< std::endl;
+        }
+        
       if (ect(k) > time and lct(k) <= lct(j)) {
+          
         minEct = std::min(minEct, ect(k));
         minEnergy = std::min(minEnergy, minenergy(k));
       }
+        
+        if(solver.num_cons_propagations == 283301) {
+            std::cout << " --> " << minEct << std::endl;
+        }
     }
 
     // compute the profile without i, but to record the overlap and
@@ -1398,7 +1547,29 @@ template <typename T> void CumulativeEdgeFinding<T>::adjustment() {
       }
     }
 
-    pruning.push_back(task[i].start.after(std::max(adjustment, minEct)));
+      
+      
+      auto t{std::max(adjustment, minEct)};
+      
+//      if(sign == bound::upper) {
+//          std::cout << task[i].start.after(t) << std::endl;
+//          exit(1);
+//      }
+      if(sign == bound::lower) {
+          if(task[i].getEarliestStart(solver) > t) {
+              std::cout << "weird: " << t << " < " << task[i].getEarliestStart(solver) << "\n";
+              exit(1);
+          }
+          pruning.push_back(task[i].start.after(t));
+      }
+      else {
+          if(task[i].getLatestEnd(solver) < t) {
+              std::cout << solver.num_cons_propagations << " weird: " << t << " > " << task[i].getLatestEnd(solver) << "\n";
+              std::cout << adjustment << " / " << minEct << std::endl;
+//              exit(1);
+          }
+          pruning.push_back(task[i].end.before(t));
+      }
     computeExplanation(i, timetable_reasoning);
 
     in_conflict.pop_back();
@@ -1501,38 +1672,38 @@ template <typename T> void CumulativeEdgeFinding<T>::detection() {
 #endif
           );
 
-          if (alpha != -1) {
-
-            assert(lct(lct_order[leftcut_pointer]) > lct(alpha));
-            shrinkLeftCutToTime(lct(alpha) + Gap<T>::epsilon());
-
-            assert(est(i) < lct(alpha));
-            if (timetable_reasoning) {
-              addExternalFixedPart(i, alpha);
-            }
-            addPrime(i, alpha);
-            auto ect_i_H = scheduleOmega(i, lct(alpha));
-            rmPrime(i, alpha);
-            if (timetable_reasoning) {
-              rmExternalFixedPart(i, alpha);
-            }
-
-            if (ect_i_H > lct(alpha)) {
-#ifdef DBG_SEF
-              if (DBG_SEF and debug_flag > 0) {
-                std::cout << "  - alpha = " << alpha << " (task "
-                          << task[alpha].id() << "), contact = " << contact[i]
-                          << " [" << lct(alpha) << ".."
-                          << profile[contact[i]].time << "]" << std::endl;
-
-                assert(contact[i] != -1);
-              }
-#endif
-
-              prec[i] = alpha;
-              in_conflict.push_back(i);
-            }
-          }
+//          if (alpha != -1) {
+//
+//            assert(lct(lct_order[leftcut_pointer]) > lct(alpha));
+//            shrinkLeftCutToTime(lct(alpha) + Gap<T>::epsilon());
+//
+//            assert(est(i) < lct(alpha));
+//            if (timetable_reasoning) {
+//              addExternalFixedPart(i, alpha);
+//            }
+//            addPrime(i, alpha);
+//            auto ect_i_H = scheduleOmega(i, lct(alpha));
+//            rmPrime(i, alpha);
+//            if (timetable_reasoning) {
+//              rmExternalFixedPart(i, alpha);
+//            }
+//
+//            if (ect_i_H > lct(alpha)) {
+//#ifdef DBG_SEF
+//              if (DBG_SEF and debug_flag > 0) {
+//                std::cout << "  - alpha = " << alpha << " (task "
+//                          << task[alpha].id() << "), contact = " << contact[i]
+//                          << " [" << profile[contact[i]].time << ".."
+//                          << lct(alpha)<< "]" << std::endl;
+//
+//                assert(contact[i] != -1);
+//              }
+//#endif
+//
+//              prec[i] = alpha;
+//              in_conflict.push_back(i);
+//            }
+//          }
 
           if (prec[i] == -1 and beta != -1) {
 
@@ -1569,6 +1740,40 @@ template <typename T> void CumulativeEdgeFinding<T>::detection() {
               in_conflict.push_back(i);
             }
           }
+            
+            
+            if (prec[i] == -1 and alpha != -1) {
+
+              assert(lct(lct_order[leftcut_pointer]) > lct(alpha));
+              shrinkLeftCutToTime(lct(alpha) + Gap<T>::epsilon());
+
+              assert(est(i) < lct(alpha));
+              if (timetable_reasoning) {
+                addExternalFixedPart(i, alpha);
+              }
+              addPrime(i, alpha);
+              auto ect_i_H = scheduleOmega(i, lct(alpha));
+              rmPrime(i, alpha);
+              if (timetable_reasoning) {
+                rmExternalFixedPart(i, alpha);
+              }
+
+              if (ect_i_H > lct(alpha)) {
+  #ifdef DBG_SEF
+                if (DBG_SEF and debug_flag > 0) {
+                  std::cout << "  - alpha = " << alpha << " (task "
+                            << task[alpha].id() << "), contact = " << contact[i]
+                            << " [" << profile[contact[i]].time << ".."
+                            << lct(alpha)<< "]" << std::endl;
+
+                  assert(contact[i] != -1);
+                }
+  #endif
+
+                prec[i] = alpha;
+                in_conflict.push_back(i);
+              }
+            }
 
           if (alpha != -1 or beta != -1) {
             growLeftCutToTime(lct(i));
@@ -1752,12 +1957,12 @@ void CumulativeEdgeFinding<T>::verify(const char* msg) {
     dm += tp->incrementMax;
 
     if (d != dv) {
-      std::cout << "discrepancy increment @" << *tp << "|" << *(tv - 1) << ": "
+      std::cout << "[" << solver.num_cons_propagations << "] discrepancy increment @" << *tp << "|" << *(tv - 1) << ": "
                 << d << "/" << dv << std::endl;
       bug = true;
     }
     if (dm != dmv) {
-      std::cout << "discrepancy increment max @" << *tp << "|" << *(tv - 1)
+      std::cout << "[" << solver.num_cons_propagations << "] discrepancy increment max @" << *tp << "|" << *(tv - 1)
                 << ": " << dm << "/" << dmv << std::endl;
       bug = true;
     }
@@ -1769,14 +1974,22 @@ void CumulativeEdgeFinding<T>::verify(const char* msg) {
       auto itp{profile.begin()};
       auto itv{events.begin()};
 
+        int itermax = 10000;
       while (true) {
+          if(--itermax <= 0)
+              exit(1);
+          
         if (itp != tp) {
           while (itp->increment == 0 and itp->incrementMax == 0) {
+              if(--itermax <= 0)
+                  exit(1);
             ++itp;
           }
         }
         if (itp != tp) {
           while (itv != tv and itv->time <= itp->time) {
+              if(--itermax <= 0)
+                  exit(1);
             std::cout << *itp << " / " << *itv << std::endl;
             ++itv;
           }

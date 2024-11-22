@@ -483,6 +483,8 @@ template <typename T> void CumulativeOverlapFinding<T>::post(const int idx) {
 template <typename T>
 bool CumulativeOverlapFinding<T>::notify(const Literal<T>, const int) {
   return true;
+    
+//    return solver.level() < 10;
 }
 
 template <typename T> void CumulativeOverlapFinding<T>::clearData() {

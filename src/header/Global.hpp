@@ -81,7 +81,7 @@ using hint = int;
 // #define DBG_FTRANS true //m_solver.num_choicepoints >= 900
 // #define DBG_BELLMAN_FT true
 // #define DBG_EXPL_FTRANS true
-//#define DBG_SEF solver.num_cons_propagations >= 0
+//#define gDBG_SEF solver.num_cons_propagations >= 283301
 // #define DBG_COF solver.num_cons_propagations >= 0
 // #define DBG_EXTRACT true
 // #define DBG_SPANNING true

@@ -36,6 +36,8 @@ inline void parse(const std::string &fn, Solver<int> &model, Interval<int> &sche
 
     ifs >> nj;
     ifs >> nm;
+      
+      std::cout << nj-2 << " jobs & " << nm << " resources\n";
 
     resources.resize(nj - 2);
     demands.resize(nj - 2);
@@ -68,7 +70,7 @@ inline void parse(const std::string &fn, Solver<int> &model, Interval<int> &sche
           
 //          std::cout << graph.size() << " / " << j << std::endl;
           
-          if(j > 0)
+          if(j > 0 and static_cast<size_t>(j) <= graph.size())
               graph[j-1].push_back(succ-2);
       }
 
@@ -90,9 +92,13 @@ inline void parse(const std::string &fn, Solver<int> &model, Interval<int> &sche
 
 //      std::cout << x << " < " << y << " (" << nj - 2 << ")\n";
 
-      if (x >= nj - 2) {
+      if (x == y or (x >= (nj - 2))) {
         continue;
       } else if (x < 0) {
+          
+          if(y >= (nj - 2))
+              continue;
+          
         dc = schedule.start.before(intervals[y].start);
         model.post(dc);
         if (nullptr != distConstraints) {
