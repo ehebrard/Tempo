@@ -23,6 +23,10 @@ private:
     
   std::vector<E> parent;
   std::vector<uint16_t> size;
+    
+protected:
+    // to use merge_roots, x and y must be roots !!
+    void merge_roots(const E x, const E y);
 
     
 public:
@@ -38,8 +42,6 @@ public:
     void clear();
     template<typename Iter>
     void init(Iter, Iter);
-    // to use merge_roots, x and y must be roots !!
-    void merge_roots(const E x, const E y);
   //@}
 
 
