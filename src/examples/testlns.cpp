@@ -154,14 +154,24 @@ int main(int argc, char *argv[]) {
   namespace lns = tempo::lns;
   auto parser = tempo::getBaseParser();
   bool profileHeuristic;
-  lns::RelaxationPolicyParams policyParams;
+  lns::RelaxationPolicyParams policyParams{.decayConfig = lns::PolicyDecayConfig(), .numScheduleSlices = 4};
   lns::RelaxPolicy policyType;
   cli::detail::configureParser(parser, cli::SwitchSpec("heuristic-profiling", "activate heuristic profiling",
                                                        profileHeuristic, false),
-                               cli::ArgSpec("relax-decay", "relaxation ratio decay",
-                                            false, policyParams.ratioDecay, 0.5),
-                               cli::ArgSpec("relax-ratio", "initial relaxation ratio",
-                                            false, policyParams.relaxRatio, 0.5),
+                               cli::ArgSpec("fix-decay", "relaxation ratio decay",
+                                            false, policyParams.decayConfig.decay, 0.5),
+                               cli::ArgSpec("fix-ratio", "initial relaxation ratio",
+                                            false, policyParams.decayConfig.fixRatio, 0.5),
+                               cli::ArgSpec("decay-min-fail", "lower bound solver failure rate for ratio decay config",
+                                            false, policyParams.decayConfig.minFailRatio),
+                               cli::ArgSpec("decay-max-fail", "upper bound solver failure rate for ratio decay config",
+                                            false, policyParams.decayConfig.maxFailRatio),
+                               cli::SwitchSpec("decay-on-success", "whether to decrease fix rate even on success",
+                                               policyParams.decayConfig.decreaseOnSuccess, false),
+                               cli::ArgSpec("retry-limit", "number of fails before decreasing relaxation ratio",
+                                            false, policyParams.decayConfig.retryLimit),
+                               cli::ArgSpec("decay-mode", "relaxation ratio decay mode on failure", false,
+                                            policyParams.decayConfig.decayMode),
                                cli::ArgSpec("relax-slices", "number of schedule slices",
                                             false, policyParams.numScheduleSlices, 4),
                                cli::ArgSpec("lns-policy", "lns relaxation policy", true, policyType));
@@ -300,7 +310,7 @@ int main(int argc, char *argv[]) {
     
     if(not optimal) {
         MinimizationObjective<int> objective(schedule.duration);
-        auto policy = lns::make_relaxation_policy(policyType, intervals, resources, policyParams);
+        auto policy = lns::make_relaxation_policy(policyType, intervals, resources, policyParams, opt.verbosity);
         std::cout << "-- using relaxation policy " << policyType << std::endl;
         S.largeNeighborhoodSearch(objective, policy);
     }

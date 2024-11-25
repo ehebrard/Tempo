@@ -15,7 +15,15 @@ namespace tempo::lns {
                                          bool decreaseOnSuccess, DecayMode decayMode, unsigned int retryLimit,
                                          bool monotone) noexcept
             : fixRatio(fixRatio), decay(baseDecay), minFailRatio(minFailRatio), maxFailRatio(maxFailRatio),
-              decreaseOnSuccess(decreaseOnSuccess), monotone(monotone), retryLimit(retryLimit), decayMode(decayMode) {}
+              decreaseOnSuccess(decreaseOnSuccess), monotone(monotone), retryLimit(retryLimit), decayMode(decayMode) {
+        if (fixRatio < 0 or fixRatio > 1) {
+            throw std::invalid_argument("fixRatio must be between 0 and 1");
+        }
+
+        if (baseDecay < 0 or baseDecay > 1) {
+            throw std::invalid_argument("baseDecay must be between 0 and 1");
+        }
+    }
 
     PolicyDecayConfig::PolicyDecayConfig() noexcept: fixRatio(1), decay(0.5), minFailRatio(-1),
                                                      maxFailRatio(std::numeric_limits<double>::infinity()),

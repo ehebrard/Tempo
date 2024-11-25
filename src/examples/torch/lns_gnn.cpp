@@ -31,7 +31,9 @@ int main(int argc, char **argv) {
     std::string featureExtractorConf;
     lns::PolicyDecayConfig config;
     lns::AssumptionMode assumptionMode = lns::AssumptionMode::GreedySkip;
-    lns::RelaxationPolicyParams destroyParameters{.relaxRatio = 0.9, .ratioDecay = 1, .numScheduleSlices = 4};
+    lns::RelaxationPolicyParams destroyParameters{.decayConfig = {}, .numScheduleSlices = 4};
+    destroyParameters.decayConfig.fixRatio = 0.1;
+    destroyParameters.decayConfig.decay = 1;
     lns::RelaxPolicy destroyType = lns::RelaxPolicy::RandomTasks;
     double exhaustionThreshold = 0.01;
     double minCertainty = 0.9;
@@ -56,10 +58,10 @@ int main(int argc, char **argv) {
                                  cli::ArgSpec("exhaustion-prob",
                                               "probability of choosing a new region even when GNN is not exhausted",
                                               false, exhaustionProbability),
-                                 cli::ArgSpec("destroy-ratio", "percentage of literals to relax", false,
-                                              destroyParameters.relaxRatio),
+                                 cli::ArgSpec("destroy-fix-ratio", "percentage of literals to relax", false,
+                                              destroyParameters.decayConfig.fixRatio),
                                  cli::ArgSpec("destroy-decay", "decay applied to the fix ratio (inverse destroy ratio)", false,
-                                              destroyParameters.ratioDecay),
+                                              destroyParameters.decayConfig.decay),
                                  cli::ArgSpec("num-slices", "number of schedule slices", false,
                                               destroyParameters.numScheduleSlices),
                                  cli::ArgSpec("sporadic-increment", "probability increment on fail for root search",

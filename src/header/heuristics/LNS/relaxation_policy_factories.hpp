@@ -26,8 +26,7 @@ namespace tempo::lns {
      * @brief Configuration parameters for relaxation policies
      */
     struct RelaxationPolicyParams {
-        double relaxRatio; ///< percentage of variables to relax (RandomSubset policy)
-        double ratioDecay; ///< relaxation ratio decay
+        PolicyDecayConfig decayConfig; ///< dynamic relaxation ratio decay config
         unsigned numScheduleSlices; ///< number of schedule slices for chronological task relaxation
     };
 
@@ -38,30 +37,34 @@ namespace tempo::lns {
 
     // --- Define policy factories here
 
-    MAKE_FACTORY(RandomSubset, ESCAPE(auto &&, resource_range auto &&resources, const RelaxationPolicyParams &params)) {
+    MAKE_FACTORY(RandomSubset,
+                 ESCAPE(auto &&, resource_range auto &&resources, const RelaxationPolicyParams &params, int)) {
             auto variables = booleanVarsFromResources(std::forward<decltype(resources)>(resources));
-            return RandomSubset(std::move(variables), params.relaxRatio, params.ratioDecay);
+            return RandomSubset(std::move(variables), 1 - params.decayConfig.fixRatio, params.decayConfig.decay);
         }
     };
 
-    MAKE_FACTORY(AllButOneResource, ESCAPE(auto &&, resource_range auto &&resources, const RelaxationPolicyParams &)) {
+    MAKE_FACTORY(AllButOneResource,
+                 ESCAPE(auto &&, resource_range auto &&resources, const RelaxationPolicyParams &, int)) {
             return FixRandomDisjunctiveResource(std::forward<decltype(resources)>(resources));
         }
     };
 
-    MAKE_FACTORY(RandomResource, ESCAPE(auto &&, resource_range auto && resources, const RelaxationPolicyParams &)) {
+    MAKE_FACTORY(RandomResource,
+                 ESCAPE(auto &&, resource_range auto && resources, const RelaxationPolicyParams &, int)) {
             return RelaxRandomDisjunctiveResource(std::forward<decltype(resources)>(resources));
         }
     };
 
     MAKE_TEMPLATE_FACTORY(RandomTasks, ESCAPE(concepts::scalar T, resource_range R),
-                          ESCAPE(std::vector<Interval<T>> tasks, R &&resources, const RelaxationPolicyParams &params)) {
-            return RelaxTasks(std::move(tasks), std::forward<R>(resources), params.relaxRatio, params.ratioDecay);
+                          ESCAPE(std::vector<Interval<T>> tasks, R &&resources, const RelaxationPolicyParams &params,
+                              int verbosity)) {
+            return RelaxTasks(std::move(tasks), std::forward<R>(resources), params.decayConfig, verbosity);
         }
     };
 
     MAKE_TEMPLATE_FACTORY(Chronologically, ESCAPE(concepts::scalar T, resource_range R),
-                          ESCAPE(std::vector<Interval<T>> tasks, R &&resources, const RelaxationPolicyParams &params)) {
+                          ESCAPE(std::vector<Interval<T>> tasks, R &&resources, const RelaxationPolicyParams &params, int)) {
             return RelaxChronologically(std::move(tasks), std::forward<R>(resources), params.numScheduleSlices);
         }
     };
@@ -76,16 +79,19 @@ namespace tempo::lns {
      * Factory method for relaxation policies
      * @tparam RR type of resource range
      * @param type relaxation policy type
+     * @param tasks tasks in the problem
      * @param resources resource expressions of the problem
      * @param params policy parameters
+     * @param verbosity logging verbosity
      * @return relaxation policy for large neighborhood search
      */
     template<concepts::scalar T, resource_range RR>
     auto make_relaxation_policy(RelaxPolicy type, std::vector<Interval<T>> tasks, RR &&resources,
-                                const RelaxationPolicyParams &params) {
+                                const RelaxationPolicyParams &params, int verbosity = Options::NORMAL) {
         using R = std::ranges::range_value_t<RR>;
         using Factory = RelaxationPolciyFactory<tempo::detail::timing_type_from_resource_t<R>, R>;
-        return Factory::getInstance().create(to_string(type), std::move(tasks), std::forward<RR>(resources), params);
+        return Factory::getInstance().create(to_string(type), std::move(tasks), std::forward<RR>(resources), params,
+                                             verbosity);
     }
 }
 

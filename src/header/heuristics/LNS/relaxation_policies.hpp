@@ -25,7 +25,6 @@
 #include <ranges>
 #include <variant>
 #include <filesystem>
-#include <limits>
 
 #include "Global.hpp"
 #include "Model.hpp"
@@ -34,6 +33,7 @@
 #include "util/serialization.hpp"
 #include "util/factory_pattern.hpp"
 #include "util/random.hpp"
+#include "heuristics/LNS/PolicyDecay.hpp"
 
 namespace tempo::lns {
 
@@ -102,8 +102,8 @@ void FixRandomDisjunctiveResource<R>::relax(AI &s) const {
 
 template <typename T> class RandomSubset {
 public:
-    RandomSubset(std::vector<BooleanVar<T>> vars, double ratio, double decay) : vars(std::move(vars)),
-                                                                                ratio(1.0 - ratio), decay(decay) {}
+    RandomSubset(std::vector<BooleanVar<T>> vars, double relaxRatio, double decay) : vars(std::move(vars)),
+        ratio(1.0 - relaxRatio), decay(decay) {}
 
   template<assumption_interface AI>
   void relax(AI &s) const;
@@ -208,39 +208,38 @@ template<concepts::scalar T>
 class RelaxTasks {
     std::vector<Interval<T>> tasks;
     detail::TaskVarMap<T> map;
-    double fixRatio;
-    double ratioDecay;
+    PolicyDecay decayHandler;
 public:
     /**
      * Ctor
      * @tparam RR resource range type
      * @param tasks vector of all tasks to consider
      * @param resources resource expressions in the problem
-     * @param relaxRatio initial percentage of tasks to relax
-     * @param ratioDecay decay value applied to the relaxRatio on a fail (increases the number of relaxed tasks)
+     * @param decayConfig dynamic relaxation ratio decay config
+     * @param verbosity logging verbosity
      */
     template<resource_range RR>
-    RelaxTasks(std::vector<Interval<T>> tasks, const RR &resources, double relaxRatio, double ratioDecay):
-            tasks(std::move(tasks)), map(this->tasks, resources), fixRatio(1 - relaxRatio), ratioDecay(ratioDecay) {
-        if (relaxRatio < 0 or relaxRatio > 1) {
-            throw std::runtime_error("invalid relaxation ratio");
-        }
-
-        if (ratioDecay < 0) {
-            throw std::runtime_error("invalid ratio decay");
+    RelaxTasks(std::vector<Interval<T>> tasks, const RR &resources, const PolicyDecayConfig &decayConfig,
+               int verbosity = Options::NORMAL): tasks(std::move(tasks)), map(this->tasks, resources),
+                                                 decayHandler(decayConfig, map.getTaskLiterals(this->tasks).size(),
+                                                              verbosity) {
+        if (verbosity >= Options::YACKING) {
+            std::cout << decayConfig << std::endl;
         }
     }
 
-    void notifyFailure(unsigned ) noexcept {
-        fixRatio *= ratioDecay;
+    void notifyFailure(unsigned numFails) noexcept {
+        decayHandler.notifyFailure(numFails);
     }
 
-    void notifySuccess(unsigned ) noexcept {}
+    void notifySuccess(unsigned numFails) noexcept {
+        decayHandler.notifySuccess(numFails);
+    }
 
     template<assumption_interface AI>
     void relax(AI &proxy) {
         using namespace std::views;
-        const auto numFix = static_cast<std::size_t>(fixRatio * tasks.size());
+        const auto numFix = static_cast<std::size_t>(decayHandler.getFixRatio() * tasks.size());
         if (numFix == 0) {
             return;
         }
