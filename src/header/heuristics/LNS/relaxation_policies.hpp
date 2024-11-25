@@ -33,6 +33,7 @@
 #include "util/Options.hpp"
 #include "util/serialization.hpp"
 #include "util/factory_pattern.hpp"
+#include "util/random.hpp"
 
 namespace tempo::lns {
 
@@ -138,6 +139,9 @@ void RandomSubset<T>::relax(AI &s) const {
 
   fixed.resize(n);
   s.makeAssumptions(fixed);
+  if (s.getSolver().getOptions().verbosity >= Options::YACKING) {
+      std::cout << "-- fixing " << fixed.size() << " literals\n";
+  }
 }
 
 namespace detail {
@@ -194,13 +198,6 @@ namespace detail {
         }
     };
 
-    struct RNG {
-        using result_type = decltype(random());
-
-        static constexpr auto min() { return std::numeric_limits<result_type>::min(); }
-        static constexpr auto max() { return std::numeric_limits<result_type>::max(); }
-        auto operator()() const noexcept { return random(); }
-    };
 }
 
 /**
@@ -248,7 +245,7 @@ public:
             return;
         }
 
-        std::ranges::shuffle(tasks, detail::RNG{});
+        std::ranges::shuffle(tasks, RNG{});
         auto vars = map.getTaskLiterals(counted(tasks.begin(), numFix));
         if (proxy.getSolver().getOptions().verbosity >= Options::YACKING) {
             std::cout << "-- fixing " << numFix << " / " << tasks.size()
@@ -366,7 +363,7 @@ public:
                       << std::endl;
         }
 
-        if (randomEventOccurred<Resolution>(rootSearchProbability)) {
+        if (random_event_occurred<Resolution>(rootSearchProbability)) {
             if (s.getSolver().getOptions().verbosity >= Options::YACKING) {
                 std::cout << "-- root search" << std::endl;
             }

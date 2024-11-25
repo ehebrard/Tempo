@@ -6,6 +6,7 @@
 #include <vector>
 
 #include "ReversibleObject.hpp"
+#include "util/random.hpp"
 
 namespace tempo {
 

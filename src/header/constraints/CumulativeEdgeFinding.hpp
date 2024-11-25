@@ -40,6 +40,7 @@
 #include "constraints/Constraint.hpp"
 #include "constraints/Incrementality.hpp"
 #include "util/List.hpp"
+#include "util/random.hpp"
 
 
 //#define FULL_TT_REASONING

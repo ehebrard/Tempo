@@ -18,10 +18,11 @@
 #include "relaxation_interface.hpp"
 #include "relaxation_policies.hpp"
 #include "Solver.hpp"
+#include "util/random.hpp"
 
 namespace tempo::lns {
 
-    PENUM(AssumptionMode, BestN, GreedySkip, GreedyInverse, Optimal)
+    PENUM(AssumptionMode, BestN, GreedySkip, GreedyInverse, Sample, Optimal)
 
     /**
      * @brief Literal ordering type. Literals are ordered by their weight either in ascending or descending order or
@@ -139,6 +140,58 @@ namespace tempo::lns {
         }
     };
 
+    /**
+     * @brief Random sampling fix policy.
+     * @details @copybrief
+     * Treats the weights of the literals as an unnormalized probability density function. Literals are
+     * randomly sampled from this distribution.
+     * @tparam InvertWeights Whether the weights of the literals should be inverted
+     */
+    template<bool InvertWeights>
+    struct SampleFix {
+        double smoothingFactor;
+
+        /**
+         * Ctor
+         * @param smoothingFactor smoothing factor to apply to the literal weights
+         */
+        explicit SampleFix(double smoothingFactor) noexcept: smoothingFactor(smoothingFactor) {}
+
+        template<concepts::scalar T, assumption_interface AI, std::floating_point C>
+        std::size_t select(AI &proxy, std::size_t numLiterals, unsigned,
+                           const std::vector<std::pair<Literal<T>, C>> & weightedLiterals) {
+            using namespace std::views;
+            const auto literals = weightedLiterals | elements<0>;
+            if (numLiterals >= weightedLiterals.size()) {
+                proxy.makeAssumptions(literals);
+                return weightedLiterals.size();
+            }
+
+            ReplacementDistributionSampler sampler(getWeights(weightedLiterals), smoothingFactor);
+            std::size_t numFixed = 0;
+            std::vector<Literal<T>> selection;
+            selection.reserve(numLiterals);
+            while (numFixed++ < numLiterals and not sampler.exhausted()) {
+                selection.emplace_back(sampler.randomSelect(literals));
+            }
+
+            proxy.makeAssumptions(selection);
+            return numFixed;
+        }
+
+        void reset() const noexcept {}
+
+    private:
+        template<concepts::scalar T, std::floating_point C>
+        static auto getWeights(const std::vector<std::pair<Literal<T>, C>> & weightedLiterals) {
+            using namespace std::views;
+            if constexpr (InvertWeights) {
+                return weightedLiterals | elements<1> | transform([](auto weight) { return 1 - weight; });
+            } else {
+                return weightedLiterals | elements<1>;
+            }
+        }
+    };
 
     namespace detail {
         template<concepts::scalar T, typename Lookup>

@@ -24,6 +24,7 @@
 
 #include "Solver.hpp"
 #include "Model.hpp"
+#include "util/random.hpp"
 #include <algorithm>
 #include <cstddef>
 #include <limits>
@@ -1042,7 +1043,7 @@ bool Greedy<T>::runOrienteering(std::vector<int> profits, std::vector<std::vecto
 
         // insert and update
         if(best_insertion_value < std::numeric_limits<T>::max()) {            
-            auto best_idx{best_insertion_idxs[random()%best_insertion_idxs.size()]};
+            auto best_idx{random_select(best_insertion_idxs)};
             // std::cout << "Insertion in sequence after " << best_idx << std::endl;
             next[idx] = next[best_idx];
             next[best_idx] = idx;
