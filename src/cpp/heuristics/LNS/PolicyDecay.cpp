@@ -10,12 +10,11 @@
 #include "heuristics/LNS/PolicyDecay.hpp"
 
 namespace tempo::lns {
-
     PolicyDecayConfig::PolicyDecayConfig(double fixRatio, double baseDecay, double minFailRatio, double maxFailRatio,
                                          bool decreaseOnSuccess, DecayMode decayMode, unsigned int retryLimit,
-                                         bool monotone) noexcept
-            : fixRatio(fixRatio), decay(baseDecay), minFailRatio(minFailRatio), maxFailRatio(maxFailRatio),
-              decreaseOnSuccess(decreaseOnSuccess), monotone(monotone), retryLimit(retryLimit), decayMode(decayMode) {
+                                         bool monotone)
+        : fixRatio(fixRatio), decay(baseDecay), minFailRatio(minFailRatio), maxFailRatio(maxFailRatio),
+          decreaseOnSuccess(decreaseOnSuccess), monotone(monotone), retryLimit(retryLimit), decayMode(decayMode) {
         if (fixRatio < 0 or fixRatio > 1) {
             throw std::invalid_argument("fixRatio must be between 0 and 1");
         }
