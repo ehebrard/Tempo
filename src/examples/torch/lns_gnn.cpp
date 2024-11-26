@@ -102,7 +102,7 @@ int main(int argc, char **argv) {
 
 
     MinimizationObjective objective(problemInfo.instance.schedule().duration);
-    long elapsedTime;
+    long elapsedTime = 0;
     std::cout << "-- root search probability increment " << sporadicIncrement << std::endl;
     if (not optimal and useDRPolicy) {
         std::cout << "-- exhaustion probability " << exhaustionProbability << std::endl;
