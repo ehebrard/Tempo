@@ -34,47 +34,9 @@
 #include "helpers/shell.hpp"
 #include "helpers/git_sha.hpp"
 #include "heuristics/LNS/relaxation_policy_factories.hpp"
+#include "heuristics/warmstart.hpp"
 
 using namespace tempo;
-
-template <typename T>
-void warmstart(Solver<T> &S, Interval<T> &schedule,
-               std::vector<Interval<T>> intervals,
-               //                              std::vector<NoOverlapExpression<>>
-               //                              &resources,
-               T &ub) {
-  // try to get a better ub with an initial upper bound insertion heuristic
-  Greedy greedy_insertion(S);
-  greedy_insertion.addIntervals(intervals);
-  //  for (auto &R : resources) {
-  //    greedy_insertion.addResource(R.begDisjunct(), R.endDisjunct());
-  //  }
-  for (auto x : S.boolean_search_vars) {
-    greedy_insertion.addVar(x);
-  }
-
-  // the insertion heuristic is randomized so multiple runs can be useful
-  S.initializeSearch();
-  S.propagate();
-  for (auto i{0}; i < S.getOptions().greedy_runs; ++i) {
-    auto st{S.saveState()};
-    auto sat{greedy_insertion.runEarliestStart()};
-    //        auto sat{greedy_insertion.runLex()};
-    if (sat) {
-      if (schedule.getEarliestEnd(S) <= ub) {
-        S.set(schedule.end.before(schedule.getEarliestEnd(S)));
-        S.boolean.saveSolution();
-        S.numeric.saveSolution();
-        ub = schedule.getEarliestEnd(S) - 1;
-        std::cout << std::setw(10) << (ub + 1);
-        S.displayProgress(std::cout);
-      }
-    }
-    S.restoreState(st);
-  }
-
-  S.set(schedule.end.before(ub));
-}
 
 template <typename T>
 std::string prettyJob(const Interval<T> &task, const Solver<T> &S,
@@ -300,7 +262,7 @@ int main(int argc, char *argv[]) {
 
     try {
       auto ub{Constant::Infinity<int>};
-      warmstart(S, schedule, intervals, ub);
+      heuristics::warmstartDisjunctive(S, schedule, intervals, ub);
       //            warmstart(S, schedule, by_resource, ub);
     } catch (Failure<int> &f) {
       //            std::cout << " optimal solution found in a greedy run\n";

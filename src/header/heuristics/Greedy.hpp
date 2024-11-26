@@ -607,8 +607,8 @@ public:
         prec_map_ptrs.resize(solver.numeric.size());
     }
 
-    void addIntervals(std::vector<Interval<T>> &J) {
-      Intervals = J;
+    void addIntervals(std::vector<Interval<T>> J) {
+      Intervals = std::move(J);
       unscheduled_Intervals.reserve(Intervals.size());
       unscheduled_Intervals.fill();
     }
