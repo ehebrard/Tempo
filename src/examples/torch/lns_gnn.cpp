@@ -18,6 +18,7 @@
 #include "heuristics/LNS/DRPolicy.hpp"
 #include "heuristics/LNS/relaxation_policy_factories.hpp"
 #include "nn/gnn_relaxation.hpp"
+#include "heuristics/warmstart.hpp"
 
 namespace lns = tempo::lns;
 
@@ -88,12 +89,22 @@ int main(int argc, char **argv) {
                                               numThreads));
     auto problemInfo = loadSchedulingProblem(opt);
     torch::set_num_threads(numThreads);
+    bool optimal = false;
+    if (opt.greedy_runs > 0) {
+        std::cout << "-- doing greedy warmstart" << std::endl;
+        try {
+            heuristics::warmstartDisjunctive(*problemInfo.solver, problemInfo.instance.schedule(),
+                                             problemInfo.instance.tasks(), problemInfo.upperBound);
+        } catch (const Failure<Time> &) {
+            optimal = true;
+        }
+    }
 
 
     MinimizationObjective objective(problemInfo.instance.schedule().duration);
     long elapsedTime;
     std::cout << "-- root search probability increment " << sporadicIncrement << std::endl;
-    if (useDRPolicy) {
+    if (not optimal and useDRPolicy) {
         std::cout << "-- exhaustion probability " << exhaustionProbability << std::endl;
         nn::GNNRepair gnnRepair(*problemInfo.solver, gnnLocation, featureExtractorConf, problemInfo.instance,
                                 config, assumptionMode, minCertainty, exhaustionThreshold, sampleSmoothingFactor);
@@ -107,7 +118,7 @@ int main(int argc, char **argv) {
         util::StopWatch sw;
         problemInfo.solver->largeNeighborhoodSearch(objective, policy);
         elapsedTime = sw.elapsed<std::chrono::milliseconds>();
-    } else {
+    } else if (not optimal) {
         nn::GNNRelax policy(*problemInfo.solver, gnnLocation, featureExtractorConf, problemInfo.instance, config,
                             assumptionMode, exhaustionThreshold, exhaustionProbability, sampleSmoothingFactor);
         util::StopWatch sw;

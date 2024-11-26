@@ -14,21 +14,23 @@ VarImportanceRunner::VarImportanceRunner(ser::PartialProblem partialProblem, tem
                                          const ser::Solution<Time> &optSol) : problem(std::move(partialProblem)),
                                                                                  options(std::move(options)),
                                                                                  optimum(optSol.objective) {
-    auto [s, p, _, _1, _2] = loadSchedulingProblem(this->options);
+    auto problemInstance = loadSchedulingProblem(this->options);
+    auto &s = *problemInstance.solver;
+    const auto &p = problemInstance.instance;
     try {
-        loadBranch(*s, problem.decisions);
+        loadBranch(s, problem.decisions);
     } catch (const tempo::Failure<Time> &) {
         inconsistent = true;
         return;
     }
 
     tempo::var_t maxVar = 0;
-    for (auto var : s->getBranch()) {
+    for (auto var : s.getBranch()) {
         maxVar = std::max(maxVar, var);
-        if (s->boolean.hasSemantic(var)) {
-            auto edge = s->boolean.getEdge(true, var);
+        if (s.boolean.hasSemantic(var)) {
+            auto edge = s.boolean.getEdge(true, var);
             if (p.hasVariable(edge.from) and p.hasVariable(edge.to)) {
-                searchLiterals.emplace_back(s->boolean.getLiteral(true, var));
+                searchLiterals.emplace_back(s.boolean.getLiteral(true, var));
             }
         }
     }
@@ -36,7 +38,7 @@ VarImportanceRunner::VarImportanceRunner(ser::PartialProblem partialProblem, tem
     literalCache.resize(maxVar * 2 + 2, false);
     for (const auto &[var, val] : optSol.decisions) {
         if (val and var <= maxVar) {
-            auto lit = s->boolean.getLiteral(val, var);
+            auto lit = s.boolean.getLiteral(val, var);
             literalCache.at(lit) = true;
         }
     }
@@ -68,9 +70,11 @@ auto VarImportanceRunner::run(tempo::Literal<Time> lit) -> Result {
         throw std::runtime_error("inconsistent sub problem");
     }
 
-    auto [s, p, _, _1, _2] = loadSchedulingProblem(options);
-    loadBranch(*s, problem.decisions);
-    if (s->boolean.satisfied(lit) or s->boolean.falsified(lit)) {
+    auto problemInstance = loadSchedulingProblem(options);
+    auto &s = *problemInstance.solver;
+    const auto &p = problemInstance.instance;
+    loadBranch(s, problem.decisions);
+    if (s.boolean.satisfied(lit) or s.boolean.falsified(lit)) {
         return {AlreadyDecided, {}};
     }
 
@@ -79,19 +83,19 @@ auto VarImportanceRunner::run(tempo::Literal<Time> lit) -> Result {
     }
 
     try {
-        s->set(lit);
+        s.set(lit);
     } catch(const tempo::Failure<Time> &) {
         return {Unsat, {}};
     }
 
-    s->minimize(p.schedule().duration);
-    totalNumDecisions += s->num_choicepoints;
+    s.minimize(p.schedule().duration);
+    totalNumDecisions += s.num_choicepoints;
     ++numSearches;
-    if (s->boolean.hasSolution() and s->numeric.hasSolution()) {
-        const auto makeSpan = s->numeric.lower(p.schedule().duration);
+    if (s.boolean.hasSolution() and s.numeric.hasSolution()) {
+        const auto makeSpan = s.numeric.lower(p.schedule().duration);
         if (makeSpan == optimum) {
             for (auto [litId, cacheVal] : iterators::enumerate(literalCache)) {
-                cacheVal = cacheVal or s->boolean.bestSolution().at(litId);
+                cacheVal = cacheVal or s.boolean.bestSolution().at(litId);
             }
         }
 
