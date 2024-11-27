@@ -35,7 +35,7 @@ namespace tempo::nn {
     class GNNRelax {
         // --- helpers
         using FixPolicy = lns::VariantFix<lns::BestN<lns::OrderType::Ascending>,
-                lns::GreedyFix<T, lns::OrderType::Ascending>>;
+                lns::GreedyFix<T, lns::OrderType::Ascending>, lns::SampleFix<true>>;
         GNNRelaxationPredictor<T, R> predictor;
         mutable tempo::util::Profiler profiler;
         FixPolicy fixPolicy;
@@ -69,11 +69,12 @@ namespace tempo::nn {
          * @param assumptionMode how to make assumptions
          * @param exhaustionThreshold fix ratio threshold at which a new solution is explored
          * @param exhaustionProbability probability with which a new solution is explored even if not exhausted
+         * @param sampleSmoothingFactor smoothing factor for sample fix policy
          */
         GNNRelax(const Solver<T> &solver, const fs::path &modelLocation,
                  const fs::path &featureExtractorConfigLocation, const SchedulingProblemHelper<T, R> &problemInstance,
-                 const lns::PolicyDecayConfig decayConfig, lns::AssumptionMode assumptionMode,
-                 double exhaustionThreshold, double exhaustionProbability) :
+                 const lns::PolicyDecayConfig &decayConfig, lns::AssumptionMode assumptionMode,
+                 double exhaustionThreshold, double exhaustionProbability, double sampleSmoothingFactor = 0) :
                 predictor(modelLocation, featureExtractorConfigLocation, problemInstance,
                           problemInstance.getSearchLiterals(solver)),
                 policyDecay(decayConfig, predictor.numLiterals(), solver.getOptions().verbosity),
@@ -92,6 +93,9 @@ namespace tempo::nn {
                 case GreedyInverse:
                     fixPolicy.template emplace<GF>(true);
                     break;
+                case Sample:
+                    fixPolicy.template emplace<lns::SampleFix<true>>(sampleSmoothingFactor);
+                    break;
                 default:
                     throw std::runtime_error("unsupported assumption mode " + to_string(assumptionMode));
             }
@@ -100,7 +104,10 @@ namespace tempo::nn {
                 std::cout << "-- GNN relaxation policy config\n"
                           << "\t-- fix policy " << assumptionMode << "\n"
                           << "\t-- exhaustion threshold: " << exhaustionThreshold << "\n"
-                          << "\t-- exhaust probability: " << exhaustionProbability << std::endl;
+                          << "\t-- exhaust probability: " << exhaustionProbability << "\n";
+                if (assumptionMode == Sample) {
+                    std::cout << "\t-- sample smoothing factor: " << sampleSmoothingFactor << "\n";
+                }
                 std::cout << decayConfig << std::endl;
             }
         }
@@ -171,7 +178,7 @@ namespace tempo::nn {
     private:
         void exhaustIfNecessary() {
             const auto fixRatio = std::min(numFixed, maxNumLiterals()) / static_cast<double>(predictor.numLiterals());
-            bool randomExhaust = randomEventOccurred<10000>(exhaustionProbability);
+            bool randomExhaust = random_event_occurred(exhaustionProbability);
             if (fixRatio >= exhaustionThreshold and not randomExhaust) {
                 return;
             }

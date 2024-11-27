@@ -106,6 +106,7 @@ struct Problem {
     ProblemInstance instance;
     std::vector<ResourceConstraint> constraints;
     std::optional<Time> optimalSolution;
+    Time upperBound;
     unsigned numTasks;
 };
 

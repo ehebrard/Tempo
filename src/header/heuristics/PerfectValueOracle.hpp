@@ -13,6 +13,7 @@
 #include "BaseBooleanHeuristic.hpp"
 #include "util/serialization.hpp"
 #include "util/traits.hpp"
+#include "util/random.hpp"
 
 namespace tempo::heuristics {
     /**

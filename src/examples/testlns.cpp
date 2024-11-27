@@ -34,47 +34,9 @@
 #include "helpers/shell.hpp"
 #include "helpers/git_sha.hpp"
 #include "heuristics/LNS/relaxation_policy_factories.hpp"
+#include "heuristics/warmstart.hpp"
 
 using namespace tempo;
-
-template <typename T>
-void warmstart(Solver<T> &S, Interval<T> &schedule,
-               std::vector<Interval<T>> intervals,
-               //                              std::vector<NoOverlapExpression<>>
-               //                              &resources,
-               T &ub) {
-  // try to get a better ub with an initial upper bound insertion heuristic
-  Greedy greedy_insertion(S);
-  greedy_insertion.addIntervals(intervals);
-  //  for (auto &R : resources) {
-  //    greedy_insertion.addResource(R.begDisjunct(), R.endDisjunct());
-  //  }
-  for (auto x : S.boolean_search_vars) {
-    greedy_insertion.addVar(x);
-  }
-
-  // the insertion heuristic is randomized so multiple runs can be useful
-  S.initializeSearch();
-  S.propagate();
-  for (auto i{0}; i < S.getOptions().greedy_runs; ++i) {
-    auto st{S.saveState()};
-    auto sat{greedy_insertion.runEarliestStart()};
-    //        auto sat{greedy_insertion.runLex()};
-    if (sat) {
-      if (schedule.getEarliestEnd(S) <= ub) {
-        S.set(schedule.end.before(schedule.getEarliestEnd(S)));
-        S.boolean.saveSolution();
-        S.numeric.saveSolution();
-        ub = schedule.getEarliestEnd(S) - 1;
-        std::cout << std::setw(10) << (ub + 1);
-        S.displayProgress(std::cout);
-      }
-    }
-    S.restoreState(st);
-  }
-
-  S.set(schedule.end.before(ub));
-}
 
 template <typename T>
 std::string prettyJob(const Interval<T> &task, const Solver<T> &S,
@@ -154,14 +116,24 @@ int main(int argc, char *argv[]) {
   namespace lns = tempo::lns;
   auto parser = tempo::getBaseParser();
   bool profileHeuristic;
-  lns::RelaxationPolicyParams policyParams;
+  lns::RelaxationPolicyParams policyParams{.decayConfig = lns::PolicyDecayConfig(), .numScheduleSlices = 4};
   lns::RelaxPolicy policyType;
   cli::detail::configureParser(parser, cli::SwitchSpec("heuristic-profiling", "activate heuristic profiling",
                                                        profileHeuristic, false),
-                               cli::ArgSpec("relax-decay", "relaxation ratio decay",
-                                            false, policyParams.ratioDecay, 0.5),
-                               cli::ArgSpec("relax-ratio", "initial relaxation ratio",
-                                            false, policyParams.relaxRatio, 0.5),
+                               cli::ArgSpec("fix-decay", "relaxation ratio decay",
+                                            false, policyParams.decayConfig.decay, 0.5),
+                               cli::ArgSpec("fix-ratio", "initial relaxation ratio",
+                                            false, policyParams.decayConfig.fixRatio, 0.5),
+                               cli::ArgSpec("decay-min-fail", "lower bound solver failure rate for ratio decay config",
+                                            false, policyParams.decayConfig.minFailRatio),
+                               cli::ArgSpec("decay-max-fail", "upper bound solver failure rate for ratio decay config",
+                                            false, policyParams.decayConfig.maxFailRatio),
+                               cli::SwitchSpec("decay-on-success", "whether to decrease fix rate even on success",
+                                               policyParams.decayConfig.decreaseOnSuccess, false),
+                               cli::ArgSpec("retry-limit", "number of fails before decreasing relaxation ratio",
+                                            false, policyParams.decayConfig.retryLimit),
+                               cli::ArgSpec("decay-mode", "relaxation ratio decay mode on failure", false,
+                                            policyParams.decayConfig.decayMode),
                                cli::ArgSpec("relax-slices", "number of schedule slices",
                                             false, policyParams.numScheduleSlices, 4),
                                cli::ArgSpec("lns-policy", "lns relaxation policy", true, policyType));
@@ -290,7 +262,7 @@ int main(int argc, char *argv[]) {
 
     try {
       auto ub{Constant::Infinity<int>};
-      warmstart(S, schedule, intervals, ub);
+      heuristics::warmstartDisjunctive(S, schedule, intervals, ub);
       //            warmstart(S, schedule, by_resource, ub);
     } catch (Failure<int> &f) {
       //            std::cout << " optimal solution found in a greedy run\n";
@@ -300,7 +272,7 @@ int main(int argc, char *argv[]) {
     
     if(not optimal) {
         MinimizationObjective<int> objective(schedule.duration);
-        auto policy = lns::make_relaxation_policy(policyType, intervals, resources, policyParams);
+        auto policy = lns::make_relaxation_policy(policyType, intervals, resources, policyParams, opt.verbosity);
         std::cout << "-- using relaxation policy " << policyType << std::endl;
         S.largeNeighborhoodSearch(objective, policy);
     }

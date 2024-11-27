@@ -14,6 +14,7 @@
 #include "Global.hpp"
 #include "Constant.hpp"
 #include "util/traits.hpp"
+#include "util/random.hpp"
 #include "Literal.hpp"
 #include "Solver.hpp"
 #include "Solution.hpp"
@@ -50,8 +51,7 @@ namespace tempo::lns {
         }
 
         T &peekRandom() noexcept {
-            auto idx = random() % this->size();
-            return operator[](idx);
+            return random_select(*this);
         }
 
         const T&peekRandom() const noexcept {
@@ -59,8 +59,8 @@ namespace tempo::lns {
         }
 
         T popRandom() {
-            auto it = this->begin() + random() % this->size();
-            auto elem = std::move(*this);
+            auto it = random_select_iterator(*this);
+            auto elem = std::move(*it);
             this->erase(it);
             return elem;
         }

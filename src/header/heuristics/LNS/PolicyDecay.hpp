@@ -30,10 +30,10 @@ namespace tempo::lns {
          * @param decayMode type of decay to apply on fail or after too many solver fails
          */
         PolicyDecayConfig(double fixRatio, double baseDecay, double minFailRatio, double maxFailRatio,
-                          bool decreaseOnSuccess, DecayMode decayMode, unsigned int retryLimit) noexcept;
+                          bool decreaseOnSuccess, DecayMode decayMode, unsigned int retryLimit, bool monotone);
 
         double fixRatio, decay, minFailRatio, maxFailRatio;
-        bool decreaseOnSuccess;
+        bool decreaseOnSuccess, monotone;
         unsigned retryLimit;
         DecayMode decayMode;
     };

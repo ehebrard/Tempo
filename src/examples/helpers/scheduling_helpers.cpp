@@ -151,7 +151,7 @@ auto loadSchedulingProblem(const tempo::Options &options)
     solver->set(schedule.end.before(trivialUb));
     auto numTasks = static_cast<unsigned>(problem.tasks().size());
     return {.solver = std::move(solver), .instance = std::move(problem), .constraints = std::move(
-            constraints), .optimalSolution = optSol, .numTasks = numTasks};
+            constraints), .optimalSolution = optSol, .upperBound = trivialUb, .numTasks = numTasks};
 }
 
 void loadBranch(tempo::Solver<int> &solver, const tempo::serialization::Branch &branch) {

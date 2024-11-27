@@ -40,7 +40,7 @@ namespace tempo::nn {
     template<concepts::scalar T, SchedulingResource R>
     class GNNRepair {
         using FixPolicy = lns::VariantFix<lns::BestN<lns::OrderType::Descending>,
-                lns::GreedyFix<T, lns::OrderType::Descending>, lns::OptimalFix<T>>;
+                lns::GreedyFix<T, lns::OrderType::Descending>, lns::SampleFix<false>, lns::OptimalFix<T>>;
         GNNPrecedencePredictor<T, R> predictor;
         mutable tempo::util::Profiler profiler{};
         std::vector<std::pair<Literal<T>, double>> gnnCache;
@@ -73,16 +73,23 @@ namespace tempo::nn {
          * @param problemInstance problem instance
          * @param decayConfig config struct for policy decay
          * @param assumptionMode how to make assumptions
+         * @param minCertainty minimum GNN certainty
+         * @param exhaustionThreshold fix ratio threshold at witch to signal exhaustion
+         * @param sampleSmoothingFactor smoothing factor for sample fix policy
          */
         GNNRepair(const Solver<T> &solver, const fs::path &modelLocation,
                   const fs::path &featureExtractorConfigLocation,
                   const SchedulingProblemHelper<T, R> &problemInstance,
                   const lns::PolicyDecayConfig &decayConfig, lns::AssumptionMode assumptionMode,
-                  double minCertainty, double exhaustionThreshold) :
+                  double minCertainty, double exhaustionThreshold, double sampleSmoothingFactor = 0) :
                 predictor(modelLocation, featureExtractorConfigLocation, problemInstance,
                           problemInstance.getSearchLiterals(solver)),
                 policyDecay(decayConfig, predictor.numLiterals(), solver.getOptions().verbosity),
                 minCertainty(minCertainty), exhaustionThreshold(exhaustionThreshold), solver(solver) {
+            using enum lns::AssumptionMode;
+            using enum lns::OrderType;
+            using GF = lns::GreedyFix<T, lns::OrderType::Descending>;
+
             if (decayConfig.fixRatio < 0 or decayConfig.fixRatio > 1) {
                 throw std::runtime_error("invalid fix ratio");
             }
@@ -95,13 +102,13 @@ namespace tempo::nn {
                 std::cout << "-- GNN repair policy config\n"
                           << "\t-- fix policy " << assumptionMode << "\n"
                           << "\t-- min GNN certainty: " << minCertainty << "\n"
-                          << "\t-- exhaustion threshold: " << exhaustionThreshold << std::endl;
+                          << "\t-- exhaustion threshold: " << exhaustionThreshold << "\n";
+                if (assumptionMode == Sample) {
+                    std::cout << "\t-- sample smoothing factor: " << sampleSmoothingFactor << "\n";
+                }
                 std::cout << decayConfig << std::endl;
             }
 
-            using enum lns::AssumptionMode;
-            using enum lns::OrderType;
-            using GF = lns::GreedyFix<T, lns::OrderType::Descending>;
             switch(assumptionMode) {
                 case GreedySkip:
                     fixPolicy.template emplace<GF>(false);
@@ -111,6 +118,9 @@ namespace tempo::nn {
                     break;
                 case Optimal:
                     fixPolicy.template emplace<lns::OptimalFix<T>>(100, 50, false);
+                    break;
+                case Sample:
+                    fixPolicy.template emplace<lns::SampleFix<false>>(sampleSmoothingFactor);
                     break;
                 case BestN:
                     break;

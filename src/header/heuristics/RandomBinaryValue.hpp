@@ -25,6 +25,7 @@
 
 #include "BaseBooleanHeuristic.hpp"
 #include "Global.hpp"
+#include "util/random.hpp"
 
 namespace tempo::heuristics {
 

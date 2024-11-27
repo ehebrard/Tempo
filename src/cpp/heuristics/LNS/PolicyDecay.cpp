@@ -10,25 +10,35 @@
 #include "heuristics/LNS/PolicyDecay.hpp"
 
 namespace tempo::lns {
-
     PolicyDecayConfig::PolicyDecayConfig(double fixRatio, double baseDecay, double minFailRatio, double maxFailRatio,
-                                         bool decreaseOnSuccess, DecayMode decayMode, unsigned int retryLimit) noexcept
-            : fixRatio(fixRatio), decay(baseDecay), minFailRatio(minFailRatio), maxFailRatio(maxFailRatio),
-              decreaseOnSuccess(decreaseOnSuccess), retryLimit(retryLimit), decayMode(decayMode) {}
+                                         bool decreaseOnSuccess, DecayMode decayMode, unsigned int retryLimit,
+                                         bool monotone)
+        : fixRatio(fixRatio), decay(baseDecay), minFailRatio(minFailRatio), maxFailRatio(maxFailRatio),
+          decreaseOnSuccess(decreaseOnSuccess), monotone(monotone), retryLimit(retryLimit), decayMode(decayMode) {
+        if (fixRatio < 0 or fixRatio > 1) {
+            throw std::invalid_argument("fixRatio must be between 0 and 1");
+        }
+
+        if (baseDecay < 0 or baseDecay > 1) {
+            throw std::invalid_argument("baseDecay must be between 0 and 1");
+        }
+    }
 
     PolicyDecayConfig::PolicyDecayConfig() noexcept: fixRatio(1), decay(0.5), minFailRatio(-1),
                                                      maxFailRatio(std::numeric_limits<double>::infinity()),
-                                                     decreaseOnSuccess(false), retryLimit(0),
+                                                     decreaseOnSuccess(false), monotone(false), retryLimit(0),
                                                      decayMode(DecayMode::Constant) {}
 
     std::ostream &operator<<(std::ostream &os, const PolicyDecayConfig &config) {
+        os << std::boolalpha;
         os << "-- policy decay config:\n";
+        os << "\t-- ratio decay mode: " << config.decayMode << "\n";
+        os << "\t-- monotone decent: " << config.monotone << "\n";
         os << "\t-- base fix ratio: " << config.fixRatio << "\n";
         os << "\t-- decay: " << config.decay << "\n";
         os << "\t-- fail ratio interval: [" << config.minFailRatio << ", " << config.maxFailRatio << "]" << "\n";
-        os << "\t-- decrease fix ratio even on success: " << (config.decreaseOnSuccess ? "true" : "false") << "\n";
+        os << "\t-- decrease fix ratio even on success: " << config.decreaseOnSuccess << "\n";
         os << "\t-- retry limit: " << config.retryLimit << "\n";
-        os << "\t-- ratio decay mode: " << config.decayMode;
         return os;
     }
 
@@ -70,7 +80,9 @@ namespace tempo::lns {
     }
 
     void PolicyDecay::resetFixRatio() noexcept {
-        currentFixRatio = config.fixRatio;
+        if (not config.monotone) {
+            currentFixRatio = config.fixRatio;
+        }
     }
 
     void PolicyDecay::notifyFailure(unsigned int numFails) {
