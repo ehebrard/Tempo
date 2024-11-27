@@ -43,6 +43,7 @@ public:
   T primalBound() const { return p_b; }
 
   void setDual(const T v) { d_b = v; }
+    virtual T getDual(Solver<T> &solver) = 0;
     
     T gap() { return std::abs(p_b - d_b); }
 
@@ -58,6 +59,8 @@ public:
     MinimizationObjective(const NumericVar<T> x) : Objective<T>(x) { Objective<T>::d_b = -Constant::Infinity<T>; Objective<T>::p_b = Constant::Infinity<T>; }
 
   T value(Solver<T> &solver) { return Objective<T>::X.min(solver); }
+    
+    T getDual(Solver<T> &solver) { return Objective<T>::X.min(solver); }
 
   void setPrimal(const T v, Solver<T> &solver) {
     Objective<T>::p_b = v;
@@ -80,6 +83,8 @@ public:
     MaximizationObjective(const NumericVar<T> x) : Objective<T>(x) { Objective<T>::d_b = Constant::Infinity<T>; Objective<T>::p_b = -Constant::Infinity<T>; }
 
   T value(Solver<T> &solver) { return Objective<T>::X.max(solver); }
+    
+    T getDual(Solver<T> &solver) { return Objective<T>::X.max(solver); }
 
   void setPrimal(const T v, Solver<T> &solver) {
     Objective<T>::p_b = v;

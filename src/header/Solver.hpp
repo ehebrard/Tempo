@@ -149,6 +149,14 @@ public:
     auto bestSolution() const noexcept -> const std::vector<bool> & { return best_solution; }
     //@}
     
+#ifdef LEARNING_RATE_STUFF
+    //@{
+    // learning rate stuff
+    void updateLearningRate(const var_t x);
+    void updateActivity(const var_t x);
+    //@}
+#endif
+    
 protected:
     Solver<T> &solver;
     
@@ -169,6 +177,22 @@ protected:
     // the rank of each literal in the trail (Constant::NoIndex if the literal
     // is not on the trail)
     std::vector<index_t> propagation_level;
+    
+    
+#ifdef LEARNING_RATE_STUFF
+    // learning rate stuff
+    double alpha{.4};
+    
+    // [for each variable] the number of times it participated to a conflict
+    std::vector<long unsigned int> participated;
+    
+    // [for each variable] the number of conflicts when it was assigned
+    std::vector<long unsigned int> assigned_at;
+    
+    // [for each variable] its current learning rate
+    std::vector<double> learning_rate;
+#endif
+    
 };
 
 //! Numeric variables and literals manager
@@ -1105,6 +1129,13 @@ template <typename T> BooleanVar<T> BooleanStore<T>::newVar(const info_t s) {
     
     edge_index.push_back(s);
     
+#ifdef LEARNING_RATE_STUFF
+    // learning rate stuff
+    participated.push_back(0);
+    assigned_at.push_back(0);
+    learning_rate.push_back(0.0);
+#endif
+    
     return x;
 }
 
@@ -1132,6 +1163,16 @@ BooleanVar<T> BooleanStore<T>::newDisjunct(const DistanceConstraint<T> &d1,
 template <typename T> void BooleanStore<T>::set(Literal<T> l) {
     propagation_level[l.variable()] = (solver.numLiteral() - 1);
     polarity[l] = true;
+    
+#ifdef LEARNING_RATE_STUFF
+    // learning rate stuff
+    auto x{l.variable()};
+    assigned_at[x] = solver.num_fails;
+    participated[x] = 0;
+    //
+#endif
+    
+    
     if (l.hasSemantic()) {
         assert(l.constraint() == (edge_index[l.variable()] + l.sign()));
         auto e{edges[l.constraint()]};
@@ -1142,8 +1183,38 @@ template <typename T> void BooleanStore<T>::set(Literal<T> l) {
     assert(l.hasSemantic() or edge_index[l.variable()] == Constant::NoSemantic);
 }
 
+#ifdef LEARNING_RATE_STUFF
+// learning rate stuff
+template <typename T> void BooleanStore<T>::updateLearningRate(const var_t x) {
+    if(solver.num_fails == 0)
+        return;
+    
+//    std::cout << "\nlr=" << learning_rate[x] << std::endl;
+    
+    learning_rate[x] *= (1.0 - alpha);
+    
+//    std::cout << "*=" << (1.0 - alpha) << " -> " << learning_rate[x] << std::endl;
+    
+    learning_rate[x] += (static_cast<double>(participated[x]) / static_cast<double>(solver.num_fails - assigned_at[x] + 1)) * alpha;
+    
+//    
+//    std::cout << "+=" << static_cast<double>(participated[x]) << "/" << static_cast<double>(solver.num_fails - assigned_at[x]) << " * " << alpha << " = " << ((static_cast<double>(participated[x]) / static_cast<double>(solver.num_fails - assigned_at[x])) * alpha) << " -> " << learning_rate[x] << std::endl;
+//    
+////    std::cout << "#fails = " << solver.num_fails << ", pr(" << x << ")=" << static_cast<double>(participated[x]) << ", aa(" << x << ")=" << static_cast<double>(solver.num_fails - assigned_at[x]) << " += " << (static_cast<double>(participated[x]) / static_cast<double>(solver.num_fails - assigned_at[x])) * alpha << " -> lr(" << x << ")=" << learning_rate[x] << std::endl;
+}
+
+template <typename T> void BooleanStore<T>::updateActivity(const var_t x) {
+    ++participated[x];
+}
+#endif
+
 template <typename T> void BooleanStore<T>::undo(Literal<T> l) {
     polarity[l] = false;
+    
+#ifdef LEARNING_RATE_STUFF
+    // learning rate stuff
+    updateLearningRate(l.variable());
+#endif
 }
 
 template <typename T> bool BooleanStore<T>::value(const BooleanVar<T> x) const {
@@ -2683,7 +2754,15 @@ template <typename T> void Solver<T>::learnConflict(Explanation<T> &e) {
 
     //    ClauseAdded.trigger(conflict);
     ClauseAdded.trigger(learnt_clause);
-
+    
+    
+#ifdef LEARNING_RATE_STUFF
+    // learning rate stuff
+    for(auto l : conflict) {
+        boolean.updateActivity(l.variable());
+    }
+#endif
+    
     clauses.add(learnt_clause.begin(), learnt_clause.end(), true);
 
 #ifdef DBG_CL
@@ -2867,6 +2946,7 @@ void Solver<T>::optimize(S &objective) {
     
     try {
         initializeSearch();
+        std::cout << "Initial bound = " << objective.getDual(*this) << std::endl;
     } catch(Failure<T>& f) {
 //        satisfiability = FalseState;
         objective.setDual(objective.primalBound());

@@ -128,7 +128,6 @@ namespace tempo::heuristics::impl {
         void update(Iterable &clause, const Solver<T>& solver) noexcept {
 
             bool normalize = false;
-
             
             for (const auto l : clause) {
                 
