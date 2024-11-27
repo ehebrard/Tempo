@@ -28,14 +28,22 @@ using namespace tempo;
 
 // implementation of SAT solver
 int main(int argc, char *argv[]) {
+    std::cout << "before parse cmd\n";
 
   Options opt = tempo::parse(argc, argv);
+    
+    std::cout << "after  parse cmd\n";
   Solver<> S(opt);
+    
+    std::cout << "after build solver\n";
 
   // parse an input file in dimacs cnf format and collect the variables
   std::vector<BooleanVar<>> X;
+    
+    
+    
   dimacs::parse(opt.instance_file, S, X);
-
+    
   // notify the solver to assign a value to all variables
   for (auto x : X)
     S.addToSearch(x);

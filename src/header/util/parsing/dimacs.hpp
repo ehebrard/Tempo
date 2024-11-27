@@ -18,6 +18,7 @@ template <typename M, typename V> void parse(const std::string &fn, M &model, V&
       throw std::runtime_error("Could not open file for reading");
     int n, l;
     size_t m;
+    size_t clause_added{0};
     std::string dump;
 //    std::vector<tempo::BooleanVar<int>> vars;
     std::vector<tempo::Literal<int>> cl;
@@ -34,11 +35,16 @@ template <typename M, typename V> void parse(const std::string &fn, M &model, V&
         iss >> m;
         for (auto i{0}; i < n; ++i) {
           auto x{model.newBoolean()};
-          assert(x.id() == vars.size());
+          //          assert(x.id() == vars.size());
           vars.push_back(x);
         }
       } else {
+        bool emptyline{false};
         while (true) {
+          if (iss.eof()) {
+            emptyline = true;
+            break;
+          }
           iss >> l;
           if (l == 0)
             break;
@@ -48,10 +54,12 @@ template <typename M, typename V> void parse(const std::string &fn, M &model, V&
             cl.push_back(vars[-l - 1] == false);
           }
         }
-        model.clauses.add(cl.begin(), cl.end());
-        cl.clear();
-        if (model.clauses.size() == m)
-          break;
+        if (not emptyline) {
+          model.clauses.add(cl.begin(), cl.end());
+          cl.clear();
+          if (++clause_added == m)
+            break;
+        }
       }
     }
     //      assert(m == model.clauses.size());
