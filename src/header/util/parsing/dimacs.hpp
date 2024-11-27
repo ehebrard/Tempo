@@ -10,7 +10,7 @@
 
 namespace dimacs {
 
-template <typename M, typename V> void parse(const std::string &fn, M &model, V& vars) {
+template <typename M, typename V> void parse(const std::string &fn, M &model, V& vars, bool& consistent) {
   using std::cerr;
   try {
     std::ifstream ifs(fn);
@@ -55,10 +55,15 @@ template <typename M, typename V> void parse(const std::string &fn, M &model, V&
           }
         }
         if (not emptyline) {
-          model.clauses.add(cl.begin(), cl.end());
-          cl.clear();
-          if (++clause_added == m)
-            break;
+            try {
+                model.clauses.add(cl.begin(), cl.end());
+                cl.clear();
+                if (++clause_added == m)
+                    break;
+            } catch(tempo::Failure<int> &f) {
+                consistent = false;
+                return;
+            }
         }
       }
     }

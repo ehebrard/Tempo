@@ -35,16 +35,28 @@ int main(int argc, char *argv[]) {
   // parse an input file in dimacs cnf format and collect the variables
   std::vector<BooleanVar<>> X;
     
-  dimacs::parse(opt.instance_file, S, X);
+    bool consistent{true};
+  dimacs::parse(opt.instance_file, S, X, consistent);
     
-  // notify the solver to assign a value to all variables
-  for (auto x : X)
-    S.addToSearch(x);
-
-  // search
-  auto sat{S.satisfiable()};
-
-  // output
-  std::cout << (sat ? "SAT" : "UNSAT") << " #fails = " << S.num_fails
-            << std::endl;
+    if(not consistent) {
+        if(opt.verbosity >= Options::QUIET) {
+            S.displayHeader(std::cout);
+            S.displaySummary(
+                             std::cout,
+                             "unsat ");
+        }
+        std::cout << "UNSAT" << " #fails = 0\n";
+    } else {
+        
+        // notify the solver to assign a value to all variables
+        for (auto x : X)
+            S.addToSearch(x);
+        
+        // search
+        auto sat{S.satisfiable()};
+        
+        // output
+        std::cout << (sat ? "SAT" : "UNSAT") << " #fails = " << S.num_fails
+        << std::endl;
+    }
 }
