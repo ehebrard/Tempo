@@ -35,6 +35,7 @@ find_package(TorchSparse QUIET)
 
 option(ENABLE_TORCH "Build with torch. If set to off (default), you are unable to use features that depend on torch")
 option(PRETTY_JSON "Save json files in a more human readable format at the cost of higher memory usage (default on)" ON)
+option(CLUSTER "Build for cluster without architecture specific optimizations" OFF)
 set(TORCH_ENABLED FALSE)
 #set(PRETTY_JSON FALSE)
 
@@ -73,7 +74,7 @@ set(CMAKE_CXX_STANDARD 20)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wpedantic")
 string(TOLOWER ${CMAKE_BUILD_TYPE} BUILD_TYPE)
-if (BUILD_TYPE STREQUAL "slurm")
+if (${CLUSTER})
     message("Building for cluster")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
 else ()
