@@ -2804,6 +2804,11 @@ template <typename T> void Solver<T>::initializeSearch() {
     if(not initialized) {
         start_time = cpu_time();
         stopWatch.start();
+        
+        if (/*not initialized and*/ options.verbosity >= Options::QUIET) {
+            displayHeader(std::cout);
+        }
+        
         post(&clauses);
         
         restartPolicy.initialize();
@@ -2811,9 +2816,6 @@ template <typename T> void Solver<T>::initializeSearch() {
             heuristic = heuristics::make_heuristic(*this);
         }
         
-        if (/*not initialized and*/ options.verbosity >= Options::QUIET) {
-            displayHeader(std::cout);
-        }
         
         propag_pointer = 1;
 
