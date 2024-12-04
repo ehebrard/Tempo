@@ -720,7 +720,7 @@ template <typename T>
 void Transitivity<T>::xplain(const Literal<T> l, const hint h,
                              std::vector<Literal<T>> &Cl) {
 
-    auto l_lvl{m_solver.propagationLevel(l)};
+    auto l_lvl{m_solver.propagationStamp(l)};
     
   if (l.isNumeric()) {
 
@@ -747,17 +747,17 @@ void Transitivity<T>::xplain(const Literal<T> l, const hint h,
       for (auto yp{DAG[x].bbegin()}; yp != DAG[x].bend(); ++yp) {
         auto p{disjunct(*yp, x)};
           auto b{the_tasks[*yp].start.after(h)};
-        if (m_solver.propagationLevel(p) < l_lvl and m_solver.numeric.satisfied(b)) {
+        if (m_solver.propagationStamp(p) < l_lvl and m_solver.numeric.satisfied(b)) {
           
-            if(m_solver.propagationLevel(b) < l_lvl) {
+            if(m_solver.propagationStamp(b) < l_lvl) {
                 Cl.push_back(p);
                 Cl.push_back(b);
                 
 #ifdef DBG_EXPL_TRANS
                 std::cout << " - " << m_solver.pretty(p) << " & " << b << " ("
                           << the_tasks[*yp].minDuration(m_solver) << ") @"
-                          << m_solver.propagationLevel(p) << " & "
-                          << m_solver.propagationLevel(b) << std::endl;
+                          << m_solver.propagationStamp(p) << " & "
+                          << m_solver.propagationStamp(b) << std::endl;
 #endif
             }
         }
@@ -770,20 +770,20 @@ void Transitivity<T>::xplain(const Literal<T> l, const hint h,
       for (auto yp{DAG[x].fbegin()}; yp != DAG[x].fend(); ++yp) {
         auto p{disjunct(x, *yp)};
           auto b{the_tasks[*yp].end.before(h)};
-        if (m_solver.propagationLevel(p) < l_lvl and m_solver.numeric.satisfied(b)) {
+        if (m_solver.propagationStamp(p) < l_lvl and m_solver.numeric.satisfied(b)) {
           
-            if(m_solver.propagationLevel(b) < l_lvl) {
+            if(m_solver.propagationStamp(b) < l_lvl) {
                 Cl.push_back(p);
                 Cl.push_back(b);
                 
                 
-                //            assert(m_solver.propagationLevel(b) < l_lvl);
+                //            assert(m_solver.propagationStamp(b) < l_lvl);
                 
 #ifdef DBG_EXPL_TRANS
                 std::cout << " - " << m_solver.pretty(p) << " & " << b << " ("
                           << the_tasks[*yp].minDuration(m_solver) << ") @"
-                          << m_solver.propagationLevel(p) << " & "
-                          << m_solver.propagationLevel(b) << std::endl;
+                          << m_solver.propagationStamp(p) << " & "
+                          << m_solver.propagationStamp(b) << std::endl;
 #endif
             }
         }
@@ -810,7 +810,7 @@ void Transitivity<T>::xplain(const Literal<T> l, const hint h,
     auto rc{m_solver.boolean.getEdge(r)};
       Cl.push_back(r);
       
-      assert(m_solver.propagationLevel(r) < l_lvl);
+      assert(m_solver.propagationStamp(r) < l_lvl);
 
 #ifdef DBG_EXPL_TRANS
     std::cout << rc.from << " -> " << rc.to;
@@ -822,7 +822,7 @@ void Transitivity<T>::xplain(const Literal<T> l, const hint h,
       auto y{task_map[rc.from]};
       Cl.push_back(disjunct(y, x));
         
-        assert(m_solver.propagationLevel(disjunct(y, x)) < l_lvl);
+        assert(m_solver.propagationStamp(disjunct(y, x)) < l_lvl);
 
 #ifdef DBG_EXPL_TRANS
       std::cout << " & " << lc.from << " -> " << rc.from << " (" << the_tasks[x]
@@ -837,7 +837,7 @@ void Transitivity<T>::xplain(const Literal<T> l, const hint h,
       auto y{task_map[rc.to]};
       Cl.push_back(disjunct(x, y));
         
-        assert(m_solver.propagationLevel(disjunct(x, y)) < l_lvl);
+        assert(m_solver.propagationStamp(disjunct(x, y)) < l_lvl);
 
 #ifdef DBG_EXPL_TRANS
       std::cout << " & " << rc.to << " -> " << lc.to << " (" << the_tasks[x]

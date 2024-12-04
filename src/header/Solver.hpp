@@ -56,6 +56,10 @@
 #include "util/traits.hpp"
 
 
+
+#define LEARNING_RATE_STUFF true
+
+
 namespace tempo {
 
 //! T is the numeric variable domain type
@@ -129,6 +133,9 @@ public:
     // returns the rank of literal l in the trail
     index_t litIndex(const Literal<T> l) const;
     
+    // returns the decison level of literal l
+    int litLevel(const Literal<T> l) const;
+    
     // returns the difference logic constraint corresponding to a sign and a
     // variable [or Constant::NoEdge<T> if the variable has no semantic]
     const DistanceConstraint<T> &getEdge(const bool s, const var_t x) const;
@@ -152,6 +159,7 @@ public:
 #ifdef LEARNING_RATE_STUFF
     //@{
     // learning rate stuff
+    double getLearningRate(const var_t x) const;
     void updateLearningRate(const var_t x);
     void updateActivity(const var_t x);
     //@}
@@ -177,6 +185,10 @@ protected:
     // the rank of each literal in the trail (Constant::NoIndex if the literal
     // is not on the trail)
     std::vector<index_t> propagation_level;
+    
+    // the decision level of each literal (Constant::NoIndex if the literal
+    // is not on the trail)
+    std::vector<index_t> decision_level;
     
     
 #ifdef LEARNING_RATE_STUFF
@@ -244,6 +256,7 @@ public:
     Literal<T> getLiteral(const bool s, const var_t x) const;
     Literal<T> previousBound(const Literal<T> l) const;
     
+    int litLevel(const Literal<T> l) const;
     index_t litIndex(const Literal<T> l) const;
     index_t lastLitIndex(const bool s, const var_t x) const;
     
@@ -311,6 +324,9 @@ private:
     // [for each numeric signed_var] the current index in the 'propagation_events'
     // stack
     std::vector<std::vector<index_t>> bound_index[2];
+    
+    // [for each numeric signed_var] the current decision level
+    std::vector<std::vector<int>> bound_level[2];
     
     // used for learning
     std::vector<index_t> conflict_index[2];
@@ -490,8 +506,12 @@ public:
     Explanation<T> getReason(const Literal<T> l) const;
     
     // get the index in the propagation queue of the last Literal involving
-    // variable x (to be used parcimoniously, not so efficient)
-    index_t propagationLevel(const Literal<T> l) const;
+    // variable x (to be used parcimoniously for numeric lits, not so efficient)
+    index_t propagationStamp(const Literal<T> l) const;
+    
+    // get the decision level of the last Literal involving
+    // variable x (to be used parcimoniously for numeric lits, not so efficient)
+    int propagationLevel(const Literal<T> l) const;
     
     // for debugging purpose only, very inefficient
     index_t decisionLevel(const Literal<T> l) const;
@@ -760,6 +780,9 @@ private:
     
     // the reason for each propagation event
     std::vector<Explanation<T>> reason;
+    
+//    // the decision level for each propagation event
+//    std::vector<int> decision_level;
     
     // a reversible pointer to the most recent preopagation event that is not
     // yet propagated
@@ -1085,6 +1108,11 @@ index_t BooleanStore<T>::litIndex(const Literal<T> l) const {
 }
 
 template <typename T>
+int BooleanStore<T>::litLevel(const Literal<T> l) const {
+    return decision_level[l.variable()];
+}
+
+template <typename T>
 const DistanceConstraint<T> &BooleanStore<T>::getEdge(const bool s,
                                                       const var_t x) const {
     return edges[edge_index[x] + s];
@@ -1123,6 +1151,7 @@ template <typename T> BooleanVar<T> BooleanStore<T>::newVar(const info_t s) {
     BooleanVar<T> x{static_cast<var_t>(size())};
     
     propagation_level.push_back(Constant::NoIndex);
+    decision_level.push_back(Constant::NoIndex);
     
     polarity.push_back(false);
     polarity.push_back(false);
@@ -1161,6 +1190,7 @@ BooleanVar<T> BooleanStore<T>::newDisjunct(const DistanceConstraint<T> &d1,
 }
 
 template <typename T> void BooleanStore<T>::set(Literal<T> l) {
+    decision_level[l.variable()] = (solver.level());
     propagation_level[l.variable()] = (solver.numLiteral() - 1);
     polarity[l] = true;
     
@@ -1184,6 +1214,11 @@ template <typename T> void BooleanStore<T>::set(Literal<T> l) {
 }
 
 #ifdef LEARNING_RATE_STUFF
+
+template <typename T> double BooleanStore<T>::getLearningRate(const var_t x) const {
+    return learning_rate[x];
+}
+
 // learning rate stuff
 template <typename T> void BooleanStore<T>::updateLearningRate(const var_t x) {
     if(solver.num_fails == 0)
@@ -1336,6 +1371,13 @@ template <typename T> NumericVar<T> NumericStore<T>::newVar(const T b) {
     bound_index[bound::lower].back().push_back(Constant::InfIndex);
     bound_index[bound::upper].back().push_back(Constant::InfIndex);
     
+    
+    bound_level[bound::lower].resize(size());
+    bound_level[bound::upper].resize(size());
+    
+    bound_level[bound::lower].back().push_back(Constant::NoIndex);
+    bound_level[bound::upper].back().push_back(Constant::NoIndex);
+    
     return x;
 }
 
@@ -1352,6 +1394,7 @@ template <typename T> void NumericStore<T>::set(Literal<T> l) {
     
     bound[s][v] = l.value();
     bound_index[s][v].push_back(static_cast<index_t>(solver.numLiteral() - 1));
+    bound_level[s][v].push_back(solver.level());
 }
 
 template <typename T> void NumericStore<T>::undo(Literal<T> l) {
@@ -1368,6 +1411,7 @@ template <typename T> void NumericStore<T>::undo(Literal<T> l) {
     //        std::cout << std::endl;
     //    }
 
+    bound_level[s][v].pop_back();
     bound_index[s][v].pop_back();
     bound[s][v] = solver.getLiteral(bound_index[s][v].back()).value();
 }
@@ -1492,6 +1536,17 @@ index_t NumericStore<T>::litIndex(const Literal<T> l) const {
     
 //    std::cout << "end lit-index\n";
     
+    return *i;
+}
+
+// get the decision of literal p directly entailing literal l
+
+template <typename T>
+int NumericStore<T>::litLevel(const Literal<T> l) const {
+    auto i{bound_level[l.sign()][l.variable()].rbegin()};
+    while (solver.getLiteral(*(i + 1)).value() <= l.value()) {
+        ++i;
+    }
     return *i;
 }
 
@@ -1800,7 +1855,7 @@ Explanation<T> Solver<T>::getReason(const index_t i) const {
 
 template <typename T>
 Explanation<T> Solver<T>::getReason(const Literal<T> l) const {
-    return reason[getReason(propagationLevel(l))];
+    return reason[getReason(propagationStamp(l))];
 }
 
 template <typename T> Literal<T> Solver<T>::getLiteral(const index_t i) const {
@@ -1891,6 +1946,7 @@ void Solver<T>::setNumeric(Literal<T> l, const Explanation<T> &e,
         
         reason.emplace_back(e);
         trail.push_back(l);
+//        decision_level.push_back(level());
         numeric.set(l);
         
         if (numeric.falsified(l)) {
@@ -1954,6 +2010,7 @@ void Solver<T>::setBoolean(Literal<T> l, const Explanation<T> &e) {
     
     reason.emplace_back(e);
     trail.push_back(l);
+//    decision_level.push_back(level());
     boolean.set(l);
     
     if (boolean_search_vars.has(l.variable()))
@@ -2039,7 +2096,7 @@ template <typename T> void Solver<T>::backtrack(Explanation<T> &e) {
 }
 
 template <typename T>
-index_t Solver<T>::propagationLevel(const Literal<T> l) const {
+index_t Solver<T>::propagationStamp(const Literal<T> l) const {
     if (l.isNumeric()) {
         return (l.variable() == Constant::K ? 0 : numeric.litIndex(l));
     } else {
@@ -2048,11 +2105,25 @@ index_t Solver<T>::propagationLevel(const Literal<T> l) const {
 }
 
 template <typename T>
+int Solver<T>::propagationLevel(const Literal<T> l) const {
+    if (l.isNumeric()) {
+        return (l.variable() == Constant::K ? 0 : numeric.litLevel(l));
+    } else {
+        return boolean.litLevel(l);
+    }
+}
+
+template <typename T>
 index_t Solver<T>::decisionLevel(const Literal<T> p) const {
-    auto p_lvl{propagationLevel(p)};
+//    if (l.isNumeric()) {
+//        return (l.variable() == Constant::K ? 0 : numeric.litLevel(l));
+//    } else {
+//        return boolean.litLevel(l);
+//    }
+    auto p_lvl{propagationStamp(p)};
     index_t jump{0};
     for (auto d{decisions.rbegin() + jump};
-         d != decisions.rend() and propagationLevel(*d) > p_lvl; ++d) {
+         d != decisions.rend() and propagationStamp(*d) > p_lvl; ++d) {
         ++jump;
     }
     return decisions.size()-jump;
@@ -2070,7 +2141,7 @@ bool Solver<T>::entailedByConflict(Literal<T> p, const index_t p_lvl) const {
 }
 
 template <typename T> void Solver<T>::minimize_clause() {
-  //  auto fact_lvl{propagationLevel(decisions[0])};
+  //  auto fact_lvl{propagationStamp(decisions[0])};
   //
   //    if(fact_lvl != ground_stamp)
   //    {
@@ -2085,7 +2156,7 @@ template <typename T> void Solver<T>::minimize_clause() {
 
 #ifdef DBG_MINIMIZATION
     if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
-        std::cout << std::endl << ~learnt_clause[0] << " (UIP:" << decisionLevel(~learnt_clause[0]) << "/" << propagationLevel(~learnt_clause[0]) << "\n";
+        std::cout << std::endl << ~learnt_clause[0] << " (UIP:" << decisionLevel(~learnt_clause[0]) << "/" << propagationStamp(~learnt_clause[0]) << "\n";
     }
 #endif
     
@@ -2108,7 +2179,7 @@ template <typename T> void Solver<T>::minimize_clause() {
         
 #ifdef DBG_MINIMIZATION
         if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
-            std::cout << ~learnt_clause[i] << "(" << decisionLevel(~learnt_clause[i]) << "/" << propagationLevel(~learnt_clause[i]) << ")" << ":";
+            std::cout << ~learnt_clause[i] << "(" << decisionLevel(~learnt_clause[i]) << "/" << propagationStamp(~learnt_clause[i]) << ")" << ":";
         }
 #endif
 
@@ -2132,7 +2203,7 @@ template <typename T> void Solver<T>::minimize_clause() {
                 }
 #endif
                 
-                auto q_lvl{propagationLevel(q)};
+                auto q_lvl{propagationStamp(q)};
 
                 if (q_lvl >= ground_stamp and
                     not entailedByConflict(q, q_lvl)) {
@@ -2186,7 +2257,7 @@ template <typename T> void Solver<T>::minimize_clause() {
 #ifdef DBG_MINIMIZATION
     if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
         for(size_t i{0}; i<learnt_clause.size(); ++i) {
-            assert(propagationLevel(~(learnt_clause[i])) == literal_lvl[i]);
+            assert(propagationStamp(~(learnt_clause[i])) == literal_lvl[i]);
         }
     }
 #endif
@@ -2212,7 +2283,7 @@ template <typename T> void Solver<T>::decisionCut(Explanation<T> &e) {
             if (l == Contradiction<T>) {
                 std::cout << "contradiction";
             } else {
-              std::cout << "{" << pretty(l) << "}"; //<< " @" << propagationLevel(l);
+              std::cout << "{" << pretty(l) << "}"; //<< " @" << propagationStamp(l);
             }
             std::cout << " by " << exp << std::endl;
         }
@@ -2234,7 +2305,7 @@ template <typename T> void Solver<T>::decisionCut(Explanation<T> &e) {
             
 //            std::cout << " *** " << pretty(l) << std::endl;
             
-          auto lvl{propagationLevel(l)};
+          auto lvl{propagationStamp(l)};
           if (lvl >= ground_stamp) {
 
             if (not explored[lvl]) {
@@ -2324,7 +2395,7 @@ template <typename T> void Solver<T>::analyze(Explanation<T> &e) {
 
   } else {
     //        std::cout << "search conflict\n";
-    decision_stamp = propagationLevel(decisions.back());
+    decision_stamp = propagationStamp(decisions.back());
 
     int num_lit{0};
     index_t lit_pointer{static_cast<index_t>(numLiteral())};
@@ -2359,7 +2430,7 @@ template <typename T> void Solver<T>::analyze(Explanation<T> &e) {
               if (l == Contradiction<T>) {
                 std::cout << "contradiction";
               } else {
-                std::cout << "|" << pretty(l) << "|" << " @" << propagationLevel(l);
+                std::cout << "|" << pretty(l) << "|" << " @" << propagationStamp(l);
               }
               std::cout << " by " << exp << std::endl;
             }
@@ -2404,7 +2475,7 @@ template <typename T> void Solver<T>::analyze(Explanation<T> &e) {
                 }
 #endif
                 
-                auto p_lvl{propagationLevel(p)};
+                auto p_lvl{propagationStamp(p)};
                 
 
                 //@TODO: need to separate decisions from ground facts in
@@ -2621,7 +2692,7 @@ template <typename T> void Solver<T>::analyze(Explanation<T> &e) {
 
       std::cout << "\nlearn clause (" << learnt_clause.size() << ")\n";
       for (auto l : learnt_clause) {
-        std::cout << " " << pretty(l) << " @" << propagationLevel(~l) << ": "
+        std::cout << " " << pretty(l) << " @" << propagationStamp(~l) << ": "
                   << (l.isNumeric() ? numeric.falsified(l)
                                     : boolean.falsified(l));
         std::cout << std::endl;
@@ -2640,7 +2711,7 @@ template <typename T> void Solver<T>::analyze(Explanation<T> &e) {
     if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
         std::cout << "\nminimized clause\n";
         for (auto l : learnt_clause) {
-            std::cout << " " << pretty(l) << " @" << propagationLevel(~l) << ": "
+            std::cout << " " << pretty(l) << " @" << propagationStamp(~l) << ": "
             << (l.isNumeric() ? numeric.falsified(l)
                 : boolean.falsified(l));
             std::cout << std::endl;
@@ -2715,7 +2786,7 @@ template <typename T> void Solver<T>::learnConflict(Explanation<T> &e) {
     } else {
         auto uip_lvl{literal_lvl[1]};
         for (auto d{decisions.rbegin() + jump};
-             d != decisions.rend() and propagationLevel(*d) > uip_lvl; ++d) {
+             d != decisions.rend() and propagationStamp(*d) > uip_lvl; ++d) {
             ++jump;
         }
     }
@@ -2730,7 +2801,7 @@ template <typename T> void Solver<T>::learnConflict(Explanation<T> &e) {
 
       //        << ":";
       //        for (auto l : learnt_clause) {
-      //            std::cout << " " << pretty(l) << " (" << propagationLevel(l)
+      //            std::cout << " " << pretty(l) << " (" << propagationStamp(l)
       //            << ")";
       //        }
       //        std::cout << std::endl; //<< *this << std::endl;
@@ -3347,6 +3418,7 @@ template <typename T> void Solver<T>::undo() {
     }
     trail.pop_back();
     reason.pop_back();
+//      decision_level.pop_back();
   }
 }
 

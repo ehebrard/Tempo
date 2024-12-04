@@ -225,8 +225,8 @@ bool Incrementality<T>::notify(const Literal<T>
 
   //    if(precedence(i,j).variable() == precedence(j,i).variable())
   if (strict or (solver.boolean.satisfied(precedence(j, i)) and
-                 (solver.propagationLevel(precedence(i, j)) >
-                  solver.propagationLevel(precedence(j, i))))) {
+                 (solver.propagationStamp(precedence(i, j)) >
+                  solver.propagationStamp(precedence(j, i))))) {
 
 #ifdef DBG_INCR
     if (DBG_INCR) {

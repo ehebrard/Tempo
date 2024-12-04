@@ -123,7 +123,7 @@ public:
     bool full_transitivity{false};
     bool primal_boost{true};
 
-    enum class ChoicePointHeuristics { Tightest = 0, WeightedDegree, VSIDS, Random };
+    enum class ChoicePointHeuristics { Tightest = 0, WeightedDegree, VSIDS, Random, LRB };
     ChoicePointHeuristics choice_point_heuristics{ChoicePointHeuristics::VSIDS};
 
     enum class PolarityHeuristic { Tightest, TSG, Random };

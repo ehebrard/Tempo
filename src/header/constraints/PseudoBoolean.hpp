@@ -204,20 +204,20 @@ void PseudoBooleanInterface<T>::xplain(const Literal<T> l, const hint,
     
 //    std::cout << "explain " << l << std::endl;
 
-  auto l_lvl{(l == Contradiction<T> ? m_solver.numLiteral() : m_solver.propagationLevel(l))};
+  auto l_lvl{(l == Contradiction<T> ? m_solver.numLiteral() : m_solver.propagationStamp(l))};
   for (auto p : literals) {
       
 //      if(not m_solver.boolean.satisfied(p)) {
 //          std::cout << " - "<< p << " has not contributed (not set)\n";
 //      }
 //      
-//      if(m_solver.propagationLevel(p) >= l_lvl) {
+//      if(m_solver.propagationStamp(p) >= l_lvl) {
 //          std::cout << " - "<< p << " has not contributed (set later than " << l << ")\n";
 //      }
       
-      if (m_solver.boolean.satisfied(p) and m_solver.propagationLevel(p) < l_lvl) {
+      if (m_solver.boolean.satisfied(p) and m_solver.propagationStamp(p) < l_lvl) {
           
-//          if(m_solver.propagationLevel(p) >= l_lvl) {
+//          if(m_solver.propagationStamp(p) >= l_lvl) {
 //              std::cout << " - "<< p << " !\n";
 //          }
 //          
