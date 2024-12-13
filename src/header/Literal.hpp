@@ -351,7 +351,11 @@ template <typename T> std::ostream& Literal<T>::display(std::ostream &os) const 
     else
       os << "constant: " << this->value();
   } else if (this->isNumeric()) {
-    os << (this->sign() ? "x" : "-x") << variable() << " <= " << this->value();
+    if (this->value() == Constant::Infinity<T>)
+      os << (this->sign() ? "u" : "l") << "b(x" << variable() << ")";
+    else
+      os << (this->sign() ? "x" : "-x") << variable()
+         << " <= " << this->value();
   } else {
     os << (this->sign() ? "b" : "¬b") << variable()
        << (hasSemantic() ? "*" : "");

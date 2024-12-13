@@ -367,14 +367,13 @@ protected:
 public:
   constexpr Interval() noexcept : start(), end(), duration() {}
 
-
   Interval(Solver<T> &solver, const T mindur = 0,
            const T maxdur = Constant::Infinity<T>,
            const T earliest_start = -Constant::Infinity<T>,
            const T latest_start = Constant::Infinity<T>,
            const T earliest_end = -Constant::Infinity<T>,
            const T latest_end = Constant::Infinity<T>,
-           const BooleanVar<T> opt = Constant::True);
+           const BooleanVar<T> opt = Solver<T>::truism());
 
   Interval(Solver<T> &solver, const NumericVar<T> s, const NumericVar<T> e,
            const NumericVar<T> d, const BooleanVar<T> opt = Constant::True);
