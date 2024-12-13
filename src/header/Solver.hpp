@@ -717,6 +717,9 @@ public:
     void analyze(Explanation<T> &e);
     void decisionCut(Explanation<T> &e);
     void minimizeClause();
+#ifndef OLD_MINIMIZE_CLAUSE
+    bool isRelevant(const Literal<T> p, const index_t p_stamp, const int depth);
+#endif
     void blockPartition();
 
     const SparseSet<var_t, Reversible<size_t>> &getBranch() const {
@@ -2351,6 +2354,7 @@ template <typename T> void Solver<T>::blockPartition() {
   //    return decisions.size() - jump;
 }
 
+#ifdef OLD_MINIMIZE_CLAUSE
 template <typename T> void Solver<T>::minimizeClause() {
 
   //    blockPartition();
@@ -2476,6 +2480,116 @@ template <typename T> void Solver<T>::minimizeClause() {
     }
 #endif
 }
+#else
+template <typename T> void Solver<T>::minimizeClause() {
+
+  if (learnt_clause.empty())
+    return;
+
+  minimal_clause.clear();
+
+#ifdef DBG_MINIMIZATION
+    if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+        std::cout << std::endl << ~learnt_clause[0] << " (UIP:" << decisionLevel(~learnt_clause[0]) << "/" << propagationStamp(~learnt_clause[0]) << "\n";
+    }
+#endif
+    
+    index_t i{0};
+    
+    if(not decisions.empty()) {
+        // in this case the UIP is always in the minimized clause
+        i = 1;
+        minimal_clause.push_back(learnt_clause[0]);
+        if(learnt_clause[0].isNumeric())
+            numeric.setConflictIndex(~learnt_clause[0], Constant::NoIndex);
+        explored[literal_lvl[0]] = false;
+    }
+    
+    for(; i<learnt_clause.size(); ++i) {
+        if(isRelevant(~learnt_clause[i], literal_lvl[i], options.minimization)) {
+            literal_lvl[minimal_clause.size()] = literal_lvl[i];
+            minimal_clause.push_back(learnt_clause[i]);
+        }
+    }
+    
+#ifdef DBG_MINIMIZATION
+    if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+        if(minimal_clause.size() < learnt_clause.size()) {
+            std::cout << "minimized away " << (learnt_clause.size() - minimal_clause.size()) << " literals\n" ;
+        }
+    }
+#endif
+    
+    std::swap(minimal_clause, learnt_clause);
+    literal_lvl.resize(learnt_clause.size());
+    
+#ifdef DBG_MINIMIZATION
+    if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+        for(size_t i{0}; i<learnt_clause.size(); ++i) {
+            assert(propagationStamp(~(learnt_clause[i])) == literal_lvl[i]);
+        }
+    }
+#endif
+}
+
+
+template <typename T> bool Solver<T>::isRelevant(const Literal<T> p, const index_t p_stamp, const int depth) {
+    
+    if(depth == 0)
+        return true;
+    
+    auto r{reason[p_stamp]};
+    bool relevant{true};
+    
+#ifdef DBG_MINIMIZATION
+    if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+        std::cout << p << "(" << decisionLevel(p) << "/" << propagationStamp(p) << ")" << ":";
+    }
+#endif
+    
+    if (r != Constant::NoReason<T>) {
+        
+        if (p.isNumeric())
+            numeric.setConflictIndex(p, Constant::NoIndex);
+        explored[p_stamp] = false;
+        
+        relevant = false;
+        
+        lit_buffer.clear();
+        r.explain(p, lit_buffer);
+        
+        for (auto q : lit_buffer) {
+            
+#ifdef DBG_MINIMIZATION
+            if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+                std::cout << " " << q;
+            }
+#endif
+            
+            auto q_lvl{propagationStamp(q)};
+            
+            if (q_lvl >= ground_stamp and
+                not entailedByConflict(q, q_lvl)) {
+                relevant = isRelevant(q, q_lvl, depth-1);
+                if(relevant)
+                    break;
+            }
+#ifdef DBG_MINIMIZATION
+            else if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+                std::cout << " (";
+                if (q_lvl < ground_stamp)
+                    std::cout << "f";
+                if(entailedByConflict(q, q_lvl))
+                    std::cout << "e";
+                std::cout << ")";
+            }
+#endif
+        }
+    }
+    
+    return relevant;
+}
+#endif
 
 template <typename T> void Solver<T>::decisionCut(Explanation<T> &e) {
 

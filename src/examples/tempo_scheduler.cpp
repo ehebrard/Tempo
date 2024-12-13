@@ -114,6 +114,7 @@ void printResources(const Solver<T>& S, const std::vector<Interval<T>>& interval
 
 // implementation of a scheduling solver
 int main(int argc, char *argv[]) {
+        
   auto parser = tempo::getBaseParser();
   bool profileHeuristic;
   cli::detail::configureParser(parser, cli::SwitchSpec("heuristic-profiling", "activate heuristic profiling",
@@ -128,7 +129,7 @@ int main(int argc, char *argv[]) {
   parser.parse(argc, argv);
   Options opt = parser.getOptions();
   seed(opt.seed);
-
+    
   Solver<> S(opt);
 
   // an interval standing for the makespan of schedule
@@ -278,7 +279,7 @@ int main(int argc, char *argv[]) {
 //          }
 //          S.setBranchingHeuristic(heuristics::make_compound_heuristic(heuristics::Static(S,ordering), heuristics::make_value_heuristic(S)));
 //      }
-
+      
     S.minimize(schedule.duration);
   }
 

@@ -98,8 +98,8 @@ auto tempo::getBaseParser() -> Parser {
     cmd.add<SwitchArg>(opt.dichotomy, "", "dichotomy", "use dichotomic search",
                        false);
 
-    cmd.add<SwitchArg>(opt.full_up, "", "full-up",
-                       "unit-propagate bound literals", false);
+    cmd.add<SwitchArg>(opt.full_up, "", "incomplete-up",
+                       "do not unit-propagate bound literals", true);
 
     cmd.add<SwitchArg>(opt.order_bound_watch, "", "order-watched",
                        "order bound watched lists", false);
@@ -118,8 +118,8 @@ auto tempo::getBaseParser() -> Parser {
             opt.polarity_heuristic, "", "polarity-heuristic",
             "type "
             "of heuristic used for choice point polarity selection "
-            "(0: tightest (default), 1: solution guided, 2: random)",
-            false, 0, "int");
+            "(0: tightest, 1: solution guided (default), 2: random)",
+            false, 1, "int");
 
     cmd.add<ValueArg<double>>(
             opt.polarity_epsilon, "", "polarity-epsilon",
@@ -140,13 +140,13 @@ auto tempo::getBaseParser() -> Parser {
 
     cmd.add<ValueArg<int>>(
             opt.minimization, "", "clause-minimization",
-            "depth for clause minimization (default 1)",
-            false, 1, "int");
+            "depth for clause minimization (default 3)",
+            false, 3, "int");
 
     cmd.add<ValueArg<int>>(
             opt.greedy_runs, "", "greedy-runs",
-            "number of randomized greedy runs (default 1000)",
-            false, 1000, "int");
+            "number of randomized greedy runs (default 10)",
+            false, 10, "int");
 
     cmd.add<ValueArg<unsigned long>>(
         opt.search_limit, "", "search-limit",
@@ -161,11 +161,11 @@ auto tempo::getBaseParser() -> Parser {
 
     cmd.add<ValueArg<std::string>>(opt.restart_policy, "", "restart",
                                    "choice of restart policy (no, luby, geom)",
-                                   false, "geom", "string");
+                                   false, "luby", "string");
 
     cmd.add<ValueArg<int>>(
             opt.restart_base, "", "restart-base",
-            "base of the sequence for geometric/luby restarts (default=100)", false,
+            "base of the sequence for geometric/luby restarts (default=128)", false,
             128, "int");
 
     cmd.add<ValueArg<double>>(opt.restart_factor, "", "restart-factor",

@@ -117,11 +117,11 @@ public:
 
   bool dichotomy{false};
 
-  bool full_up{false};
+  bool full_up{true};
   bool order_bound_watch{false};
     
     bool full_transitivity{false};
-    bool primal_boost{true};
+    bool primal_boost{false};
 
     enum class ChoicePointHeuristics { Tightest = 0, WeightedDegree, VSIDS, Random, LRB };
     ChoicePointHeuristics choice_point_heuristics{ChoicePointHeuristics::VSIDS};
@@ -130,7 +130,7 @@ public:
 
     double polarity_epsilon{0};
 
-    PolarityHeuristic polarity_heuristic{PolarityHeuristic::Tightest};
+    PolarityHeuristic polarity_heuristic{PolarityHeuristic::TSG};
 
     double vsids_decay{0.999};
     double vsids_epsilon{0.05};
@@ -139,9 +139,9 @@ public:
 
     //  enum class Minimization { None = 0, Greedy, QuickXplain };
 
-    int minimization{1};
+    int minimization{3};
 
-    int greedy_runs{1};
+    int greedy_runs{10};
 
     unsigned long search_limit{std::numeric_limits<unsigned long>::max()};
     //    double time_limit;
@@ -157,7 +157,7 @@ public:
 
     double restart_factor{1.2};
     int restart_base{128};
-    std::string restart_policy{"geom"};
+    std::string restart_policy{"luby"};
     std::string input_format{"osp"};
 };
 
