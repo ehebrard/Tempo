@@ -66,6 +66,74 @@ namespace tempo {
 template<typename T> class Solver;
 
 
+
+struct BooleanCache {
+  
+    std::vector<bool> cached;
+    std::vector<var_t> cache_list;
+    
+    void reserve(const size_t n) {
+        cached.resize(n, false);
+    }
+    
+    void clear() {
+        while(not cache_list.empty()) {
+            cached[cache_list.back()] = false;
+            cache_list.pop_back();
+        }
+    }
+    
+    template<typename T>
+    bool isCached(const Literal<T> l) {
+        return cached[l.variable()];
+    }
+    
+    template<typename T>
+    void cache(const Literal<T> l) {
+        auto x{l.variable()};
+        if(not cached[x]) {
+            cached[x] = true;
+            cache_list.push_back(x);
+        }
+    }
+};
+
+
+template<typename T>
+struct NumericCache {
+  
+    std::vector<T> cached_bound[2];
+    std::vector<Literal<T>> cache_list;
+    
+    void reserve(const size_t n) {
+        cached_bound[bound::lower].resize(n, Constant::Infinity<T>);
+        cached_bound[bound::upper].resize(n, Constant::Infinity<T>);
+    }
+    
+    void clear() {
+        while(not cache_list.empty()) {
+            auto l{cache_list.back()};
+            cached_bound[l.sign()][l.variable()] = Constant::Infinity<T>;
+            cache_list.pop_back();
+        }
+    }
+    
+    bool isCached(const Literal<T> l) {
+        return cached_bound[l.sign()][l.variable()] <= l.value();
+    }
+    
+    void cache(const Literal<T> l) {
+        
+//        std::cout << "cache " << l << std::endl;
+        
+        if(cached_bound[l.sign()][l.variable()] > l.value()) {
+            cached_bound[l.sign()][l.variable()] = l.value();
+            cache_list.push_back(l);
+        }
+    }
+};
+
+
 //! Boolean variables and literals manager
 /*!
  Responsible for:
@@ -205,6 +273,10 @@ protected:
     std::vector<double> learning_rate;
 #endif
     
+public:
+    BooleanCache minimization_cache;
+
+    
 };
 
 //! Numeric variables and literals manager
@@ -339,7 +411,7 @@ public:
     
     // used for learning
     std::vector<index_t> conflict_index[2];
-
+    
 #ifdef LEARNING_RATE_STUFF
     // learning rate stuff
     double alpha{.4};
@@ -353,6 +425,10 @@ public:
     // [for each variable] its current learning rate
     std::vector<double> learning_rate;
 #endif
+    
+public:
+    NumericCache<T> minimization_cache;
+
 };
 
 //! Explainer for literals from difference logic
@@ -717,6 +793,14 @@ public:
     void analyze(Explanation<T> &e);
     void decisionCut(Explanation<T> &e);
     void minimizeClause();
+    
+    bool knownRedundant(const Literal<T> l) {return (l.isNumeric() ? numeric.minimization_cache.isCached(l) : boolean.minimization_cache.isCached(l));}
+    void setRedundant(const Literal<T> l) {if(l.isNumeric()) numeric.minimization_cache.cache(l); else boolean.minimization_cache.cache(l);}
+    void clearRedundantCache() {
+        boolean.minimization_cache.clear();
+        numeric.minimization_cache.clear();
+    }
+    
 #ifndef OLD_MINIMIZE_CLAUSE
     bool isRelevant(const Literal<T> p, const index_t p_stamp, const int depth);
 #endif
@@ -1188,7 +1272,8 @@ template <typename T> BooleanStore<T>::BooleanStore(Solver<T> &s) : solver(s) {
 }
 
 template <typename T> size_t BooleanStore<T>::size() const {
-    return polarity.size() / 2;
+//    return polarity.size() / 2;
+    return decision_level.size();
 }
 
 template <typename T> BooleanVar<T> BooleanStore<T>::newVar(const info_t s) {
@@ -1201,6 +1286,8 @@ template <typename T> BooleanVar<T> BooleanStore<T>::newVar(const info_t s) {
     polarity.push_back(false);
     
     edge_index.push_back(s);
+    
+    minimization_cache.reserve(size());
     
 #ifdef LEARNING_RATE_STUFF
     // learning rate stuff
@@ -1444,6 +1531,9 @@ template <typename T> NumericVar<T> NumericStore<T>::newVar(const T b) {
     
     bound_level[bound::lower].back().push_back(Constant::NoIndex);
     bound_level[bound::upper].back().push_back(Constant::NoIndex);
+    
+    
+    minimization_cache.reserve(size());
 
 #ifdef LEARNING_RATE_STUFF
     // learning rate stuff
@@ -2259,6 +2349,9 @@ bool Solver<T>::entailedByConflict(Literal<T> p, const index_t p_stamp) const {
 }
 
 template <typename T> void Solver<T>::blockPartition() {
+    
+    std::cout << "clause #" << num_fails << std::endl;
+    
 
   if (learnt_clause.size() <= 1) {
     return;
@@ -2296,7 +2389,7 @@ template <typename T> void Solver<T>::blockPartition() {
 
   auto it{learnt_clause.begin()};
 
-  std::cout << *it << " (UIP)";
+  std::cout << *it << " (UIP @" << level() << ")\n";
   if (propagationLevel(~(*it)) != level()) {
     std::cout << " BUG\n";
     exit(1);
@@ -2325,11 +2418,11 @@ template <typename T> void Solver<T>::blockPartition() {
     if (++next == block.end())
       break;
 
-    std::cout << " bi = " << static_cast<int>(*bi - learnt_clause.begin())
-              << " nxt = " << static_cast<int>(*next - learnt_clause.begin())
-              << " end = "
-              << static_cast<int>(*(block.end()) - learnt_clause.begin())
-              << " ";
+//    std::cout << " bi = " << static_cast<int>(*bi - learnt_clause.begin())
+//              << " nxt = " << static_cast<int>(*next - learnt_clause.begin())
+//              << " end = "
+//              << static_cast<int>((*(block.rbegin())) - learnt_clause.begin())
+//              << " ";
 
     for (auto it{*bi}; it != *next; ++it) {
       std::cout << " " << *it << " (" << (propagationLevel(~(*it))) << ")";
@@ -2352,6 +2445,10 @@ template <typename T> void Solver<T>::blockPartition() {
   //      ++jump;
   //    }
   //    return decisions.size() - jump;
+    
+    
+    if(num_fails == 6)
+        exit(1);
 }
 
 #ifdef OLD_MINIMIZE_CLAUSE
@@ -2366,6 +2463,18 @@ template <typename T> void Solver<T>::minimizeClause() {
   //        std::cout << ground_stamp << "/" << fact_lvl << std::endl;
   //        exit(1);
   //    }
+    
+//    boolean.minimization_cache.clear();
+//    boolean.minimization_cache.clear();
+    
+    
+//    clearRedundantCache();
+//    for(var_t x{0}; x<static_cast<var_t>(numeric.sizze()); ++x) {
+//        std::cout << "x" << x << numeric.cache.cached_bound[bound::lower][x] << " / " << numeric.cache.cached_bound[bound::lower][x] << std::endl;
+//    }
+    
+    
+        
 
   if (learnt_clause.empty())
     return;
@@ -2425,6 +2534,14 @@ template <typename T> void Solver<T>::minimizeClause() {
 
                 if (q_lvl >= ground_stamp and
                     not entailedByConflict(q, q_lvl)) {
+                    
+                    
+#ifdef DBG_MINIMIZATION
+                if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+                    std::cout << " (r)\n";
+                }
+#endif
+                    
                   relevant = true;
                   break;
                 }
@@ -2482,6 +2599,25 @@ template <typename T> void Solver<T>::minimizeClause() {
 }
 #else
 template <typename T> void Solver<T>::minimizeClause() {
+    
+    
+//    
+//        blockPartition();
+//
+//      auto fact_lvl{propagationStamp(decisions[0])};
+//    
+//        if(fact_lvl != ground_stamp)
+//        {
+//            std::cout << ground_stamp << "/" << fact_lvl << std::endl;
+//            exit(1);
+//        }
+    
+    
+    clearRedundantCache();
+//    for(var_t x{0}; x<static_cast<var_t>(numeric.size()); ++x) {
+//        std::cout << "x" << x <<": " << numeric.minimization_cache.cached_bound[bound::lower][x] << " / " << numeric.minimization_cache.cached_bound[bound::lower][x] << std::endl;
+//    }
+    
 
   if (learnt_clause.empty())
     return;
@@ -2490,7 +2626,7 @@ template <typename T> void Solver<T>::minimizeClause() {
 
 #ifdef DBG_MINIMIZATION
     if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
-        std::cout << std::endl << ~learnt_clause[0] << " (UIP:" << decisionLevel(~learnt_clause[0]) << "/" << propagationStamp(~learnt_clause[0]) << "\n";
+        std::cout << std::endl << "minimize " << ~learnt_clause[0] << " (UIP:" << decisionLevel(~learnt_clause[0]) << "/" << propagationStamp(~learnt_clause[0]) << "\n";
     }
 #endif
     
@@ -2506,10 +2642,33 @@ template <typename T> void Solver<T>::minimizeClause() {
     }
     
     for(; i<learnt_clause.size(); ++i) {
+        
+//#ifdef DBG_MINIMIZATION
+//    if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+//        std::cout << "check lit " << ~learnt_clause[i] << "(" << decisionLevel(~learnt_clause[i]) << "/" << propagationStamp(~learnt_clause[i]) << ")\n";
+//    }
+//#endif
+        
+        
+        assert(lit_buffer.empty());
+        
+#ifdef DBG_MINIMIZATION
+                if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+//                    std::cout << " (relevant)\n";
+                    std::cout << "\n";
+                }
+#endif
+        
         if(isRelevant(~learnt_clause[i], literal_lvl[i], options.minimization)) {
             literal_lvl[minimal_clause.size()] = literal_lvl[i];
             minimal_clause.push_back(learnt_clause[i]);
         }
+        
+//#ifdef DBG_MINIMIZATION
+//                else if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+//                    std::cout << " (redundant)\n";
+//                }
+//#endif
     }
     
 #ifdef DBG_MINIMIZATION
@@ -2535,17 +2694,41 @@ template <typename T> void Solver<T>::minimizeClause() {
 
 template <typename T> bool Solver<T>::isRelevant(const Literal<T> p, const index_t p_stamp, const int depth) {
     
-    if(depth == 0)
+    if(knownRedundant(p)) {
+#ifdef DBG_MINIMIZATION
+            if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+        if(depth == options.minimization)
+            std::cout << "cache @depth 0!!\n";
+        for(auto d{0}; d<(options.minimization-depth); ++d)
+            std::cout << "  ";
+        std::cout << "** " << p << " is in redundant cache\n";
+            }
+#endif
+        return false;
+    }
+    
+    
+#ifdef DBG_MINIMIZATION
+            if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+                for(auto d{0}; d<(options.minimization-depth); ++d)
+                    std::cout << "  ";
+                std::cout << "is " << p << " relevant? [";
+                std::vector<Literal<T>> e;
+                reason[p_stamp].explain(p, e);
+                for(auto q : e) {
+                    std::cout << " " << q ;
+                }
+                std::cout << " ]\n";
+            }
+#endif
+    
+    if(depth == 0) {
         return true;
+    }
     
     auto r{reason[p_stamp]};
     bool relevant{true};
     
-#ifdef DBG_MINIMIZATION
-    if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
-        std::cout << p << "(" << decisionLevel(p) << "/" << propagationStamp(p) << ")" << ":";
-    }
-#endif
     
     if (r != Constant::NoReason<T>) {
         
@@ -2555,16 +2738,29 @@ template <typename T> bool Solver<T>::isRelevant(const Literal<T> p, const index
         
         relevant = false;
         
-        lit_buffer.clear();
-        r.explain(p, lit_buffer);
         
-        for (auto q : lit_buffer) {
+        
+//        lit_buffer.clear();
+        
+//        std::cout << "empty lit_buffer.size() = " << lit_buffer.size() << std::endl;
+        
+        auto beg_lit{lit_buffer.size()};
+        r.explain(p, lit_buffer);
+        auto end_lit{lit_buffer.size()};
+        
+//        std::cout << "lit_buffer.size() = " << lit_buffer.size() << std::endl;
+        
+        
+//        std::cout << " explained by:\n";
+//        for (auto q : lit_buffer) {
+        for(auto cur_lit{beg_lit}; cur_lit < end_lit; ++cur_lit) {
+            auto q{lit_buffer[cur_lit]};
             
-#ifdef DBG_MINIMIZATION
-            if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
-                std::cout << " " << q;
-            }
-#endif
+//#ifdef DBG_MINIMIZATION
+//            if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+//                std::cout << " ** " << q;
+//            }
+//#endif
             
             auto q_lvl{propagationStamp(q)};
             
@@ -2576,15 +2772,38 @@ template <typename T> bool Solver<T>::isRelevant(const Literal<T> p, const index
             }
 #ifdef DBG_MINIMIZATION
             else if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
-                std::cout << " (";
+                for(auto d{0}; d<(options.minimization-depth+1); ++d)
+                    std::cout << "  ";
+                std::cout << q << " is redundant";
                 if (q_lvl < ground_stamp)
-                    std::cout << "f";
+                    std::cout << " (fact)";
                 if(entailedByConflict(q, q_lvl))
-                    std::cout << "e";
-                std::cout << ")";
+                    std::cout << " (entailed)";
+                std::cout << "\n";
             }
 #endif
         }
+        lit_buffer.resize(beg_lit);
+        
+        
+#ifdef DBG_MINIMIZATION
+            if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+//        std::cout << p << " is " << (relevant ? "not " : "") << "redundant\n";
+        for(auto d{0}; d<(options.minimization-depth); ++d)
+            std::cout << "  ";
+        std::cout << p << " is " << (relevant ? "not " : "") << "redundant\n";
+            }
+    #endif
+        
+        if(not relevant) {
+            setRedundant(p);
+        }
+#ifdef DBG_MINIMIZATION
+        else if(knownRedundant(p)) {
+            std::cout << "bug\n";
+            exit(1);
+        }
+#endif
     }
     
     return relevant;
