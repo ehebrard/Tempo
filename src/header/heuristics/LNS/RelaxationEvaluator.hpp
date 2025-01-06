@@ -66,13 +66,17 @@ namespace tempo::lns {
 
         void notifySuccess(unsigned numFails) {
             policy.notifySuccess(numFails);
-            successfulRuns.emplace_back(true);
+            if (successfulRuns.size() < assumptionAccuracy.size()) {
+                successfulRuns.emplace_back(true);
+            }
         }
 
         void notifyFailure(unsigned numFails) {
             policy.notifyFailure(numFails);
-            successfulRuns.emplace_back(false);
-            ++numFailedRuns;
+            if (successfulRuns.size() < assumptionAccuracy.size()) {
+                successfulRuns.emplace_back(false);
+                ++numFailedRuns;
+            }
         }
 
         /**
