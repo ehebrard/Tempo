@@ -24,19 +24,24 @@ namespace tempo::lns {
     class PerfectRelaxationOracle {
         Solution<T> solution;
         std::vector<BooleanVar<T>> variables;
+        NumericVar<T> schedule;
         double fixRatio;
         double epsilon;
+        unsigned numFails = 0, numSuccesses = 0;
     public:
         /**
          * Ctor
          * @param solution the solution to follow
          * @param variables binary variables in the problem
+         * @param scheduleDuration schedule duration variable
          * @param fixRatio percentage of variables to fix
          * @param epsilon error probability. 0 means that the oracle will never
          * fix edges inconsistent with the target solution
          */
-        PerfectRelaxationOracle(Solution<T> solution, std::vector<BooleanVar<T>> variables, double fixRatio,
-                                double epsilon) : solution(std::move(solution)), variables(std::move(variables)),
+        PerfectRelaxationOracle(Solution<T> solution, NumericVar<T> scheduleDuration,
+                                std::vector<BooleanVar<T>> variables, double fixRatio,
+                                double epsilon) : solution(std::move(solution)),
+                                                  variables(std::move(variables)), schedule(scheduleDuration),
                                                   fixRatio(fixRatio), epsilon(epsilon) {
             if (epsilon < 0 or epsilon > 1) {
                 throw std::invalid_argument("epsilon must be between 0 and 1");
@@ -47,6 +52,16 @@ namespace tempo::lns {
             }
         }
 
+        ~PerfectRelaxationOracle() {
+            std::cout << "-- oracle num fails: " << numFails << std::endl;
+            std::cout << "-- oracle num successes: " << numSuccesses << std::endl;
+        }
+
+        PerfectRelaxationOracle(const PerfectRelaxationOracle&) = default;
+        PerfectRelaxationOracle(PerfectRelaxationOracle&&) = default;
+        PerfectRelaxationOracle &operator=(const PerfectRelaxationOracle&) = default;
+        PerfectRelaxationOracle &operator=(PerfectRelaxationOracle&&) = default;
+
         /**
          * Relaxation policy interface
          * @tparam AI assumption proxy type
@@ -55,6 +70,13 @@ namespace tempo::lns {
         template<assumption_interface AI>
         void relax(AI &proxy) {
             using namespace std::views;
+            if (proxy.getSolver().numeric.hasSolution() and proxy.getSolver().numeric.lower(schedule) == solution.
+                numeric.lower(schedule)) {
+                if (proxy.getSolver().getOptions().verbosity >= Options::YACKING) {
+                    std::cout << "-- oracle: optimum reached" << std::endl;
+                }
+                return;
+            }
             const auto numFix = static_cast<std::size_t>(variables.size() * fixRatio);
             std::ranges::shuffle(variables, RNG{});
             auto selection = variables | filter([this, &proxy](auto bv) {
@@ -67,8 +89,12 @@ namespace tempo::lns {
             proxy.makeAssumptions(selection);
         }
 
-        void notifySuccess(unsigned) const noexcept {}
-        void notifyFailure(unsigned) const noexcept {}
+        void notifySuccess(unsigned) noexcept {
+            ++numSuccesses;
+        }
+        void notifyFailure(unsigned) noexcept {
+            ++numFails;
+        }
     };
 
 }
