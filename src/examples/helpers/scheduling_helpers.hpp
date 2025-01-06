@@ -144,6 +144,20 @@ auto toSolution(const tempo::serialization::Solution<T> &solution,
     return tempo::Solution(*problem.solver);
 }
 
+template<std::ranges::range R>
+auto printRange(const R &range, std::ostream &os) -> std::ostream& {
+    os << "[";
+    for (auto [idx, elem] : iterators::enumerate(range)) {
+        os << elem;
+        if (idx < std::ranges::size(range) - 1) {
+            os << ", ";
+        }
+    }
+
+    os << "]";
+    return os;
+}
+
 
 /**
  * @tparam Policy LNS relaxation policy type
@@ -170,6 +184,10 @@ auto runLNS(Policy &&policy, const std::string &solPath, tempo::Solver<T> &solve
         solver.largeNeighborhoodSearch(objective, evalPolicy);
         std::cout << "-- policy run accuracy: " << evalPolicy.runAccuracy() << std::endl;
         std::cout << "-- policy assumption accuracy: " << evalPolicy.totalAssumptionAccuracy() << std::endl;
+        std::cout << "-- runs: ";
+        printRange(evalPolicy.runStatus(), std::cout) << "\n";
+        std::cout << "-- acc: ";
+        printRange(evalPolicy.assumptionAccuracyPerRun(), std::cout) << "\n";
     }
 
     return sw.elapsed<std::chrono::milliseconds>();
