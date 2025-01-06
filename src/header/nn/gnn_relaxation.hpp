@@ -112,7 +112,7 @@ namespace tempo::nn {
                 if (assumptionMode == Sample) {
                     std::cout << "\t-- sample smoothing factor: " << sampleSmoothingFactor << "\n";
                 }
-                std::cout << decayConfig << std::endl;
+                std::cout << decayConfig << std::noboolalpha << std::endl;
             }
         }
 
