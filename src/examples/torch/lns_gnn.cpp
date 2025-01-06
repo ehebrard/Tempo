@@ -44,6 +44,7 @@ int main(int argc, char **argv) {
     double sampleSmoothingFactor = 0;
     unsigned numThreads = std::max(1u, std::thread::hardware_concurrency() / 2);
     bool useDRPolicy = false;
+    bool reuseSolutions = false;
     std::string optSol;
     auto opt = cli::parseOptions(argc, argv,
                                  cli::SwitchSpec("dr", "use destroy-repair policy", useDRPolicy, false),
@@ -88,6 +89,9 @@ int main(int argc, char **argv) {
                                               config.decayMode),
                                  cli::ArgSpec("optimal-solution", "optimal solution", false, optSol),
                                  cli::ArgSpec("destroy-mode", "destroy policy type", false, destroyType),
+                                 cli::SwitchSpec("reuse-solutions",
+                                                 "whether the GNN may reuse solutions multiple times", reuseSolutions,
+                                                 false),
                                  cli::ArgSpec("threads", "GNN inference threads", false,
                                               numThreads));
     auto problemInfo = loadSchedulingProblem(opt);
@@ -121,7 +125,8 @@ int main(int argc, char **argv) {
         elapsedTime = runLNS(std::move(policy), optSol, *problemInfo.solver, objective);
     } else if (not optimal) {
         nn::GNNRelax policy(*problemInfo.solver, gnnLocation, featureExtractorConf, problemInfo.instance, config,
-                            assumptionMode, exhaustionThreshold, exhaustionProbability, sampleSmoothingFactor);
+                            assumptionMode, exhaustionThreshold, exhaustionProbability, reuseSolutions,
+                            sampleSmoothingFactor);
         elapsedTime = runLNS(policy, optSol, *problemInfo.solver, objective);
     }
 
