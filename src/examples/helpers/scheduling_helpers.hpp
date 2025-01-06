@@ -19,6 +19,7 @@
 #include "util/SchedulingProblemHelper.hpp"
 #include "util/serialization.hpp"
 #include "util/factory_pattern.hpp"
+#include "Solution.hpp"
 #include "Model.hpp"
 
 /**
@@ -125,6 +126,22 @@ auto loadSchedulingProblem(const tempo::Options &options) -> Problem;
  * @param branch branch to set the solver on
  */
 void loadBranch(tempo::Solver<int> &solver, const tempo::serialization::Branch &branch);
+
+/**
+ * Converts a serialization solution
+ * @tparam T timing type
+ * @param solution solution
+ * @param options solver options
+ * @return converted solution
+ */
+template<tempo::concepts::scalar T>
+auto toSolution(const tempo::serialization::Solution<T> &solution,
+                const tempo::Options &options) -> tempo::Solution<T> {
+    auto problem = loadSchedulingProblem(options);
+    loadBranch(*problem.solver, solution.decisions);
+    problem.solver->saveSolution();
+    return tempo::Solution(*problem.solver);
+}
 
 
 #endif //TEMPO_SCHEDULING_HELPERS_HPP
