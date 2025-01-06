@@ -54,10 +54,10 @@ namespace tempo::nn {
         int verbosity;
 
     public:
-        GNNRelax(const GNNRelax &) = default;
-        GNNRelax(GNNRelax &&) = default;
-        GNNRelax &operator=(const GNNRelax &) = default;
-        GNNRelax &operator=(GNNRelax &&) = default;
+        GNNRelax(const GNNRelax &) = delete;
+        GNNRelax(GNNRelax &&) = delete;
+        GNNRelax &operator=(const GNNRelax &) = delete;
+        GNNRelax &operator=(GNNRelax &&) = delete;
 
         /**
          * Ctor
