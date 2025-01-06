@@ -27,7 +27,6 @@ namespace tempo::lns {
         NumericVar<T> schedule;
         double fixRatio;
         double epsilon;
-        unsigned numFails = 0, numSuccesses = 0;
     public:
         /**
          * Ctor
@@ -50,11 +49,6 @@ namespace tempo::lns {
             if (fixRatio < 0 or fixRatio > 1) {
                 throw std::invalid_argument("fixRatio must be between 0 and 1");
             }
-        }
-
-        ~PerfectRelaxationOracle() {
-            std::cout << "-- oracle num fails: " << numFails << std::endl;
-            std::cout << "-- oracle num successes: " << numSuccesses << std::endl;
         }
 
         PerfectRelaxationOracle(const PerfectRelaxationOracle&) = default;
@@ -89,12 +83,9 @@ namespace tempo::lns {
             proxy.makeAssumptions(selection);
         }
 
-        void notifySuccess(unsigned) noexcept {
-            ++numSuccesses;
-        }
-        void notifyFailure(unsigned) noexcept {
-            ++numFails;
-        }
+        void notifySuccess(unsigned) noexcept {}
+
+        void notifyFailure(unsigned) noexcept {}
     };
 
 }
