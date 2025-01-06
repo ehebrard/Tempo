@@ -37,6 +37,7 @@
 
 #include "heuristics/LNS/relaxation_policy_factories.hpp"
 #include "heuristics/LNS/PerfectRelaxationOracle.hpp"
+#include "heuristics/LNS/RelaxationEvaluator.hpp"
 #include "heuristics/warmstart.hpp"
 
 using namespace tempo;
@@ -121,7 +122,8 @@ int main(int argc, char *argv[]) {
   bool profileHeuristic;
   lns::RelaxationPolicyParams policyParams{.decayConfig = lns::PolicyDecayConfig(), .numScheduleSlices = 4};
   lns::RelaxPolicy policyType;
-  std::string lnsOracleSolution;
+  std::string optSolutionLoc;
+  bool useOracle = false;
   double oracleEpsilon = 0;
   cli::detail::configureParser(parser, cli::SwitchSpec("heuristic-profiling", "activate heuristic profiling",
                                                        profileHeuristic, false),
@@ -142,13 +144,14 @@ int main(int argc, char *argv[]) {
                                cli::ArgSpec("relax-slices", "number of schedule slices",
                                             false, policyParams.numScheduleSlices, 4),
                                cli::ArgSpec("lns-policy", "lns relaxation policy", true, policyType),
-                               cli::ArgSpec("oracle-solution", "solution location for LNS relaxation oracle", false,
-                                            lnsOracleSolution),
+                               cli::ArgSpec("optimal-solution", "location of optimal solution (e.g. for oracle)", false,
+                                            optSolutionLoc),
+                                            cli::SwitchSpec("oracle", "use perfect relaxation oracle", useOracle, false),
                                cli::ArgSpec("oracle-epsilon", "LNS oracle policy epsilon", false, oracleEpsilon));
-    
+
     std::string ordering_file{""};
     parser.getCmdLine().add<TCLAP::ValueArg<std::string>>(ordering_file, "", "static-ordering", "use static ordering heuristic", false, "", "string");
-    
+
   parser.parse(argc, argv);
   Options opt = parser.getOptions();
   Solver<> S(opt);
@@ -277,19 +280,21 @@ int main(int argc, char *argv[]) {
       optimal = true;
     }
   }
-    
+
     if(not optimal) {
         MinimizationObjective<int> objective(schedule.duration);
-        if (lnsOracleSolution.empty()) {
+        if (not useOracle) {
             auto policy = lns::make_relaxation_policy(policyType, intervals, resources, policyParams, opt.verbosity);
             std::cout << "-- using relaxation policy " << policyType << std::endl;
+            runLNS(policy, optSolutionLoc, S, objective);
             S.largeNeighborhoodSearch(objective, policy);
         } else {
-            const auto sol = serialization::deserializeFromFile<serialization::Solution<int>>(lnsOracleSolution);
+            std::cout << "-- using perfect relaxation oracle" << std::endl;
+            const auto sol = serialization::deserializeFromFile<serialization::Solution<int>>(optSolutionLoc);
             lns::PerfectRelaxationOracle policy(toSolution(sol, opt), schedule.duration,
                                                 booleanVarsFromResources(resources),
                                                 policyParams.decayConfig.fixRatio, oracleEpsilon);
-            S.largeNeighborhoodSearch(objective, policy);
+            runLNS(policy, optSolutionLoc, S, objective);
         }
     }
 

@@ -21,6 +21,7 @@
 #include "util/factory_pattern.hpp"
 #include "Solution.hpp"
 #include "Model.hpp"
+#include "heuristics/LNS/RelaxationEvaluator.hpp"
 
 /**
  * @brief represents a disjunctive resource in scheduling problems
@@ -142,6 +143,38 @@ auto toSolution(const tempo::serialization::Solution<T> &solution,
     problem.solver->saveSolution();
     return tempo::Solution(*problem.solver);
 }
+
+
+/**
+ * @tparam Policy LNS relaxation policy type
+ * @tparam T timing type
+ * @param policy LNS relaxation policy
+ * @param solPath path to optimal solution (ignored if empty)
+ * @param solver solver instance
+ * @param objective objective variable
+ * @return elapsed time in ms
+ */
+template<tempo::lns::relaxation_policy Policy, tempo::concepts::scalar T>
+auto runLNS(Policy &&policy, const std::string &solPath, tempo::Solver<T> &solver,
+            tempo::MinimizationObjective<T> objective) {
+    namespace ser = tempo::serialization;
+    using namespace tempo;
+    util::StopWatch sw;
+    if (solPath.empty()) {
+        solver.largeNeighborhoodSearch(objective, std::forward<Policy>(policy));
+    } else {
+        const auto sol = ser::deserializeFromFile<ser::Solution<int>>(solPath);
+        auto optimalSol = toSolution(sol, solver.getOptions());
+        auto evalPolicy = lns::make_evaluator(std::forward<Policy>(policy), std::move(optimalSol));
+        sw.start();
+        solver.largeNeighborhoodSearch(objective, evalPolicy);
+        std::cout << "-- policy run accuracy: " << evalPolicy.runAccuracy() << std::endl;
+        std::cout << "-- policy assumption accuracy: " << evalPolicy.totalAssumptionAccuracy() << std::endl;
+    }
+
+    return sw.elapsed<std::chrono::milliseconds>();
+}
+
 
 
 #endif //TEMPO_SCHEDULING_HELPERS_HPP
