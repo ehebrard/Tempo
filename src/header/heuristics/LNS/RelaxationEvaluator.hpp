@@ -9,6 +9,9 @@
 #define RELAXATIONEVALUATOR_HPP
 
 
+#include <vector>
+#include <ranges>
+
 #include "util/traits.hpp"
 #include "relaxation_interface.hpp"
 #include "Solution.hpp"
@@ -23,7 +26,7 @@ namespace tempo::lns {
     class RelaxationEvaluator {
         Policy policy;
         Solution<T> solution;
-        std::vector<double> assumptionAccuracy{};
+        std::vector<std::pair<std::size_t, std::size_t>> literalStats;
         std::vector<bool> successfulRuns{};
         unsigned long totalSet = 0;
         unsigned long totalErrors = 0;
@@ -51,7 +54,7 @@ namespace tempo::lns {
             policy.relax(ac);
             const auto &assumptions = ac.getAssumptions();
             if (assumptions.empty()) {
-                assumptionAccuracy.emplace_back(std::numeric_limits<double>::quiet_NaN());
+                literalStats.emplace_back(0, 0);
                 return;
             }
 
@@ -62,7 +65,7 @@ namespace tempo::lns {
                 numErrors += not solution.boolean.consistent(lit);
             }
 
-            assumptionAccuracy.emplace_back(1.0 - static_cast<double>(numErrors) / assumptions.size());
+            literalStats.emplace_back(numErrors, assumptions.size());
         }
 
         void notifySuccess(unsigned numFails) {
@@ -80,20 +83,28 @@ namespace tempo::lns {
          * Relaxation accuracy (ratio between correctly fixed literals and all fixed literals) for each run
          * @return
          */
-        [[nodiscard]] const std::vector<double> & assumptionAccuracyPerRun() const { return assumptionAccuracy; }
+        [[nodiscard]] auto assumptionAccuracyPerRun() const {
+            return literalStats | std::views::transform([](const auto &pair) {
+                return 1 - static_cast<double>(pair.first) / pair.second;
+            });
+        }
+
+        [[nodiscard]] auto assumptionsPerRun() const noexcept -> const std::vector<std::pair<std::size_t, std::size_t>>& {
+            return literalStats;
+        }
 
         /**
          * Success status for each run
          * @return
          */
-        [[nodiscard]] const std::vector<bool> & runStatus() const { return successfulRuns; }
+        [[nodiscard]] const std::vector<bool> & runStatus() const noexcept { return successfulRuns; }
 
         /**
          * Overall relaxation accuracy, i.e. the ratio between the number of correctly fixed literals and all fixed
          * literals over all runs
          * @return
          */
-        [[nodiscard]] double totalAssumptionAccuracy() const { return 1 - static_cast<double>(totalErrors) / totalSet; }
+        [[nodiscard]] double totalAssumptionAccuracy() const noexcept { return 1 - static_cast<double>(totalErrors) / totalSet; }
 
         /**
          * Number of successful runs over all runs
