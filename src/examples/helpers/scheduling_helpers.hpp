@@ -19,7 +19,9 @@
 #include "util/SchedulingProblemHelper.hpp"
 #include "util/serialization.hpp"
 #include "util/factory_pattern.hpp"
+#include "Solution.hpp"
 #include "Model.hpp"
+#include "heuristics/LNS/RelaxationEvaluator.hpp"
 
 /**
  * @brief represents a disjunctive resource in scheduling problems
@@ -125,6 +127,81 @@ auto loadSchedulingProblem(const tempo::Options &options) -> Problem;
  * @param branch branch to set the solver on
  */
 void loadBranch(tempo::Solver<int> &solver, const tempo::serialization::Branch &branch);
+
+/**
+ * Converts a serialization solution
+ * @tparam T timing type
+ * @param solution solution
+ * @param options solver options
+ * @return converted solution
+ */
+template<tempo::concepts::scalar T>
+auto toSolution(const tempo::serialization::Solution<T> &solution,
+                const tempo::Options &options) -> tempo::Solution<T> {
+    auto problem = loadSchedulingProblem(options);
+    loadBranch(*problem.solver, solution.decisions);
+    problem.solver->saveSolution();
+    return tempo::Solution(*problem.solver);
+}
+
+template<std::ranges::range R>
+auto printRange(const R &range, std::ostream &os) -> std::ostream& {
+    os << "[";
+    bool first = true;
+    for (const auto &elem : range) {
+        if (first) {
+            first = false;
+        } else {
+            os << ", ";
+        }
+        os << elem;
+    }
+
+    os << "]";
+    return os;
+}
+
+
+/**
+ * @tparam Policy LNS relaxation policy type
+ * @tparam T timing type
+ * @param policy LNS relaxation policy
+ * @param solPath path to optimal solution (ignored if empty)
+ * @param solver solver instance
+ * @param objective objective variable
+ * @return elapsed time in ms
+ */
+template<tempo::lns::relaxation_policy Policy, tempo::concepts::scalar T>
+auto runLNS(Policy &&policy, const std::string &solPath, tempo::Solver<T> &solver,
+            tempo::MinimizationObjective<T> objective) {
+    namespace ser = tempo::serialization;
+    using namespace tempo;
+    util::StopWatch sw;
+    if (solPath.empty()) {
+        solver.largeNeighborhoodSearch(objective, std::forward<Policy>(policy));
+    } else {
+        const auto sol = ser::deserializeFromFile<ser::Solution<int>>(solPath);
+        auto optimalSol = toSolution(sol, solver.getOptions());
+        auto evalPolicy = lns::make_evaluator(std::forward<Policy>(policy), std::move(optimalSol));
+        sw.start();
+        solver.largeNeighborhoodSearch(objective, evalPolicy);
+        std::cout << "-- policy run accuracy: " << evalPolicy.runAccuracy() << std::endl;
+        std::cout << "-- policy assumption accuracy: " << evalPolicy.totalAssumptionAccuracy() << std::endl;
+        std::cout << "-- runs: ";
+        printRange(evalPolicy.runStatus(), std::cout) << "\n";
+        std::cout << "-- acc: ";
+        printRange(evalPolicy.assumptionAccuracyPerRun(), std::cout) << "\n";
+        std::cout << "-- normalized acc: ";
+        printRange(evalPolicy.normalizedAssumptionAccuracyPerRun(), std::cout) << "\n";
+        std::cout << "-- run details: ";
+        printRange(evalPolicy.assumptionsPerRun() | std::views::elements<1>, std::cout) << "\n";
+        std::cout << "-- solution discrepancy: ";
+        printRange(evalPolicy.solutionDiscrepancy(), std::cout) << "\n";
+    }
+
+    return sw.elapsed<std::chrono::milliseconds>();
+}
+
 
 
 #endif //TEMPO_SCHEDULING_HELPERS_HPP

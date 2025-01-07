@@ -19,6 +19,7 @@
 #include "heuristics/LNS/relaxation_policy_factories.hpp"
 #include "nn/gnn_relaxation.hpp"
 #include "heuristics/warmstart.hpp"
+#include "heuristics/LNS/RelaxationEvaluator.hpp"
 
 namespace lns = tempo::lns;
 
@@ -43,6 +44,8 @@ int main(int argc, char **argv) {
     double sampleSmoothingFactor = 0;
     unsigned numThreads = std::max(1u, std::thread::hardware_concurrency() / 2);
     bool useDRPolicy = false;
+    bool reuseSolutions = false;
+    std::string optSol;
     auto opt = cli::parseOptions(argc, argv,
                                  cli::SwitchSpec("dr", "use destroy-repair policy", useDRPolicy, false),
                                  cli::ArgSpec("gnn-loc", "Location of the GNN model", false, gnnLocation),
@@ -84,7 +87,11 @@ int main(int argc, char **argv) {
                                               false, config.retryLimit),
                                  cli::ArgSpec("decay-mode", "relaxation ratio decay mode on failure", false,
                                               config.decayMode),
+                                 cli::ArgSpec("optimal-solution", "optimal solution", false, optSol),
                                  cli::ArgSpec("destroy-mode", "destroy policy type", false, destroyType),
+                                 cli::SwitchSpec("reuse-solutions",
+                                                 "whether the GNN may reuse solutions multiple times", reuseSolutions,
+                                                 false),
                                  cli::ArgSpec("threads", "GNN inference threads", false,
                                               numThreads));
     auto problemInfo = loadSchedulingProblem(opt);
@@ -115,16 +122,12 @@ int main(int argc, char **argv) {
         auto policy = lns::make_sporadic_root_search(sporadicIncrement,
                                                      lns::make_RD_policy(destroy, gnnRepair,
                                                                          exhaustionProbability));
-        util::StopWatch sw;
-        problemInfo.solver->largeNeighborhoodSearch(objective, policy);
-        elapsedTime = sw.elapsed<std::chrono::milliseconds>();
+        elapsedTime = runLNS(std::move(policy), optSol, *problemInfo.solver, objective);
     } else if (not optimal) {
         nn::GNNRelax policy(*problemInfo.solver, gnnLocation, featureExtractorConf, problemInfo.instance, config,
-                            assumptionMode, exhaustionThreshold, exhaustionProbability, sampleSmoothingFactor);
-        util::StopWatch sw;
-        problemInfo.solver->largeNeighborhoodSearch(objective,
-                                                    lns::make_sporadic_root_search(sporadicIncrement, policy));
-        elapsedTime = sw.elapsed<std::chrono::milliseconds>();
+                            assumptionMode, exhaustionThreshold, exhaustionProbability, reuseSolutions,
+                            sampleSmoothingFactor);
+        elapsedTime = runLNS(policy, optSol, *problemInfo.solver, objective);
     }
 
     if (problemInfo.solver->numeric.hasSolution()) {

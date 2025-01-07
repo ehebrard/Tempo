@@ -52,12 +52,13 @@ namespace tempo::nn {
         double exhaustionThreshold;
         double exhaustionProbability;
         int verbosity;
+        bool reuseSolutions;
 
     public:
-        GNNRelax(const GNNRelax &) = default;
-        GNNRelax(GNNRelax &&) = default;
-        GNNRelax &operator=(const GNNRelax &) = default;
-        GNNRelax &operator=(GNNRelax &&) = default;
+        GNNRelax(const GNNRelax &) = delete;
+        GNNRelax(GNNRelax &&) = delete;
+        GNNRelax &operator=(const GNNRelax &) = delete;
+        GNNRelax &operator=(GNNRelax &&) = delete;
 
         /**
          * Ctor
@@ -69,19 +70,21 @@ namespace tempo::nn {
          * @param assumptionMode how to make assumptions
          * @param exhaustionThreshold fix ratio threshold at which a new solution is explored
          * @param exhaustionProbability probability with which a new solution is explored even if not exhausted
+         * @param reuseSolutions whether the same solution may be used twice
          * @param sampleSmoothingFactor smoothing factor for sample fix policy
          */
         GNNRelax(const Solver<T> &solver, const fs::path &modelLocation,
                  const fs::path &featureExtractorConfigLocation, const SchedulingProblemHelper<T, R> &problemInstance,
                  const lns::PolicyDecayConfig &decayConfig, lns::AssumptionMode assumptionMode,
-                 double exhaustionThreshold, double exhaustionProbability, double sampleSmoothingFactor = 0) :
+                 double exhaustionThreshold, double exhaustionProbability, bool reuseSolutions = false,
+                 double sampleSmoothingFactor = 0) :
                 predictor(modelLocation, featureExtractorConfigLocation, problemInstance,
                           problemInstance.getSearchLiterals(solver)),
                 policyDecay(decayConfig, predictor.numLiterals(), solver.getOptions().verbosity),
                 solutions(problemInstance.schedule().duration), handle(solver.SolutionFound.subscribe_handled(
                 [this](const auto &s) { solutions.addSolution(s); })),
                 exhaustionThreshold(exhaustionThreshold), exhaustionProbability(exhaustionProbability),
-                verbosity(solver.getOptions().verbosity) {
+                verbosity(solver.getOptions().verbosity), reuseSolutions(reuseSolutions) {
             using enum lns::AssumptionMode;
             using GF = lns::GreedyFix<T, lns::OrderType::Ascending>;
             switch (assumptionMode) {
@@ -101,14 +104,15 @@ namespace tempo::nn {
             }
 
             if (verbosity >= Options::YACKING) {
-                std::cout << "-- GNN relaxation policy config\n"
+                std::cout << "-- GNN relaxation policy config\n" << std::boolalpha
                           << "\t-- fix policy " << assumptionMode << "\n"
                           << "\t-- exhaustion threshold: " << exhaustionThreshold << "\n"
-                          << "\t-- exhaust probability: " << exhaustionProbability << "\n";
+                          << "\t-- exhaust probability: " << exhaustionProbability << "\n"
+                          << "\t-- reuse solutions: " << reuseSolutions << "\n";
                 if (assumptionMode == Sample) {
                     std::cout << "\t-- sample smoothing factor: " << sampleSmoothingFactor << "\n";
                 }
-                std::cout << decayConfig << std::endl;
+                std::cout << decayConfig << std::noboolalpha << std::endl;
             }
         }
 
@@ -202,7 +206,7 @@ namespace tempo::nn {
 
 
             tempo::util::ScopeWatch sw(profiler, "gnn lns policy update");
-            auto sol = solutions.popLast();
+            auto sol = reuseSolutions ? solutions.peekLast() : solutions.popLast();
             qualityFactor = solutions.getMakespan(sol) / static_cast<double>(solutions.bestMakespan());
             predictor.updateConfidence(solver, sol);
             gnnCache = predictor.getLiterals();

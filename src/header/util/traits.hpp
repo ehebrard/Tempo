@@ -83,6 +83,11 @@ namespace tempo::traits {
     template<typename ...Ts>
     inline constexpr bool always_false_v = always_false<Ts...>::value;
 
+    template<typename T>
+    decltype(auto) as_mut(const T &t) {
+        return const_cast<T&>(t);
+    }
+
 }
 
 namespace tempo::concepts {
