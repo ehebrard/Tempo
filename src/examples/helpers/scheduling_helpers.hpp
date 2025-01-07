@@ -190,6 +190,8 @@ auto runLNS(Policy &&policy, const std::string &solPath, tempo::Solver<T> &solve
         printRange(evalPolicy.assumptionAccuracyPerRun(), std::cout) << "\n";
         std::cout << "-- run details: ";
         printRange(evalPolicy.assumptionsPerRun() | std::views::elements<1>, std::cout) << "\n";
+        std::cout << "-- solution discrepancy: ";
+        printRange(evalPolicy.solutionDiscrepancy(), std::cout) << "\n";
     }
 
     return sw.elapsed<std::chrono::milliseconds>();

@@ -15,6 +15,7 @@
 #include "util/traits.hpp"
 #include "relaxation_interface.hpp"
 #include "Solution.hpp"
+#include "Model.hpp"
 
 namespace tempo::lns {
     /**
@@ -26,7 +27,8 @@ namespace tempo::lns {
     class RelaxationEvaluator {
         Policy policy;
         Solution<T> solution;
-        std::vector<std::pair<std::size_t, std::size_t>> literalStats;
+        std::vector<std::pair<std::size_t, std::size_t>> literalStats{};
+        std::vector<unsigned> discrepancy{};
         std::vector<bool> successfulRuns{};
         unsigned long totalSet = 0;
         unsigned long totalErrors = 0;
@@ -50,6 +52,12 @@ namespace tempo::lns {
          */
         template<assumption_interface AI>
         void relax(AI &proxy) {
+            unsigned discr = 0;
+            for (auto [varId, pol] : iterators::const_enumerate(solution.boolean, var_t(0))) {
+                discr += pol != proxy.getSolver().boolean.value(BooleanVar(varId));
+            }
+
+            discrepancy.emplace_back(discr);
             AssumptionCollector<T, AI> ac(proxy);
             policy.relax(ac);
             const auto &assumptions = ac.getAssumptions();
@@ -91,6 +99,10 @@ namespace tempo::lns {
 
         [[nodiscard]] auto assumptionsPerRun() const noexcept -> const std::vector<std::pair<std::size_t, std::size_t>>& {
             return literalStats;
+        }
+
+        [[nodiscard]] auto solutionDiscrepancy() const noexcept -> const std::vector<unsigned>& {
+            return discrepancy;
         }
 
         /**
