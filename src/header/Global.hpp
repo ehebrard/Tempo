@@ -61,14 +61,14 @@ using hint = int;
 #define TRAIL 512
 
 /////// UNCOMMENT TO DEBUG
-// #define DBG_TRACE (SEARCH + UNITPROPAGATION) // 183
+// #define DBG_TRACE (SEARCH + LEARNING) // 183
 //                                              // 1+2+4+32+128
 // #define DBG_BOUND true
 // #define DBG_CBOUND true
 // #define DBG_CLBOUND true // cl->id == 80 //solver.num_choicepoints >= 10527
 // #define DBG_BBOUND true
 //////////
-
+////
 // #define DBG_MINIMIZATION
 // #define DBG_EDGECONS true
 // #define DBG_EDGEFINDING (m_solver.num_cons_propagations >= 0)

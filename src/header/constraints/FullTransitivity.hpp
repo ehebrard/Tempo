@@ -210,7 +210,7 @@ template <typename T> void FullTransitivity<T>::undo() {
   auto e{edges.back()};
   auto i{previous.back()};
 
-  assert(i == 0 or edges[i].from == e.from and edges[i].to == e.to);
+  assert(i == 0 or (edges[i].from == e.from and edges[i].to == e.to));
 
   _index_[e.from][e.to] = i;
   distance_from[e.from][e.to] = distance_to[e.to][e.from] = edges[i].distance;
