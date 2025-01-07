@@ -51,6 +51,7 @@ namespace tempo::lns {
             policy.relax(ac);
             const auto &assumptions = ac.getAssumptions();
             if (assumptions.empty()) {
+                assumptionAccuracy.emplace_back(std::numeric_limits<double>::quiet_NaN());
                 return;
             }
 
@@ -66,17 +67,13 @@ namespace tempo::lns {
 
         void notifySuccess(unsigned numFails) {
             policy.notifySuccess(numFails);
-            if (successfulRuns.size() < assumptionAccuracy.size()) {
-                successfulRuns.emplace_back(true);
-            }
+            successfulRuns.emplace_back(true);
         }
 
         void notifyFailure(unsigned numFails) {
             policy.notifyFailure(numFails);
-            if (successfulRuns.size() < assumptionAccuracy.size()) {
-                successfulRuns.emplace_back(false);
-                ++numFailedRuns;
-            }
+            successfulRuns.emplace_back(false);
+            ++numFailedRuns;
         }
 
         /**
