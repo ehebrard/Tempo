@@ -11,6 +11,7 @@
 
 #include <vector>
 #include <ranges>
+#include <Iterators.hpp>
 
 #include "util/traits.hpp"
 #include "relaxation_interface.hpp"
@@ -95,6 +96,16 @@ namespace tempo::lns {
             return literalStats | std::views::transform([](const auto &pair) {
                 return 1 - static_cast<double>(pair.first) / pair.second;
             });
+        }
+
+        [[nodiscard]] auto normalizedAssumptionAccuracyPerRun() const {
+            return iterators::zip(traits::as_mut(literalStats), traits::as_mut(discrepancy)) | std::views::transform(
+                       [numVars = solution.boolean.size()](const auto &tpl) {
+                           const auto &[stats, dsc] = tpl;
+                           auto [err, total] = stats;
+                           auto expected = 0.5 - static_cast<double>(dsc) / numVars;
+                           return 1 - static_cast<double>(err) / total - expected;
+                       });
         }
 
         [[nodiscard]] auto assumptionsPerRun() const noexcept -> const std::vector<std::pair<std::size_t, std::size_t>>& {
