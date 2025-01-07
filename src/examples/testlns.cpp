@@ -125,6 +125,7 @@ int main(int argc, char *argv[]) {
   std::string optSolutionLoc;
   bool useOracle = false;
   double oracleEpsilon = 0;
+  double sporadicIncrement = 0;
   cli::detail::configureParser(parser, cli::SwitchSpec("heuristic-profiling", "activate heuristic profiling",
                                                        profileHeuristic, false),
                                cli::ArgSpec("fix-decay", "relaxation ratio decay",
@@ -147,7 +148,9 @@ int main(int argc, char *argv[]) {
                                cli::ArgSpec("optimal-solution", "location of optimal solution (e.g. for oracle)", false,
                                             optSolutionLoc),
                                             cli::SwitchSpec("oracle", "use perfect relaxation oracle", useOracle, false),
-                               cli::ArgSpec("oracle-epsilon", "LNS oracle policy epsilon", false, oracleEpsilon));
+                               cli::ArgSpec("oracle-epsilon", "LNS oracle policy epsilon", false, oracleEpsilon),
+                               cli::ArgSpec("sporadic-increment", "sporadic root search probability increment", false,
+                                            sporadicIncrement));
 
     std::string ordering_file{""};
     parser.getCmdLine().add<TCLAP::ValueArg<std::string>>(ordering_file, "", "static-ordering", "use static ordering heuristic", false, "", "string");
@@ -286,8 +289,13 @@ int main(int argc, char *argv[]) {
         if (not useOracle) {
             auto policy = lns::make_relaxation_policy(policyType, intervals, resources, policyParams, opt.verbosity);
             std::cout << "-- using relaxation policy " << policyType << std::endl;
-            runLNS(policy, optSolutionLoc, S, objective);
-            S.largeNeighborhoodSearch(objective, policy);
+            if (sporadicIncrement != 0) {
+              std::cout << "-- root search probability increment " << sporadicIncrement << std::endl;
+              runLNS(lns::make_sporadic_root_search(sporadicIncrement, std::move(policy)), optSolutionLoc, S,
+                     objective);
+            } else {
+              runLNS(policy, optSolutionLoc, S, objective);
+            }
         } else {
             std::cout << "-- using perfect relaxation oracle" << std::endl;
             const auto sol = serialization::deserializeFromFile<serialization::Solution<int>>(optSolutionLoc);
