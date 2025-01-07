@@ -28,38 +28,51 @@ int main(int argc, char **argv) {
 
     std::string saveTo;
     bool useLNS;
-    lns::RelaxationPolicyParams policyParams;
+    lns::RelaxationPolicyParams policyParams{.decayConfig = lns::PolicyDecayConfig(), .numScheduleSlices = 4};
     lns::RelaxPolicy policyType;
     auto options = cli::parseOptions(argc, argv,
                                      cli::ArgSpec("save-to", "Where to save the data points", true, saveTo),
                                      cli::SwitchSpec("lns", "Whether to use LNS", useLNS, false),
-                                     cli::ArgSpec("relax-decay", "relaxation ratio decay",
-                                                  false, policyParams.ratioDecay, 0.5),
-                                     cli::ArgSpec("relax-ratio", "initial relaxation ratio",
-                                                  false, policyParams.relaxRatio, 0.5),
+                                     cli::ArgSpec("fix-decay", "relaxation ratio decay",
+                                                  false, policyParams.decayConfig.decay, 0.5),
+                                     cli::ArgSpec("fix-ratio", "initial relaxation ratio",
+                                                  false, policyParams.decayConfig.fixRatio, 0.5),
+                                     cli::ArgSpec("decay-min-fail",
+                                                  "lower bound solver failure rate for ratio decay config",
+                                                  false, policyParams.decayConfig.minFailRatio),
+                                     cli::ArgSpec("decay-max-fail",
+                                                  "upper bound solver failure rate for ratio decay config",
+                                                  false, policyParams.decayConfig.maxFailRatio),
+                                     cli::SwitchSpec("decay-on-success", "whether to decrease fix rate even on success",
+                                                     policyParams.decayConfig.decreaseOnSuccess, false),
+                                     cli::ArgSpec("retry-limit", "number of fails before decreasing relaxation ratio",
+                                                  false, policyParams.decayConfig.retryLimit),
+                                     cli::ArgSpec("decay-mode", "relaxation ratio decay mode on failure", false,
+                                                  policyParams.decayConfig.decayMode),
                                      cli::ArgSpec("relax-slices", "number of schedule slices",
                                                   false, policyParams.numScheduleSlices, 4),
                                      cli::ArgSpec("lns-policy", "lns relaxation policy", false, policyType,
                                                   lns::RelaxPolicy::RandomTasks));
-    auto [solver, problem, constraints, opt, nTasks] = loadSchedulingProblem(options);
-    auto schedule = problem.schedule();
-    auto heuristic = make_compound_heuristic(make_variable_heuristic(*solver), TightestSolutionGuided(0, 0));
-    solver->setBranchingHeuristic(std::move(heuristic));
+    auto problemInfo  = loadSchedulingProblem(options);
+    const auto schedule = problemInfo.instance.schedule();
+    auto heuristic = make_compound_heuristic(make_variable_heuristic(*problemInfo.solver), TightestSolutionGuided(0, 0));
+    problemInfo.solver->setBranchingHeuristic(std::move(heuristic));
     const auto problemName = fs::path(options.instance_file).filename();
     const auto destinationFolder = fs::path(saveTo) / problemName;
-    DataGenerator dataGenerator(*solver, schedule, destinationFolder);
+    DataGenerator dataGenerator(*problemInfo.solver, schedule, destinationFolder);
     if (useLNS) {
         MinimizationObjective<int> objective(schedule.duration);
-        auto policy = lns::make_relaxation_policy(policyType, problem.tasks(), constraints, policyParams);
+        auto policy = lns::make_relaxation_policy(policyType, problemInfo.instance.tasks(), problemInfo.constraints,
+                                                  policyParams);
         std::cout << "-- using relaxation policy " << policyType << std::endl;
-        solver->largeNeighborhoodSearch(objective, policy);
+        problemInfo.solver->largeNeighborhoodSearch(objective, policy);
     } else {
-        solver->minimize(schedule.duration);
+        problemInfo.solver->minimize(schedule.duration);
     }
 
     std::optional<int> makespan;
-    if (solver->numeric.hasSolution()) {
-        makespan = solver->numeric.lower(schedule.duration);
+    if (problemInfo.solver->numeric.hasSolution()) {
+        makespan = problemInfo.solver->numeric.lower(schedule.duration);
     }
 
     fs::copy(options.instance_file, destinationFolder / ProblemFileName, fs::copy_options::overwrite_existing);
@@ -68,8 +81,8 @@ int main(int argc, char **argv) {
     meta["commit"] = GitSha;
     meta["numSubProblems"] = dataGenerator.problemCount();
     meta["numSolutions"] = dataGenerator.solutionCount();
-    meta["bestSolutionKnown"] = optMin(opt, makespan);
-    meta["numberOfTasks"] = nTasks;
+    meta["bestSolutionKnown"] = optMin(problemInfo.optimalSolution, makespan);
+    meta["numberOfTasks"] = problemInfo.numTasks;
     serialization::serializeToFile(meta, destinationFolder / InfoFileName);
     return 0;
 }
