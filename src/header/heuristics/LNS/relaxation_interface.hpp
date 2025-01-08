@@ -359,7 +359,10 @@ namespace tempo::lns {
         template<concepts::typed_range<Literal<T>> L>
         bool makeAssumptions(L &&literals) {
             std::vector<Literal<T>> lits;
-            lits.reserve(std::ranges::size(literals));
+            if constexpr (std::ranges::sized_range<L>) {
+                lits.reserve(std::ranges::size(literals));
+            }
+
             std::ranges::copy(std::forward<L>(literals), std::back_inserter(lits));
             auto data = std::make_pair(PolicyAction::Set, std::move(lits));
             flushToLog(data);
