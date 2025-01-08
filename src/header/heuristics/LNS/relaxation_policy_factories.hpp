@@ -28,6 +28,8 @@ namespace tempo::lns {
     struct RelaxationPolicyParams {
         PolicyDecayConfig decayConfig; ///< dynamic relaxation ratio decay config
         unsigned numScheduleSlices; ///< number of schedule slices for chronological task relaxation
+        bool allTaskEdges; ///< Whether to fix all edges of a task or only those that connect to other fixed tasks
+                           ///< (only effective when relaxing based on tasks)
     };
 
     // --- add further relaxation policies to this type ---
@@ -59,13 +61,15 @@ namespace tempo::lns {
     MAKE_TEMPLATE_FACTORY(RandomTasks, ESCAPE(concepts::scalar T, resource_range R),
                           ESCAPE(std::vector<Interval<T>> tasks, R &&resources, const RelaxationPolicyParams &params,
                               int verbosity)) {
-            return RelaxTasks(std::move(tasks), std::forward<R>(resources), params.decayConfig, verbosity);
+            return RelaxTasks(std::move(tasks), std::forward<R>(resources), params.decayConfig,
+                              params.allTaskEdges, verbosity);
         }
     };
 
     MAKE_TEMPLATE_FACTORY(Chronologically, ESCAPE(concepts::scalar T, resource_range R),
                           ESCAPE(std::vector<Interval<T>> tasks, R &&resources, const RelaxationPolicyParams &params, int)) {
-            return RelaxChronologically(std::move(tasks), std::forward<R>(resources), params.numScheduleSlices);
+            return RelaxChronologically(std::move(tasks), std::forward<R>(resources),
+                                        params.numScheduleSlices, params.allTaskEdges);
         }
     };
 

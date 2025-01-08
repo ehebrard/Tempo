@@ -148,7 +148,8 @@ namespace detail {
     template<concepts::scalar T>
     class TaskVarMap {
         std::size_t offset = 0;
-        std::vector<std::vector<BooleanVar<T>>> map{};
+        std::vector<std::vector<std::pair<int, BooleanVar<T>>>> map{}; // target task id, corresponding variable
+        mutable std::vector<bool> relaxed;
     public:
         template<concepts::typed_range<Interval<T>> Tasks, resource_range RR>
         TaskVarMap(const Tasks &tasks, const RR &resources) {
@@ -156,6 +157,7 @@ namespace detail {
             auto [minT, maxT] = std::ranges::minmax(tasks, {}, [](const auto &t) { return t.id(); });
             offset = minT.id();
             map.resize(maxT.id() - offset + 1);
+            relaxed.resize(maxT.id() - offset + 1);
             for (const auto &t : tasks) {
                 auto &tVars = map[t.id() - offset];
                 for (const auto &r : resources) {
@@ -165,11 +167,13 @@ namespace detail {
                     }
 
                     const auto idx = std::ranges::distance(std::ranges::begin(r), res);
-                    auto vars = r.getDisjunctiveLiterals().row_unsafe(idx) |
-                                filter([](auto l) { return l != Contradiction<T>; }) |
-                                transform([](auto l) { return BooleanVar<T>(l); });
+                    for (auto [targetTask, lit]: iterators::enumerate(r.getDisjunctiveLiterals().row_unsafe(idx))) {
+                        if (lit == Contradiction<T>) {
+                            continue;
+                        }
 
-                    std::ranges::copy(vars, std::back_inserter(tVars));
+                        tVars.emplace_back(targetTask, lit);
+                    }
                 }
 
                 std::ranges::sort(tVars);
@@ -185,10 +189,19 @@ namespace detail {
         }
 
         template<concepts::typed_range<Interval<T>> Tasks>
-        auto getTaskLiterals(const Tasks &tasks) const -> std::vector<BooleanVar<T>> {
+        auto getTaskLiterals(const Tasks &tasks, bool allEdges) const -> std::vector<BooleanVar<T>> {
             using namespace std::views;
-            auto varsView =
-                    tasks | transform([this](const auto &t) -> decltype(auto) { return (*this)(t); }) | join;
+            if (not allEdges) {
+                relaxed.assign(relaxed.size(), false);
+                for (const auto &t : tasks) {
+                    relaxed[t.id() - offset] = true;
+                }
+            }
+
+            auto varsView = tasks | transform([this](const auto &t) -> decltype(auto) { return (*this)(t); }) | join
+                            | filter([this, allEdges](const auto &tpl) {
+                                return allEdges or relaxed[std::get<0>(tpl)];
+                            }) | elements<1>;
             std::vector<BooleanVar<T>> vars;
             std::ranges::copy(varsView, std::back_inserter(vars));
             std::ranges::sort(vars);
@@ -209,6 +222,7 @@ class RelaxTasks {
     std::vector<Interval<T>> tasks;
     detail::TaskVarMap<T> map;
     PolicyDecay decayHandler;
+    bool allTaskEdges;
 public:
     /**
      * Ctor
@@ -216,14 +230,17 @@ public:
      * @param tasks vector of all tasks to consider
      * @param resources resource expressions in the problem
      * @param decayConfig dynamic relaxation ratio decay config
+     * @param allTaskEdges whether to fix all edges of a task or only these between other fixed tasks
      * @param verbosity logging verbosity
      */
     template<resource_range RR>
     RelaxTasks(std::vector<Interval<T>> tasks, const RR &resources, const PolicyDecayConfig &decayConfig,
-               int verbosity = Options::NORMAL): tasks(std::move(tasks)), map(this->tasks, resources),
-                                                 decayHandler(decayConfig, map.getTaskLiterals(this->tasks).size(),
-                                                              verbosity) {
+               bool allTaskEdges, int verbosity = Options::NORMAL):
+            tasks(std::move(tasks)), map(this->tasks, resources),
+            decayHandler(decayConfig,map.getTaskLiterals(this->tasks, allTaskEdges).size(),verbosity),
+            allTaskEdges(allTaskEdges) {
         if (verbosity >= Options::YACKING) {
+            std::cout << std::boolalpha << "-- fix all task edges: " << allTaskEdges << std::noboolalpha << std::endl;
             std::cout << decayConfig << std::endl;
         }
     }
@@ -245,7 +262,7 @@ public:
         }
 
         std::ranges::shuffle(tasks, RNG{});
-        auto vars = map.getTaskLiterals(counted(tasks.begin(), numFix));
+        auto vars = map.getTaskLiterals(counted(tasks.begin(), numFix), allTaskEdges);
         if (proxy.getSolver().getOptions().verbosity >= Options::YACKING) {
             std::cout << "-- fixing " << numFix << " / " << tasks.size()
                       << " tasks (" << vars.size() << ") variables" << std::endl;
@@ -270,6 +287,7 @@ class RelaxChronologically {
     unsigned numberOfSlices;
     unsigned sliceWidth;
     unsigned sliceIdx = 0;
+    bool allTaskEdges;
 
 public:
 
@@ -279,12 +297,16 @@ public:
      * @param tasks vector of all tasks to consider
      * @param resources resource expressions in the problem
      * @param numberOfSlices number of slices to split the schedule
+     * @param allTaskEdges whether to fix all edges of a task or only these between other fixed tasks
      */
     template<resource_range RR>
-    RelaxChronologically(std::vector<Interval<T>> tasks, const RR &resources, unsigned numberOfSlices):
-            tasks(std::move(tasks)), map(this->tasks, resources),
-            numberOfSlices(std::max(numberOfSlices, static_cast<unsigned>(tasks.size()))),
-            sliceWidth(ceil_division(this->tasks.size(), static_cast<std::size_t>(this->numberOfSlices))) {
+    RelaxChronologically(std::vector<Interval<T>> tasks, const RR &resources, unsigned numberOfSlices,
+                         bool allTaskEdges): tasks(std::move(tasks)), map(this->tasks, resources),
+                                             numberOfSlices(
+                                                 std::max(numberOfSlices, static_cast<unsigned>(tasks.size()))),
+                                             sliceWidth(ceil_division(this->tasks.size(),
+                                                                      static_cast<std::size_t>(this->numberOfSlices))),
+                                             allTaskEdges(allTaskEdges) {
         if (numberOfSlices == 0) {
             throw std::runtime_error("number of slices cannot be 0");
         }
@@ -313,7 +335,7 @@ public:
 
             std::ranges::subrange tRange(tasks.cbegin() + idx * sliceWidth,
                                          tasks.cbegin() + std::min((idx + 1) * sliceWidth, tasks.size()));
-            auto vars = map.getTaskLiterals(tRange);
+            auto vars = map.getTaskLiterals(tRange, allTaskEdges);
             bool success = proxy.makeAssumptions(vars | std::views::transform(
                     [&b = proxy.getSolver().boolean](const auto &var) { return var == b.value(var); }));
             if (not success) {
