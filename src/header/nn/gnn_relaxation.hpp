@@ -47,6 +47,7 @@ namespace tempo::nn {
         std::vector<std::pair<Literal<T>, DataType>> gnnCache;
         std::size_t numFixed = 0;
         double qualityFactor = 1;
+        bool newInference = false;
 
         // --- config
         double exhaustionThreshold;
@@ -141,7 +142,8 @@ namespace tempo::nn {
             }
 
             tempo::util::ScopeWatch sw(profiler, "relax");
-            numFixed = fixPolicy.select(proxy, maxNumLiterals(), policyDecay.getFailCount(), gnnCache);
+            numFixed = fixPolicy.select(proxy, maxNumLiterals(), newInference, gnnCache);
+            newInference = false;
             if (verbosity >= Options::YACKING) {
                 if (proxy.getState() == lns::AssumptionState::Fail) {
                     std::cout << "-- failed to fix literals\n";
@@ -199,6 +201,7 @@ namespace tempo::nn {
 
         bool runInference(const Solver<T> &solver) {
             using namespace std::views;
+            newInference = true;
             if (maxNumLiterals() == 0 or solutions.empty()) {
                 gnnCache.clear();
                 return false;

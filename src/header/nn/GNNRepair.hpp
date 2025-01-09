@@ -50,6 +50,7 @@ namespace tempo::nn {
         double minCertainty;
         double exhaustionThreshold;
         const Solver<T> &solver;
+        bool newInference = false;
 
 
     public:
@@ -140,7 +141,8 @@ namespace tempo::nn {
             }
 
             tempo::util::ScopeWatch sw(profiler, "repair");
-            numFixed = fixPolicy.select(s, numLits, policyDecay.getFailCount(), gnnCache);
+            numFixed = fixPolicy.select(s, numLits, newInference, gnnCache);
+            newInference = false;
             if (solver.getOptions().verbosity >= Options::YACKING) {
                 if (s.getState() == lns::AssumptionState::Fail) {
                     std::cout << "-- failed to fix literals\n";
@@ -163,6 +165,7 @@ namespace tempo::nn {
          */
         void runInference() {
             using namespace std::views;
+            newInference = true;
             if (maxNumLiterals() == 0) {
                 gnnCache.clear();
                 return;

@@ -44,7 +44,7 @@ namespace tempo::lns {
         constexpr void reset() noexcept {};
 
         template<concepts::scalar T, assumption_interface AI, concepts::scalar C>
-        std::size_t select(AI &proxy, std::size_t numLiterals, unsigned,
+        std::size_t select(AI &proxy, std::size_t numLiterals, bool,
                            const std::vector<std::pair<Literal<T>, C>> & weightedLiterals) {
             using namespace std::views;
             switch (OT) {
@@ -100,9 +100,9 @@ namespace tempo::lns {
         }
 
         template<assumption_interface AI, concepts::scalar C>
-        std::size_t select(AI &proxy, std::size_t numLiterals, unsigned numFails,
+        std::size_t select(AI &proxy, std::size_t numLiterals, bool weightsUpdated,
                            const std::vector<std::pair<Literal<T>, C>> & weightedLiterals) {
-            if (numFails == 0 and numLiterals <= cache.size()) {
+            if (not weightsUpdated and numLiterals <= cache.size()) {
                 proxy.makeAssumptions(cache | std::views::take(numLiterals));
                 return std::min(numLiterals, cache.size());
             }
@@ -158,7 +158,7 @@ namespace tempo::lns {
         explicit SampleFix(double smoothingFactor) noexcept: smoothingFactor(smoothingFactor) {}
 
         template<concepts::scalar T, assumption_interface AI, std::floating_point C>
-        std::size_t select(AI &proxy, std::size_t numLiterals, unsigned,
+        std::size_t select(AI &proxy, std::size_t numLiterals, bool,
                            const std::vector<std::pair<Literal<T>, C>> & weightedLiterals) {
             using namespace std::views;
             const auto literals = weightedLiterals | elements<0>;
@@ -231,9 +231,9 @@ namespace tempo::lns {
 
         template<concepts::scalar T, typename Lookup>
         auto makeLookup(Solver<T> &solver, const std::vector<BooleanVar<T>> &vars,
-        std::size_t numLits, Lookup &&lookup) {
-        return CachedLookup<T, Lookup>(solver, vars, numLits, std::forward<Lookup>(lookup));
-    }
+                        std::size_t numLits, Lookup &&lookup) {
+            return CachedLookup<T, Lookup>(solver, vars, numLits, std::forward<Lookup>(lookup));
+        }
 }
 
 /**
@@ -266,11 +266,11 @@ public:
     }
 
     template<assumption_interface AI, concepts::scalar C>
-    std::size_t select(AI &proxy, std::size_t numLiterals, unsigned numFails,
+    std::size_t select(AI &proxy, std::size_t numLiterals, bool weightsUpdated,
                        const std::vector<std::pair<Literal<T>, C>> & weightedLiterals) {
         using namespace std::views;
         using ST = int;
-        if (numFails == 0 and not cache.empty()) {
+        if (not weightsUpdated and not cache.empty()) {
             proxy.makeAssumptions(cache | take(numLiterals));
             return std::min(numLiterals, cache.size());
         }
@@ -385,19 +385,14 @@ public:
         }
 
         template<assumption_interface AI>
-        std::size_t select(AI &proxy, std::size_t numLiterals, unsigned numFails,
+        std::size_t select(AI &proxy, std::size_t numLiterals, bool weightsUpdated,
                            const std::vector<std::pair<Literal<T>, double>> & weightedLiterals) {
             const auto numTasks = numLiterals / varsPerTask;
             if (numTasks == 0) {
                 return 0;
             }
 
-            if (lastNumTasks == numTasks and not cache.empty()) {
-                proxy.makeAssumptions(cache);
-                return cache.size();
-            }
-
-            if (cache.empty()) {
+            if (cache.empty() or weightsUpdated) {
                 calcWeights(weightedLiterals);
             }
         }
