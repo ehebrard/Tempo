@@ -174,8 +174,9 @@ namespace detail {
                     }
                 }
 
-                std::ranges::sort(tVars);
-                auto res = std::ranges::unique(tVars);
+                auto comp = [](const auto &pair) { return pair.second.id(); };
+                std::ranges::sort(tVars, {}, comp);
+                auto res = std::ranges::unique(tVars, {}, comp);
                 tVars.erase(res.begin(), res.end());
                 tVars.shrink_to_fit();
             }
