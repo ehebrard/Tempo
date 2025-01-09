@@ -155,7 +155,7 @@ namespace detail {
         TaskVarMap(const Tasks &tasks, const RR &resources) {
             using namespace std::views;
             map = decltype(map)(tasks);
-            relaxed = decltype(relaxed)(tasks, false, std::pair{map.keyOffset(), map.maxKey()});
+            relaxed = decltype(relaxed)(tasks, false, {}, std::pair{map.keyOffset(), map.maxKey()});
             for (const auto &t : tasks) {
                 auto &tVars = map[t];
                 for (const auto &r : resources) {
