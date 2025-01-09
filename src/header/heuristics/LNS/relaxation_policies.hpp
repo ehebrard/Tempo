@@ -183,6 +183,11 @@ namespace detail {
         }
 
         template<concepts::same_template<Interval> Task>
+        bool contains(const Task &t) const noexcept {
+            return map.contains(t);
+        }
+
+        template<concepts::same_template<Interval> Task>
         auto operator()(const Task &t) const noexcept -> const auto & {
             return map[t];
         }

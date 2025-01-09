@@ -19,6 +19,7 @@
 #include "relaxation_policies.hpp"
 #include "Solver.hpp"
 #include "util/random.hpp"
+#include "util/Lookup.hpp"
 
 namespace tempo::lns {
 
@@ -344,57 +345,78 @@ public:
     }
 };
 
-    template<concepts::scalar T>
+    template<concepts::scalar T, bool InvertWeights>
     class TaskFix {
-        static_assert(traits::always_false_v<T>, "Implementation incomplete, do not use!");
+        static constexpr auto DefaultVarsPerTask = 5;
         std::vector<std::pair<Interval<T>, double>> tasks;
-        lns::detail::TaskVarMap<T> map;
-        std::vector<Literal<T>> cache{};
-        std::size_t varsPerTask = 0;
-        std::size_t lastNumTasks = 0;
+        detail::TaskVarMap<T> map;
+        double varsPerTask = DefaultVarsPerTask;
+        bool allTaskEdges;
 
-        void calcWeights(const std::vector<std::pair<Literal<T>, double>> & weightedLiterals) {
+        bool initWeights = true;
+
+        template<std::floating_point C>
+        void calcWeights(const std::vector<std::pair<Literal<T>, C>> & weightedLiterals) {
+            using namespace std::views;
+            Lookup weights(weightedLiterals | elements<0> | transform([](auto l) { return BooleanVar(l); }), 0.0,
+                                                                      weightedLiterals | elements<1>, {},
+                                                                      IdProjection{});
             for (auto &[t, confidence]: tasks) {
                 confidence = 0;
-                for (const auto &var : map(t)) {
-                    auto res = std::ranges::find_if(weightedLiterals, var, [&var](const auto &pair) {
-                        return pair.first.variable() == var.id();
-                    });
-
-                    if (res != weightedLiterals.end()) {
-                        confidence += res->second;
+                assert(map.contains(t));
+                for (const auto &var : map(t) | elements<1>) {
+                    if (weights.contains(var)) {
+                        confidence += weights[var];
                     }
                 }
             }
 
-            std::ranges::sort(tasks, {}, [](const auto &pair) { return -pair.second; });
+            std::ranges::sort(tasks, {}, [](const auto &pair) { return (2 * not InvertWeights - 1) * pair.second; });
         }
     public:
 
         template<concepts::typed_range<Interval<T>> Tasks,  resource_range RR>
-        TaskFix(const Tasks &tasks, const RR &resources): map(tasks, resources) {
+        TaskFix(const Tasks &tasks, const RR &resources, bool allTaskEdges): map(tasks, resources),
+                                                                             allTaskEdges(allTaskEdges) {
             this->tasks.reserve(std::ranges::size(tasks));
             for (const auto &t : tasks) {
-                varsPerTask += map(t).size();
                 this->tasks.emplace_back(t, 0.0);
             }
         }
 
-        void reset() noexcept {
-            cache.clear();
-        }
+        void reset() noexcept {}
 
-        template<assumption_interface AI>
+        template<assumption_interface AI, std::floating_point C>
         std::size_t select(AI &proxy, std::size_t numLiterals, bool weightsUpdated,
-                           const std::vector<std::pair<Literal<T>, double>> & weightedLiterals) {
-            const auto numTasks = numLiterals / varsPerTask;
+                           const std::vector<std::pair<Literal<T>, C>> & weightedLiterals) {
+            using namespace std::views;
+            const auto numTasks = std::min(static_cast<std::size_t>(numLiterals / varsPerTask), tasks.size());
             if (numTasks == 0) {
                 return 0;
             }
 
-            if (cache.empty() or weightsUpdated) {
+            if (weightsUpdated or initWeights) {
+                initWeights = false;
                 calcWeights(weightedLiterals);
+                if (proxy.getSolver().getOptions().verbosity >= Options::YACKING) {
+                    std::cout << "-- reevaluating task weights" << std::endl;
+                }
             }
+
+            auto vars = map.getTaskLiterals(tasks | elements<0> | take(numTasks), allTaskEdges);
+            if (std::abs(static_cast<double>(vars.size()) - numLiterals) / numLiterals > 0.1) {
+                varsPerTask = static_cast<double>(vars.size()) / numTasks;
+            }
+
+            if (proxy.getSolver().getOptions().verbosity >= Options::YACKING) {
+                std::cout << "-- fixing " << numTasks << " / " << tasks.size()
+                          << " tasks (" << vars.size() << ") variables" << std::endl;
+            }
+
+            auto literalTransform = [&b = proxy.getSolver().boolean](const auto &var) { return var == b.value(var); };
+            proxy.makeAssumptions(vars | transform(literalTransform));
+            return vars.size();
+
         }
     };
 
