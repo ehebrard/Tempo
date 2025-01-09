@@ -34,6 +34,7 @@
 #include "util/factory_pattern.hpp"
 #include "util/random.hpp"
 #include "heuristics/LNS/PolicyDecay.hpp"
+#include "util/Lookup.hpp"
 
 namespace tempo::lns {
 
@@ -147,19 +148,16 @@ void RandomSubset<T>::relax(AI &s) const {
 namespace detail {
     template<concepts::scalar T>
     class TaskVarMap {
-        std::size_t offset = 0;
-        std::vector<std::vector<std::pair<int, BooleanVar<T>>>> map{}; // target task id, corresponding variable
-        mutable std::vector<bool> relaxed;
+        Lookup<Interval<T>, std::vector<std::pair<int, BooleanVar<T>>>, IdProjection> map{}; // target task id, corresponding variable
+        mutable Lookup<Interval<T>, bool, IdProjection> relaxed;
     public:
         template<concepts::typed_range<Interval<T>> Tasks, resource_range RR>
         TaskVarMap(const Tasks &tasks, const RR &resources) {
             using namespace std::views;
-            auto [minT, maxT] = std::ranges::minmax(tasks, {}, [](const auto &t) { return t.id(); });
-            offset = minT.id();
-            map.resize(maxT.id() - offset + 1);
-            relaxed.resize(maxT.id() - offset + 1);
+            map = decltype(map)(tasks);
+            relaxed = decltype(relaxed)(tasks, false, std::pair{map.keyOffset(), map.maxKey()});
             for (const auto &t : tasks) {
-                auto &tVars = map[t.id() - offset];
+                auto &tVars = map[t];
                 for (const auto &r : resources) {
                     auto res = std::ranges::find(r, t);
                     if (res == std::ranges::end(r)) {
@@ -185,22 +183,22 @@ namespace detail {
 
         template<concepts::same_template<Interval> Task>
         auto operator()(const Task &t) const noexcept -> const auto & {
-            return map[t.id() - offset];
+            return map[t];
         }
 
         template<concepts::typed_range<Interval<T>> Tasks>
         auto getTaskLiterals(const Tasks &tasks, bool allEdges) const -> std::vector<BooleanVar<T>> {
             using namespace std::views;
             if (not allEdges) {
-                relaxed.assign(relaxed.size(), false);
+                relaxed.data().assign(relaxed.size(), false);
                 for (const auto &t : tasks) {
-                    relaxed[t.id() - offset] = true;
+                    relaxed[t] = true;
                 }
             }
 
             auto varsView = tasks | transform([this](const auto &t) -> decltype(auto) { return (*this)(t); }) | join
                             | filter([this, allEdges](const auto &tpl) {
-                                return allEdges or relaxed[std::get<0>(tpl)];
+                                return allEdges or relaxed.data()[std::get<0>(tpl)];
                             }) | elements<1>;
             std::vector<BooleanVar<T>> vars;
             std::ranges::copy(varsView, std::back_inserter(vars));
