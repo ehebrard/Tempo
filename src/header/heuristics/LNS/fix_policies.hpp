@@ -355,10 +355,11 @@ namespace tempo::lns {
         static constexpr auto DefaultVarsPerTask = 5;
         std::vector<std::pair<Interval<T>, double>> tasks;
         detail::TaskVarMap<T> map;
-        double varsPerTask = DefaultVarsPerTask;
         bool allTaskEdges;
 
         bool initWeights = true;
+        double varsPerTask = DefaultVarsPerTask;
+        std::size_t iterations = 1;
 
         template<std::floating_point C>
         void calcWeights(const std::vector<std::pair<Literal<T>, C>> & weightedLiterals) {
@@ -416,10 +417,7 @@ namespace tempo::lns {
             }
 
             auto vars = map.getTaskLiterals(tasks | elements<0> | take(numTasks), allTaskEdges);
-            if (std::abs(static_cast<double>(vars.size()) - numLiterals) / numLiterals > 0.1) {
-                varsPerTask = static_cast<double>(vars.size()) / numTasks;
-            }
-
+            varsPerTask += (1.0 / ++iterations) * (static_cast<double>(vars.size()) / numTasks - varsPerTask);
             if (proxy.getSolver().getOptions().verbosity >= Options::YACKING) {
                 std::cout << "-- fixing " << numTasks << " / " << tasks.size()
                           << " tasks (" << vars.size() << ") variables" << std::endl;
