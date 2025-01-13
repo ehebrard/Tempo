@@ -223,10 +223,15 @@ namespace detail {
  */
 template<concepts::scalar T>
 class RelaxTasks {
+    static constexpr auto DefaultVarsPerTask = 5;
     std::vector<Interval<T>> tasks;
     detail::TaskVarMap<T> map;
     PolicyDecay decayHandler;
     bool allTaskEdges;
+    std::size_t numVariables;
+
+    double varsPerTask = DefaultVarsPerTask;
+    std::size_t iterations = 1;
 public:
     /**
      * Ctor
@@ -242,7 +247,7 @@ public:
                bool allTaskEdges, int verbosity = Options::NORMAL):
             tasks(std::move(tasks)), map(this->tasks, resources),
             decayHandler(decayConfig,map.getTaskLiterals(this->tasks, allTaskEdges).size(),verbosity),
-            allTaskEdges(allTaskEdges) {
+            allTaskEdges(allTaskEdges), numVariables(booleanVarsFromResources(resources).size()) {
         if (verbosity >= Options::YACKING) {
             std::cout << std::boolalpha << "-- fix all task edges: " << allTaskEdges << std::noboolalpha << std::endl;
             std::cout << decayConfig << std::endl;
@@ -260,18 +265,20 @@ public:
     template<assumption_interface AI>
     void relax(AI &proxy) {
         using namespace std::views;
-        const auto numFix = static_cast<std::size_t>(decayHandler.getFixRatio() * tasks.size());
-        if (numFix == 0) {
+        const auto numTasks = std::min(
+            static_cast<std::size_t>(decayHandler.getFixRatio() * numVariables / varsPerTask), tasks.size());
+        if (numTasks == 0) {
             return;
         }
 
         std::ranges::shuffle(tasks, RNG{});
-        auto vars = map.getTaskLiterals(counted(tasks.begin(), numFix), allTaskEdges);
+        auto vars = map.getTaskLiterals(counted(tasks.begin(), numTasks), allTaskEdges);
         if (proxy.getSolver().getOptions().verbosity >= Options::YACKING) {
-            std::cout << "-- fixing " << numFix << " / " << tasks.size()
+            std::cout << "-- fixing " << numTasks << " / " << tasks.size()
                       << " tasks (" << vars.size() << ") variables" << std::endl;
         }
 
+        varsPerTask += (1.0 / ++iterations) * (static_cast<double>(vars.size()) / numTasks - varsPerTask);
         proxy.makeAssumptions(
                 vars | transform([&b = proxy.getSolver().boolean](const auto &var) { return var == b.value(var); }));
     }
