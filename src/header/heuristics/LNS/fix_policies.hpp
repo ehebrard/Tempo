@@ -23,7 +23,7 @@
 
 namespace tempo::lns {
 
-    PENUM(AssumptionMode, BestN, GreedySkip, GreedyInverse, Sample, Optimal)
+    PENUM(AssumptionMode, BestN, GreedySkip, GreedyInverse, Sample, Optimal, TaskFull, TaskReduced)
 
     /**
      * @brief Literal ordering type. Literals are ordered by their weight either in ascending or descending order or

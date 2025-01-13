@@ -33,7 +33,7 @@ int main(int argc, char **argv) {
     std::string featureExtractorConf;
     lns::PolicyDecayConfig config;
     lns::AssumptionMode assumptionMode = lns::AssumptionMode::GreedySkip;
-    lns::RelaxationPolicyParams destroyParameters{.decayConfig = {}, .numScheduleSlices = 4};
+    lns::RelaxationPolicyParams destroyParameters{.decayConfig = {}, .numScheduleSlices = 4, .allTaskEdges = false};
     destroyParameters.decayConfig.fixRatio = 0.1;
     destroyParameters.decayConfig.decay = 1;
     lns::RelaxPolicy destroyType = lns::RelaxPolicy::RandomTasks;
@@ -68,6 +68,9 @@ int main(int argc, char **argv) {
                                               destroyParameters.decayConfig.decay),
                                  cli::ArgSpec("num-slices", "number of schedule slices", false,
                                               destroyParameters.numScheduleSlices),
+                                 cli::SwitchSpec("fix-all-task-edges",
+                                               "whether to fix all task edges or only those between fixed tasks",
+                                               destroyParameters.allTaskEdges, false),
                                  cli::ArgSpec("sporadic-increment", "probability increment on fail for root search",
                                               false, sporadicIncrement),
                                  cli::ArgSpec("fix-ratio", "percentage of literals to relax", false,
@@ -114,7 +117,8 @@ int main(int argc, char **argv) {
     if (not optimal and useDRPolicy) {
         std::cout << "-- exhaustion probability " << exhaustionProbability << std::endl;
         nn::GNNRepair gnnRepair(*problemInfo.solver, gnnLocation, featureExtractorConf, problemInfo.instance,
-                                config, assumptionMode, minCertainty, exhaustionThreshold, sampleSmoothingFactor);
+                                config, assumptionMode, minCertainty, exhaustionThreshold, sampleSmoothingFactor,
+                                problemInfo.constraints);
         lns::GenericDestroyPolicy<Time, RP> destroy(
                 lns::make_relaxation_policy(destroyType, problemInfo.instance.tasks(), problemInfo.constraints,
                                             destroyParameters));
@@ -126,7 +130,7 @@ int main(int argc, char **argv) {
     } else if (not optimal) {
         nn::GNNRelax policy(*problemInfo.solver, gnnLocation, featureExtractorConf, problemInfo.instance, config,
                             assumptionMode, exhaustionThreshold, exhaustionProbability, reuseSolutions,
-                            sampleSmoothingFactor);
+                            sampleSmoothingFactor,problemInfo.constraints);
         elapsedTime = runLNS(policy, optSol, *problemInfo.solver, objective);
     }
 
