@@ -19,6 +19,7 @@
 #include "util/SchedulingProblemHelper.hpp"
 #include "util/serialization.hpp"
 #include "util/factory_pattern.hpp"
+#include "util/printing.hpp"
 #include "Solution.hpp"
 #include "Model.hpp"
 #include "heuristics/LNS/RelaxationEvaluator.hpp"
@@ -143,24 +144,6 @@ auto toSolution(const tempo::serialization::Solution<T> &solution,
     problem.solver->saveSolution();
     return tempo::Solution(*problem.solver);
 }
-
-template<std::ranges::range R>
-auto printRange(const R &range, std::ostream &os) -> std::ostream& {
-    os << "[";
-    bool first = true;
-    for (const auto &elem : range) {
-        if (first) {
-            first = false;
-        } else {
-            os << ", ";
-        }
-        os << elem;
-    }
-
-    os << "]";
-    return os;
-}
-
 
 /**
  * @tparam Policy LNS relaxation policy type

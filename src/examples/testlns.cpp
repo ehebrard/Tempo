@@ -120,7 +120,9 @@ int main(int argc, char *argv[]) {
   namespace lns = tempo::lns;
   auto parser = tempo::getBaseParser();
   bool profileHeuristic;
-  lns::RelaxationPolicyParams policyParams{.decayConfig = lns::PolicyDecayConfig(), .numScheduleSlices = 4};
+  lns::RelaxationPolicyParams policyParams{
+    .decayConfig = lns::PolicyDecayConfig(), .numScheduleSlices = 4, .allTaskEdges = false
+  };
   lns::RelaxPolicy policyType;
   std::string optSolutionLoc;
   bool useOracle = false;
@@ -144,6 +146,9 @@ int main(int argc, char *argv[]) {
                                             policyParams.decayConfig.decayMode),
                                cli::ArgSpec("relax-slices", "number of schedule slices",
                                             false, policyParams.numScheduleSlices, 4),
+                               cli::SwitchSpec("fix-all-task-edges",
+                                               "whether to fix all task edges or only those between fixed tasks",
+                                               policyParams.allTaskEdges, false),
                                cli::ArgSpec("lns-policy", "lns relaxation policy", true, policyType),
                                cli::ArgSpec("optimal-solution", "location of optimal solution (e.g. for oracle)", false,
                                             optSolutionLoc),
@@ -151,9 +156,6 @@ int main(int argc, char *argv[]) {
                                cli::ArgSpec("oracle-epsilon", "LNS oracle policy epsilon", false, oracleEpsilon),
                                cli::ArgSpec("sporadic-increment", "sporadic root search probability increment", false,
                                             sporadicIncrement));
-
-    std::string ordering_file{""};
-    parser.getCmdLine().add<TCLAP::ValueArg<std::string>>(ordering_file, "", "static-ordering", "use static ordering heuristic", false, "", "string");
 
   parser.parse(argc, argv);
   Options opt = parser.getOptions();
@@ -287,8 +289,8 @@ int main(int argc, char *argv[]) {
     if(not optimal) {
         MinimizationObjective<int> objective(schedule.duration);
         if (not useOracle) {
-            auto policy = lns::make_relaxation_policy(policyType, intervals, resources, policyParams, opt.verbosity);
             std::cout << "-- using relaxation policy " << policyType << std::endl;
+            auto policy = lns::make_relaxation_policy(policyType, intervals, resources, policyParams, opt.verbosity);
             if (sporadicIncrement != 0) {
               std::cout << "-- root search probability increment " << sporadicIncrement << std::endl;
               runLNS(lns::make_sporadic_root_search(sporadicIncrement, std::move(policy)), optSolutionLoc, S,

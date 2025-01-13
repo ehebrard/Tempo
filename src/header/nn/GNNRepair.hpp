@@ -40,7 +40,8 @@ namespace tempo::nn {
     template<concepts::scalar T, SchedulingResource R>
     class GNNRepair {
         using FixPolicy = lns::VariantFix<lns::BestN<lns::OrderType::Descending>,
-                lns::GreedyFix<T, lns::OrderType::Descending>, lns::SampleFix<false>, lns::OptimalFix<T>>;
+            lns::GreedyFix<T, lns::OrderType::Descending>, lns::SampleFix<false>,
+            lns::OptimalFix<T>, lns::TaskFix<T, false>>;
         GNNPrecedencePredictor<T, R> predictor;
         mutable tempo::util::Profiler profiler{};
         std::vector<std::pair<Literal<T>, double>> gnnCache;
@@ -50,6 +51,7 @@ namespace tempo::nn {
         double minCertainty;
         double exhaustionThreshold;
         const Solver<T> &solver;
+        bool newInference = false;
 
 
     public:
@@ -76,12 +78,15 @@ namespace tempo::nn {
          * @param minCertainty minimum GNN certainty
          * @param exhaustionThreshold fix ratio threshold at witch to signal exhaustion
          * @param sampleSmoothingFactor smoothing factor for sample fix policy
+         * @param resourceConstraints Resource expression needed for task fix policy, default empty
          */
+        template<resource_range RR = std::vector<NoOverlapExpression<>>>
         GNNRepair(const Solver<T> &solver, const fs::path &modelLocation,
                   const fs::path &featureExtractorConfigLocation,
                   const SchedulingProblemHelper<T, R> &problemInstance,
                   const lns::PolicyDecayConfig &decayConfig, lns::AssumptionMode assumptionMode,
-                  double minCertainty, double exhaustionThreshold, double sampleSmoothingFactor = 0) :
+                  double minCertainty, double exhaustionThreshold, double sampleSmoothingFactor = 0,
+                  const RR &resourceConstraints = {}) :
                 predictor(modelLocation, featureExtractorConfigLocation, problemInstance,
                           problemInstance.getSearchLiterals(solver)),
                 policyDecay(decayConfig, predictor.numLiterals(), solver.getOptions().verbosity),
@@ -124,6 +129,16 @@ namespace tempo::nn {
                     break;
                 case BestN:
                     break;
+                case TaskFull:
+                    fixPolicy.template emplace<lns::TaskFix<T, false>>(problemInstance.tasks(),
+                                                                       resourceConstraints, true);
+                    break;
+                case TaskReduced:
+                    fixPolicy.template emplace<lns::TaskFix<T, false>>(problemInstance.tasks(),
+                                                                       resourceConstraints, false);
+                    break;
+                default:
+                    throw std::runtime_error("invalid assumption mode " + to_string(assumptionMode));
             }
         }
 
@@ -140,7 +155,8 @@ namespace tempo::nn {
             }
 
             tempo::util::ScopeWatch sw(profiler, "repair");
-            numFixed = fixPolicy.select(s, numLits, policyDecay.getFailCount(), gnnCache);
+            numFixed = fixPolicy.select(s, numLits, newInference, gnnCache);
+            newInference = false;
             if (solver.getOptions().verbosity >= Options::YACKING) {
                 if (s.getState() == lns::AssumptionState::Fail) {
                     std::cout << "-- failed to fix literals\n";
@@ -163,6 +179,7 @@ namespace tempo::nn {
          */
         void runInference() {
             using namespace std::views;
+            newInference = true;
             if (maxNumLiterals() == 0) {
                 gnnCache.clear();
                 return;
