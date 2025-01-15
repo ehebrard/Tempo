@@ -12,8 +12,8 @@
 
 VarImportanceRunner::VarImportanceRunner(ser::PartialProblem partialProblem, tempo::Options options,
                                          const ser::Solution<Time> &optSol) : problem(std::move(partialProblem)),
-                                                                                 options(std::move(options)),
-                                                                                 optimum(optSol.objective) {
+                                                                              options(std::move(options)),
+                                                                              optimum(optSol.objective) {
     auto problemInstance = loadSchedulingProblem(this->options);
     auto &s = *problemInstance.solver;
     const auto &p = problemInstance.instance;

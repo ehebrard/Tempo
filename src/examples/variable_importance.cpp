@@ -55,21 +55,33 @@ public:
 int main(int argc, char **argv) {
     using namespace tempo;
     using namespace heuristics;
-    int subId;
+    int subId = -1;
     bool root;
     auto opt = cli::parseOptions(argc, argv,
-                                 cli::ArgSpec("sub-number", "id of the sub problem", true, subId),
+                                 cli::ArgSpec("sub-number", "id of the sub problem", false, subId),
                                  cli::SwitchSpec("root", "calculate edge importance for a root instance instead", root,
                                                  false));
     const auto mainDir = opt.instance_file;
     opt.instance_file = getInstance(mainDir);
-    const auto [dataPoint, status] = loadDataPoint(mainDir, subId, root);
-    if (status == DataPointStatus::ProblemNotFound) {
-        std::cerr << "sub problem with id " << subId << " could not be found" << std::endl;
-        std::exit(1);
-    } else if (status == DataPointStatus::SolutionNotFound) {
-        std::cerr << (not root ? "associated " : "") << "solution" << subId << " could not be found" << std::endl;
-        std::exit(1);
+    DataPoint dataPoint;
+    if (root) {
+        auto solutions = getSolutions(mainDir);
+        if (solutions.empty()) {
+            std::cerr << "No solutions found" << std::endl;
+            std::exit(1);
+        }
+
+        dataPoint.solution = std::move(solutions.rbegin()->second);
+    } else {
+        DataPointStatus status;
+        std::tie(dataPoint, status) = loadDataPoint(mainDir, subId, false);
+        if (status == DataPointStatus::ProblemNotFound) {
+            std::cerr << "sub problem with id " << subId << " could not be found" << std::endl;
+            std::exit(1);
+        } else if (status == DataPointStatus::SolutionNotFound) {
+            std::cerr << "associated solution" << subId << " could not be found" << std::endl;
+            std::exit(1);
+        }
     }
 
     VarImportanceRunner runner(dataPoint.problem, opt, dataPoint.solution);
