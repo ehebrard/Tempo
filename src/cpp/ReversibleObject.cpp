@@ -27,20 +27,17 @@ void BacktrackEnvironment::save() {
 }
 // void BacktrackEnvironment::override() { *(stamps.rbegin()) = trail.size(); }
 void BacktrackEnvironment::restore(int lvl) {
-
-  if (lvl < level())
-    for (auto o : subscribers)
-      o->undo();
-
-  size_t stamp = stamps[lvl];
-  while (trail.size() > stamp) {
-    trail.back()->undo();
-    trail.pop_back();
-  }
-  stamps.resize(lvl + 1);
-
-  // std::cout << "RESTORE TO @" << level() << std::endl;
-
+    if (lvl < level()) {
+        for (auto o : subscribers)
+            o->undo();
+        
+        size_t stamp = stamps[lvl];
+        while (trail.size() > stamp) {
+            trail.back()->undo();
+            trail.pop_back();
+        }
+        stamps.resize(lvl + 1);
+    }
 }
 
 void BacktrackEnvironment::print() const {

@@ -61,9 +61,9 @@ using hint = int;
 #define TRAIL 512
 
 /////// UNCOMMENT TO DEBUG
-// #define DBG_TRACE (SEARCH + LEARNING) // 183
+// #define DBG_TRACE (SEARCH + DOMAINS + BRANCH + PROPAGATION + QUEUE) // 183
 //                                              // 1+2+4+32+128
-// #define DBG_BOUND true
+// #define DBG_BOUND (num_literals >= 4729)
 // #define DBG_CBOUND true
 // #define DBG_CLBOUND true // cl->id == 80 //solver.num_choicepoints >= 10527
 // #define DBG_BBOUND true
@@ -74,7 +74,7 @@ using hint = int;
 // #define DBG_EDGEFINDING (m_solver.num_cons_propagations >= 0)
 // #define DBG_EXPLEF true      //(m_schedule.num_fails > 236)
 // #define DBG_THETA (m_schedule.num_fails >= 481)
-// #define DBG_BELLMAN true //(sched.num_choicepoints >= 1045)
+// #define DBG_BELLMAN (numLiteral() == 157)
 // #define DBG_BELLMAN_EXPL (sched.num_choicepoints >= 4172)
 // #define DEBUG_HEURISTICS
 // #define DBG_UP

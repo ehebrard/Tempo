@@ -376,6 +376,10 @@ public:
 
       best_solution[bound::lower] = bound[bound::lower];
       best_solution[bound::upper] = bound[bound::upper];
+        
+//        for(var_t x{0}; x<size(); ++x) {
+//            std::cout << "x" << x << ": " << lower(x) << ".." << upper(x) << std::endl;
+//        }
 
       //        std::cout << "savebest " << bound[bound::lower][0] << std::endl;
     }
@@ -1832,8 +1836,27 @@ Solver<T>::Solver(Options opt)
 }
 
 template <typename T> void Solver<T>::saveSolution() {
+    
+//    std::cout << "save solution\n";
+    
     boolean.saveSolution();
     numeric.saveSolution();
+    
+//    
+//    for(var_t x{0}; x<boolean.size(); ++x) {
+//        if(boolean.hasSemantic(x)) {
+//            auto e{boolean.getEdge(boolean.value(x), x)};
+//            std::cout << boolean.getLiteral(boolean.value(x), x) << " <=> " << e << std::endl;
+//            
+//            if(e.falsified(*this)) {
+//                std::cout << "bug on b" << x << ": " << numeric.upper(e.to) << " - " << numeric.lower(e.from) << " > " << e.distance << std::endl;
+//                exit(1);
+//            } else {
+//                std::cout << "ok: " << numeric.upper(e.to) << " - " << numeric.lower(e.from) << " <= " << e.distance << std::endl;
+//            }
+//        }
+//    }
+    
     ++num_solutions;
     SolutionFound.trigger(*this);
 }
@@ -2110,11 +2133,21 @@ void Solver<T>::set(const DistanceConstraint<T> &c, const index_t r) {
     
 #ifdef DBG_TRACE
     if (DBG_BOUND and (DBG_TRACE & PROPAGATION)) {
-        std::cout << "set constraint " << c << std::endl;
+        std::cout << "set constraint " << c << " @" << numLiteral() << std::endl;
     }
 #endif
     
     core.emplace_edge(c.from, c.to, c.distance, r);
+    
+#ifdef DBG_TRACE
+    if (DBG_BOUND and (DBG_TRACE & PROPAGATION)) {
+        if(numLiteral() == 70) {
+            std::cout << "--> precedences:\n"; //<< core << std::endl;
+            displayPrecedences(std::cout);
+        }
+    }
+#endif
+    
     boundClosure(c.from, c.to, c.distance, r);
 }
 
@@ -2150,17 +2183,18 @@ void Solver<T>::setNumeric(Literal<T> l, const Explanation<T> &e,
     
     if (not numeric.satisfied(l)) {
         
-#ifdef DBG_TRACE
-        if (DBG_BOUND and (DBG_TRACE & PROPAGATION)) {
-          std::cout << "set " << pretty(l) << " @" << numLiteral() << " b/c "
-                    << e << std::endl;
-        }
-#endif
-        
         reason.emplace_back(e);
         trail.push_back(l);
 //        decision_level.push_back(level());
         numeric.set(l);
+        
+#ifdef DBG_TRACE
+        auto stamp{numLiteral()};
+        if (DBG_BOUND and (DBG_TRACE & PROPAGATION)) {
+          std::cout << "set " << pretty(l) << " @" << stamp << " b/c "
+                    << e  << (do_update ? "*" : "") << std::endl;
+        }
+#endif
         
         if (numeric.falsified(l)) {
             
@@ -2214,10 +2248,16 @@ void Solver<T>::setBoolean(Literal<T> l, const Explanation<T> &e) {
         throw Failure<T>(e);
     }
     
+    
 #ifdef DBG_TRACE
     if (DBG_BOUND and (DBG_TRACE & PROPAGATION)) {
-      std::cout << "set " << pretty(l) << " @" << numLiteral() << " b/c " << e
+        if(numLiteral() == 69) {
+      std::cout << "before set " << pretty(l) << " @" << numLiteral() << " b/c " << e
                 << std::endl;
+            
+            std::cout << "--> precedences:\n"; //<< core << std::endl;
+            displayPrecedences(std::cout);
+        }
     }
 #endif
     
@@ -2225,6 +2265,17 @@ void Solver<T>::setBoolean(Literal<T> l, const Explanation<T> &e) {
     trail.push_back(l);
 //    decision_level.push_back(level());
     boolean.set(l);
+    
+#ifdef DBG_TRACE
+    if (DBG_BOUND and (DBG_TRACE & PROPAGATION)) {
+      std::cout << "set " << pretty(l) << " @" << numLiteral() << " b/c " << e
+                << std::endl;
+        if(numLiteral() == 70) {
+            std::cout << "--> precedences:\n"; //<< core << std::endl;
+            displayPrecedences(std::cout);
+        }
+    }
+#endif
     
     if (boolean_search_vars.has(l.variable()))
         boolean_search_vars.remove_back(l.variable());
@@ -2251,21 +2302,8 @@ void Solver<T>::boundClosure(const var_t x, const var_t y, const T d,
 template <typename T> void Solver<T>::restart(const bool on_solution) {
     
     ++num_restarts;
-    
     env.restore(init_level);
     decisions.clear();
-
-    //    auto sb{numLiteral()};
-    //
-    //    std::cout << env.level() << std::endl;
-    //    std::cout << numLiteral() << std::endl;
-    //  undo();
-    //    std::cout << numLiteral() << std::endl;
-    //
-    //    if(numLiteral() != sb) {
-    //        std::cout << "here " << numLiteral() << "/" << sb << "\n";
-    //        exit(1);
-    //    }
 
     if (on_solution) {
         restartPolicy.initialize();
@@ -2276,7 +2314,7 @@ template <typename T> void Solver<T>::restart(const bool on_solution) {
     SearchRestarted.trigger(on_solution);
     
     if (options.verbosity > Options::NORMAL) {
-        std::cout << std::setw(10) << "restart ";
+        std::cout << std::setw(8) << "restart(" << (on_solution ? "s" : "l") << ")";
         displayProgress(std::cout);
     }
     
@@ -3752,16 +3790,17 @@ template <typename T> boolean_state Solver<T>::search() {
          not(num_fails >= options.search_limit)) {
       
     try {
+
+      PropagationInitiated.trigger(*this);
+      propagate();
+      PropagationCompleted.trigger(*this);
+        
 #ifdef DBG_TRACE
       if (DBG_BOUND) {
         std::cout << "--- propag [i=" << num_choicepoints << "] ---\n";
         printTrace();
       }
 #endif
-
-      PropagationInitiated.trigger(*this);
-      propagate();
-      PropagationCompleted.trigger(*this);
 
       // make a checkpoint
       saveState();
@@ -3773,7 +3812,7 @@ template <typename T> boolean_state Solver<T>::search() {
 #ifdef DBG_TRACE
         if (DBG_BOUND) {
           std::cout << "--- new solution [i=" << num_choicepoints << "] ---\n";
-          printTrace();
+//          printTrace();
         }
 #endif
 
@@ -3868,26 +3907,6 @@ template <typename T> void tempo::Solver<T>::propagate() {
               }
             }
 
-//            else if(options.full_up and ) {
-//
-//            }
-            //            else if (2*env.level() <
-            //            static_cast<int>(avg_fail_level) and clauses.notify(l,
-            //            0)) {
-            //
-            //#ifdef DBG_TRACE
-            //              if (DBG_BOUND and (DBG_TRACE & QUEUE)) {
-
-            //                std::cout << " -" << clauses << " (" <<
-            //                clauses.id() << ")"
-            //                          << std::endl;
-            //              }
-            //#endif
-            //
-            ////                need_up_num = true;
-            //              propagation_queue.activate(&clauses);
-            //            }
-
             const std::vector<int> &cid =
                 (l.isNumeric() ? numeric_constraints[l]
                                : boolean_constraints[l]);
@@ -3947,11 +3966,7 @@ template <typename T> int Solver<T>::saveState() {
 }
 
 template <typename T> void Solver<T>::restoreState(const int l) {
-//  if (l < init_level) {
-//    throw SearchExhausted();
-//  } else {
     env.restore(l);
-//  }
 }
 
 template <typename T> void Solver<T>::undo() {
@@ -4324,6 +4339,25 @@ std::ostream &Solver<T>::displayBranches(std::ostream &os) const {
 }
 
 template <typename T>
+std::ostream &Solver<T>::displayPrecedences(std::ostream &os) const {
+
+    for (auto a : core) {
+      for (auto e : core[a]) {
+        int b{e};
+        os << "x" << b;
+        if (e.label() > 0) {
+          os << " - " << e.label();
+        } else if (e.label() < 0) {
+          os << " + " << -e.label();
+        }
+        os << " <= x" << a << std::endl;
+      }
+    }
+    
+    return os;
+}
+
+template <typename T>
 std::ostream &Solver<T>::displayTrail(std::ostream &os) const {
   //    os << "branch:";
   //      for(var_t x{0}; x<boolean.size(); ++x) {
@@ -4386,11 +4420,11 @@ std::ostream &Solver<T>::displayConstraints(std::ostream &os) const {
   return os;
 }
 
-template <typename T>
-std::ostream &Solver<T>::displayPrecedences(std::ostream &os) const {
-  os << core;
-  return os;
-}
+//template <typename T>
+//std::ostream &Solver<T>::displayPrecedences(std::ostream &os) const {
+//  os << core;
+//  return os;
+//}
 
 template <typename T> void Solver<T>::updateActivity(const Literal<T> l) {
   if (l.isNumeric()) {
@@ -4434,18 +4468,8 @@ std::ostream &Solver<T>::display(std::ostream &os, const bool dom,
   }
   if (pre) {
     os << "precedences:\n"; //<< core << std::endl;
-    for (auto a : core) {
-      for (auto e : core[a]) {
-        int b{e};
-        os << "x" << b;
-        if (e.label() > 0) {
-          os << " - " << e.label();
-        } else if (e.label() < 0) {
-          os << " + " << -e.label();
-        }
-        os << " <= x" << a << std::endl;
-      }
-    }
+      displayPrecedences(os);
+//      os << std::endl;
   }
   if (cla) {
       os << "clauses:\n" ;
