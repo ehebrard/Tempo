@@ -162,3 +162,28 @@ void loadBranch(tempo::Solver<int> &solver, const tempo::serialization::Branch &
 
     solver.propagate();
 }
+
+
+EdgeMapper::EdgeMapper(const tempo::Options &options) {
+    auto res = loadSchedulingProblem(options);
+    solver = std::move(res.solver);
+    problem = std::move(res.instance);
+}
+
+auto EdgeMapper::getTaskEdge(tempo::Literal<Time> lit) const -> std::pair<unsigned, unsigned> {
+    if (not lit.hasSemantic()) {
+        throw std::runtime_error("cannot get edge without semantic");
+    }
+
+    auto edge = solver->boolean.getEdge(lit);
+    const auto &mapping = problem.getMapping();
+    if (not mapping.contains(edge.from) or not mapping.contains(edge.to)) {
+        throw std::runtime_error("edge does not correspond to task - task edge");
+    }
+
+    return {mapping(edge.from), mapping(edge.to)};
+}
+
+std::size_t EdgeMapper::numTasks() const noexcept {
+    return problem.tasks().size();
+}

@@ -21,36 +21,6 @@
 
 namespace fs = std::filesystem;
 
-class EdgeMapper {
-    using Time = int;
-    std::unique_ptr<tempo::Solver<Time>> solver;
-    ProblemInstance problem;
-
-public:
-    explicit EdgeMapper(const tempo::Options &options) {
-        auto res = loadSchedulingProblem(options);
-        solver = std::move(res.solver);
-        problem = std::move(res.instance);
-    }
-
-    [[nodiscard]] auto getTaskEdge(tempo::Literal<Time> lit) const {
-        if (not lit.hasSemantic()) {
-            throw std::runtime_error("cannot get edge without semantic");
-        }
-
-        auto edge = solver->boolean.getEdge(lit);
-        const auto &mapping = problem.getMapping();
-        if (not mapping.contains(edge.from) or not mapping.contains(edge.to)) {
-            throw std::runtime_error("edge does not correspond to task - task edge");
-        }
-
-        return std::make_pair(mapping(edge.from), mapping(edge.to));
-    }
-
-    [[nodiscard]] std::size_t numTasks() const noexcept {
-        return problem.tasks().size();
-    }
-};
 
 int main(int argc, char **argv) {
     using namespace tempo;

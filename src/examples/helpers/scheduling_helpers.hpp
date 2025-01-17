@@ -185,6 +185,33 @@ auto runLNS(Policy &&policy, const std::string &solPath, tempo::Solver<T> &solve
     return sw.elapsed<std::chrono::milliseconds>();
 }
 
+/**
+ * @brief Helper class that maps literals to task edges
+ * @details @copybrief
+ */
+class EdgeMapper {
+    std::unique_ptr<tempo::Solver<Time>> solver;
+    ProblemInstance problem;
+
+public:
+    /**
+     * Ctor
+     * @param options options for solver
+     */
+    explicit EdgeMapper(const tempo::Options &options);
+
+    /**
+     * @brief
+     * @param lit literal to map
+     * @return corresponding TASK edge
+     */
+    [[nodiscard]] auto getTaskEdge(tempo::Literal<Time> lit) const -> std::pair<unsigned, unsigned>;
+
+    /**
+     * @return number of tasks in the problem
+     */
+    [[nodiscard]] std::size_t numTasks() const noexcept;
+};
 
 
 #endif //TEMPO_SCHEDULING_HELPERS_HPP
