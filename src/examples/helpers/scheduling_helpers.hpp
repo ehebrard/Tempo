@@ -211,6 +211,18 @@ public:
      * @return number of tasks in the problem
      */
     [[nodiscard]] std::size_t numTasks() const noexcept;
+
+    /**
+     * Access to the solver
+     * @return
+     */
+    auto getSolver() noexcept -> tempo::Solver<Time> &;
+
+    /**
+     * Access to the solver
+     * @return
+     */
+    [[nodiscard]] auto getSolver() const noexcept -> const tempo::Solver<Time> &;
 };
 
 

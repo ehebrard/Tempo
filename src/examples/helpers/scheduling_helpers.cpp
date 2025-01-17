@@ -187,3 +187,11 @@ auto EdgeMapper::getTaskEdge(tempo::Literal<Time> lit) const -> std::pair<unsign
 std::size_t EdgeMapper::numTasks() const noexcept {
     return problem.tasks().size();
 }
+
+auto EdgeMapper::getSolver() noexcept -> tempo::Solver<Time> & {
+    return *solver;
+}
+
+auto EdgeMapper::getSolver() const noexcept -> const tempo::Solver<Time> & {
+    return *solver;
+}
