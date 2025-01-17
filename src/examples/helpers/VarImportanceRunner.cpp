@@ -70,16 +70,16 @@ auto VarImportanceRunner::run(tempo::Literal<Time> lit) -> Result {
         throw std::runtime_error("inconsistent sub problem");
     }
 
-    if (literalCache.at(lit)) {
-        return {Valid, optimum};
-    }
-
     auto problemInstance = loadSchedulingProblem(options);
     auto &s = *problemInstance.solver;
     const auto &p = problemInstance.instance;
     loadBranch(s, problem.decisions);
     if (s.boolean.satisfied(lit) or s.boolean.falsified(lit)) {
         return {AlreadyDecided, {}};
+    }
+
+    if (literalCache.at(lit)) {
+        return {Valid, optimum};
     }
 
     try {
