@@ -10,6 +10,7 @@
 #include <ranges>
 #include <vector>
 #include <string>
+#include <filesystem>
 
 #include "util/Lookup.hpp"
 #include "util/serialization.hpp"
@@ -21,6 +22,8 @@
 
 
 #define JSONIFY(JSON, DATA) JSON[#DATA] = DATA;
+
+namespace fs = std::filesystem;
 
 int main(int argc, char **argv) {
     using namespace tempo;
@@ -80,6 +83,7 @@ int main(int argc, char **argv) {
     JSONIFY(json, selectionSize)
     json["date"] = shell::getTimeStamp();
     json["commit"] = GitSha;
+    json["problem"] = fs::path(mainDir).filename();
     std::cout << json.dump(__JSON_INDENT__) << std::endl;
     return 0;
 }
