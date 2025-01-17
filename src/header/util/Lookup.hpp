@@ -13,6 +13,7 @@
 #include <vector>
 #include <optional>
 #include <algorithm>
+#include <cassert>
 #include <Iterators.hpp>
 
 #include "traits.hpp"
