@@ -5,21 +5,20 @@
 
 #ifndef TEMPO_FEATURE_EXTRACTORS_HPP
 #define TEMPO_FEATURE_EXTRACTORS_HPP
-#include <unordered_map>
 #include <torch/torch.h>
 #include <variant>
-#include <vector>
 #include <span>
+#include <optional>
 #include <Iterators.hpp>
 #include <nlohmann/json.hpp>
 
 #include "util/traits.hpp"
 #include "util/edge_distance.hpp"
-#include "util/serialization.hpp"
 #include "util/SchedulingProblemHelper.hpp"
 #include "tensor_utils.hpp"
 #include "torch_types.hpp"
 #include "util/factory_pattern.hpp"
+#include "util/Matrix.hpp"
 
 /**
  * @brief namespace containing neural network specific code
@@ -109,7 +108,18 @@ namespace tempo::nn {
      * The edge feature contains first a flag that indicates whether the edge is an already fixed precedence edge or not
      * and second the normalized temporal difference between source and destination task
      */
-    struct TimingEdgeExtractor {
+    class TimingEdgeExtractor {
+        std::optional<Matrix<bool>> taskPrecedences;
+    public:
+        static constexpr auto LegacyPrecedences = "precedencesFromDistances";
+
+        /**
+         * Ctor
+         * @param taskPrecedences bool matrix indicating precedences between tasks
+         */
+        explicit TimingEdgeExtractor(std::optional<Matrix<bool>> taskPrecedences) noexcept: taskPrecedences(
+            std::move(taskPrecedences)) {}
+
         /**
          * Returns a tensor containing timing features for all edges.
          * @tparam DistFun type of distance function
@@ -130,8 +140,14 @@ namespace tempo::nn {
             auto ret = torch::empty({static_cast<long>(edgeFrom.size()), 2}, dataTensorOptions());
             for (auto [idx, from, to] : iterators::zip_enumerate(edgeFrom, edgeTo, 0l)) {
                 const auto tempDiff = state.distance(from, to);
-                const auto tempDiffRev = state.distance(to, from);
-                const bool isPrecedence = tempDiff <= 0 or tempDiffRev <= 0;
+                bool isPrecedence;
+                if (taskPrecedences.has_value()) {
+                    isPrecedence = taskPrecedences->at(from, to);
+                } else {
+                    const auto tempDiffRev = state.distance(to, from);
+                    isPrecedence = tempDiff <= 0 or tempDiffRev <= 0;
+                }
+
                 util::sliceAssign(ret, {idx, util::SliceHere}, {static_cast<DataType>(isPrecedence),
                                                                 static_cast<DataType>(tempDiff) / ub});
             }
@@ -140,13 +156,36 @@ namespace tempo::nn {
         }
     };
 
-    MAKE_FACTORY(TaskTimingFeatureExtractor, const nlohmann::json &config) {
+    MAKE_TEMPLATE_FACTORY(TaskTimingFeatureExtractor, ESCAPE(concepts::scalar T, SchedulingResource R),
+                          const nlohmann::json &config, const SchedulingProblemHelper<T, R> &) {
             return TaskTimingFeatureExtractor{.legacyFeatures = config.at(
                     TaskTimingFeatureExtractor::LegacyKey).get<bool>()};
         }
     };
-    MAKE_DEFAULT_FACTORY(ResourceEnergyExtractor, const nlohmann::json&)
-    MAKE_DEFAULT_FACTORY(TimingEdgeExtractor, const nlohmann::json&)
+
+    MAKE_DEFAULT_TEMPLATE_FACTORY(ResourceEnergyExtractor, ESCAPE(concepts::scalar T, SchedulingResource R),
+                                  const nlohmann::json&, const SchedulingProblemHelper<T, R> &)
+
+    MAKE_TEMPLATE_FACTORY(TimingEdgeExtractor, ESCAPE(concepts::scalar T, SchedulingResource R),
+                          const nlohmann::json &config, const SchedulingProblemHelper<T, R> &problem) {
+            if (config.at(TimingEdgeExtractor::LegacyPrecedences).get<bool>()) {
+                return TimingEdgeExtractor(std::nullopt);
+            }
+
+            Matrix<bool> taskPrecedences(problem.tasks().size(), problem.tasks().size(), false);
+            const auto &mapping = problem.getMapping();
+            for (const auto &prec : problem.precedences()) {
+                if (not problem.hasVariable(prec.from) or not problem.hasVariable(prec.to)) {
+                    throw std::runtime_error("variable not contained in problem");
+                }
+
+                taskPrecedences(mapping(prec.from), mapping(prec.to)) = true;
+                taskPrecedences(mapping(prec.to), mapping(prec.from)) = true;
+            }
+
+            return TimingEdgeExtractor(std::move(taskPrecedences));
+        }
+    };
 }
 
 

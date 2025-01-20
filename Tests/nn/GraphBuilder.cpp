@@ -26,7 +26,7 @@ void testFeatureExtraction(const std::string &featureName, const std::string &gr
     auto graph = graphBuilder.getGraph(solverState);
     std::ifstream configFile(TestData::GraphBuilderConfig);
     auto config = nlohmann::json::parse(configFile).at(featureName).get<ExtractorConfig>();
-    auto extractor = FeatureExtractorFactory::getInstance().create(config.extractorName, config.arguments);
+    auto extractor = FeatureExtractorFactory::getInstance().create(config.extractorName, config.arguments, problem);
     auto gt = std::visit([&topology, &problem, &solverState](auto &ext) { return ext(topology, solverState, problem); },
                          extractor);
     EXPECT_TRUE(torch::all(gt == graph.at(graphKey)).item<bool>());

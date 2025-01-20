@@ -121,7 +121,7 @@ TEST(nn_feature_extractors, TimingEdgeExtractor) {
     Topology topology;
     EdgeVector edges{{0, 1}, {2, 1}};
     topology.edgeIndices = util::makeIndexTensor(edges);
-    torch::Tensor features = TimingEdgeExtractor()(topology, makeSolverState(timings, scheduler),
+    torch::Tensor features = TimingEdgeExtractor({})(topology, makeSolverState(timings, scheduler),
                                                    ProblemInstance({}, {}, {}, schedule.front()));
     ASSERT_EQ(features.size(0), edges.size());
     ASSERT_EQ(features.size(1), 2);
@@ -129,5 +129,31 @@ TEST(nn_feature_extractors, TimingEdgeExtractor) {
     EXPECT_EQ(features[0][0].item<float>(), 0);
     EXPECT_EQ(features[0][1].item<float>(), 1);
     EXPECT_EQ(features[1][0].item<float>(), 1);
+    EXPECT_EQ(features[1][1].item<float>(), -0.5);
+}
+
+TEST(nn_feature_extractors, TimingEdgeExtractor_precedence_matrix) {
+    using namespace tempo::nn;
+    using namespace tempo::testing;
+    using namespace tempo;
+    tempo::Matrix<int> timings(3, 3, {0, 4, 0,
+                                      3, 0, 5,
+                                      0, -2, 0});
+    auto [schedule, scheduler] = createTasks({{0, 4, 0, 4}});
+    Topology topology;
+    EdgeVector edges{{0, 1}, {2, 1}};
+    topology.edgeIndices = util::makeIndexTensor(edges);
+    Matrix taskPrecedences(3, 3, false);
+    taskPrecedences.at(0, 1) = true;
+    taskPrecedences.at(1, 0) = true;
+    torch::Tensor features = TimingEdgeExtractor(std::move(taskPrecedences))(
+        topology, makeSolverState(timings, scheduler),
+        ProblemInstance({}, {}, {}, schedule.front()));
+    ASSERT_EQ(features.size(0), edges.size());
+    ASSERT_EQ(features.size(1), 2);
+    ASSERT_EQ(features.sizes().size(), 2);
+    EXPECT_EQ(features[0][0].item<float>(), 1);
+    EXPECT_EQ(features[0][1].item<float>(), 1);
+    EXPECT_EQ(features[1][0].item<float>(), 0);
     EXPECT_EQ(features[1][1].item<float>(), -0.5);
 }
