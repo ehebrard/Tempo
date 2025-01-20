@@ -128,6 +128,7 @@ int main(int argc, char **argv) {
     JSONIFY(json, taskEdgeImportance);
     JSONIFY(json, unimportant);
     JSONIFY(json, decided);
+    json["problem"] = fs::path(mainDir).filename();
     json["searchEffort"] = runner.averageSearchEffort();
     json["avgDecisions"] = runner.averageNumberOfDecisions();
     json["date"] = shell::getTimeStamp();

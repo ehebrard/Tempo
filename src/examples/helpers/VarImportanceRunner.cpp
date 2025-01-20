@@ -37,7 +37,7 @@ VarImportanceRunner::VarImportanceRunner(ser::PartialProblem partialProblem, tem
 
     literalCache.resize(maxVar * 2 + 2, false);
     for (const auto &[var, val] : optSol.decisions) {
-        if (val and var <= maxVar) {
+        if (var <= maxVar) {
             auto lit = s.boolean.getLiteral(val, var);
             literalCache.at(lit) = true;
         }
