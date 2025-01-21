@@ -175,12 +175,10 @@ namespace tempo::nn {
             Matrix<bool> taskPrecedences(problem.tasks().size(), problem.tasks().size(), false);
             const auto &mapping = problem.getMapping();
             for (const auto &prec : problem.precedences()) {
-                if (not problem.hasVariable(prec.from) or not problem.hasVariable(prec.to)) {
-                    throw std::runtime_error("variable not contained in problem");
+                if (problem.hasVariable(prec.from) and problem.hasVariable(prec.to)) {
+                    taskPrecedences(mapping(prec.from), mapping(prec.to)) = true;
+                    taskPrecedences(mapping(prec.to), mapping(prec.from)) = true;
                 }
-
-                taskPrecedences(mapping(prec.from), mapping(prec.to)) = true;
-                taskPrecedences(mapping(prec.to), mapping(prec.from)) = true;
             }
 
             return TimingEdgeExtractor(std::move(taskPrecedences));
