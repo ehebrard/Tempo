@@ -8,6 +8,10 @@
 #include <limits>
 #include <unordered_map>
 #include <nlohmann/json.hpp>
+#include <optional>
+#include <future>
+#include <tuple>
+#include <chrono>
 
 #include "helpers/shell.hpp"
 #include "helpers/cli.hpp"
@@ -18,13 +22,46 @@
 #include "helpers/VarImportanceRunner.hpp"
 #include "heuristics/LNS/PolicyDecay.hpp"
 #include "heuristics/LNS/relaxation_policy_factories.hpp"
+#include "util/ThreadPool.hpp"
 
 #define JSONIFY(JSON, DATA) JSON[#DATA] = DATA;
 
 namespace fs = std::filesystem;
 
+class RunResult {
+public:
+    using Run = std::optional<std::pair<Result, Result>>;
+private:
+    tempo::Literal<Time> lit;
+    std::future<Run> aResult;
+    Run sResult;
+    bool synchronous;
+public:
+    RunResult(tempo::Literal<Time> lit, Run result) noexcept: lit(lit), sResult(std::move(result)), synchronous(true) {}
+
+    RunResult(tempo::Literal<Time> lit, std::future<Run> result) noexcept: lit(lit), aResult(std::move(result)),
+                                                                           synchronous(false) {}
+
+    template<typename Dur>
+    bool wait(Dur dur) {
+        return sResult.has_value() or aResult.wait_for(dur) == std::future_status::ready;
+    }
+
+    auto get() {
+        if (synchronous) {
+            return std::make_pair(lit, sResult);
+        }
+
+        if (aResult.valid()) {
+            return std::make_pair(lit, aResult.get());
+        }
+
+        throw std::runtime_error("No run result");
+    }
+};
 
 int main(int argc, char **argv) {
+    using namespace std::chrono_literals;
     using namespace tempo;
     using namespace heuristics;
     int subId = -1;
@@ -35,6 +72,7 @@ int main(int argc, char **argv) {
     };
     auto policyType = lns::RelaxPolicy::RandomTasks;
     double sporadicIncrement = 0;
+    unsigned mt = 0;
     auto opt = cli::parseOptions(argc, argv,
                                  cli::ArgSpec("sub-number", "id of the sub problem", false, subId),
                                  cli::SwitchSpec("root", "calculate edge importance for a root instance instead", root,
@@ -63,7 +101,8 @@ int main(int argc, char **argv) {
                                                  policyParams.allTaskEdges, false),
                                  cli::ArgSpec("lns-policy", "lns relaxation policy", false, policyType),
                                  cli::ArgSpec("sporadic-increment", "sporadic root search probability increment", false,
-                                            sporadicIncrement)
+                                              sporadicIncrement),
+                                 cli::ArgSpec("mt", "multi-threading number of threads", false, mt)
     );
     const auto mainDir = opt.instance_file;
     opt.instance_file = getInstance(mainDir);
@@ -118,35 +157,75 @@ int main(int argc, char **argv) {
             s.optimize(obj);
         }
     };
-    const double numLits = runner.getLiterals().size();
-    for (auto [iter, lit] : iterators::enumerate(runner.getLiterals(), 1)) {
-        auto progress = static_cast<unsigned>(iter / numLits * 100);
-        std::cout << "-- " << progress << "% done" << std::endl;
+
+    std::vector<RunResult> runs;
+    ThreadPool threadPool(mt);
+    std::mutex mutex;
+    unsigned iteration = 0;
+    unsigned progress = 0;
+    for (auto lit: runner.getLiterals()) {
         if (varImportance.contains(lit.variable())) {
             //This should never happen
             std::cout << "duplicate literal in search variables" << std::endl;
             std::exit(2);
         }
 
-        using enum SchedulerState;
-        auto posResult = runner.run(lit, run);
         if (KillHandler::instance().signalReceived()) {
             break;
         }
 
-        ++numEdges;
-        if (posResult.state == AlreadyDecided) {
-            ++numDecided;
+        auto work = [&runner, lit, &run, &mutex, &iteration, &progress]() -> RunResult::Run {
+            using enum SchedulerState;
+            auto posResult = runner.run(lit, run);
+
+            if (posResult.state == AlreadyDecided) {
+                return {};
+            }
+
+            auto negResult = runner.run(~lit, run);
+            if (negResult.state == AlreadyDecided) {
+                return {};
+            }
+
+            std::lock_guard lock(mutex);
+            const auto percentage = static_cast<unsigned>(
+                static_cast<double>(++iteration) / runner.getLiterals().size() * 100);
+            if (percentage > progress) {
+                progress = percentage;
+                std::cout << "-- " << progress << "% done" << std::endl;
+            }
+            return std::make_pair(posResult, negResult);
+        };
+
+        if (mt > 1) {
+            runs.emplace_back(lit, threadPool.submit(work));
+        } else {
+            runs.emplace_back(lit, work());
+        }
+    }
+
+    auto it = runs.begin();
+    while (not runs.empty()) {
+        using enum SchedulerState;
+        auto &runResult = *it;
+        if (not runResult.wait(1s)) {
+            ++it;
+            if (it == runs.end()) {
+                it = runs.begin();
+            }
+
             continue;
         }
 
-        auto negResult = runner.run(~lit, run);
-        if (negResult.state == AlreadyDecided) {
+        ++numEdges;
+        auto [lit, res] = runResult.get();
+        if (not res.has_value()) {
             ++numDecided;
             continue;
         }
 
         ++numDecisions;
+        auto [posResult, negResult] = *res;
         if (posResult.result.value_or(0) != optimum and negResult.result.value_or(0) != optimum) {
             std::cout << "ERROR: " << lit << " (variable " << lit.variable() << ")"
                       << " is a choice point but the optimal solution cannot be found from this state" << std::endl;
@@ -170,6 +249,13 @@ int main(int argc, char **argv) {
         auto [f, t] = mapper.getTaskEdge(lit);
         taskEdgeImportance.emplace_back(
                 std::to_string(f) + " <-> " + std::to_string(t) + "=" + std::to_string(quality));
+        if (it == runs.end() - 1) {
+            runs.pop_back();
+            it = runs.begin();
+        } else {
+            std::swap(*it, runs.back());
+            runs.pop_back();
+        }
     }
 
     auto unimportant = static_cast<double>(numIndifferent) / numDecisions;
