@@ -63,3 +63,22 @@ double VarImportanceRunner::averageNumberOfDecisions() const noexcept {
 bool VarImportanceRunner::isInconsistent() const noexcept {
     return inconsistent;
 }
+
+Result VarImportanceRunner::evaluateRun(const tempo::Solver<Time> &solver, const tempo::NumericVar<Time> &duration) {
+    using enum SchedulerState;
+    std::lock_guard guard(mutex);
+    totalNumDecisions += solver.num_choicepoints;
+    ++numSearches;
+    if (solver.boolean.hasSolution() and solver.numeric.hasSolution()) {
+        const auto makeSpan = solver.numeric.lower(duration);
+        if (makeSpan == optimum) {
+            for (auto [litId, cacheVal] : iterators::enumerate(literalCache)) {
+                cacheVal = cacheVal or solver.boolean.bestSolution().at(litId);
+            }
+        }
+
+        return {Valid, makeSpan};
+    }
+
+    return {Unsat, {}};
+}

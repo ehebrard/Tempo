@@ -7,6 +7,7 @@
 #ifndef TEMPO_VARIMPORTANCERUNNER_HPP
 #define TEMPO_VARIMPORTANCERUNNER_HPP
 
+#include <mutex>
 #include <Iterators.hpp>
 
 #include "util/Options.hpp"
@@ -36,12 +37,16 @@ struct Result {
 };
 
 
+/**
+ * @brief Thread safe runner for variable importance calculation
+ */
 class VarImportanceRunner {
     tempo::serialization::PartialProblem problem;
     tempo::Options options;
     Time optimum;
     std::vector<bool> literalCache;
     std::vector<tempo::Literal<Time>> searchLiterals;
+    std::mutex mutex;
     unsigned long totalNumDecisions = 0;
     unsigned numSearches = 0;
     bool inconsistent = false;
@@ -84,10 +89,12 @@ public:
             return {AlreadyDecided, {}};
         }
 
-        if (literalCache.at(lit)) {
-            return {Valid, optimum};
+        {
+            std::lock_guard guard(mutex);
+            if (literalCache.at(lit)) {
+                return {Valid, optimum};
+            }
         }
-
         try {
             s.set(lit);
         } catch(const tempo::Failure<Time> &) {
@@ -102,20 +109,7 @@ public:
                 }
             });
         std::forward<Search>(searchFunction)(s, objective);
-        totalNumDecisions += s.num_choicepoints;
-        ++numSearches;
-        if (s.boolean.hasSolution() and s.numeric.hasSolution()) {
-            const auto makeSpan = s.numeric.lower(p.schedule().duration);
-            if (makeSpan == optimum) {
-                for (auto [litId, cacheVal] : iterators::enumerate(literalCache)) {
-                    cacheVal = cacheVal or s.boolean.bestSolution().at(litId);
-                }
-            }
-
-            return {Valid, makeSpan};
-        }
-
-        return {Unsat, {}};
+        return evaluateRun(s, p.schedule().duration);
     }
 
     /**
@@ -136,6 +130,10 @@ public:
      */
     [[nodiscard]] bool isInconsistent() const noexcept;
 
+protected:
+
+
+    Result evaluateRun(const tempo::Solver<Time> &solver, const tempo::NumericVar<Time> &duration);
 };
 
 
