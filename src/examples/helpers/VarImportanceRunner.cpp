@@ -4,11 +4,7 @@
 * @brief
 */
 
-#include <ranges>
-#include <Iterators.hpp>
-
 #include "VarImportanceRunner.hpp"
-#include "scheduling_helpers.hpp"
 
 VarImportanceRunner::VarImportanceRunner(ser::PartialProblem partialProblem, tempo::Options options,
                                          const ser::Solution<Time> &optSol) : problem(std::move(partialProblem)),
@@ -62,54 +58,6 @@ double VarImportanceRunner::averageNumberOfDecisions() const noexcept {
     }
 
     return static_cast<double>(totalNumDecisions) / numSearches;
-}
-
-auto VarImportanceRunner::run(tempo::Literal<Time> lit) -> Result {
-    using enum SchedulerState;
-    if (isInconsistent()) {
-        throw std::runtime_error("inconsistent sub problem");
-    }
-
-    auto problemInstance = loadSchedulingProblem(options);
-    auto &s = *problemInstance.solver;
-    const auto &p = problemInstance.instance;
-    loadBranch(s, problem.decisions);
-    if (s.boolean.satisfied(lit) or s.boolean.falsified(lit)) {
-        return {AlreadyDecided, {}};
-    }
-
-    if (literalCache.at(lit)) {
-        return {Valid, optimum};
-    }
-
-    try {
-        s.set(lit);
-    } catch(const tempo::Failure<Time> &) {
-        return {Unsat, {}};
-    }
-
-    tempo::MinimizationObjective objective(p.schedule().duration);
-    s.SolutionFound.subscribe_unhandled(
-        [o = optimum, durVar = p.schedule().duration, &objective](auto &solver) mutable {
-            if (solver.numeric.lower(durVar) == o) {
-                objective.setDual(objective.primalBound());
-            }
-        });
-    s.optimize(objective);
-    totalNumDecisions += s.num_choicepoints;
-    ++numSearches;
-    if (s.boolean.hasSolution() and s.numeric.hasSolution()) {
-        const auto makeSpan = s.numeric.lower(p.schedule().duration);
-        if (makeSpan == optimum) {
-            for (auto [litId, cacheVal] : iterators::enumerate(literalCache)) {
-                cacheVal = cacheVal or s.boolean.bestSolution().at(litId);
-            }
-        }
-
-        return {Valid, makeSpan};
-    }
-
-    return {Unsat, {}};
 }
 
 bool VarImportanceRunner::isInconsistent() const noexcept {
