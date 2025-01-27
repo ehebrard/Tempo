@@ -5,9 +5,12 @@
 */
 
 
+#include <data_generation.hpp>
 #include <iostream>
 #include <string>
 #include <thread>
+#include <filesystem>
+#include <ranges>
 
 #include "../helpers/scheduling_helpers.hpp"
 #include "../helpers/cli.hpp"
@@ -22,6 +25,7 @@
 #include "heuristics/LNS/RelaxationEvaluator.hpp"
 
 namespace lns = tempo::lns;
+namespace fs = std::filesystem;
 
 using RP = lns::RelaxationPolicy<Time, ResourceConstraint>;
 
@@ -46,6 +50,7 @@ int main(int argc, char **argv) {
     bool useDRPolicy = false;
     bool reuseSolutions = false;
     std::string optSol;
+    std::string solutionDest;
     auto opt = cli::parseOptions(argc, argv,
                                  cli::SwitchSpec("dr", "use destroy-repair policy", useDRPolicy, false),
                                  cli::ArgSpec("gnn-loc", "Location of the GNN model", false, gnnLocation),
@@ -96,10 +101,37 @@ int main(int argc, char **argv) {
                                                  "whether the GNN may reuse solutions multiple times", reuseSolutions,
                                                  false),
                                  cli::ArgSpec("threads", "GNN inference threads", false,
-                                              numThreads));
+                                              numThreads),
+                                 cli::ArgSpec("save-to", "save solutions to", false, solutionDest));
     auto problemInfo = loadSchedulingProblem(opt);
     torch::set_num_threads(numThreads);
     bool optimal = false;
+
+    std::optional<Serializer<Time>> serializer;
+    if (not solutionDest.empty()) {
+        if (not fs::is_directory(solutionDest)) {
+            std::cerr << "directory " << solutionDest << " not accessible" << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
+
+        serializer = Serializer<Time>(solutionDest);
+        auto searchLits = problemInfo.instance.getSearchLiterals(*problemInfo.solver);
+        auto varView = searchLits | std::views::transform([](auto lit) { return BooleanVar(lit); });
+        std::vector searchVars(varView.begin(), varView.end());
+        problemInfo.solver->SolutionFound.subscribe_unhandled(
+            [&serializer, vars = std::move(searchVars), dur = problemInfo.instance.schedule().duration](
+        const auto &solver) {
+                serialization::Branch branch;
+                branch.reserve(vars.size());
+                for (const auto &var: vars) {
+                    branch.emplace_back(var.id(), solver.boolean.value(var));
+                }
+
+                const auto makeSpan = solver.numeric.lower(dur);
+                serializer->addSolution(makeSpan, std::move(branch));
+            });
+    }
+
     if (opt.greedy_runs > 0) {
         std::cout << "-- doing greedy warmstart" << std::endl;
         try {
@@ -109,7 +141,6 @@ int main(int argc, char **argv) {
             optimal = true;
         }
     }
-
 
     MinimizationObjective objective(problemInfo.instance.schedule().duration);
     long elapsedTime = 0;
@@ -145,5 +176,8 @@ int main(int argc, char **argv) {
     std::cout << "-- total duration: " << elapsedTime << "ms" << std::endl;
     std::cout << "-- date: " << shell::getTimeStamp() << std::endl;
     std::cout << "-- commit: " << GitSha << std::endl;
+    if (serializer.has_value()) {
+        serializer->flush();
+    }
     return 0;
 }
