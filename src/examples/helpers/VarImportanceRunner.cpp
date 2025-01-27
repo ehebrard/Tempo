@@ -88,7 +88,14 @@ auto VarImportanceRunner::run(tempo::Literal<Time> lit) -> Result {
         return {Unsat, {}};
     }
 
-    s.minimize(p.schedule().duration);
+    tempo::MinimizationObjective objective(p.schedule().duration);
+    s.SolutionFound.subscribe_unhandled(
+        [o = optimum, durVar = p.schedule().duration, &objective](auto &solver) mutable {
+            if (solver.numeric.lower(durVar) == o) {
+                objective.setDual(objective.primalBound());
+            }
+        });
+    s.optimize(objective);
     totalNumDecisions += s.num_choicepoints;
     ++numSearches;
     if (s.boolean.hasSolution() and s.numeric.hasSolution()) {
