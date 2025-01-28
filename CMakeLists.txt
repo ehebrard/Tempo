@@ -136,7 +136,7 @@ foreach(EXEC ${EXECUTABLES})
         target_include_directories(${NAME} PRIVATE ${TorchSparse_INCLUDE_DIR})
         target_link_libraries(${NAME} PRIVATE ${TORCH_LIB})
     endif ()
-    target_link_libraries(${NAME} PRIVATE nlohmann_json::nlohmann_json)
+    target_link_libraries(${NAME} PRIVATE nlohmann_json::nlohmann_json pthread)
 endforeach()
 
 add_library(tempo STATIC ${SOURCES})

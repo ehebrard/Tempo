@@ -26,6 +26,7 @@
 
 #include "constraints/Constraint.hpp"
 #include "ReversibleObject.hpp"
+#include "Failure.hpp"
 
 //#define DBG_CARD
 

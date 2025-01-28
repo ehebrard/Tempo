@@ -106,6 +106,7 @@ using hint = int;
 //  solver.level() <= 31 #define DBG_INCRP true
 //  #define DBG_SHRINK
 
+
 // priority values for constraint propagation
 enum class Priority {
     Low = 0,

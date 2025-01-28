@@ -93,6 +93,57 @@ namespace tempo {
         concept scalar_range = std::ranges::range<R> and concepts::scalar<std::ranges::range_value_t<R>>;
     }
 
+
+    /**
+     * @brief Uniformly draws samples (with replacement) from a population
+     * @details @copybrief
+     */
+    class UniformReplacementSampler {
+        std::vector<std::size_t> indices;
+    public:
+        /**
+         * Ctor
+         * @param populationSize size of the population to draw from
+         */
+        explicit UniformReplacementSampler(std::size_t populationSize);
+
+        /**
+         * Index of a random population element
+         * @return index of a population element. The same element is never drawn twice
+         */
+        std::size_t random() noexcept;
+
+        /**
+         * Whether the sampler is exhausted
+         * @return true if no more samples can be drawn, false otherwise
+         */
+        [[nodiscard]] bool exhausted() const noexcept;
+
+
+        /**
+         * Returns an iterator to a random element in the population
+         * @tparam R population range type
+         * @param range the population
+         * @return iterator to random element
+         */
+        template<std::ranges::random_access_range R> requires(std::ranges::sized_range<R>)
+        auto randomSelectIterator(R &&range) {
+            return std::ranges::begin(std::forward<R>(range)) + this->random();
+        }
+
+        /**
+         * Selects a random element from the population
+         * @tparam R population range type
+         * @param range the population
+         * @return randomly selected element
+         */
+        template<std::ranges::random_access_range R> requires(std::ranges::sized_range<R>)
+        decltype(auto) randomSelect(R &&range) {
+            return *this->randomSelectIterator(range);
+        }
+    };
+
+
     class ReplacementDistributionSampler ;
 
     /**
@@ -222,7 +273,7 @@ namespace tempo {
          * @note The range must contain as many elements as the PDF
          */
         template<std::ranges::random_access_range R> requires(std::ranges::sized_range<R>)
-        auto randomSelectIterator(R &&range) {
+        auto randomSelectIterator(R &&range) const {
             if (std::ranges::size(std::forward<R>(range)) != cdf.size()) {
                 throw std::runtime_error("range needs to have as many elements as PDF");
             }

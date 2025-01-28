@@ -90,6 +90,11 @@ namespace tempo {
         }
 
         [[nodiscard]] bool value(var_t x) const noexcept;
+
+        template<concepts::scalar T>
+        bool consistent(Literal<T> lit) const noexcept {
+            return value(lit.variable()) == lit.sign();
+        }
     };
 
     template<concepts::scalar T>

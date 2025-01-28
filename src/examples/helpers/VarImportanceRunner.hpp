@@ -7,9 +7,13 @@
 #ifndef TEMPO_VARIMPORTANCERUNNER_HPP
 #define TEMPO_VARIMPORTANCERUNNER_HPP
 
+#include <mutex>
+#include <Iterators.hpp>
+
 #include "util/Options.hpp"
 #include "util/Matrix.hpp"
 #include "Model.hpp"
+#include "scheduling_helpers.hpp"
 #include "util/serialization.hpp"
 
 using Time = int;
@@ -33,12 +37,16 @@ struct Result {
 };
 
 
+/**
+ * @brief Thread safe runner for variable importance calculation
+ */
 class VarImportanceRunner {
     tempo::serialization::PartialProblem problem;
     tempo::Options options;
     Time optimum;
     std::vector<bool> literalCache;
     std::vector<tempo::Literal<Time>> searchLiterals;
+    std::mutex mutex;
     unsigned long totalNumDecisions = 0;
     unsigned numSearches = 0;
     bool inconsistent = false;
@@ -61,10 +69,48 @@ public:
 
     /**
      * Runs the solver on the problem specified ad construction while enforcing the given literal
+     * @tparam Search Search function type
      * @param lit literal to enforce
+     * @param searchFunction Search function object to run the actual search
      * @return result containing in run status and obtained makespan if problem + lit is SAT
      */
-    auto run(tempo::Literal<Time> lit) -> Result;
+    template<std::invocable<tempo::Solver<Time> &, tempo::MinimizationObjective<Time>&> Search>
+    auto run(tempo::Literal<Time> lit, Search &&searchFunction) -> Result {
+        using enum SchedulerState;
+        if (isInconsistent()) {
+            throw std::runtime_error("inconsistent sub problem");
+        }
+
+        auto problemInstance = loadSchedulingProblem(options);
+        auto &s = *problemInstance.solver;
+        const auto &p = problemInstance.instance;
+        loadBranch(s, problem.decisions);
+        if (s.boolean.satisfied(lit) or s.boolean.falsified(lit)) {
+            return {AlreadyDecided, {}};
+        }
+
+        {
+            std::lock_guard guard(mutex);
+            if (literalCache.at(lit)) {
+                return {Valid, optimum};
+            }
+        }
+        try {
+            s.set(lit);
+        } catch(const tempo::Failure<Time> &) {
+            return {Unsat, {}};
+        }
+
+        tempo::MinimizationObjective objective(p.schedule().duration);
+        s.SolutionFound.subscribe_unhandled(
+            [o = optimum, durVar = p.schedule().duration, &objective](auto &solver) mutable {
+                if (solver.numeric.lower(durVar) == o) {
+                    objective.setDual(objective.primalBound());
+                }
+            });
+        std::forward<Search>(searchFunction)(s, objective);
+        return evaluateRun(s, p.schedule().duration);
+    }
 
     /**
      * Get the average number of decisions over all searches
@@ -84,6 +130,10 @@ public:
      */
     [[nodiscard]] bool isInconsistent() const noexcept;
 
+protected:
+
+
+    Result evaluateRun(const tempo::Solver<Time> &solver, const tempo::NumericVar<Time> &duration);
 };
 
 

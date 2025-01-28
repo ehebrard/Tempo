@@ -27,7 +27,6 @@ void BacktrackEnvironment::save() {
 }
 // void BacktrackEnvironment::override() { *(stamps.rbegin()) = trail.size(); }
 void BacktrackEnvironment::restore(int lvl) {
-
   if (lvl < level()) {
     for (auto o : subscribers)
       o->undo(lvl);

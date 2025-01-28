@@ -80,6 +80,13 @@ struct FACTORY_ENTRY(TYPE) {                                     \
     static TYPE create(__VA_ARGS__) noexcept { return TYPE{}; }  \
 };
 
+#define MAKE_DEFAULT_TEMPLATE_FACTORY(TYPE, T_ARGS, ...)         \
+struct FACTORY_ENTRY(TYPE) {                                     \
+    template<T_ARGS>                                             \
+    static TYPE create(__VA_ARGS__) noexcept { return TYPE{}; }  \
+};
+
+
 #define MAKE_P_FACTORY(TYPE, P_TYPE, ...)   \
 struct FACTORY_ENTRY(TYPE) {                \
     static P_TYPE create(__VA_ARGS__)
@@ -90,7 +97,7 @@ struct FACTORY_ENTRY(TYPE) {                \
 
 #define MAKE_FACTORY(TYPE, ...) MAKE_P_FACTORY(TYPE, auto, __VA_ARGS__)
 
-#define MAKE_TEMPLATE_FACTORY(TYPE, T_ARG, ARG) MAKE_TEMPLATE_P_FACTORY(TYPE, auto, ESCAPE(T_ARG), ESCAPE(ARG))
+#define MAKE_TEMPLATE_FACTORY(TYPE, T_ARG, ...) MAKE_TEMPLATE_P_FACTORY(TYPE, auto, ESCAPE(T_ARG), ESCAPE(__VA_ARGS__))
 
 #define EMPTY
 

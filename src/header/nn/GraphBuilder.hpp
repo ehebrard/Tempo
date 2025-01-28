@@ -69,12 +69,13 @@ namespace tempo::nn {
                                                                              problemDefinition,
                                                                              data.topologyExtractor.arguments);
             taskFeatureExtractor = FeatureExtractorFactory::getInstance().create(
-                    data.taskFeatureExtractor.extractorName, data.taskFeatureExtractor.arguments);
+                data.taskFeatureExtractor.extractorName, data.taskFeatureExtractor.arguments, problemDefinition);
             resourceFeatureExtractor = FeatureExtractorFactory::getInstance().create(
-                    data.resourceFeatureExtractor.extractorName, data.resourceFeatureExtractor.arguments);
+                data.resourceFeatureExtractor.extractorName, data.resourceFeatureExtractor.arguments,
+                problemDefinition);
             edgeFeatureExtractor = FeatureExtractorFactory::getInstance().create(
-                    data.edgeFeatureExtractor.extractorName, data.edgeFeatureExtractor.arguments);
-        }
+                data.edgeFeatureExtractor.extractorName, data.edgeFeatureExtractor.arguments, problemDefinition);
+            }
 
         /**
          * Extracts all features and topology information from a given solver state

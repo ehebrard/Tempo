@@ -1,7 +1,9 @@
 {
   "edgeFeatureExtractor": {
-    "arguments": null,
-    "extractorName": "TimingEdgeExtractor"
+    "extractorName": "TimingEdgeExtractor",
+    "arguments": {
+      "precedencesFromDistances": true
+    }
   },
   "resourceFeatureExtractor": {
     "arguments": null,

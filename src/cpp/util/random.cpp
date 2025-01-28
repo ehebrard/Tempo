@@ -37,6 +37,23 @@ namespace tempo {
 
     auto RNG::operator()() const noexcept -> unsigned long { return random(); }
 
+    UniformReplacementSampler::UniformReplacementSampler(std::size_t populationSize) {
+        std::ranges::iota_view iota(0ul, populationSize);
+        indices.reserve(populationSize);
+        std::ranges::copy(iota, std::back_inserter(indices));
+        std::ranges::shuffle(indices, RNG{});
+    }
+
+    std::size_t UniformReplacementSampler::random() noexcept {
+        auto ret = indices.back();
+        indices.pop_back();
+        return ret;
+    }
+
+    bool UniformReplacementSampler::exhausted() const noexcept {
+        return indices.empty();
+    }
+
     std::size_t DistributionSampler::random() const noexcept {
         auto rVal = tempo::random() % cdf.back();
         auto res = std::ranges::upper_bound(cdf, rVal);

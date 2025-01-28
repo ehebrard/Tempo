@@ -21,7 +21,7 @@
 #include "../helpers/git_sha.hpp"
 
 auto createGraphBuilder(const std::string &featConfig, const tempo::Options &options) {
-    auto [_, problem, _1, _2, _3] = loadSchedulingProblem(options);
+    auto [_, problem, _1, _2, _3, _4] = loadSchedulingProblem(options);
     return tempo::nn::GraphBuilder(featConfig, std::move(problem));
 }
 
@@ -56,7 +56,7 @@ int main(int argc, char **argv) {
     const auto optimalSol = solutions.rbegin()->second;
     nlohmann::json optSolPayload;
     {
-        auto [s, p, _, _1, _2] = loadSchedulingProblem(options);
+        auto [s, p, _, _1, _2, _3] = loadSchedulingProblem(options);
         try {
             s->set(leq(p.schedule().duration.id(), optimalSol.objective));
             loadBranch(*s, optimalSol.decisions);
@@ -77,7 +77,7 @@ int main(int argc, char **argv) {
     std::vector<nn::InputGraph> graphs;
     graphs.reserve(solutions.size());
     for (const auto &[id, sol] : solutions) {
-        auto [solver, problem, _, _1, _2] = loadSchedulingProblem(options);
+        auto [solver, problem, _, _1, _2, _3] = loadSchedulingProblem(options);
         try {
             solver->set(leq(problem.schedule().duration.id(), sol.objective));
             loadBranch(*solver, sol.decisions);

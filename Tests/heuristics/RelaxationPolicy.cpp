@@ -45,22 +45,23 @@ auto makeTestTaskMap() {
 TEST(relaxation_policies, TaskVarMap_mapping) {
     using namespace tempo;
     using B = BooleanVar<int>;
+    using namespace std::views;
     auto [map, tasks] = makeTestTaskMap();
-    EXPECT_EQ(map(tasks[0]), std::vector{B(4)});
-    EXPECT_EQ(map(tasks[1]), (std::vector{B(4), B(9), B(18)}));
-    EXPECT_EQ(map(tasks[2]), (std::vector{B(8), B(17)}));
-    EXPECT_EQ(map(tasks[3]), std::vector{B(9)});
-    EXPECT_EQ(map(tasks[4]), (std::vector{B(16), B(21)}));
+    EXPECT_TRUE(tempo::testing::equalRanges(map(tasks[0]) | elements<1>, std::vector{B(4)}));
+    EXPECT_TRUE(tempo::testing::equalRanges(map(tasks[1]) | elements<1>, (std::vector{B(4), B(9), B(18)})));
+    EXPECT_TRUE(tempo::testing::equalRanges(map(tasks[2]) | elements<1>, (std::vector{B(8), B(17)})));
+    EXPECT_TRUE(tempo::testing::equalRanges(map(tasks[3]) | elements<1>, std::vector{B(9)}));
+    EXPECT_TRUE(tempo::testing::equalRanges(map(tasks[4]) | elements<1>, (std::vector{B(16), B(21)})));
 }
 
 TEST(relaxation_policies, TaskVarMap_getTaskLiterals) {
     using namespace tempo;
     using B = BooleanVar<int>;
     auto [map, tasks] = makeTestTaskMap();
-    auto variables = map.getTaskLiterals(std::array{tasks[2], tasks[3]});
+    auto variables = map.getTaskLiterals(std::array{tasks[2], tasks[3]}, true);
     EXPECT_EQ(variables, (std::vector{B(8), B(9), B(17)}));
-    variables = map.getTaskLiterals(std::array{tasks[0], tasks[3], tasks[4]});
+    variables = map.getTaskLiterals(std::array{tasks[0], tasks[3], tasks[4]}, true);
     EXPECT_EQ(variables, (std::vector{B(4), B(9), B(16), B(21)}));
-    variables = map.getTaskLiterals(std::array{tasks[0], tasks[1], tasks[3]});
+    variables = map.getTaskLiterals(std::array{tasks[0], tasks[1], tasks[3]}, true);
     EXPECT_EQ(variables, (std::vector{B(4), B(9), B(18)}));
 }

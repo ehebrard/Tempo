@@ -19,10 +19,11 @@
 #include "relaxation_policies.hpp"
 #include "Solver.hpp"
 #include "util/random.hpp"
+#include "util/Lookup.hpp"
 
 namespace tempo::lns {
 
-    PENUM(AssumptionMode, BestN, GreedySkip, GreedyInverse, Sample, Optimal)
+    PENUM(AssumptionMode, BestN, GreedySkip, GreedyInverse, Sample, Optimal, TaskFull, TaskReduced)
 
     /**
      * @brief Literal ordering type. Literals are ordered by their weight either in ascending or descending order or
@@ -44,7 +45,7 @@ namespace tempo::lns {
         constexpr void reset() noexcept {};
 
         template<concepts::scalar T, assumption_interface AI, concepts::scalar C>
-        std::size_t select(AI &proxy, std::size_t numLiterals, unsigned,
+        std::size_t select(AI &proxy, std::size_t numLiterals, bool,
                            const std::vector<std::pair<Literal<T>, C>> & weightedLiterals) {
             using namespace std::views;
             switch (OT) {
@@ -100,9 +101,9 @@ namespace tempo::lns {
         }
 
         template<assumption_interface AI, concepts::scalar C>
-        std::size_t select(AI &proxy, std::size_t numLiterals, unsigned numFails,
+        std::size_t select(AI &proxy, std::size_t numLiterals, bool weightsUpdated,
                            const std::vector<std::pair<Literal<T>, C>> & weightedLiterals) {
-            if (numFails == 0 and numLiterals <= cache.size()) {
+            if (not weightsUpdated and numLiterals <= cache.size()) {
                 proxy.makeAssumptions(cache | std::views::take(numLiterals));
                 return std::min(numLiterals, cache.size());
             }
@@ -158,7 +159,7 @@ namespace tempo::lns {
         explicit SampleFix(double smoothingFactor) noexcept: smoothingFactor(smoothingFactor) {}
 
         template<concepts::scalar T, assumption_interface AI, std::floating_point C>
-        std::size_t select(AI &proxy, std::size_t numLiterals, unsigned,
+        std::size_t select(AI &proxy, std::size_t numLiterals, bool,
                            const std::vector<std::pair<Literal<T>, C>> & weightedLiterals) {
             using namespace std::views;
             const auto literals = weightedLiterals | elements<0>;
@@ -231,175 +232,201 @@ namespace tempo::lns {
 
         template<concepts::scalar T, typename Lookup>
         auto makeLookup(Solver<T> &solver, const std::vector<BooleanVar<T>> &vars,
-        std::size_t numLits, Lookup &&lookup) {
-        return CachedLookup<T, Lookup>(solver, vars, numLits, std::forward<Lookup>(lookup));
+                        std::size_t numLits, Lookup &&lookup) {
+            return CachedLookup<T, Lookup>(solver, vars, numLits, std::forward<Lookup>(lookup));
+        }
     }
-}
-
-/**
- * @brief Fix policy that tries to fix N edges by maximizing the sum of their confidence values while respecting
- * the learned clauses
- * @todo integrate problem constraints
- * @tparam T timing type
- */
-template<concepts::scalar T>
-class OptimalFix {
-    std::vector<Literal<T>> cache;
-    unsigned timeLimit;
-    unsigned failLimit;
-    bool hardTimeLimit;
-    static constexpr auto FixPointPrec = 1000; //@TODO use Solver<float>
-public:
 
     /**
-     * Ctor
-     * @param timeLimit time limit in ms for optimization problem
-     * @param failLimit fail limit for optimization problem
-     * @param hardTimeLimit whether to always cut off after the time limit even when no solution has been found
+     * @brief Fix policy that tries to fix N edges by maximizing the sum of their confidence values while respecting
+     * the learned clauses
+     * @todo integrate problem constraints
+     * @tparam T timing type
      */
-    OptimalFix(unsigned timeLimit, unsigned failLimit, bool hardTimeLimit) noexcept: timeLimit(timeLimit),
-                                                                                     failLimit(failLimit),
-                                                                                     hardTimeLimit(hardTimeLimit) {}
-
-    void reset() noexcept {
-        cache.clear();
-    }
-
-    template<assumption_interface AI, concepts::scalar C>
-    std::size_t select(AI &proxy, std::size_t numLiterals, unsigned numFails,
-                       const std::vector<std::pair<Literal<T>, C>> & weightedLiterals) {
-        using namespace std::views;
-        using ST = int;
-        if (numFails == 0 and not cache.empty()) {
-            proxy.makeAssumptions(cache | take(numLiterals));
-            return std::min(numLiterals, cache.size());
-        }
-
-        cache.clear();
-        Options opt;
-        opt.search_limit = failLimit;
-        opt.verbosity = Options::SILENT;
-        if (proxy.getSolver().getOptions().verbosity >= Options::SOLVERINFO) {
-            std::cout << "-- solving selection problem\n";
-            opt.verbosity = Options::NORMAL;
-        }
-
-        tempo::util::StopWatch stopWatch;
-        bool solution = false;
-        Solver<ST> solver(opt);
-        solver.SolutionFound.subscribe_unhandled([&solution, &solver, &stopWatch, this](auto &&) {
-            solution = true;
-            if (stopWatch.elapsed<std::chrono::milliseconds>() > timeLimit) {
-                solver.cancelSearch();
-            }
-        });
-
-        solver.PropagationCompleted.subscribe_unhandled([&stopWatch, &solver, &solution, this](auto &&) {
-            if ((hardTimeLimit or solution) and stopWatch.elapsed<std::chrono::milliseconds>() > timeLimit) {
-                solver.cancelSearch();
-            }
-        });
-        std::vector<BooleanVar<ST>> variables;
-        std::vector<ST> weights;
-        variables.reserve(weightedLiterals.size());
-        weights.reserve(weightedLiterals.size());
-        for (auto weight: weightedLiterals | elements<1>) {
-            auto x = solver.newBoolean();
-            solver.addToSearch(x);
-            variables.emplace_back(x);
-            weights.emplace_back(static_cast<ST>(weight * FixPointPrec));
-        }
-
-        const auto &cb = proxy.getSolver().clauses;
-        if (cb.size() != 0) {
-            auto lookup = detail::makeLookup(solver, variables, proxy.getSolver().numLiteral(),
-                                             weightedLiterals | elements<0>);
-            auto clauses = iota(0ul, cb.size()) | transform([&cb](auto idx) { return cb[idx]; }) |
-                           filter([](auto ptr) { return nullptr != ptr; });
-            for (const auto c : clauses) {
-                auto clause = *c | transform(lookup) | common;
-                solver.clauses.add(clause.begin(), clause.end());
-            }
-        }
-
-        solver.post(AtMost(static_cast<ST>(numLiterals), variables));
-        auto objective = Sum(variables, weights);
-        stopWatch.start();
-        solver.maximize(objective);
-        if (not solver.boolean.hasSolution()) {
-            proxy.fail();
-            return 0;
-        }
-
-        for (auto [valid, lit]: iterators::zip(
-                variables | transform([&solver](const auto &x) { return solver.boolean.value(x); }),
-                weightedLiterals | elements<0>)) {
-            if (valid) {
-                cache.emplace_back(lit);
-            }
-        }
-
-        proxy.makeAssumptions(cache);
-        return cache.size();
-    }
-};
-
     template<concepts::scalar T>
-    class TaskFix {
-        static_assert(traits::always_false_v<T>, "Implementation incomplete, do not use!");
-        std::vector<std::pair<Interval<T>, double>> tasks;
-        lns::detail::TaskVarMap<T> map;
-        std::vector<Literal<T>> cache{};
-        std::size_t varsPerTask = 0;
-        std::size_t lastNumTasks = 0;
-
-        void calcWeights(const std::vector<std::pair<Literal<T>, double>> & weightedLiterals) {
-            for (auto &[t, confidence]: tasks) {
-                confidence = 0;
-                for (const auto &var : map(t)) {
-                    auto res = std::ranges::find_if(weightedLiterals, var, [&var](const auto &pair) {
-                        return pair.first.variable() == var.id();
-                    });
-
-                    if (res != weightedLiterals.end()) {
-                        confidence += res->second;
-                    }
-                }
-            }
-
-            std::ranges::sort(tasks, {}, [](const auto &pair) { return -pair.second; });
-        }
+    class OptimalFix {
+        std::vector<Literal<T>> cache;
+        unsigned timeLimit;
+        unsigned failLimit;
+        bool hardTimeLimit;
+        static constexpr auto FixPointPrec = 1000; //@TODO use Solver<float>
     public:
 
-        template<concepts::typed_range<Interval<T>> Tasks,  resource_range RR>
-        TaskFix(const Tasks &tasks, const RR &resources): map(tasks, resources) {
-            this->tasks.reserve(std::ranges::size(tasks));
-            for (const auto &t : tasks) {
-                varsPerTask += map(t).size();
-                this->tasks.emplace_back(t, 0.0);
-            }
-        }
+        /**
+         * Ctor
+         * @param timeLimit time limit in ms for optimization problem
+         * @param failLimit fail limit for optimization problem
+         * @param hardTimeLimit whether to always cut off after the time limit even when no solution has been found
+         */
+        OptimalFix(unsigned timeLimit, unsigned failLimit, bool hardTimeLimit) noexcept: timeLimit(timeLimit),
+                                                                                         failLimit(failLimit),
+                                                                                         hardTimeLimit(hardTimeLimit) {}
 
         void reset() noexcept {
             cache.clear();
         }
 
-        template<assumption_interface AI>
-        std::size_t select(AI &proxy, std::size_t numLiterals, unsigned numFails,
-                           const std::vector<std::pair<Literal<T>, double>> & weightedLiterals) {
-            const auto numTasks = numLiterals / varsPerTask;
+        template<assumption_interface AI, concepts::scalar C>
+        std::size_t select(AI &proxy, std::size_t numLiterals, bool weightsUpdated,
+                           const std::vector<std::pair<Literal<T>, C>> & weightedLiterals) {
+            using namespace std::views;
+            using ST = int;
+            if (not weightsUpdated and not cache.empty()) {
+                proxy.makeAssumptions(cache | take(numLiterals));
+                return std::min(numLiterals, cache.size());
+            }
+
+            cache.clear();
+            Options opt;
+            opt.search_limit = failLimit;
+            opt.verbosity = Options::SILENT;
+            if (proxy.getSolver().getOptions().verbosity >= Options::SOLVERINFO) {
+                std::cout << "-- solving selection problem\n";
+                opt.verbosity = Options::NORMAL;
+            }
+
+            tempo::util::StopWatch stopWatch;
+            bool solution = false;
+            Solver<ST> solver(opt);
+            solver.SolutionFound.subscribe_unhandled([&solution, &solver, &stopWatch, this](auto &&) {
+                solution = true;
+                if (stopWatch.elapsed<std::chrono::milliseconds>() > timeLimit) {
+                    solver.cancelSearch();
+                }
+            });
+
+            solver.PropagationCompleted.subscribe_unhandled([&stopWatch, &solver, &solution, this](auto &&) {
+                if ((hardTimeLimit or solution) and stopWatch.elapsed<std::chrono::milliseconds>() > timeLimit) {
+                    solver.cancelSearch();
+                }
+            });
+            std::vector<BooleanVar<ST>> variables;
+            std::vector<ST> weights;
+            variables.reserve(weightedLiterals.size());
+            weights.reserve(weightedLiterals.size());
+            for (auto weight: weightedLiterals | elements<1>) {
+                auto x = solver.newBoolean();
+                solver.addToSearch(x);
+                variables.emplace_back(x);
+                weights.emplace_back(static_cast<ST>(weight * FixPointPrec));
+            }
+
+            const auto &cb = proxy.getSolver().clauses;
+            if (cb.size() != 0) {
+                auto lookup = detail::makeLookup(solver, variables, proxy.getSolver().numLiteral(),
+                                                 weightedLiterals | elements<0>);
+                auto clauses = iota(0ul, cb.size()) | transform([&cb](auto idx) { return cb[idx]; }) |
+                               filter([](auto ptr) { return nullptr != ptr; });
+                for (const auto c : clauses) {
+                    auto clause = *c | transform(lookup) | common;
+                    solver.clauses.add(clause.begin(), clause.end());
+                }
+            }
+
+            solver.post(AtMost(static_cast<ST>(numLiterals), variables));
+            auto objective = Sum(variables, weights);
+            stopWatch.start();
+            solver.maximize(objective);
+            if (not solver.boolean.hasSolution()) {
+                proxy.fail();
+                return 0;
+            }
+
+            for (auto [valid, lit]: iterators::zip(
+                    variables | transform([&solver](const auto &x) { return solver.boolean.value(x); }),
+                    weightedLiterals | elements<0>)) {
+                if (valid) {
+                    cache.emplace_back(lit);
+                }
+            }
+
+            proxy.makeAssumptions(cache);
+            return cache.size();
+        }
+    };
+
+    /**
+     * @brief Fix policy that groups variables by tasks
+     * @tparam T timing type
+     * @tparam InvertWeights whether to invert literal weights
+     */
+    template<concepts::scalar T, bool InvertWeights>
+    class TaskFix {
+        static constexpr auto DefaultVarsPerTask = 5;
+        std::vector<std::pair<Interval<T>, double>> tasks;
+        detail::TaskVarMap<T> map;
+        bool allTaskEdges;
+
+        bool initWeights = true;
+        double varsPerTask = DefaultVarsPerTask;
+        std::size_t iterations = 1;
+
+        template<std::floating_point C>
+        void calcWeights(const std::vector<std::pair<Literal<T>, C>> & weightedLiterals) {
+            using namespace std::views;
+            Lookup weights(weightedLiterals | elements<0> | transform([](auto l) { return BooleanVar(l); }), 0.0,
+                                                                      weightedLiterals | elements<1>, {},
+                                                                      IdProjection{});
+            for (auto &[t, confidence]: tasks) {
+                confidence = 0;
+                assert(map.contains(t));
+                for (const auto &var : map(t) | elements<1>) {
+                    if (weights.contains(var)) {
+                        confidence += weights[var];
+                    }
+                }
+            }
+
+            std::ranges::sort(tasks, {}, [](const auto &pair) { return (2 * not InvertWeights - 1) * pair.second; });
+        }
+    public:
+        /**
+         * Ctor
+         * @tparam Tasks task range type
+         * @tparam RR resource range type
+         * @param tasks tasks in the problem
+         * @param resources resource expressions in the problem
+         * @param allTaskEdges whether to fix all task edges
+         */
+        template<concepts::typed_range<Interval<T>> Tasks,  resource_range RR>
+        TaskFix(const Tasks &tasks, const RR &resources, bool allTaskEdges): map(tasks, resources),
+                                                                             allTaskEdges(allTaskEdges) {
+            this->tasks.reserve(std::ranges::size(tasks));
+            for (const auto &t : tasks) {
+                this->tasks.emplace_back(t, 0.0);
+            }
+        }
+
+        void reset() noexcept {}
+
+        template<assumption_interface AI, std::floating_point C>
+        std::size_t select(AI &proxy, std::size_t numLiterals, bool weightsUpdated,
+                           const std::vector<std::pair<Literal<T>, C>> & weightedLiterals) {
+            using namespace std::views;
+            const auto numTasks = std::min(static_cast<std::size_t>(numLiterals / varsPerTask), tasks.size());
             if (numTasks == 0) {
                 return 0;
             }
 
-            if (lastNumTasks == numTasks and not cache.empty()) {
-                proxy.makeAssumptions(cache);
-                return cache.size();
+            if (weightsUpdated or initWeights) {
+                initWeights = false;
+                calcWeights(weightedLiterals);
+                if (proxy.getSolver().getOptions().verbosity >= Options::YACKING) {
+                    std::cout << "-- reevaluating task weights" << std::endl;
+                }
             }
 
-            if (cache.empty()) {
-                calcWeights(weightedLiterals);
+            auto vars = map.getTaskLiterals(tasks | elements<0> | take(numTasks), allTaskEdges);
+            varsPerTask += (1.0 / ++iterations) * (static_cast<double>(vars.size()) / numTasks - varsPerTask);
+            if (proxy.getSolver().getOptions().verbosity >= Options::YACKING) {
+                std::cout << "-- fixing " << numTasks << " / " << tasks.size()
+                          << " tasks (" << vars.size() << ") variables" << std::endl;
             }
+
+            auto literalTransform = [&b = proxy.getSolver().boolean](const auto &var) { return var == b.value(var); };
+            proxy.makeAssumptions(vars | transform(literalTransform));
+            return vars.size();
+
         }
     };
 

@@ -15,6 +15,7 @@
 
 #include "util/Matrix.hpp"
 #include "util/serialization.hpp"
+#include "util/printing.hpp"
 #include "Global.hpp"
 #include "util/SchedulingProblemHelper.hpp"
 #include "Model.hpp"
@@ -117,6 +118,18 @@ namespace tempo::testing {
         static std::default_random_engine el(rd());
         std::uniform_real_distribution<T> dist(min, max);
         return dist(el);
+    }
+
+    template<std::ranges::range Range1, std::ranges::range Range2>
+    bool equalRanges(const Range1 &range1, const Range2 &range2) {
+        if (not std::ranges::equal(range1, range2)) {
+            std::cout << "ranges not equal:" << std::endl;
+            printRange(range1, std::cout) << std::endl << "vs" << std::endl;
+            printRange(range2, std::cout) << std::endl;
+            return false;
+        }
+
+        return true;
     }
 
     namespace heuristics {

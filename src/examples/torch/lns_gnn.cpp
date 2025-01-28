@@ -5,9 +5,12 @@
 */
 
 
+#include <data_generation.hpp>
 #include <iostream>
 #include <string>
 #include <thread>
+#include <filesystem>
+#include <ranges>
 
 #include "../helpers/scheduling_helpers.hpp"
 #include "../helpers/cli.hpp"
@@ -19,8 +22,10 @@
 #include "heuristics/LNS/relaxation_policy_factories.hpp"
 #include "nn/gnn_relaxation.hpp"
 #include "heuristics/warmstart.hpp"
+#include "heuristics/LNS/RelaxationEvaluator.hpp"
 
 namespace lns = tempo::lns;
+namespace fs = std::filesystem;
 
 using RP = lns::RelaxationPolicy<Time, ResourceConstraint>;
 
@@ -32,7 +37,7 @@ int main(int argc, char **argv) {
     std::string featureExtractorConf;
     lns::PolicyDecayConfig config;
     lns::AssumptionMode assumptionMode = lns::AssumptionMode::GreedySkip;
-    lns::RelaxationPolicyParams destroyParameters{.decayConfig = {}, .numScheduleSlices = 4};
+    lns::RelaxationPolicyParams destroyParameters{.decayConfig = {}, .numScheduleSlices = 4, .allTaskEdges = false};
     destroyParameters.decayConfig.fixRatio = 0.1;
     destroyParameters.decayConfig.decay = 1;
     lns::RelaxPolicy destroyType = lns::RelaxPolicy::RandomTasks;
@@ -43,6 +48,9 @@ int main(int argc, char **argv) {
     double sampleSmoothingFactor = 0;
     unsigned numThreads = std::max(1u, std::thread::hardware_concurrency() / 2);
     bool useDRPolicy = false;
+    bool reuseSolutions = false;
+    std::string optSol;
+    std::string solutionDest;
     auto opt = cli::parseOptions(argc, argv,
                                  cli::SwitchSpec("dr", "use destroy-repair policy", useDRPolicy, false),
                                  cli::ArgSpec("gnn-loc", "Location of the GNN model", false, gnnLocation),
@@ -65,6 +73,9 @@ int main(int argc, char **argv) {
                                               destroyParameters.decayConfig.decay),
                                  cli::ArgSpec("num-slices", "number of schedule slices", false,
                                               destroyParameters.numScheduleSlices),
+                                 cli::SwitchSpec("fix-all-task-edges",
+                                               "whether to fix all task edges or only those between fixed tasks",
+                                               destroyParameters.allTaskEdges, false),
                                  cli::ArgSpec("sporadic-increment", "probability increment on fail for root search",
                                               false, sporadicIncrement),
                                  cli::ArgSpec("fix-ratio", "percentage of literals to relax", false,
@@ -84,12 +95,43 @@ int main(int argc, char **argv) {
                                               false, config.retryLimit),
                                  cli::ArgSpec("decay-mode", "relaxation ratio decay mode on failure", false,
                                               config.decayMode),
+                                 cli::ArgSpec("optimal-solution", "optimal solution", false, optSol),
                                  cli::ArgSpec("destroy-mode", "destroy policy type", false, destroyType),
+                                 cli::SwitchSpec("reuse-solutions",
+                                                 "whether the GNN may reuse solutions multiple times", reuseSolutions,
+                                                 false),
                                  cli::ArgSpec("threads", "GNN inference threads", false,
-                                              numThreads));
+                                              numThreads),
+                                 cli::ArgSpec("save-to", "save solutions to", false, solutionDest));
     auto problemInfo = loadSchedulingProblem(opt);
     torch::set_num_threads(numThreads);
     bool optimal = false;
+
+    std::optional<Serializer<Time>> serializer;
+    if (not solutionDest.empty()) {
+        if (not fs::is_directory(solutionDest)) {
+            std::cerr << "directory " << solutionDest << " not accessible" << std::endl;
+            std::exit(EXIT_FAILURE);
+        }
+
+        serializer = Serializer<Time>(solutionDest);
+        auto searchLits = problemInfo.instance.getSearchLiterals(*problemInfo.solver);
+        auto varView = searchLits | std::views::transform([](auto lit) { return BooleanVar(lit); });
+        std::vector searchVars(varView.begin(), varView.end());
+        problemInfo.solver->SolutionFound.subscribe_unhandled(
+            [&serializer, vars = std::move(searchVars), dur = problemInfo.instance.schedule().duration](
+        const auto &solver) {
+                serialization::Branch branch;
+                branch.reserve(vars.size());
+                for (const auto &var: vars) {
+                    branch.emplace_back(var.id(), solver.boolean.value(var));
+                }
+
+                const auto makeSpan = solver.numeric.lower(dur);
+                serializer->addSolution(makeSpan, std::move(branch));
+            });
+    }
+
     if (opt.greedy_runs > 0) {
         std::cout << "-- doing greedy warmstart" << std::endl;
         try {
@@ -100,14 +142,14 @@ int main(int argc, char **argv) {
         }
     }
 
-
     MinimizationObjective objective(problemInfo.instance.schedule().duration);
     long elapsedTime = 0;
     std::cout << "-- root search probability increment " << sporadicIncrement << std::endl;
     if (not optimal and useDRPolicy) {
         std::cout << "-- exhaustion probability " << exhaustionProbability << std::endl;
         nn::GNNRepair gnnRepair(*problemInfo.solver, gnnLocation, featureExtractorConf, problemInfo.instance,
-                                config, assumptionMode, minCertainty, exhaustionThreshold, sampleSmoothingFactor);
+                                config, assumptionMode, minCertainty, exhaustionThreshold, sampleSmoothingFactor,
+                                problemInfo.constraints);
         lns::GenericDestroyPolicy<Time, RP> destroy(
                 lns::make_relaxation_policy(destroyType, problemInfo.instance.tasks(), problemInfo.constraints,
                                             destroyParameters));
@@ -115,16 +157,12 @@ int main(int argc, char **argv) {
         auto policy = lns::make_sporadic_root_search(sporadicIncrement,
                                                      lns::make_RD_policy(destroy, gnnRepair,
                                                                          exhaustionProbability));
-        util::StopWatch sw;
-        problemInfo.solver->largeNeighborhoodSearch(objective, policy);
-        elapsedTime = sw.elapsed<std::chrono::milliseconds>();
+        elapsedTime = runLNS(std::move(policy), optSol, *problemInfo.solver, objective);
     } else if (not optimal) {
         nn::GNNRelax policy(*problemInfo.solver, gnnLocation, featureExtractorConf, problemInfo.instance, config,
-                            assumptionMode, exhaustionThreshold, exhaustionProbability, sampleSmoothingFactor);
-        util::StopWatch sw;
-        problemInfo.solver->largeNeighborhoodSearch(objective,
-                                                    lns::make_sporadic_root_search(sporadicIncrement, policy));
-        elapsedTime = sw.elapsed<std::chrono::milliseconds>();
+                            assumptionMode, exhaustionThreshold, exhaustionProbability, reuseSolutions,
+                            sampleSmoothingFactor,problemInfo.constraints);
+        elapsedTime = runLNS(policy, optSol, *problemInfo.solver, objective);
     }
 
     if (problemInfo.solver->numeric.hasSolution()) {
@@ -138,5 +176,8 @@ int main(int argc, char **argv) {
     std::cout << "-- total duration: " << elapsedTime << "ms" << std::endl;
     std::cout << "-- date: " << shell::getTimeStamp() << std::endl;
     std::cout << "-- commit: " << GitSha << std::endl;
+    if (serializer.has_value()) {
+        serializer->flush();
+    }
     return 0;
 }
