@@ -47,7 +47,18 @@ namespace tempo::heuristics {
          * @return maximum of the Distances in both directions between the nodes
          */
         template <edge_distance_provider S>
-        [[nodiscard]] auto getActivityCost(var_t x, const S &solver) const {
+        [[nodiscard]] auto getActivityCost(var_t
+#ifdef LEARNING_RATE_STUFF
+                                               x
+#endif
+                                           ,
+                                           const S &
+#ifdef LEARNING_RATE_STUFF
+                                               solver
+#endif
+        ) const {
+
+#ifdef LEARNING_RATE_STUFF
           using T =
               std::remove_cvref_t<decltype(*boundEstimation(true, 0, solver))>;
 
@@ -55,8 +66,9 @@ namespace tempo::heuristics {
           //            solver.pretty(solver.boolean.getLiteral(true,x)) << " <>
           //            " << solver.pretty(solver.boolean.getLiteral(false,x))
           //            << ":";
-
           auto c{100 * solver.boolean.getLearningRate(x)};
+
+          auto c{100};
 
           //            std::cout << " " << c ;
 
@@ -78,12 +90,16 @@ namespace tempo::heuristics {
           //            std::cout << " = " << c << std::endl;
 
           return c;
+#else
+          return 0;
+#endif
         }
 
-//        template<edge_distance_provider S>
-//        [[nodiscard]] auto getLearningRate(var_t x, const S &solver) const {
-//            double solver.getLearningRate(x);
-//        }
+        //        template<edge_distance_provider S>
+        //        [[nodiscard]] auto getLearningRate(var_t x, const S &solver)
+        //        const {
+        //            double solver.getLearningRate(x);
+        //        }
 
         template<edge_distance_provider S>
         [[nodiscard]] var_t chooseBest(var_t x, var_t y, const S &solver) const {
@@ -112,6 +128,5 @@ namespace tempo::heuristics {
         
     };
 }
-
 
 #endif //TEMPO_LRB_HPP

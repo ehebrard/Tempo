@@ -92,6 +92,7 @@ public:
   ReversibleObject &operator=(ReversibleObject &&) noexcept = default;
 
   // the backtracking method
+  virtual void undo(const int) {};
   virtual void undo() = 0;
   // calls env->save(this)
   void save();
@@ -237,11 +238,12 @@ public:
     
     ReversibleVector(std::initializer_list<T> init, BacktrackEnvironment *e=ReversibleObject::env);
 
-  void undo() override;
+    void undo(const int lvl) override;
+    void undo() override;
 
-  void checkpoint() override;
+    void checkpoint() override;
 
-  std::vector<size_t> trail;
+    std::vector<size_t> trail;
 };
 
 template <typename T> ReversibleVector<T>::ReversibleVector(BacktrackEnvironment *e) : ReversibleObject(e) {
@@ -252,12 +254,28 @@ template <typename T> ReversibleVector<T>::ReversibleVector(std::initializer_lis
     local_env->subscribe(this);
 }
 
+template <typename T> void ReversibleVector<T>::undo(const int lvl) {
+  //    auto sz{*(trail.end() - k)};
+  //    std::vector<T>::resize(sz);
+  //    trail.resize(trail.size()-k);
+
+  auto sz{trail[lvl]};
+  std::vector<T>::resize(sz);
+  trail.resize(lvl);
+}
+
 template <typename T> void ReversibleVector<T>::undo() {
+
   std::vector<T>::resize(trail.back());
   trail.pop_back();
+
+  ////  std::cout << "undo " << this->size() << std::endl;
 }
 
 template <typename T> void ReversibleVector<T>::checkpoint() {
+
+  //  std::cout << "checkpoint " << this->size() << std::endl;
+
   trail.push_back(std::vector<T>::size());
 }
 

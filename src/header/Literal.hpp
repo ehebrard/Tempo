@@ -60,7 +60,6 @@ namespace detail {
         union {
             T numericData;
             info_t semanticInfo;
-
         };
 
     public:

@@ -89,6 +89,14 @@ template <typename T> Literal<T> Clause<T>::watched(const bool r) const {
 }
 
 template <typename T> bool Clause<T>::watch_rank(const Literal<T> l) const {
+
+  //    assert(watched_index[1] >= 0);
+  if (watched_index[1] >= std::vector<Literal<T>>::size()) {
+    std::cout << "cl_" << this->id << ": " << watched_index[1]
+              << " >= " << std::vector<Literal<T>>::size() << std::endl;
+    exit(1);
+  }
+
   auto p{this->operator[](watched_index[1])};
   return l.sameVariable(p) and l.sign() != p.sign();
 }

@@ -62,47 +62,49 @@ using hint = int;
 
 /////// UNCOMMENT TO DEBUG
 // #define DBG_TRACE (SEARCH + LEARNING) // 183
-//                                              // 1+2+4+32+128
-// #define DBG_BOUND true
-// #define DBG_CBOUND true
-// #define DBG_CLBOUND true // cl->id == 80 //solver.num_choicepoints >= 10527
-// #define DBG_BBOUND true
+//                                       // 1+2+4+32+128
+// #define DBG_BOUND (num_fails >= 263)
+// #define DBG_CBOUND (solver.num_choicepoints < 0)
+// #define DBG_CLBOUND (solver.num_fails >= 263) // cl->id == 80
+//// solver.num_choicepoints >= 10527
+// #define DBG_BBOUND (solver.num_fails >= 263)
 //////////
-////
+////////////
 // #define DBG_MINIMIZATION
-// #define DBG_EDGECONS true
-// #define DBG_EDGEFINDING (m_solver.num_cons_propagations >= 0)
-// #define DBG_EXPLEF true      //(m_schedule.num_fails > 236)
-// #define DBG_THETA (m_schedule.num_fails >= 481)
-// #define DBG_BELLMAN true //(sched.num_choicepoints >= 1045)
-// #define DBG_BELLMAN_EXPL (sched.num_choicepoints >= 4172)
-// #define DEBUG_HEURISTICS
-// #define DBG_UP
-// #define DBG_CL 100000000
-// #define
-// #define DBG_CLPLUS 1000000000
-// #define DBG_TRANSITIVITY true //(m_schedule.num_choicepoints >= 4064)
-// #define DBG_EXPL_TRANS true
-// #define DBG_SOL
-// #define DBG_FAIL true
-// #define DBG_CCHECK m_solver.num_choicepoints >= 8620
-// #define DBG_LEXBFS true
-// #define DBG_FTRANS true //m_solver.num_choicepoints >= 900
-// #define DBG_BELLMAN_FT true
-// #define DBG_EXPL_FTRANS true
-// #define DBG_SEF solver.num_cons_propagations >= 0
-// #define DBG_COF solver.num_cons_propagations >= 0
-// #define DBG_EXTRACT true
-// #define DBG_SPANNING true
-// #define DBG_LIST true
-// #define DBGP0 true
-// #define DBG_RPROF true
-// #define DBG_EXTRACT_SUM true
-// #define DBG_TT true //(this->id() == 3049
-// #define DBG_EXPLCTT true
-// #define STATS true
-// #define DBG_INCR this->id() == 1729 and (i == 15 or j == 15) and
-// solver.level() <= 31 #define DBG_INCRP true
+//  #define DBG_EDGECONS true
+//  #define DBG_EDGEFINDING (m_solver.num_cons_propagations >= 0)
+//  #define DBG_EXPLEF true      //(m_schedule.num_fails > 236)
+//  #define DBG_THETA (m_schedule.num_fails >= 481)
+//  #define DBG_BELLMAN true //(sched.num_choicepoints >= 1045)
+//  #define DBG_BELLMAN_EXPL (sched.num_choicepoints >= 4172)
+//  #define DEBUG_HEURISTICS
+//  #define DBG_UP
+// #define DBG_CL 10000000
+//  #define
+//  #define DBG_CLPLUS 1000000000
+//  #define DBG_TRANSITIVITY true //(m_schedule.num_choicepoints >= 4064)
+//  #define DBG_EXPL_TRANS true
+//  #define DBG_SOL
+//  #define DBG_FAIL true
+//  #define DBG_CCHECK m_solver.num_choicepoints >= 8620
+//  #define DBG_LEXBFS true
+//  #define DBG_FTRANS true //m_solver.num_choicepoints >= 900
+//  #define DBG_BELLMAN_FT true
+//  #define DBG_EXPL_FTRANS true
+//  #define DBG_SEF solver.num_cons_propagations >= 0
+//  #define DBG_COF solver.num_cons_propagations >= 0
+//  #define DBG_EXTRACT true
+//  #define DBG_SPANNING true
+//  #define DBG_LIST true
+//  #define DBGP0 true
+//  #define DBG_RPROF true
+//  #define DBG_EXTRACT_SUM true
+//  #define DBG_TT true //(this->id() == 3049
+//  #define DBG_EXPLCTT true
+//  #define STATS true
+//  #define DBG_INCR this->id() == 1729 and (i == 15 or j == 15) and
+//  solver.level() <= 31 #define DBG_INCRP true
+//  #define DBG_SHRINK
 
 // priority values for constraint propagation
 enum class Priority {

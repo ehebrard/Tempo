@@ -202,6 +202,15 @@ int main(int argc, char *argv[]) {
               std::cout << "> " << DistanceConstraint<int>(X[i], Y[i], D[i]) << std::endl;
           }
 
+          if (opt.print_sol) {
+            for (auto i : intervals) {
+              std::cout << "x" << i.start.id() << ": "
+                        << S.numeric.lower(i.start) << ".."
+                        << S.numeric.lower(i.end) << " ("
+                        << S.numeric.lower(i.duration) << ")\n";
+            }
+          }
+
           exit(1);
         }
         //                else {

@@ -65,7 +65,8 @@ public:
   void setPrimal(const T v, Solver<T> &solver) {
     Objective<T>::p_b = v;
     if (Objective<T>::gap()) {
-      apply(Objective<T>::p_b - Gap<T>::epsilon(), solver);
+      //      apply(Objective<T>::p_b - Gap<T>::epsilon(), solver);
+      solver.post(dualConstraint(Objective<T>::p_b - Gap<T>::epsilon()));
     }
   }
     
@@ -74,7 +75,12 @@ public:
 //private:
   void apply(const T target, Solver<T> &solver) {
     //    solver.set(Objective<T>::X < target);
-    solver.post(Objective<T>::X.before(target));
+    solver.post(dualConstraint(target));
+    //      solver.makeAssumption(Objective<T>::X.before(target));
+  }
+
+  Literal<T> dualConstraint(const T target) {
+    return Objective<T>::X.before(target);
   }
 };
 
@@ -89,7 +95,8 @@ public:
   void setPrimal(const T v, Solver<T> &solver) {
     Objective<T>::p_b = v;
     if (Objective<T>::gap()) {
-      apply(Objective<T>::p_b + Gap<T>::epsilon(), solver);
+      //      apply(Objective<T>::p_b + Gap<T>::epsilon(), solver);
+      solver.post(dualConstraint(Objective<T>::p_b + Gap<T>::epsilon()));
     }
   }
 
@@ -97,7 +104,12 @@ public:
     
 //private:
   void apply(const T target, Solver<T> &solver) {
-    solver.post(Objective<T>::X.after(target));
+    solver.post(dualConstraint(target));
+    //      solver.makeAssumption(Objective<T>::X.after(target));
+  }
+
+  Literal<T> dualConstraint(const T target) {
+    return Objective<T>::X.after(target);
   }
 };
 
