@@ -28,8 +28,11 @@ int main(int argc, char **argv) {
 
     std::string saveTo;
     bool useLNS;
-    lns::RelaxationPolicyParams policyParams{.decayConfig = lns::PolicyDecayConfig(), .numScheduleSlices = 4};
+    lns::RelaxationPolicyParams policyParams{
+        .decayConfig = lns::PolicyDecayConfig(), .numScheduleSlices = 4, .allTaskEdges = false
+    };
     lns::RelaxPolicy policyType;
+    double sporadicIncrement = 0.001;
     auto options = cli::parseOptions(argc, argv,
                                      cli::ArgSpec("save-to", "Where to save the data points", true, saveTo),
                                      cli::SwitchSpec("lns", "Whether to use LNS", useLNS, false),
@@ -52,8 +55,14 @@ int main(int argc, char **argv) {
                                      cli::ArgSpec("relax-slices", "number of schedule slices",
                                                   false, policyParams.numScheduleSlices, 4),
                                      cli::ArgSpec("lns-policy", "lns relaxation policy", false, policyType,
-                                                  lns::RelaxPolicy::RandomTasks));
-    auto problemInfo  = loadSchedulingProblem(options);
+                                                  lns::RelaxPolicy::RandomTasks),
+                                     cli::ArgSpec("sporadic-increment", "probability increment on fail for root search",
+                                                  false, sporadicIncrement),
+                                     cli::SwitchSpec("fix-all-task-edges",
+                                                     "whether to fix all task edges or only those between fixed tasks",
+                                                     policyParams.allTaskEdges, false)
+    );
+    auto problemInfo = loadSchedulingProblem(options);
     const auto schedule = problemInfo.instance.schedule();
     auto heuristic = make_compound_heuristic(make_variable_heuristic(*problemInfo.solver), TightestSolutionGuided(0, 0));
     problemInfo.solver->setBranchingHeuristic(std::move(heuristic));
@@ -62,8 +71,9 @@ int main(int argc, char **argv) {
     DataGenerator dataGenerator(*problemInfo.solver, schedule, destinationFolder);
     if (useLNS) {
         MinimizationObjective<int> objective(schedule.duration);
-        auto policy = lns::make_relaxation_policy(policyType, problemInfo.instance.tasks(), problemInfo.constraints,
-                                                  policyParams);
+        auto policy = lns::make_sporadic_root_search(sporadicIncrement, lns::make_relaxation_policy(
+                                                         policyType, problemInfo.instance.tasks(),
+                                                         problemInfo.constraints, policyParams));
         std::cout << "-- using relaxation policy " << policyType << std::endl;
         problemInfo.solver->largeNeighborhoodSearch(objective, policy);
     } else {
