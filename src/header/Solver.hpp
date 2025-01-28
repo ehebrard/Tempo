@@ -1037,13 +1037,6 @@ public:
     
     //@}
 
-    /**
-     * @name to collect the modeling construct in order to free memory up
-     */
-    //@{
-    std::vector<ExpressionImpl<T>*> trash_bin;
-    //@}
-    
 private:
     /**
      * @name debug
@@ -1058,10 +1051,7 @@ private:
     void writeLiteral(const Literal<T> l) const;
 #endif
     
-    //@}
 };
-
-
 
 /*!
  GraphExplainer implementation
@@ -1797,10 +1787,6 @@ Solver<T>::Solver()
 }
 
 template <typename T> Solver<T>::~Solver() {
-    for (auto exp : trash_bin) {
-        delete exp;
-    }
-    
     for (auto c : constraints) {
         if (c != &clauses) {
             //          std::cout << "delete " << *c << std::endl;
