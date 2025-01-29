@@ -27,6 +27,8 @@
 #include <utility>
 #include <ranges>
 #include <algorithm>
+#include <memory>
+#include <variant>
 #include <Iterators.hpp>
 
 #include "Literal.hpp"
@@ -65,11 +67,12 @@ private:
 //! Interface for expression implementations
 template <typename T = int> class ExpressionImpl {
 public:
-    virtual ~ExpressionImpl() {
-#ifdef DBG_EXTRACT
-        std::cout << "delete expr\n";
-#endif
-    }
+  ExpressionImpl() = default;
+  virtual ~ExpressionImpl() = default;
+  ExpressionImpl(const ExpressionImpl &) = default;
+  ExpressionImpl(ExpressionImpl &&) = default;
+  ExpressionImpl &operator=(const ExpressionImpl &) = default;
+  ExpressionImpl &operator=(ExpressionImpl &&) = default;
 
   // if target is not Constant::NoVar, reference to it instead of creating a
   // new var
@@ -86,16 +89,58 @@ public:
   //    bool extraction_flag{false};
 };
 
+  template<concepts::scalar T>
+  using ExpressionPtr = std::shared_ptr<ExpressionImpl<T>>;
+
+  template<concepts::scalar T>
+  using cExpressionPtr = std::shared_ptr<const ExpressionImpl<T>>;
+
+
 //! Wrapper/pointer for numeric variables and expressions
 /*!
 Stores the id of the actual numeric variable, and implements various helper
 methods
  */
 
-struct ExpressionFlag {
-  constexpr ExpressionFlag(const bool t = false) noexcept : _is_expression(t) {}
-  bool _is_expression;
-};
+  template<concepts::scalar T, template<concepts::scalar> typename InfoType>
+  class InfoStorage {
+    std::variant<InfoType<T>, ExpressionPtr<T>> content;
+  public:
+    template<typename... Args>
+    explicit InfoStorage(Args &&...args): content(std::forward<Args>(args)...) {}
+
+    [[nodiscard]] bool isExpression() const noexcept {
+      return std::holds_alternative<ExpressionPtr<T>>(content);
+    }
+
+    template<typename Val>
+    void setInfo(Val &&val) {
+      content = std::forward<Val>(val);
+    }
+
+    void clearExpressionStatus() {
+      if (isExpression()) {
+        setInfo(InfoType<T>{});
+      }
+    }
+
+    decltype(auto) implem() const noexcept {
+      return std::get<ExpressionPtr<T>>(content);
+    }
+
+    decltype(auto) implem() noexcept {
+      return std::get<ExpressionPtr<T>>(content);
+    }
+
+    decltype(auto) data() const noexcept {
+      return std::get<InfoType<T>>(content);
+    }
+
+    decltype(auto) data() noexcept {
+      return std::get<InfoType<T>>(content);
+    }
+
+  };
 
 template <typename T = int> struct NumInfo {
   NumInfo() {}
@@ -106,13 +151,15 @@ template <typename T = int> struct NumInfo {
   T _offset{0};
 };
 
-template <typename T = int> class NumericVar : public ExpressionFlag {
+template <typename T = int> class NumericVar: public InfoStorage<T, NumInfo> {
 
 public:
-    constexpr NumericVar() noexcept: ExpressionFlag(false), data(Constant::NoVar, 0) {};
-    NumericVar(ExpressionImpl<T> *i) : ExpressionFlag(true), implem(i) {}
-    NumericVar(const var_t i, const T o = 0)
-        : ExpressionFlag(false), data(i, o) {}
+  using TimingType = T;
+    constexpr NumericVar() noexcept: InfoStorage<T, NumInfo>(std::in_place_type<NumInfo<T>>, Constant::NoVar, 0) {}
+
+    NumericVar(ExpressionPtr<T> i) noexcept: InfoStorage<T, NumInfo>(std::in_place_type<ExpressionPtr<T>>,
+                                                                     std::move(i)) {}
+    NumericVar(const var_t i, const T o = 0) noexcept: InfoStorage<T, NumInfo>(std::in_place_type<NumInfo<T>>, i, o) {}
 
     template<distance_provider S>
     T min(const S &sc) const;
@@ -139,7 +186,7 @@ public:
                                           const T t = 0) const;
 
     var_t id() const {
-      return (ExpressionFlag::_is_expression ? implem->id() : data._id_);
+      return (this->isExpression() ? this->implem()->id() : this->data()._id_);
     }
     //    var_t id() const {
     //      return (ExpressionFlag::_is_expression ? implem->id() : data._id_ >>
@@ -156,14 +203,14 @@ public:
     //    void negate() { data._id_ ^= 1; }
     //    void setSign(const bool s) { data._id_ = data._id_ s; }
     //    void setId(const var_t i, const bool s=1) { data._id_ = 2 * i + s; }
-    void setId(const var_t i) { data._id_ = i; }
+    void setId(const var_t i) { this->data()._id_ = i; }
 
     T offset() const {
-      return (ExpressionFlag::_is_expression ? implem->offset() : data._offset);
+      return (this->isExpression() ? this->implem()->offset() : this->data()._offset);
       //        return data._offset;
     }
 
-    void setOffset(const T o) { data._offset = o; }
+    void setOffset(const T o) { this->data()._offset = o; }
 
     void extract(Solver<T> &solver, const var_t target = Constant::NoVar) {
 
@@ -171,34 +218,30 @@ public:
       std::cout << "beg extract " << *this << std::endl;
 #endif
 
-      if (ExpressionFlag::_is_expression) {
+      if (this->isExpression()) {
 
 #ifdef DBG_EXTRACT
         std::cout << " (expr)" << std::endl;
 #endif
 
-        if (implem->id() == Constant::NoVar) {
+        if (this->implem()->id() == Constant::NoVar) {
 
 #ifdef DBG_EXTRACT
           std::cout << " extract expr" << std::endl;
 #endif
 
-          implem->extract(solver, target);
+          this->implem()->extract(solver, target);
 
 #ifdef DBG_EXTRACT
           std::cout << " ==> " << implem->id() << std::endl;
 #endif
-
-          solver.trash_bin.push_back(implem);
         }
 
 #ifdef DBG_EXTRACT
         else
           std::cout << " expr already extracted" << std::endl;
 #endif
-          
-        data = NumInfo<T>(implem->id(), implem->offset());
-        ExpressionFlag::_is_expression = false;
+        this->setInfo(NumInfo<T>(this->implem()->id(), this->implem()->offset()));
       }
 
 #ifdef DBG_EXTRACT
@@ -207,18 +250,12 @@ public:
     }
 
     void post(Solver<T> &solver) {
-      if (ExpressionFlag::_is_expression) {
+      if (this->isExpression()) {
         throw ModelingException("Numeric expression cannot be constraints");
       } else {
         solver.addToSearch(*this);
       }
     }
-
-    //  protected:
-    union {
-      struct NumInfo<T> data;
-      ExpressionImpl<T> *implem;
-    };
 };
 
 template <typename T = int> struct BoolInfo {
@@ -236,34 +273,40 @@ template <typename T = int> struct BoolInfo {
 Stores the id of the actual Boolean variable, and implements various helper
 methods
  */
-template <typename T = int> class BooleanVar : public ExpressionFlag {
+template <typename T = int> class BooleanVar: public InfoStorage<T, BoolInfo>{
 
 public:
-  constexpr BooleanVar() noexcept: ExpressionFlag(false), data(Constant::NoIndex, Constant::NoSemantic) {}
-  BooleanVar(ExpressionImpl<T> *i) : ExpressionFlag(true), implem(i) {}
+  using TimingType = T;
+  constexpr BooleanVar() noexcept: InfoStorage<T, BoolInfo>(std::in_place_type<BoolInfo<T>>, Constant::NoIndex,
+                                                            Constant::NoSemantic) {}
+  BooleanVar(ExpressionPtr<T> i) : InfoStorage<T, BoolInfo>(std::in_place_type<ExpressionPtr<T>>, std::move(i)) {}
+
   constexpr BooleanVar(const var_t i, const index_t f = 0) noexcept
-      : ExpressionFlag(false), data(i, f) {}
-  constexpr explicit BooleanVar(Literal<T> l) : ExpressionFlag(false), data(l.variable(), l.semantic()) {}
+    : InfoStorage<T, BoolInfo>(std::in_place_type<BoolInfo<T>>, i, f) {}
+
+  constexpr explicit BooleanVar(Literal<T> l) : InfoStorage<T, BoolInfo>(
+    std::in_place_type<BoolInfo<T>>, l.variable(), l.semantic()) {}
 
   Literal<T> operator==(const bool t) const;
 
   constexpr bool operator==(const BooleanVar &other) const {
-      if (_is_expression != other._is_expression) {
+      if (this->isExpression() != other.isExpression()) {
           return false;
       }
 
-      if (_is_expression) {
-          return implem->id() == other.implem->id() and implem->semantic() == other.implem->semantic();
+      if (this->isExpression()) {
+        return this->implem()->id() == other.implem()->id() and this->implem()->semantic() == other.implem()->
+               semantic();
       }
 
-      return data == other.data;
+      return this->data() == other.data();
   }
 
   BooleanVar<T> implies(const BooleanVar<T> x) const;
 
-var_t id() const { return (ExpressionFlag::_is_expression ? implem->id() : data._id_); }
+var_t id() const { return (this->isExpression() ? this->implem()->id() : this->data()._id_); }
 
-    index_t semantic() const { return (ExpressionFlag::_is_expression ? implem->semantic() : data._edge_id_); }
+    index_t semantic() const { return (this->isExpression() ? this->implem()->semantic() : this->data()._edge_id_); }
     
     bool isTrue(Solver<T>& s) const { return s.boolean.isTrue(id()); }
     bool isFalse(Solver<T>& s) const { return s.boolean.isFalse(id()); }
@@ -274,7 +317,7 @@ var_t id() const { return (ExpressionFlag::_is_expression ? implem->id() : data.
 
   static bool isNumeric() { return false; }
 
-  void setId(const var_t i) { data._id_ = i; }
+  void setId(const var_t i) { this->data()._id_ = i; }
 
   void extract(Solver<T> &solver, const var_t target = Constant::NoVar) {
 
@@ -282,25 +325,23 @@ var_t id() const { return (ExpressionFlag::_is_expression ? implem->id() : data.
     std::cout << "beg extract " << *this << std::endl;
 #endif
 
-    if (ExpressionFlag::_is_expression) {
+    if (this->isExpression()) {
 
 #ifdef DBG_EXTRACT
       std::cout << " (expr)" << std::endl;
 #endif
 
-      if (implem->id() == Constant::NoVar) {
+      if (this->implem()->id() == Constant::NoVar) {
 
 #ifdef DBG_EXTRACT
         std::cout << " extract expr" << std::endl;
 #endif
 
-        implem->extract(solver, target);
+        this->implem()->extract(solver, target);
 
 #ifdef DBG_EXTRACT
           std::cout << " ==> " << implem->id() << std::endl;
 #endif
-
-        solver.trash_bin.push_back(implem);
       }
 
 #ifdef DBG_EXTRACT
@@ -308,8 +349,7 @@ var_t id() const { return (ExpressionFlag::_is_expression ? implem->id() : data.
         std::cout << " expr already extracted" << std::endl;
 #endif
 
-      data = BoolInfo<T>(implem->id(), implem->semantic());
-      ExpressionFlag::_is_expression = false;
+      this->setInfo(BoolInfo<T>(this->implem()->id(), this->implem()->semantic()));
     }
 
 #ifdef DBG_EXTRACT
@@ -323,13 +363,13 @@ var_t id() const { return (ExpressionFlag::_is_expression ? implem->id() : data.
     std::cout << "beg post" << std::endl;
 #endif
 
-    if (ExpressionFlag::_is_expression) {
+    if (this->isExpression()) {
 
-        if (implem->id() == Constant::NoVar) {
-            implem->post(solver);
+        if (this->implem()->id() == Constant::NoVar) {
+            this->implem()->post(solver);
         }
 
-      ExpressionFlag::_is_expression = false;
+      this->clearExpressionStatus();
     } else {
       solver.addToSearch(*this);
     }
@@ -339,11 +379,6 @@ var_t id() const { return (ExpressionFlag::_is_expression ? implem->id() : data.
 #endif
   }
 
-protected:
-  union {
-    struct BoolInfo<T> data;
-    ExpressionImpl<T> *implem;
-  };
 };
 
 template <typename T> Literal<T> BooleanVar<T>::operator==(const bool t) const {
@@ -430,14 +465,9 @@ template <typename T> index_t Interval<T>::num_intervals = 0;
 template <typename T = int>
 class BooleanExpressionImpl : public ExpressionImpl<T> {
 public:
-    virtual ~BooleanExpressionImpl() {
-#ifdef DBG_EXTRACT
-        std::cout << "delete boolexpr\n";
-#endif
-    }
 
-  virtual var_t id() const override { return self.id(); }
-  virtual index_t semantic() const override { return self.semantic(); }
+  var_t id() const override { return self.id(); }
+  index_t semantic() const override { return self.semantic(); }
 
 protected:
   BooleanVar<T> self{Constant::NoVar};
@@ -446,14 +476,9 @@ protected:
 template <typename T = int>
 class NumericExpressionImpl : public ExpressionImpl<T> {
 public:
-    virtual ~NumericExpressionImpl() {
-#ifdef DBG_EXTRACT
-        std::cout << "delete numexpr\n";
-#endif
-    }
 
-  virtual var_t id() const override { return self.id(); }
-  virtual T offset() const override { return self.offset(); }
+  var_t id() const override { return self.id(); }
+  T offset() const override { return self.offset(); }
 
 protected:
   NumericVar<T> self{Constant::NoVar};
@@ -462,14 +487,8 @@ protected:
 template <typename T = int>
 class SumExpressionImpl : public NumericExpressionImpl<T> {
 public:
-  SumExpressionImpl() {}
-    virtual ~SumExpressionImpl() {
-#ifdef DBG_EXTRACT
-        std::cout << "delete sum expression\n";
-#endif
-    }
 
-  virtual std::string name() const override { return "sum"; }
+  std::string name() const override { return "sum"; }
 
   void increaseBias(const T v) {
     NumericExpressionImpl<T>::self.setOffset(
@@ -769,7 +788,7 @@ public:
             NumericExpressionImpl<T>::self = solver.newNumeric(bool_lb, bool_ub);
             bool_part = NumericExpressionImpl<T>::self.id();
         } else {
-            NumericExpressionImpl<T>::self.data = NumInfo<T>(bool_part, 0);
+            NumericExpressionImpl<T>::self.data() = NumInfo<T>(bool_part, 0);
             solver.set(leq<T>(target, bool_ub));
             solver.set(geq<T>(target, bool_lb));
         }
@@ -806,7 +825,7 @@ public:
 
       if (nvars.size() == 1 and num_weights[0] == 1) {
         NumericExpressionImpl<T>::self.setId(*nvars.begin());
-        NumericExpressionImpl<T>::self._is_expression = false;
+        NumericExpressionImpl<T>::self.clearExpressionStatus();
         //                      num_part.setId(*nvars.begin());
         //                      num_part.setOffset(bias);
         //                      num_part._is_expression = false;
@@ -816,7 +835,7 @@ public:
           //                            num_part = solver.newNumeric(num_lb,
           //                            num_ub);
         } else {
-          NumericExpressionImpl<T>::self.data = NumInfo<T>(target, -bias);
+          NumericExpressionImpl<T>::self.data() = NumInfo<T>(target, -bias);
           //                            num_part.data = NumInfo<T>(target,
           //                            -bias);
           solver.post(NumericExpressionImpl<T>::self >= num_lb);
@@ -830,8 +849,10 @@ public:
 
         solver.post(new SumConstraint(solver, nvars.begin(), nvars.end(),
                                       num_weights.begin(), -bias));
-        for (auto &w : num_weights)
+        for (auto &w : num_weights) {
           w = -w;
+        }
+
         solver.post(new SumConstraint(solver, nvars.begin(), nvars.end(),
                                       num_weights.begin(), bias));
       }
@@ -840,7 +861,7 @@ public:
     } else {
 
       NumericExpressionImpl<T>::self.setId(Constant::K);
-      NumericExpressionImpl<T>::self._is_expression = false;
+      NumericExpressionImpl<T>::self.clearExpressionStatus();
       //            num_part.setId(Constant::K);
       //            num_part.setOffset(bias);
       //            num_part._is_expression = false;
@@ -935,10 +956,10 @@ NumericVar<T> operator+(const NumericVar<T> &x, const T k) {
     std::cout << " create expression " << x << " + " << k << std::endl;
 #endif
     
-  auto sum{new SumExpressionImpl<T>()};
+  auto sum = std::make_shared<SumExpressionImpl<T>>();
   sum->addTerm(x);
   sum->addTerm(k);
-  NumericVar<T> exp(sum);
+  NumericVar<T> exp(std::move(sum));
   return exp;
 }
 
@@ -949,10 +970,10 @@ NumericVar<T> operator+(const NumericVar<T> &x, const NumericVar<T> &y) {
     std::cout << " create expression " << x << " + " << y << std::endl;
 #endif
     
-  auto sum{new SumExpressionImpl<T>()};
+  auto sum = std::make_shared<SumExpressionImpl<T>>();
   sum->addTerm(x);
   sum->addTerm(y);
-  NumericVar<T> exp(sum);
+  NumericVar<T> exp(std::move(sum));
   return exp;
 }
 
@@ -963,10 +984,10 @@ NumericVar<T> operator-(const NumericVar<T> &x, const T k) {
     std::cout << " create expression " << x << " - " << k << std::endl;
 #endif
     
-  auto sum{new SumExpressionImpl<T>()};
+  auto sum = std::make_shared<SumExpressionImpl<T>>();
   sum->addTerm(x);
   sum->addTerm(-k);
-  NumericVar<T> exp(sum);
+  NumericVar<T> exp(std::move(sum));
   return exp;
 }
 
@@ -977,10 +998,10 @@ NumericVar<T> operator-(const NumericVar<T> &x, const NumericVar<T> &y) {
     std::cout << " create expression " << x << " - " << y << std::endl;
 #endif
     
-  auto sum{new SumExpressionImpl<T>()};
+  auto sum = std::make_shared<SumExpressionImpl<T>>();
   sum->addTerm(x);
   sum->addTerm(y, -1);
-  NumericVar<T> exp(sum);
+  NumericVar<T> exp(std::move(sum));
   return exp;
 }
 
@@ -999,36 +1020,36 @@ NumericVar<T> operator-(const NumericVar<T> &x, const NumericVar<T> &y) {
 template <typename T = int>
 NumericVar<T> Sum(const std::vector<NumericVar<T>> &X,
                   const std::vector<T> &W) {
-  auto sum{new SumExpressionImpl<T>()};
+  auto sum = std::make_shared<SumExpressionImpl<T>>();
   auto wp{W.begin()};
   for (auto xp{X.begin()}; xp != X.end(); ++xp) {
     sum->addTerm(*xp, *wp);
     ++wp;
   }
-  NumericVar<T> exp(sum);
+  NumericVar<T> exp(std::move(sum));
   return exp;
 }
 
 template <typename T = int>
 NumericVar<T> Sum(const std::vector<NumericVar<T>> &X) {
-  auto sum{new SumExpressionImpl<T>()};
+  auto sum = std::make_shared<SumExpressionImpl<T>>();
   for (auto xp{X.begin()}; xp != X.end(); ++xp) {
     sum->addTerm(*xp, 1);
   }
-  NumericVar<T> exp(sum);
+  NumericVar<T> exp(std::move(sum));
   return exp;
 }
 
 template <typename T = int>
 NumericVar<T> Sum(const std::vector<BooleanVar<T>> &X,
                   const std::vector<T> &W) {
-  auto sum{new SumExpressionImpl<T>()};
+  auto sum = std::make_shared<SumExpressionImpl<T>>();
   auto wp{W.begin()};
   for (auto xp{X.begin()}; xp != X.end(); ++xp) {
     sum->addTerm(*xp, *wp);
     ++wp;
   }
-  NumericVar<T> exp(sum);
+  NumericVar<T> exp(std::move(sum));
   return exp;
 }
 
@@ -1036,7 +1057,7 @@ template <typename T = int>
 NumericVar<T> Sum(const std::vector<NumericVar<T>> &X,
                   const std::vector<BooleanVar<T>> &B,
                   const std::vector<T> &W) {
-  auto sum{new SumExpressionImpl<T>()};
+  auto sum = std::make_shared<SumExpressionImpl<T>>();
   auto wp{W.begin()};
   for (auto xp{X.begin()}; xp != X.end(); ++xp) {
     sum->addTerm(*xp, *wp);
@@ -1046,7 +1067,7 @@ NumericVar<T> Sum(const std::vector<NumericVar<T>> &X,
     sum->addTerm(*xp, *wp);
     ++wp;
   }
-  NumericVar<T> exp(sum);
+  NumericVar<T> exp(std::move(sum));
   return exp;
 }
 
@@ -1057,13 +1078,8 @@ public:
   NumEqExpressionImpl(NumericVar<T> x, NumericVar<T> y, const T k)
       : x(x), y(y), k(k) {}
 
-    virtual ~NumEqExpressionImpl() {
-#ifdef DBG_EXTRACT
-        std::cout << "delete eq expression\n";
-#endif
-    }
 
-  virtual std::string name() const override { return "eq"; }
+  std::string name() const override { return "eq"; }
 
   var_t extract(Solver<T> &solver, const var_t = Constant::NoVar) override {
     x.extract(solver);
@@ -1082,10 +1098,10 @@ public:
   }
 
   void post(Solver<T> &solver) override {
-    if (x._is_expression) {
+    if (x.isExpression()) {
       y.extract(solver);
       x.extract(solver, y.id());
-    } else if (y._is_expression) {
+    } else if (y.isExpression()) {
       x.extract(solver);
       y.extract(solver, x.id());
     } else {
@@ -1111,7 +1127,7 @@ private:
 ///// <=
 template <typename T>
 BooleanVar<T> operator==(const NumericVar<T> &x, const NumericVar<T> &y) {
-  BooleanVar<T> exp(new NumEqExpressionImpl<T>(x, y, 0));
+  BooleanVar<T> exp(std::make_shared<NumEqExpressionImpl<T>>(x, y, 0));
   return exp;
 }
 
@@ -1136,7 +1152,7 @@ public:
 //              << " <= " << y << " + " << y.offset() << std::endl;
   }
 
-  virtual std::string name() const override { return "leq"; }
+  std::string name() const override { return "leq"; }
 
   var_t extract(Solver<T> &solver, const var_t = Constant::NoVar) override {
       
@@ -1182,7 +1198,7 @@ private:
 ///// <=
 template <typename T>
 BooleanVar<T> operator<=(const NumericVar<T> &x, const NumericVar<T> &y) {
-  BooleanVar<T> exp(new LeqExpressionImpl<T>(x, y, 0));
+  BooleanVar<T> exp(std::make_shared<LeqExpressionImpl<T>>(x, y, 0));
   return exp;
 }
 
@@ -1199,63 +1215,59 @@ BooleanVar<T> operator<=(const NumericVar<T> &x, const T y) {
 ///// <
 template <typename T>
 BooleanVar<T> operator<(const NumericVar<T> &x, const NumericVar<T> &y) {
-  BooleanVar<T> exp(new LeqExpressionImpl<T>(x, y, -Gap<T>::epsilon()));
+  BooleanVar<T> exp(std::make_shared<LeqExpressionImpl<T>>(x, y, -Gap<T>::epsilon()));
   return exp;
 }
 
 template <typename T>
 BooleanVar<T> operator<(const T x, const NumericVar<T> &y) {
-  BooleanVar<T> exp(new LeqExpressionImpl<T>(NumericVar<T>(Constant::K, x), y,
-                                             -Gap<T>::epsilon()));
+  BooleanVar<T> exp(std::make_shared<LeqExpressionImpl<T>>(NumericVar<T>(Constant::K, x), y,
+                                                           -Gap<T>::epsilon()));
   return exp;
 }
 
 template <typename T>
 BooleanVar<T> operator<(const NumericVar<T> &x, const T y) {
-  BooleanVar<T> exp(new LeqExpressionImpl<T>(x, NumericVar<T>(Constant::K, y),
-                                             -Gap<T>::epsilon()));
+  BooleanVar<T> exp(std::make_shared<LeqExpressionImpl<T>>(x, NumericVar<T>(Constant::K, y),
+                                                           -Gap<T>::epsilon()));
   return exp;
 }
 
 ///// >=
 template <typename T>
 BooleanVar<T> operator>=(const NumericVar<T> &x, const NumericVar<T> &y) {
-  BooleanVar<T> exp(new LeqExpressionImpl<T>(y, x, 0));
+  BooleanVar<T> exp(std::make_shared<LeqExpressionImpl<T>>(y, x, 0));
   return exp;
 }
 
 template <typename T>
 BooleanVar<T> operator>=(const T x, const NumericVar<T> &y) {
-  BooleanVar<T> exp(
-      new LeqExpressionImpl<T>(y, NumericVar<T>(Constant::K, x), 0));
+  BooleanVar<T> exp(std::make_shared<LeqExpressionImpl<T>>(y, NumericVar<T>(Constant::K, x), 0));
   return exp;
 }
 
 template <typename T>
 BooleanVar<T> operator>=(const NumericVar<T> &x, const T y) {
-  BooleanVar<T> exp(
-      new LeqExpressionImpl<T>(NumericVar<T>(Constant::K, y), x, 0));
+  BooleanVar<T> exp(std::make_shared<LeqExpressionImpl<T>>(NumericVar<T>(Constant::K, y), x, 0));
   return exp;
 }
 
 ///// >
 template <typename T>
 BooleanVar<T> operator>(const NumericVar<T> &x, const NumericVar<T> &y) {
-  BooleanVar<T> exp(new LeqExpressionImpl<T>(y, x, -Gap<T>::epsilon()));
+  BooleanVar<T> exp(std::make_shared<LeqExpressionImpl<T>>(y, x, -Gap<T>::epsilon()));
   return exp;
 }
 
 template <typename T>
 BooleanVar<T> operator>(const NumericVar<T> &x, const T k) {
-  BooleanVar<T> exp(new LeqExpressionImpl<T>(
-      NumericVar<T>(Constant::K, k + Gap<T>::epsilon()), x, 0));
+  BooleanVar<T> exp(std::make_shared<LeqExpressionImpl<T>>(NumericVar<T>(Constant::K, k + Gap<T>::epsilon()), x, 0));
   return exp;
 }
 
 template <typename T>
 BooleanVar<T> operator>(const T k, const NumericVar<T> &x) {
-  BooleanVar<T> exp(new LeqExpressionImpl<T>(
-      x, NumericVar<T>(Constant::K, k + Gap<T>::epsilon()), 0));
+  BooleanVar<T> exp(std::make_shared<LeqExpressionImpl<T>>(x, NumericVar<T>(Constant::K, k + Gap<T>::epsilon()), 0));
   return exp;
 }
 
@@ -1269,7 +1281,7 @@ public:
     }
   }
 
-  virtual std::string name() const override { return "and"; }
+  std::string name() const override { return "and"; }
 
   var_t extract(Solver<T> &solver, const var_t = Constant::NoVar) override {
     std::vector<Literal<T>> L;
@@ -1307,12 +1319,14 @@ private:
 template <typename T>
 BooleanVar<T> operator&&(BooleanVar<T> &x, BooleanVar<T> &y) {
   std::vector<BooleanVar<T>> sc{x, y};
-  BooleanVar<T> exp(new LogicalAndExpressionImpl<T>(sc.begin(), sc.end()));
+  BooleanVar<T> exp(std::make_shared<LogicalAndExpressionImpl<T>>(sc.begin(), sc.end()));
   return exp;
 }
 
-template <typename T, typename Iterable> BooleanVar<T> BigAnd(Iterable &X) {
-  BooleanVar<T> exp(new LogicalAndExpressionImpl(X.begin(), X.end()));
+template <concepts::ttyped_range<BooleanVar> Iterable>
+auto BigAnd(Iterable &X) {
+  using T = typename std::ranges::range_value_t<Iterable>::TimingType;
+  BooleanVar<T> exp(std::make_shared<LogicalAndExpressionImpl<T>>(X.begin(), X.end()));
   return exp;
 }
 
@@ -1325,7 +1339,7 @@ public:
     }
   }
 
-  virtual std::string name() const override { return "or"; }
+  std::string name() const override { return "or"; }
 
   var_t extract(Solver<T> &solver, const var_t = Constant::NoVar) override {
     std::vector<Literal<T>> L;
@@ -1362,12 +1376,12 @@ private:
 template <typename T>
 BooleanVar<T> operator||(BooleanVar<T> &x, BooleanVar<T> &y) {
   std::vector<BooleanVar<T>> sc{x, y};
-  BooleanVar<T> exp(new LogicalOrExpressionImpl<T>(sc.begin(), sc.end()));
+  BooleanVar<T> exp(std::make_shared<LogicalOrExpressionImpl<T>>(sc.begin(), sc.end()));
   return exp;
 }
 
 template <typename T> BooleanVar<T> BigOr(const std::vector<BooleanVar<T>> &X) {
-  BooleanVar<T> exp(new LogicalOrExpressionImpl(X.begin(), X.end()));
+  BooleanVar<T> exp(std::make_shared<LogicalOrExpressionImpl<T>>(X.begin(), X.end()));
   return exp;
 }
 
@@ -1377,7 +1391,7 @@ public:
   LogicalImplicationExpression(BooleanVar<T> x, BooleanVar<T> y)
       : implicant(x), implicate(y) {}
 
-  virtual std::string name() const override { return "implication"; }
+  std::string name() const override { return "implication"; }
 
   var_t extract(Solver<T> &solver, const var_t = Constant::NoVar) override {
     implicant.extract(solver);
@@ -1428,7 +1442,7 @@ private:
 
 template <typename T>
 BooleanVar<T> BooleanVar<T>::implies(const BooleanVar<T> x) const {
-  BooleanVar<T> exp(new LogicalImplicationExpression<T>(*this, x));
+  BooleanVar<T> exp(std::make_shared<LogicalImplicationExpression<T>>(*this, x));
   return exp;
 }
 
@@ -1445,7 +1459,7 @@ public:
     }
   }
 
-  virtual std::string name() const override { return "cardinality"; }
+  std::string name() const override { return "cardinality"; }
 
   var_t extract(Solver<T> &solver, const var_t = Constant::NoVar) override {
     std::vector<Literal<T>> L;
@@ -1489,7 +1503,7 @@ private:
 
 template <typename T>
 NumericVar<T> Cardinality(const std::vector<BooleanVar<T>> &X) {
-  NumericVar<T> exp(new CardinalityExpressionImpl(X.begin(), X.end()));
+  NumericVar<T> exp(std::make_shared<CardinalityExpressionImpl<T>>(X.begin(), X.end()));
   return exp;
 }
 
@@ -1505,7 +1519,7 @@ public:
     }
   }
 
-  virtual std::string name() const override { return "at-most"; }
+  std::string name() const override { return "at-most"; }
     
     var_t extract(Solver<T> &, const var_t) override {
       throw ModelingException("AtMost is not a predicate");
@@ -1524,13 +1538,13 @@ private:
 
 template <typename T>
 BooleanVar<T> AtMost(const T k, const std::vector<BooleanVar<T>> &X) {
-  BooleanVar<T> exp(new AtMostExpressionImpl<T>(X.begin(), X.end(), k, true));
+  BooleanVar<T> exp(std::make_shared<AtMostExpressionImpl<T>>(X.begin(), X.end(), k, true));
   return exp;
 }
 
 template <typename T>
 BooleanVar<T> AtLeast(const T k, const std::vector<BooleanVar<T>> &X) {
-  BooleanVar<T> exp(new AtMostExpressionImpl<T>(X.begin(), X.end(), X.size()-k, false));
+  BooleanVar<T> exp(std::make_shared<AtMostExpressionImpl<T>>(X.begin(), X.end(), X.size()-k, false));
   return exp;
 }
 
@@ -1540,13 +1554,7 @@ class NoOverlapExpressionImpl : public BooleanExpressionImpl<T>,
 public:
   NoOverlapExpressionImpl(const Interval<T> &sched) : schedule(sched) {}
 
-  virtual ~NoOverlapExpressionImpl() {
-#ifdef DBG_EXTRACT
-    std::cout << "delete " << name() << std::endl;
-#endif
-  }
-
-  virtual std::string name() const override { return "no-overlap"; }
+  std::string name() const override { return "no-overlap"; }
 
   var_t extract(Solver<T> &, const var_t) override {
     throw ModelingException("NoOverlap is not a predicate");
@@ -1689,19 +1697,23 @@ private:
   std::vector<std::vector<T>> transitions;
 };
 
+  template<concepts::scalar T>
+  using NoOverlapExpressionPtr = std::shared_ptr<NoOverlapExpressionImpl<T>>;
+
+  template<concepts::scalar T>
+  using cNoOverlapExpressionPtr = std::shared_ptr<const NoOverlapExpressionImpl<T>>;
+
 template <typename T> class NoOverlapExpression : public BooleanVar<T> {
 
 public:
-  NoOverlapExpression(NoOverlapExpressionImpl<T> *i) : BooleanVar<T>(i) {}
+  NoOverlapExpression(NoOverlapExpressionPtr<T> i) : BooleanVar<T>(std::move(i)) {}
 
     [[nodiscard]] size_t size() const {
-      return static_cast<NoOverlapExpressionImpl<T> *>(BooleanVar<T>::implem)
-          ->size();
+      return static_cast<NoOverlapExpressionImpl<T> *>(BooleanVar<T>::implem().get())->size();
     }
     
   std::vector<Interval<T>>::iterator begin() {
-    return static_cast<NoOverlapExpressionImpl<T> *>(BooleanVar<T>::implem)
-        ->begin();
+    return static_cast<NoOverlapExpressionImpl<T> *>(BooleanVar<T>::implem().get())->begin();
   }
 
   std::vector<Interval<T>>::const_iterator begin() const {
@@ -1709,8 +1721,7 @@ public:
   }
 
   std::vector<Interval<T>>::iterator end() {
-    return static_cast<NoOverlapExpressionImpl<T> *>(BooleanVar<T>::implem)
-        ->end();
+    return static_cast<NoOverlapExpressionImpl<T> *>(BooleanVar<T>::implem().get())->end();
   }
 
     std::vector<Interval<T>>::const_iterator end() const {
@@ -1718,54 +1729,42 @@ public:
     }
 
   const auto &getDisjunctiveLiterals() const noexcept {
-      return static_cast<NoOverlapExpressionImpl<T>*>(BooleanVar<T>::implem)->getDisjunctiveLiterals();
+      return static_cast<NoOverlapExpressionImpl<T>*>(BooleanVar<T>::implem().get())->getDisjunctiveLiterals();
   }
 
   void provide(const Interval<T> &i) {
-    static_cast<NoOverlapExpressionImpl<T> *>(BooleanVar<T>::implem)
-        ->push_back(i);
+    static_cast<NoOverlapExpressionImpl<T> *>(BooleanVar<T>::implem().get())->push_back(i);
   }
 
   template <typename Matrix> void setTransisions(const Matrix &D) {
-    static_cast<NoOverlapExpressionImpl<T> *>(BooleanVar<T>::implem)
-        ->setTransisions(D);
+    static_cast<NoOverlapExpressionImpl<T> *>(BooleanVar<T>::implem().get())->setTransisions(D);
   }
 };
 
-template <typename T, typename Iterable, typename Matrix>
+template <typename T, std::ranges::range Iterable, typename Matrix>
 NoOverlapExpression<T> NoOverlap(const Interval<T> &schedule, const Iterable &X,
                                  const Matrix &D) {
-  auto impl{new NoOverlapExpressionImpl<T>(schedule)};
-  //  for (auto x : X)
-  //    impl->push_back(x);
-  NoOverlapExpression<T> exp(impl);
-
-  for (auto x : X)
+  NoOverlapExpression<T> exp(std::make_shared<NoOverlapExpressionImpl<T>>(schedule));
+  for (auto x : X) {
     exp.provide(x);
+  }
 
   exp.setTransisions(D);
-
   return exp;
 }
 
 template <typename T>
 NoOverlapExpression<T> NoOverlap(Interval<T> &schedule, const std::vector<Interval<T>> &X) {
-  auto impl{new NoOverlapExpressionImpl<T>(schedule)};
-  //  for (auto x : X)
-  //    impl->push_back(x);
-  NoOverlapExpression<T> exp(impl);
-
-  for (auto x : X)
+  NoOverlapExpression<T> exp(std::make_shared<NoOverlapExpressionImpl<T>>(schedule));
+  for (auto x : X) {
     exp.provide(x);
-
-//  exp.setTransisions(D);
+  }
 
   return exp;
 }
 
 template <typename T> NoOverlapExpression<T> NoOverlap(Interval<T> &schedule) {
-  auto impl{new NoOverlapExpressionImpl<T>(schedule)};
-  NoOverlapExpression<T> exp(impl);
+  NoOverlapExpression<T> exp(std::make_shared<NoOverlapExpressionImpl<T>>(schedule));
   return exp;
 }
 
@@ -1780,13 +1779,7 @@ public:
   CumulativeExpressionImpl(const Interval<T> &s, const NumericVar<T> c)
       : schedule(s), capacity(c) {}
 
-  virtual ~CumulativeExpressionImpl() {
-#ifdef DBG_EXTRACT
-    std::cout << "delete " << name() << std::endl;
-#endif
-  }
-
-  virtual std::string name() const override { return "cumulative"; }
+  std::string name() const override { return "cumulative"; }
 
   var_t extract(Solver<T> &, const var_t) override {
     throw ModelingException("Cumulative is not a predicate");
@@ -1931,14 +1924,14 @@ public:
 
         //#ifdef DBG_SEF
         if (solver.getOptions().edge_finding) {
-          auto incr{new Incrementality<T>(solver, *this, disjunctiveLiterals)};
+          auto incr = std::make_unique<Incrementality<T>>(solver, *this, disjunctiveLiterals);
 
           solver.postStrongEdgeFinding(
               schedule, capacity, this->begin(), this->end(), this->begDemand(),
-              solver.getOptions().tt_edge_finding, incr,
+              solver.getOptions().tt_edge_finding, incr.get(),
               solver.getOptions().incomplete_edge_finding);
 
-          solver.post(incr);
+          solver.post(incr.release());
         }
 //#endif
         
@@ -1973,14 +1966,19 @@ private:
   std::vector<NumericVar<T>> demand;
 };
 
+  template<concepts::scalar T>
+  using CumulativeExpressionPtr = std::shared_ptr<CumulativeExpressionImpl<T>>;
+
+  template<concepts::scalar T>
+  using cCumulativeExpressionPtr = std::shared_ptr<const CumulativeExpressionImpl<T>>;
+
 template <typename T> class CumulativeExpression : public BooleanVar<T> {
 
 public:
-  CumulativeExpression(CumulativeExpressionImpl<T> *i) : BooleanVar<T>(i) {}
+  CumulativeExpression(CumulativeExpressionPtr<T> i) : BooleanVar<T>(std::move(i)) {}
 
   std::vector<Interval<T>>::iterator begin() {
-    return static_cast<CumulativeExpressionImpl<T> *>(BooleanVar<T>::implem)
-        ->begin();
+    return static_cast<CumulativeExpressionImpl<T> *>(BooleanVar<T>::implem().get())->begin();
   }
 
   std::vector<Interval<T>>::const_iterator begin() const {
@@ -1988,8 +1986,7 @@ public:
   }
 
   std::vector<Interval<T>>::iterator end() {
-    return static_cast<CumulativeExpressionImpl<T> *>(BooleanVar<T>::implem)
-        ->end();
+    return static_cast<CumulativeExpressionImpl<T> *>(BooleanVar<T>::implem().get())->end();
   }
 
   std::vector<Interval<T>>::const_iterator end() const {
@@ -1997,39 +1994,35 @@ public:
   }
 
   const auto &getDisjunctiveLiterals() const noexcept {
-      return static_cast<const CumulativeExpressionImpl<T>*>(BooleanVar<T>::implem)->getDisjunctiveLiterals();
+      return static_cast<const CumulativeExpressionImpl<T>*>(BooleanVar<T>::implem().get())->getDisjunctiveLiterals();
   }
 
   std::vector<BooleanVar<T>>::iterator begDemand() {
-    return static_cast<CumulativeExpressionImpl<T> *>(BooleanVar<T>::implem)
-        ->begDemand();
+    return static_cast<CumulativeExpressionImpl<T> *>(BooleanVar<T>::implem().get())->begDemand();
   }
 
   std::vector<BooleanVar<T>>::const_iterator begDemand() const {
-    const_cast<CumulativeExpression*>(this)->begDemand();
+    return const_cast<CumulativeExpression*>(this)->begDemand();
   }
 
   std::vector<BooleanVar<T>>::iterator endDemand() {
-    return static_cast<CumulativeExpressionImpl<T> *>(BooleanVar<T>::implem)
-        ->endDemand();
+    return static_cast<CumulativeExpressionImpl<T> *>(BooleanVar<T>::implem().get())->endDemand();
   }
 
   std::vector<BooleanVar<T>>::const_iterator endDemand() const {
     const_cast<CumulativeExpression*>(this)->endDemand();
   }
 
-      void provide(const NumericVar<T> d, const Interval<T> i) {
-          static_cast<CumulativeExpressionImpl<T> *>(BooleanVar<T>::implem)
-              ->provide(d,i);
-      }
+  void provide(const NumericVar<T> d, const Interval<T> i) {
+    static_cast<CumulativeExpressionImpl<T> *>(BooleanVar<T>::implem().get())->provide(d, i);
+  }
 };
 
 template <typename T = int>
 CumulativeExpression<T> Cumulative(const Interval<T> &s, const NumericVar<T> c,
                                    const std::vector<Interval<T>> &I,
                                    const std::vector<NumericVar<T>> &D) {
-  auto impl{new CumulativeExpressionImpl<T>(s, c)};
-
+  auto impl = std::make_shared<CumulativeExpressionImpl<T>>(s, c);
   auto i{I.begin()};
   auto d{D.begin()};
   while (i != I.end()) {
@@ -2038,8 +2031,7 @@ CumulativeExpression<T> Cumulative(const Interval<T> &s, const NumericVar<T> c,
     ++d;
   }
 
-  CumulativeExpression<T> exp(impl);
-
+  CumulativeExpression<T> exp(std::move(impl));
   return exp;
 }
 
@@ -2091,13 +2083,13 @@ concept resource_expression = tempo::concepts::ttyped_range<E, tempo::Interval> 
 namespace detail {
     template<resource_expression R>
     class timing_type_from_resource {
-        using LitT = std::remove_cvref_t<decltype(std::declval<R>().getDisjunctiveLiterals())>::value_type;
+        using LitT = typename std::remove_cvref_t<decltype(std::declval<R>().getDisjunctiveLiterals())>::value_type;
     public:
         using type = decltype(std::declval<LitT>().value());
     };
 
     template<resource_expression R>
-    using timing_type_from_resource_t = timing_type_from_resource<R>::type;
+    using timing_type_from_resource_t = typename timing_type_from_resource<R>::type;
 
 }
 
