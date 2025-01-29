@@ -151,10 +151,10 @@ template <typename T = int> struct NumInfo {
   T _offset{0};
 };
 
-  //TODO private inheritance ?
 template <typename T = int> class NumericVar: public InfoStorage<T, NumInfo> {
 
 public:
+  using TimingType = T;
     constexpr NumericVar() noexcept: InfoStorage<T, NumInfo>(std::in_place_type<NumInfo<T>>, Constant::NoVar, 0) {}
 
     NumericVar(ExpressionPtr<T> i) noexcept: InfoStorage<T, NumInfo>(std::in_place_type<ExpressionPtr<T>>,
@@ -276,6 +276,7 @@ methods
 template <typename T = int> class BooleanVar: public InfoStorage<T, BoolInfo>{
 
 public:
+  using TimingType = T;
   constexpr BooleanVar() noexcept: InfoStorage<T, BoolInfo>(std::in_place_type<BoolInfo<T>>, Constant::NoIndex,
                                                             Constant::NoSemantic) {}
   BooleanVar(ExpressionPtr<T> i) : InfoStorage<T, BoolInfo>(std::in_place_type<ExpressionPtr<T>>, std::move(i)) {}
@@ -1322,8 +1323,9 @@ BooleanVar<T> operator&&(BooleanVar<T> &x, BooleanVar<T> &y) {
   return exp;
 }
 
-  //TODO deduce T
-template <typename T, typename Iterable> BooleanVar<T> BigAnd(Iterable &X) {
+template <concepts::ttyped_range<BooleanVar> Iterable>
+auto BigAnd(Iterable &X) {
+  using T = typename std::ranges::range_value_t<Iterable>::TimingType;
   BooleanVar<T> exp(std::make_shared<LogicalAndExpressionImpl<T>>(X.begin(), X.end()));
   return exp;
 }
@@ -1378,7 +1380,6 @@ BooleanVar<T> operator||(BooleanVar<T> &x, BooleanVar<T> &y) {
   return exp;
 }
 
-  //TODO decuce T
 template <typename T> BooleanVar<T> BigOr(const std::vector<BooleanVar<T>> &X) {
   BooleanVar<T> exp(std::make_shared<LogicalOrExpressionImpl<T>>(X.begin(), X.end()));
   return exp;
