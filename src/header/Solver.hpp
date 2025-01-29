@@ -2685,7 +2685,9 @@ void Solver<T>::optimize(S &objective) {
     
     try {
         initializeSearch();
-        std::cout << "-- Initial bound = " << objective.getDual(*this) << std::endl;
+        if (options.verbosity >= Options::NORMAL) {
+            std::cout << "-- Initial bound = " << objective.getDual(*this) << std::endl;
+        }
     } catch (Failure<T> &f) {
       objective.setDual(objective.primalBound());
     }

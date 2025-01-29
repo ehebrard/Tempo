@@ -104,6 +104,11 @@ namespace tempo {
     using cExpressionPtr = std::shared_ptr<const ExpressionImpl<T>>;
 
 
+    /**
+     * @brief Manages either an expression implementation or a variable information struct
+     * @tparam T timing type
+     * @tparam InfoType info struct type
+     */
     template<concepts::scalar T, template<concepts::scalar> typename InfoType>
     class InfoStorage {
         std::variant<InfoType<T>, ExpressionPtr<T>> content;
@@ -112,33 +117,61 @@ namespace tempo {
         template<typename... Args>
         explicit InfoStorage(Args &&... args): content(std::forward<Args>(args)...) {}
 
+        /**
+         * Whether contains an expression
+         * @return
+         */
         [[nodiscard]] bool isExpression() const noexcept {
             return std::holds_alternative<ExpressionPtr<T>>(content);
         }
 
+        /**
+         * Clears expression implementation (if any) and sets data to information struct
+         * @tparam Val information type
+         * @param val new information struct
+         */
         template<typename Val>
         void setInfo(Val &&val) {
             content = std::forward<Val>(val);
         }
 
+        /**
+         * Marks instance as non-expression with empty info
+         */
         void clearExpressionStatus() {
             if (isExpression()) {
                 setInfo(InfoType<T>{});
             }
         }
 
+        /**
+         * Gets the contained implementation pointer
+         * @throws bad_variant_accesss if data is not an expression
+         */
         decltype(auto) implem() const noexcept {
             return std::get<ExpressionPtr<T>>(content);
         }
 
+        /**
+         * Gets the contained implementation pointer
+         * @throws bad_variant_accesss if data is not an expression
+         */
         decltype(auto) implem() noexcept {
             return std::get<ExpressionPtr<T>>(content);
         }
 
+        /**
+         * Gets the contained info data
+         * @throws bad_variant_accesss if data is an expression
+         */
         decltype(auto) data() const noexcept {
             return std::get<InfoType<T>>(content);
         }
 
+        /**
+         * Gets the contained info data
+         * @throws bad_variant_accesss if data is an expression
+         */
         decltype(auto) data() noexcept {
             return std::get<InfoType<T>>(content);
         }
@@ -207,6 +240,7 @@ namespace tempo {
         }
 
         std::ostream &display(std::ostream &os) const;
+
         static bool isNumeric() { return true; }
 
         //    void negate() { data._id_ ^= 1; }
