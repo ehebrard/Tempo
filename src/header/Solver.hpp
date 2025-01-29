@@ -1814,7 +1814,6 @@ size_t Solver<T>::numLiteral() const {
 template <typename T>
 size_t Solver<T>::numDecision() const {
   assert(rdecisions.size() == decisions.size());
-
   return decisions.size();
 }
 
@@ -1824,24 +1823,15 @@ Explanation<T> Solver<T>::getReason(const Literal<T> l) const {
 }
 
 template <typename T> Literal<T> Solver<T>::getLiteral(const index_t i) const {
-
-  assert(trail[i] == trail[i]);
-
   return trail[i];
 }
 
 template <typename T>
 Explanation<T> Solver<T>::getReason(const index_t i) const {
-
-  assert(trail[i] == trail[i]);
-
   return trail[i].getExplanation();
 }
 
 template <typename T> int Solver<T>::getLevel(const index_t i) const {
-
-  assert(trail[i] == trail[i]);
-
   return trail[i].level();
 }
 
