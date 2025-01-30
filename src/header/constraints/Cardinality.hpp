@@ -184,10 +184,11 @@ bool CardinalityInterface<T>::notify(const Literal<T> l, const int) {
 
 template <typename T>
 void CardinalityInterface<T>::xplain(const Literal<T> l, const hint, std::vector<Literal<T>> &Cl) {
-    
-    auto l_lvl{(l==Contradiction<T> ? m_solver.numLiteral() : m_solver.propagationLevel(l))};
+
+    throw std::runtime_error("DONT USE THIS METHOD RIGHT NOW");
+    auto l_lvl{(l==Contradiction<T> ? m_solver.numLiteral() : m_solver.decisionLevel(l))};
     for(auto p : literals) {
-        if(m_solver.boolean.satisfied(p) and m_solver.propagationLevel(p) < l_lvl)
+        if(m_solver.boolean.satisfied(p) and m_solver.decisionLevel(p) < l_lvl)
             Cl.push_back(p);
     }
     

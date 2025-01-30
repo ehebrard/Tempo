@@ -35,7 +35,6 @@
 #include "Model.hpp"
 #include "Objective.hpp"
 #include "Restart.hpp"
-#include "constraints/Cardinality.hpp"
 #include "constraints/Incrementality.hpp"
 #include "constraints/CumulativeCheck.hpp"
 #include "constraints/CumulativeEdgeFinding.hpp"
