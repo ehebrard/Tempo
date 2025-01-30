@@ -24,7 +24,7 @@ int main(int argc, char **argv) {
                                  cli::ArgSpec("feat-config", "Location of the feature extractor config", true,
                                               featureExtractorConf));
 
-    auto [solver, problem, _, _1, _2] = loadSchedulingProblem(opt);
+    auto [solver, problem, _, _1, _2, _3] = loadSchedulingProblem(opt);
     auto schedule = problem.schedule();
     using PType = decltype(problem);
     using GNNH = util::ProfiledHeuristic<nn::GNNFullGuidance<PType::Time, PType::Resource>>;

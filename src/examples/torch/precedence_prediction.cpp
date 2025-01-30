@@ -89,7 +89,7 @@ int main(int argc, char **argv) {
     if (numberOfIterations > 0 and numLiterals > 0) {
         auto o = opt;
         o.verbosity = Options::SILENT;
-        auto [s, p, _, _1, _2] = loadSchedulingProblem(o);
+        auto [s, p, _, _1, _2, _3] = loadSchedulingProblem(o);
         s->setBranchingHeuristic(heuristics::make_compound_heuristic(heuristics::RandomVariableSelection{},
                                                                      heuristics::RandomBinaryValue{}));
         s->PropagationCompleted.subscribe_unhandled(
