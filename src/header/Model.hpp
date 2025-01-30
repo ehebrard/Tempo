@@ -115,7 +115,7 @@ namespace tempo {
 
     public:
         template<typename... Args>
-        explicit InfoStorage(Args &&... args): content(std::forward<Args>(args)...) {}
+        explicit constexpr InfoStorage(Args &&... args): content(std::forward<Args>(args)...) {}
 
         /**
          * Whether contains an expression
