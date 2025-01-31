@@ -136,22 +136,24 @@ auto loadSchedulingProblem(const tempo::Options &options)
     }
 
     auto &[problem, optSol] = *res;
-    Time trivialUb = 0;
-    for (const auto &t : problem.tasks()) {
-        auto maxDur = t.maxDuration(*solver);
-        if (maxDur == Constant::Infinity<Time>) {
-            trivialUb = maxDur;
-            break;
-        }
+    Time ub = options.ub;
+    if (ub == -1) {
+        ub = 0;
+        for (const auto &t : problem.tasks()) {
+            auto maxDur = t.maxDuration(*solver);
+            if (maxDur == Constant::Infinity<Time>) {
+                ub = maxDur;
+                break;
+            }
 
-        trivialUb += maxDur;
+            ub += maxDur;
+        }
     }
 
-    trivialUb = std::min(trivialUb, options.ub);
-    solver->set(schedule.end.before(trivialUb));
+    solver->set(schedule.end.before(ub));
     auto numTasks = static_cast<unsigned>(problem.tasks().size());
     return {.solver = std::move(solver), .instance = std::move(problem), .constraints = std::move(
-            constraints), .optimalSolution = optSol, .upperBound = trivialUb, .numTasks = numTasks};
+            constraints), .optimalSolution = optSol, .upperBound = ub, .numTasks = numTasks};
 }
 
 void loadBranch(tempo::Solver<int> &solver, const tempo::serialization::Branch &branch) {
