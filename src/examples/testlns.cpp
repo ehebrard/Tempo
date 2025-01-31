@@ -225,7 +225,21 @@ int main(int argc, char *argv[]) {
 //
 //  //    S.post(schedule.end <= ub);
 
-  if (opt.ub != Constant::Infinity<int>) {
+  if (opt.ub == -1) {
+    // TODO this might produce invalid bounds for e.g. jstl
+    int trivialUb = 0;
+    for (const auto &t : intervals) {
+        auto maxDur = t.maxDuration(S);
+        if (maxDur == Constant::Infinity<Time>) {
+            trivialUb = maxDur;
+            break;
+        }
+
+        trivialUb += maxDur;
+    }
+
+    S.post(schedule.end.before(trivialUb));
+  } else if (opt.ub != Constant::Infinity<int>) {
     S.post(schedule.end.before(opt.ub));
     //        S.set(schedule.end.before(schedule.start, -opt.ub));
     //        S.propagate();
