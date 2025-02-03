@@ -863,13 +863,6 @@ public:
     
     //@}
 
-    /**
-     * @name to collect the modeling construct in order to free memory up
-     */
-    //@{
-    std::vector<ExpressionImpl<T>*> trash_bin;
-    //@}
-    
 private:
     /**
      * @name debug
@@ -884,8 +877,7 @@ private:
     
     void writeLiteral(const Literal<T> l) const;
 #endif
-    
-    //@}
+
 };
 
 template <typename T>
@@ -1652,10 +1644,6 @@ Solver<T>::Solver()
 }
 
 template <typename T> Solver<T>::~Solver() {
-    for (auto exp : trash_bin) {
-        delete exp;
-    }
-    
     for (auto c : constraints) {
         if (c != &clauses) {
             //          std::cout << "delete " << *c << std::endl;
@@ -1751,7 +1739,7 @@ NumericVar<T> Solver<T>::newOffset(NumericVar<T> &x, const T k) {
 template <typename T>
 NumericVar<T> Solver<T>::_newNumeric_(const T lb, const T ub) {
     auto x{numeric.newVar(Constant::Infinity<T>)};
-    
+
     changed.reserve(numeric.size());
     clauses.newNumericVar(x.id());
     numeric_constraints.resize(std::max(numConstraint(), 2 * numeric.size()));
@@ -1838,7 +1826,6 @@ size_t Solver<T>::numLiteral() const {
 template <typename T>
 size_t Solver<T>::numDecision() const {
   assert(rdecisions.size() == decisions.size());
-
   return decisions.size();
 }
 
@@ -1896,7 +1883,7 @@ void Solver<T>::set(Literal<T> l, const Explanation<T> &e) {
 template <typename T>
 void Solver<T>::setNumeric(Literal<T> l, const Explanation<T> &e,
                            const bool do_update) {
-    
+
     if (not numeric.satisfied(l)) {
         
 #ifdef DBG_TRACE
@@ -2051,7 +2038,7 @@ template <typename T> void Solver<T>::backtrack(Explanation<T> &e) {
     
     ConflictEncountered.trigger(e);
     propagation_queue.clear();
-    
+
     try {
         if (options.learning)
             learnConflict(e);
@@ -3529,7 +3516,9 @@ void Solver<T>::optimize(S &objective) {
     
     try {
         initializeSearch();
-        std::cout << "-- Initial bound = " << objective.getDual(*this) << std::endl;
+        if (options.verbosity >= Options::NORMAL) {
+            std::cout << "-- Initial bound = " << objective.getDual(*this) << std::endl;
+        }
     } catch (Failure<T> &f) {
       objective.setDual(objective.primalBound());
     }
@@ -4244,7 +4233,7 @@ std::ostream &Solver<T>::displayPrecedences(std::ostream &os) const {
 
 template <typename T>
 std::ostream &Solver<T>::displayTrail(std::ostream &os) const {
- 
+
   size_t i{0};
   size_t j{0};
   while (j < numLiteral()) {

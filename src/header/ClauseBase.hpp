@@ -53,7 +53,7 @@ public:
      */
     //@{
     ClauseBase(Solver<T> &);
-    ~ClauseBase() = default;
+    ~ClauseBase();
     
     // notify that the solver has Boolean variable x
     void newBooleanVar(const var_t x);
@@ -297,6 +297,13 @@ ClauseBase<T>::ClauseBase(Solver<T> &c)
     free_wl_indices.reserve(1);
 #endif
     
+}
+
+template<class T>
+ClauseBase<T>::~ClauseBase() {
+    for (auto *c: base) {
+        delete c;
+    }
 }
 
 template <typename T>

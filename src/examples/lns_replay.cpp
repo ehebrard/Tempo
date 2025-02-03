@@ -19,7 +19,7 @@ int main(int argc, char **argv) {
     using namespace tempo;
     std::string policyTrace;
     auto opt = cli::parseOptions(argc, argv, cli::ArgSpec("trace", "Location of the policy trace", false, policyTrace));
-    auto [solver, problem, _, optSol, _1] = loadSchedulingProblem(opt);
+    auto [solver, problem, _, optSol, _1, _2] = loadSchedulingProblem(opt);
     lns::PolicyReplay<int> policy(policyTrace);
     MinimizationObjective objective(problem.schedule().duration);
     solver->largeNeighborhoodSearch(objective, policy);
