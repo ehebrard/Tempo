@@ -324,13 +324,14 @@ void ClauseBase<T>::propagate() {
     ++num_prop;
     
     for (auto b : triggered_bounds) {
-        auto p{solver.numeric.getLiteral(Literal<T>::sgn(b), Literal<T>::var(b))};
-        //      std::cout << " --> unitprop " << solver.pretty(p) << std::endl;
-        if (solver.getOptions().order_bound_watch) {
-            unit_propagate_numeric(p);
-        } else {
-            unit_propagate(p);
-        }
+      ++solver.num_unit_propagations;
+      auto p{solver.numeric.getLiteral(Literal<T>::sgn(b), Literal<T>::var(b))};
+      //      std::cout << " --> unitprop " << solver.pretty(p) << std::endl;
+      if (solver.getOptions().order_bound_watch) {
+        unit_propagate_numeric(p);
+      } else {
+        unit_propagate(p);
+      }
         //        unit_propagate_numeric(p);
     }
     clearTriggers();
@@ -592,13 +593,19 @@ void ClauseBase<T>::up(const Literal<T> l, const index_t widx){ //std::vector<Cl
         }
 #endif
 
-        if (cl->watch_index(1) >= cl->size()) {
-          std::cout << "u*cl_" << cl->id << ": " << cl->watch_index(1)
-                    << " >= " << cl->size()
-                    << " #cp=" << solver.num_choicepoints << " widx=" << widx
-                    << " k=" << k << std::endl;
-          exit(1);
-        }
+        assert(cl->watch_index(1) < cl->size());
+        //        if(cl->watch_index(1) >= cl->size()) {
+        //            std::cout << "this bug!\n";
+        //            exit(1);
+        //        }
+        //        if (cl->watch_index(1) >= cl->size()) {
+        //          std::cout << "u*cl_" << cl->id << ": " << cl->watch_index(1)
+        //                    << " >= " << cl->size()
+        //                    << " #cp=" << solver.num_choicepoints << " widx="
+        //                    << widx
+        //                    << " k=" << k << std::endl;
+        //          exit(1);
+        //        }
 
         bool watch_rank{cl->watch_rank(l)};
         index_t idx{cl->watched_index[watch_rank]};
@@ -668,9 +675,9 @@ void ClauseBase<T>::up(const Literal<T> l, const index_t widx){ //std::vector<Cl
                     //            displayWatchStruct(std::cout);
                     
                     // remove clause from l's watch list
-                    
-                    assert(watchers[widx].size() > 0);
-                    
+
+                    assert(watchers[widx].size() >= 0);
+
                     //          std::cout << "watches.size() = " << watches.size() <<
                     //          std::endl; std::cout << "rm " << **c << " from \n"; for
                     //          (auto cla : watches) {
@@ -794,7 +801,29 @@ void ClauseBase<T>::unit_propagate_numeric(const Literal<T> l) {
             //        << std::endl;
             
             free_wl_indices.add(wl->second);
+
+            //            if(numeric_watch[l].empty()) {
+            //                std::cout << "bug!\n";
+            //                exit(1);
+            //            }
+
+            //            auto flag{numeric_watch[l].size() == 15};
+            //            if(flag) {
+            //                std::cout << solver.num_unit_propagations << ":
+            //                erase <" << wl->first << ", " << wl->second << "
+            //                (" << watchers[wl->second].size() << ")> from:\n";
+            //                for(auto x : numeric_watch[l]) {
+            //                    std::cout << "<" << x.first << ", " <<
+            //                    x.second << " (" << watchers[x.second].size()
+            //                    << ")>\n";
+            //                }
+            //            }
+            ////            std::cout << numeric_watch[l].size() << std::endl;
+
             numeric_watch[l].erase(wl);
+
+            //            std::cout << "->" << numeric_watch[l].size() <<
+            //            std::endl;
         }
         
         wl = next;

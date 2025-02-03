@@ -137,11 +137,19 @@ auto tempo::getBaseParser() -> Parser {
     cmd.add<ValueArg<double>>(opt.forgetfulness, "", "forgetfulness",
                               "clause base reduction factor (0.3)", false, 0.3,
                               "double");
+    
+    cmd.add<ValueArg<int>>(
+            opt.cut_type, "", "cut-type",
+            "Type of cuts computed during conflict analysis (0: UIP, 1: Boolean variables only, 2: Decisions only, default 0)",
+            false, 0, "int");
 
     cmd.add<ValueArg<int>>(
             opt.minimization, "", "clause-minimization",
             "depth for clause minimization (default 3)",
             false, 3, "int");
+
+    cmd.add<SwitchArg>(opt.shrinking, "", "clause-shrinking",
+                       "use clause-shrinking", false);
 
     cmd.add<ValueArg<int>>(
             opt.greedy_runs, "", "greedy-runs",

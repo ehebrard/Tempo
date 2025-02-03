@@ -137,9 +137,10 @@ public:
 
     double forgetfulness{0.3};
 
-    //  enum class Minimization { None = 0, Greedy, QuickXplain };
-
+      enum class Cut { UIP = 0, Booleans, Decisions };
+    Cut cut_type{Cut::UIP};
     int minimization{3};
+    bool shrinking{false};
 
     int greedy_runs{10};
 

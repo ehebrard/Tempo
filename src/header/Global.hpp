@@ -59,17 +59,17 @@ using hint = int;
 #define UNITPROPAGATION 128
 #define DCUT 256
 #define TRAIL 512
+#define MINIMIZATION 1024
+#define SHRINKING 2048
 
 /////// UNCOMMENT TO DEBUG
-// #define DBG_TRACE (SEARCH + LEARNING) // 183
-//                                       // 1+2+4+32+128
-// #define DBG_BOUND (num_fails >= 263)
-// #define DBG_CBOUND (solver.num_choicepoints < 0)
-// #define DBG_CLBOUND (solver.num_fails >= 263) // cl->id == 80
-//// solver.num_choicepoints >= 10527
-// #define DBG_BBOUND (solver.num_fails >= 263)
-//////////
+// #define DBG_TRACE (SEARCH + LEARNING + MINIMIZATION)
+// #define DBG_BOUND (num_fails >= 0)
+// #define DBG_CBOUND (solver.num_fails < 0)
+// #define DBG_CLBOUND (solver.num_fails >= 0)
+// #define DBG_BBOUND (solver.num_fails >= 0)
 ////////////
+
 // #define DBG_MINIMIZATION
 //  #define DBG_EDGECONS true
 //  #define DBG_EDGEFINDING (m_solver.num_cons_propagations >= 0)
@@ -80,8 +80,7 @@ using hint = int;
 //  #define DEBUG_HEURISTICS
 //  #define DBG_UP
 // #define DBG_CL 10000000
-//  #define
-//  #define DBG_CLPLUS 1000000000
+//  #define DBG_CLPLUS true
 //  #define DBG_TRANSITIVITY true //(m_schedule.num_choicepoints >= 4064)
 //  #define DBG_EXPL_TRANS true
 //  #define DBG_SOL
@@ -105,7 +104,6 @@ using hint = int;
 //  #define DBG_INCR this->id() == 1729 and (i == 15 or j == 15) and
 //  solver.level() <= 31 #define DBG_INCRP true
 //  #define DBG_SHRINK
-
 
 // priority values for constraint propagation
 enum class Priority {

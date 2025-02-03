@@ -195,7 +195,9 @@ int main(int argc, char *argv[]) {
 //        S.search();
 
         if (S.satisfiable()) {
-          std::cout << "cl " << line << " (" << (t ? "expl" : "cut") << "): ";
+          std::cout << "cl " << line << " ("
+                    << (t == 0 ? "minimized" : (t == 1 ? "reason" : "uip"))
+                    << "): ";
           std::cout << "bug!\n";
 
           for (size_t i{0}; i < X.size(); ++i) {

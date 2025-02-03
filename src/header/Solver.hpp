@@ -633,16 +633,21 @@ public:
     void backtrack(Explanation<T> &e);
     void branchRight();
     void learnConflict(Explanation<T> &e);
-    void analyze(Explanation<T> &e);
+    void analyze(Explanation<T> &e, const bool only_boolean = false);
+    void analyzeDecisions(Explanation<T> &e);
     void not_analyze(Explanation<T> &e);
     void decisionCut(Explanation<T> &e);
     void minimizeClause();
+    template <typename Iter> void minimizeSlice(Iter beg, Iter stop);
     void shrinkClause(); // std::vector<Literal<T>> &c);
+    template <typename Iter> bool shrinkSlice(Iter beg, Iter stop);
 
-    // return the stamp of the literal that can replace p
+    // return the stamp of the literal that can replace p in the cut
     // * when the return value is ref_stamp, there is no replacement
-    // * when the return value is 0, p is irrelevant
-    // * otherwise p can be replaced the literal at this rank
+    // * when the return value is 0, p is irrelevant (redundant)
+    // * otherwise p can be replaced the literal at the returned value position
+    // in trail
+    index_t getRelevance(const std::pair<index_t, Literal<T>> &lit);
     index_t getRelevantBoundRec(const index_t ref_stamp, const Literal<T> p,
                                 const index_t p_stamp, const int depth,
                                 const index_t stamp);
@@ -851,6 +856,8 @@ public:
     long unsigned int num_literals{0};
     // number of calls to a queued propagator
     long unsigned int num_cons_propagations{0};
+    // number of calls to a queued propagator
+    long unsigned int num_unit_propagations{0};
     // average depth of the search tree
     double avg_fail_level{0};
     
@@ -905,7 +912,9 @@ struct ConflictSet : public std::vector<std::pair<index_t, Literal<T>>> {
 
   void change(const Literal<T> l, const index_t i);
 
-  void remove(std::vector<std::pair<index_t, Literal<T>>>::iterator i);
+  template <typename Iter> // std::vector<std::pair<index_t,
+                           // Literal<T>>>::iterator
+  void remove(Iter i);
 
   // clear and resize the data structures
   void clear(Solver<T> *solver);
@@ -943,6 +952,14 @@ struct ConflictSet : public std::vector<std::pair<index_t, Literal<T>>> {
 
   void uncache(const index_t stamp) { cache_[stamp] = false; }
 
+  size_t saveCache() { return cached_.size(); }
+  void restoreCache(const size_t n) {
+    while (cached_.size() > n) {
+      cache_[cached_.back()] = false;
+      cached_.pop_back();
+    }
+  }
+
   bool has(const Literal<T> p) const {
     if (p.isNumeric()) {
       return getConflictIndex(p) != Constant::NoIndex;
@@ -973,16 +990,17 @@ struct ConflictSet : public std::vector<std::pair<index_t, Literal<T>>> {
 template <typename T>
 std::ostream &ConflictSet<T>::display(std::ostream &os) const {
   for (auto l : *this) {
-    os << " [" << l.second << "]";
+    os << " [" << l.second << "]@" << l.first;
   }
   return os;
 }
 
 template <typename T>
-void ConflictSet<T>::remove(
-    std::vector<std::pair<index_t, Literal<T>>>::iterator i) {
+template <typename Iter>
+void ConflictSet<T>::remove(Iter i) {
   if (i->second.isNumeric()) {
     setConflictIndex(i->second, Constant::NoIndex);
+    i->first = 0;
   } else {
     in_conflict[i->second.variable()] = false;
   }
@@ -1066,7 +1084,7 @@ template <typename T> void ConflictSet<T>::sort() {
     std::sort(this->begin(), this->end(), std::greater<>());
     index_t i{0};
     for (auto p : *this) {
-      if (p.second.isNumeric()) {
+      if (p.second.isNumeric() and p.first != 0) {
         setConflictIndex(p.second, i);
       }
       ++i;
@@ -1079,7 +1097,7 @@ template <typename T>
 void ConflictSet<T>::get(std::vector<Literal<T>> &clause) {
   sort();
   for (auto p : *this) {
-    if (has(p.second)) {
+    if (p.first != 0 and has(p.second)) {
       clause.push_back(~(p.second));
     }
   }
@@ -1091,7 +1109,13 @@ template <typename T> int ConflictSet<T>::backtrackLevel(Solver<T> &solver) {
   } else {
     sort();
   }
-  return solver.decisionLevel(this->operator[](1).second);
+  auto bl{solver.decisionLevel(this->operator[](1).second)};
+
+  //    std::cout << "BT LEVEL = " << bl << " (LIT = " <<
+  //    this->operator[](1).second << " / " << this->operator[](1).first <<
+  //    ")\n";
+
+  return bl;
 }
 
 template <typename T> bool ConflictSet<T>::verifyIntegrity() {
@@ -1824,24 +1848,15 @@ Explanation<T> Solver<T>::getReason(const Literal<T> l) const {
 }
 
 template <typename T> Literal<T> Solver<T>::getLiteral(const index_t i) const {
-
-  assert(trail[i] == trail[i]);
-
   return trail[i];
 }
 
 template <typename T>
 Explanation<T> Solver<T>::getReason(const index_t i) const {
-
-  assert(trail[i] == trail[i]);
-
   return trail[i].getExplanation();
 }
 
 template <typename T> int Solver<T>::getLevel(const index_t i) const {
-
-  assert(trail[i] == trail[i]);
-
   return trail[i].level();
 }
 
@@ -2066,38 +2081,44 @@ template <typename T> void Solver<T>::minimizeClause() {
     return;
   cut.sort();
 
-#ifdef DBG_MINIMIZATION
+#ifdef DBG_TRACE
   if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
     std::cout << std::endl << "minimize " << cut << "\n";
   }
 #endif
 
   cut.uncache(cut.begin()->first);
+  minimizeSlice(cut.begin(), cut.end());
+  //    minimizeSlice(cut.rbegin(), cut.rend());
+}
 
-  for (auto lit{cut.begin()}; lit != cut.end(); ++lit) {
+template <typename T>
+template <typename Iter>
+void Solver<T>::minimizeSlice(Iter beg, Iter stop) {
 
-#ifdef DBG_MINIMIZATION
-    if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+  for (auto lit{beg}; lit != stop; ++lit) {
+
+#ifdef DBG_TRACE
+    if (DBG_BOUND and (DBG_TRACE & MINIMIZATION)) {
       std::cout << "* Try to minimize " << lit->second << " away\n";
     }
 #endif
 
-    index_t rstamp{getRelevantBoundRec(lit->first, lit->second, lit->first,
-                                       options.minimization, 0)};
+    index_t rstamp{getRelevance(*lit)};
 
-#ifdef DBG_MINIMIZATION
-        if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
-          std::cout << "* relevant stamp = " << rstamp;
-          if (rstamp < ground_stamp) {
-            std::cout << " (remove)";
-          } else if (rstamp < lit->first) {
-            std::cout << " (change " << lit->second << " to "
-                      << getLiteral(rstamp) << ")";
-          } else {
-            std::cout << " (keep)";
-          }
-          std::cout << "\n";
-        }
+#ifdef DBG_TRACE
+    if (DBG_BOUND and (DBG_TRACE & MINIMIZATION)) {
+      std::cout << "* relevant stamp = " << rstamp;
+      if (rstamp < ground_stamp) {
+        std::cout << " (remove)";
+      } else if (rstamp < lit->first) {
+        std::cout << " (change " << lit->second << " to " << getLiteral(rstamp)
+                  << ")";
+      } else {
+        std::cout << " (keep)";
+      }
+      std::cout << "\n";
+    }
 #endif
 
         if (rstamp < ground_stamp) {
@@ -2110,14 +2131,20 @@ template <typename T> void Solver<T>::minimizeClause() {
 }
 
 template <typename T>
+index_t Solver<T>::getRelevance(const std::pair<index_t, Literal<T>> &lit) {
+  return getRelevantBoundRec(lit.first, lit.second, lit.first,
+                             options.minimization, 0);
+}
+
+template <typename T>
 index_t Solver<T>::getRelevantBoundRec(const index_t l_stamp,
                                        const Literal<T> p,
                                        const index_t p_stamp, const int depth,
                                        const index_t stamp) {
 
   if (cut.cached(p_stamp)) {
-#ifdef DBG_MINIMIZATION
-    if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+#ifdef DBG_TRACE
+    if (DBG_BOUND and (DBG_TRACE & MINIMIZATION)) {
       if (depth == options.minimization)
         std::cout << "cache @depth 0!!\n";
       for (auto d{0}; d < (options.minimization - depth); ++d)
@@ -2143,12 +2170,12 @@ index_t Solver<T>::getRelevantBoundRec(const index_t l_stamp,
         auto q{lit_buffer[cur_lit]};
         auto q_lvl{propagationStamp(q)};
 
-#ifdef DBG_MINIMIZATION
-                if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
-                  for (auto d{0}; d < (options.minimization - depth + 1); ++d)
-                    std::cout << "  ";
-                  std::cout << "is " << pretty(q) << " relevant?\n";
-                }
+#ifdef DBG_TRACE
+        if (DBG_BOUND and (DBG_TRACE & MINIMIZATION)) {
+          for (auto d{0}; d < (options.minimization - depth + 1); ++d)
+            std::cout << "  ";
+          std::cout << "is " << pretty(q) << " relevant?\n";
+        }
 #endif
 
                 auto l{getLiteral(l_stamp)};
@@ -2157,8 +2184,8 @@ index_t Solver<T>::getRelevantBoundRec(const index_t l_stamp,
                   if (relevant_stamp >= l_stamp) {
                     break;
                   }
-#ifdef DBG_MINIMIZATION
-                  else if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+#ifdef DBG_TRACE
+                  else if (DBG_BOUND and (DBG_TRACE & MINIMIZATION)) {
                     for (auto d{0}; d < (options.minimization - depth + 1); ++d)
                       std::cout << "  ";
                     std::cout << "=> relevance = " << relevant_stamp << "\n";
@@ -2174,8 +2201,8 @@ index_t Solver<T>::getRelevantBoundRec(const index_t l_stamp,
                     if (relevant_stamp >= l_stamp) {
                       break;
                     }
-#ifdef DBG_MINIMIZATION
-                    else if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+#ifdef DBG_TRACE
+                    else if (DBG_BOUND and (DBG_TRACE & MINIMIZATION)) {
                       for (auto d{0}; d < (options.minimization - depth + 1);
                            ++d)
                         std::cout << "  ";
@@ -2183,8 +2210,8 @@ index_t Solver<T>::getRelevantBoundRec(const index_t l_stamp,
                     }
 #endif
                   }
-#ifdef DBG_MINIMIZATION
-                  else if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+#ifdef DBG_TRACE
+                  else if (DBG_BOUND and (DBG_TRACE & MINIMIZATION)) {
                     for (auto d{0}; d < (options.minimization - depth + 1); ++d)
                       std::cout << "  ";
                     std::cout << q << " is redundant";
@@ -2199,26 +2226,25 @@ index_t Solver<T>::getRelevantBoundRec(const index_t l_stamp,
       }
       lit_buffer.resize(beg_lit);
 
-#ifdef DBG_MINIMIZATION
-            if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
-              for (auto d{0}; d < (options.minimization - depth); ++d)
-                std::cout << "  ";
-              std::cout << p << " is ";
-              if (relevant_stamp == 0)
-                std::cout << "completely redundant\n";
-              else if (relevant_stamp < l_stamp) {
-                std::cout << "redundant if " << getLiteral(relevant_stamp)
-                          << "\n";
-              } else {
-                std::cout << "relevant\n";
-              }
-            }
+#ifdef DBG_TRACE
+      if (DBG_BOUND and (DBG_TRACE & MINIMIZATION)) {
+        for (auto d{0}; d < (options.minimization - depth); ++d)
+          std::cout << "  ";
+        std::cout << p << " is ";
+        if (relevant_stamp == 0)
+          std::cout << "completely redundant\n";
+        else if (relevant_stamp < l_stamp) {
+          std::cout << "redundant if " << getLiteral(relevant_stamp) << "\n";
+        } else {
+          std::cout << "relevant\n";
+        }
+      }
 #endif
 
             if (relevant_stamp == 0) {
 
-#ifdef DBG_MINIMIZATION
-              if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+#ifdef DBG_TRACE
+              if (DBG_BOUND and (DBG_TRACE & MINIMIZATION)) {
                 for (auto d{0}; d < (options.minimization - depth); ++d)
                   std::cout << "  ";
                 std::cout << "add " << p << " to redundant cache\n";
@@ -2229,16 +2255,16 @@ index_t Solver<T>::getRelevantBoundRec(const index_t l_stamp,
             }
 
     }
-#ifdef DBG_MINIMIZATION
-    else if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+#ifdef DBG_TRACE
+    else if (DBG_BOUND and (DBG_TRACE & MINIMIZATION)) {
       for (auto d{0}; d < (options.minimization - depth); ++d)
         std::cout << "  ";
       std::cout << "decision\n";
     }
 #endif
   }
-#ifdef DBG_MINIMIZATION
-  else if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+#ifdef DBG_TRACE
+  else if (DBG_BOUND and (DBG_TRACE & MINIMIZATION)) {
     for (auto d{0}; d < (options.minimization - depth); ++d)
       std::cout << "  ";
     std::cout << "max depth was reached\n";
@@ -2256,182 +2282,562 @@ template <typename T> void Solver<T>::decisionCut(Explanation<T> &) {
 
 template <typename T>
 void Solver<T>::shrinkClause() {
-}
 
-template <typename T> void Solver<T>::analyze(Explanation<T> &e) {
+  if (cut.empty())
+    return;
+  cut.sort();
 
-  cut.clear(this);
-  learnt_clause.clear();
-  all_literals.clear();
-
-  index_t decision_stamp;
-
-  auto UIP{1};
-
-  //  /*
-  //   We distinguish between standard conflict analysis and conflict analysis
-  //   from a global fail (@decision level 0)
-  //   */
-  if (decisions.empty()) {
-    ground_stamp = 1;
-    decision_stamp = assumption_stamp;
-  } else {
-    // marker to distinguish literal from the current decision level from the
-    // rest
-    decision_stamp = propagationStamp(decisions.back());
-  }
-
-  // number of literals of the current decision level in the conflict clause
-  int num_lit{0};
-  index_t lit_pointer{static_cast<index_t>(numLiteral())};
-  Literal<T> l{Contradiction<T>};
+  //    std::cout << "hello\n";
 
 #ifdef DBG_TRACE
-    if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
-      std::cout << "analyze conflict (" << e << "):\n";
+  if (DBG_BOUND and (DBG_TRACE & SHRINKING)) {
+    std::cout << std::endl << "++shrink " << cut << "\n";
+
+    for (auto p : cut) {
+      auto l{p.second};
+      std::cout << std::setw(4) << decisionLevel(l) << " " << pretty(l)
+                << std::endl;
+    }
+    std::cout << std::endl;
+  }
+#endif
+
+  cut.uncache(cut.begin()->first);
+
+  auto beg_slice{cut.rbegin()};
+  auto lvl{getLevel(beg_slice->first)};
+  auto num_lit{1};
+  //  for (auto it{beg_slice + 1}; it != cut.rend(); ++it) {
+  //    auto l{getLevel(it->first)};
+  //    if (l != lvl) {
+  //      if (num_lit > 2 and not shrinkSlice(beg_slice, it)) {
+  //        minimizeSlice(beg_slice, it);
+  //      }
+  //      beg_slice = it;
+  //      lvl = l;
+  //        num_lit = 1;
+  //    } else {
+  //      ++num_lit;
+  //    }
+  //  }
+
+#ifdef DBG_TRACE
+  if (DBG_BOUND and (DBG_TRACE & SHRINKING)) {
+    std::cout << "slice @lvl " << lvl << ":\n-- " << std::setw(4) << lvl << " "
+              << std::setw(4) << beg_slice->first << ": " << beg_slice->second
+              << std::endl;
+  }
+#endif
+
+  //    auto tit{beg_slice+1};
+  auto n{cut.size()};
+  for (size_t i{n - 1}; i > 0; --i) {
+    auto it{cut.rend() - i};
+    auto l{getLevel(it->first)};
+
+    if (l != lvl) {
+
+#ifdef DBG_TRACE
+      if (num_lit == 1 and DBG_BOUND and (DBG_TRACE & SHRINKING)) {
+        std::cout << "skip " << beg_slice->second << " at level "
+                  << getLevel(beg_slice->first) << std::endl;
+      }
+#endif
+
+      if (num_lit > 1 and not shrinkSlice(beg_slice, it)) {
+        minimizeSlice(beg_slice, it);
+      }
+      beg_slice = (cut.rend() - i);
+      lvl = l;
+      num_lit = 1;
+
+#ifdef DBG_TRACE
+      if (DBG_BOUND and (DBG_TRACE & SHRINKING)) {
+        std::cout << "slice @lvl " << l << ":\n-- " << std::setw(4)
+                  << getLevel(beg_slice->first) << " " << std::setw(4)
+                  << beg_slice->first << ": " << beg_slice->second << std::endl;
+      }
+#endif
+
+    } else {
+      ++num_lit;
+
+#ifdef DBG_TRACE
+      if (DBG_BOUND and (DBG_TRACE & SHRINKING)) {
+        std::cout << "-- " << std::setw(4) << getLevel(it->first) << " "
+                  << std::setw(4) << it->first << ": " << it->second
+                  << std::endl;
+      }
+#endif
+    }
+  }
+
+  //    auto tit{beg_slice+1};
+
+  //    auto n{cut.size()};
+  //  for (auto i{n - 1}; i-- > 0;) {
+  //    auto l{getLevel(cut[i].first)};
+  //
+  // #ifdef DBG_TRACE
+  //    if (DBG_BOUND and (DBG_TRACE & SHRINKING)) {
+  //      std::cout << "-- " << std::setw(4) << l << " " << std::setw(4)
+  //                << cut[i].first << ": " << cut[i].second << std::endl;
+  //    }
+  // #endif
+  //
+  //    if (l != lvl) {
+  //        auto offset{(n - i - 1)};
+  //      auto it{cut.rbegin() + offset};
+  //
+  // #ifdef DBG_TRACE
+  //      if (num_lit == 1 and DBG_BOUND and (DBG_TRACE & SHRINKING)) {
+  //        std::cout << "skip " << beg_slice->second << " at level "
+  //                  << getLevel(beg_slice->first) << std::endl;
+  //      }
+  // #endif
+  //
+  //      if (num_lit > 1 and not shrinkSlice(beg_slice, it)) {
+  //        minimizeSlice(beg_slice, it);
+  //      }
+  //      beg_slice = (cut.rbegin() + offset);
+  //      lvl = l;
+  //      num_lit = 1;
+  //    } else {
+  //      ++num_lit;
+  //    }
+  //  }
+}
+
+template <typename T>
+template <typename Iter>
+bool Solver<T>::shrinkSlice(Iter beg, Iter stop) {
+  auto lvl{getLevel(beg->first)};
+
+#ifdef DBG_TRACE
+  if (DBG_BOUND and (DBG_TRACE & SHRINKING)) {
+    std::cout << "shrink slice [" << beg->second << " -> " << (stop - 1)->second
+              << "] @lvl" << lvl << std::endl;
+  }
+#endif
+
+  int num_lit{0};
+
+  auto waypoint{cut.saveCache()};
+  for (auto it{beg}; it != stop; ++it) {
+
+#ifdef DBG_TRACE
+    if (DBG_BOUND and (DBG_TRACE & SHRINKING)) {
+      std::cout << std::setw(4) << getLevel(it->first) << " " << std::setw(4)
+                << it->first << ": " << it->second << std::endl;
     }
 #endif
 
-    // the first reason is the conflicting clause itself
-    Explanation<T> &exp = e;
-    do {
+    cut.cache(it->first);
+    ++num_lit;
+  }
 
-      lit_buffer.clear();
-      exp.explain(l, lit_buffer);
+  auto lit_pointer = (stop - 1)->first;
 
-      for (auto p : lit_buffer) {
+  while (num_lit > 1) {
 
-#ifdef DBG_TRACE
-            if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
-              std::cout << " ** " << pretty(p) << " @" << decisionLevel(p);
-              std::cout.flush();
-            }
-#endif
-
-            // rank of p in the trail
-            auto p_stamp{propagationStamp(p)};
-
-            if (p_stamp < ground_stamp) {
-              // if p is a ground fact, we ignore it
-#ifdef DBG_TRACE
-                if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
-                  std::cout << " => ground fact\n";
-                }
-#endif
-                continue;
-            } else if (p_stamp < decision_stamp) {
-              // p is not from the current decision level
-
-              if (cut.entailed(p)) {
-                // p is entailed by the current conflict
-#ifdef DBG_TRACE
-                    if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
-                      std::cout << " => entailed by cut\n";
-                    }
-#endif
-                    continue;
-              } else {
-
-                if (cut.add(p, p_stamp)) {
-                  all_literals.push_back(p);
-                }
-
-                //                cut.add(p, p_stamp);
+    auto l{getLiteral(lit_pointer)};
+    auto exp{getReason(lit_pointer)};
 
 #ifdef DBG_TRACE
-                if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
-                  std::cout << " => add to cut: " << cut << std::endl;
-                }
+    if (DBG_BOUND and (DBG_TRACE & SHRINKING)) {
+      std::cout << " - resolve " << pretty(l) << " (#lits=" << num_lit
+                << ") b/c " << exp << std::endl;
+    }
 #endif
-              }
-              // p_stamp >= decision_stamp
-            } else if (cut.cached(p_stamp)) {
+
+    lit_buffer.clear();
+    exp.explain(l, lit_buffer);
+
+    //      std::cout << "lit_buffer.size() = " << lit_buffer.size() <<
+    //      std::endl;
+
+    --num_lit;
+
+    for (auto p : lit_buffer) {
 
 #ifdef DBG_TRACE
-              if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
-                std::cout << " => already in 'to-explore'\n";
-              }
-#endif
-
-              continue;
-
-            } else {
-
-              // literal from the current decision level, and since there
-              // are now at least two of them, we do not add it to the
-              // conflict yet
-              cut.cache(p_stamp);
-              ++num_lit;
-
-#ifdef DBG_TRACE
-              if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
-                std::cout << " => add in 'to-explore':";
-                for (auto ii{lit_pointer}; --ii > 0;) {
-                  if (cut.cached(ii)) {
-                    std::cout << " [" << trail[ii] << "]";
-                  }
-                }
-                std::cout << std::endl;
-              }
-#endif
-            }
+      if (DBG_BOUND and (DBG_TRACE & SHRINKING)) {
+        std::cout << "  ** " << pretty(p) << ":";
       }
+#endif
 
-      if (num_lit >= 1) {
-        while (not cut.cached(--lit_pointer))
-          ;
-        l = getLiteral(lit_pointer);
-        exp = getReason(lit_pointer);
-        all_literals.push_back(l);
+      auto p_stamp{propagationStamp(p)};
+      auto p_lvl{getLevel(p_stamp)};
+
+      if (p_stamp < ground_stamp) {
+        // if p is a ground fact, we ignore it
+#ifdef DBG_TRACE
+        if (DBG_BOUND and (DBG_TRACE & SHRINKING)) {
+          std::cout << " => ground fact\n";
+        }
+#endif
+        continue;
+      } else if (p_lvl < lvl) {
+        // p is not from the current decision level
+
+        if (cut.entailed(p)) {
+          // p is entailed by the current conflict
+#ifdef DBG_TRACE
+          if (DBG_BOUND and (DBG_TRACE & SHRINKING)) {
+            std::cout << " => entailed by cut\n";
+          }
+#endif
+          continue;
+        } else {
 
 #ifdef DBG_TRACE
-        if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
-          std::cout << " explore " << l << " b/c " << exp << std::endl;
+          if (DBG_BOUND and (DBG_TRACE & SHRINKING)) {
+            std::cout << " => from lvl " << p_lvl << ">1 (FAIL!)\n";
+          }
+#endif
+
+          cut.restoreCache(waypoint);
+
+#ifdef DBG_TRACE
+          if (DBG_BOUND and (DBG_TRACE & SHRINKING)) {
+            std::cout << "----\n";
+            for (auto p : cut) {
+              if (cut.has(p.second)) {
+                std::cout << std::setw(4) << p.first << " " << pretty(p.second)
+                          << std::endl;
+              }
+            }
+            std::cout << "----\n";
+          }
+#endif
+
+          return false;
+        }
+        // p_stamp >= decision_stamp
+      } else if (cut.cached(p_stamp)) {
+
+#ifdef DBG_TRACE
+        if (DBG_BOUND and (DBG_TRACE & SHRINKING)) {
+          std::cout << " => already in 'to-explore'\n";
+        }
+#endif
+
+        continue;
+
+      } else {
+
+        // literal from the current decision level, and since there
+        // are now at least two of them, we do not add it to the
+        // conflict yet
+        cut.cache(p_stamp);
+        ++num_lit;
+
+#ifdef DBG_TRACE
+        if (DBG_BOUND and (DBG_TRACE & SHRINKING)) {
+          std::cout << " => add in 'to-explore':";
+          for (auto ii{lit_pointer}; --ii > 0;) {
+            if (cut.cached(ii)) {
+              std::cout << " [" << getLiteral(ii) << "]";
+            }
+          }
+          std::cout << std::endl;
         }
 #endif
       }
-
-      --num_lit;
-
-    } while (num_lit >= UIP and
-             lit_pointer >= decision_stamp);
-
-    // l i the UIP, but to add it to the conflict, we must do the numeric test
-    if (cut.add(l, lit_pointer)) {
-      all_literals.push_back(l);
     }
+
+    while (not cut.cached(--lit_pointer))
+      ;
+  }
 
 #ifdef DBG_TRACE
-    if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
-      std::cout << " => add UIP to cut: " << cut << std::endl;
-    }
+  if (DBG_BOUND and (DBG_TRACE & SHRINKING)) {
+    std::cout << "successful shrinking: " << pretty(getLiteral(lit_pointer))
+              << "\n";
+  }
 #endif
 
-#ifdef DBG_TRACE
-    auto size_before{conflict.size()};
-#endif
-
-    if (options.minimization > 0) {
-      minimizeClause();
-    }
-
-    cut.get(learnt_clause);
+  auto novel{true};
+  for (auto it{beg}; it != stop; ++it) {
+    if (it->first != lit_pointer) {
 
 #ifdef DBG_TRACE
-    if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
-      std::cout << "\nlearn clause of size " << learnt_clause.size();
-      if (size_before > learnt_clause.size())
-        std::cout << " (minimized from " << size_before << ")";
-      std::cout << std::endl;
-
-      for (auto l : learnt_clause) {
-        std::cout << std::setw(4) << decisionLevel(~l) << " " << pretty(l)
-                  << std::endl;
+      if (DBG_BOUND and (DBG_TRACE & SHRINKING)) {
+        std::cout << " rm <" << it->first << ", " << it->second << ">\n";
       }
+#endif
+
+      cut.remove(it);
+    } else {
+      novel = false;
+    }
+  }
+  if (novel) {
+    cut.add(getLiteral(lit_pointer), lit_pointer);
+
+#ifdef DBG_TRACE
+    if (DBG_BOUND and (DBG_TRACE & SHRINKING)) {
+      std::cout << "add new " << getLiteral(lit_pointer) << " in\n";
+    }
+#endif
+
+  }
+#ifdef DBG_TRACE
+  else if (DBG_BOUND and (DBG_TRACE & SHRINKING)) {
+    std::cout << "leave " << getLiteral(lit_pointer) << " in\n";
+  }
+
+  if (DBG_BOUND and (DBG_TRACE & SHRINKING)) {
+    std::cout << "----\n";
+    for (auto p : cut) {
+      if (cut.has(p.second)) {
+        std::cout << std::setw(4) << getLevel(p.first) << " " << std::setw(4)
+                  << p.first << " " << pretty(p.second) << std::endl;
+      }
+    }
+    std::cout << "----\n";
+  }
+#endif
+
+  //  for (auto it{beg}; it != stop; ++it) {
+  //    cut.remove(it);
+  //  }
+  //
+  //  //    std::cout << "cut.size(): " << cut.size() << std::endl;
+  //  cut.add(getLiteral(lit_pointer), lit_pointer);
+  cut.uncache(lit_pointer);
+
+  return true;
+}
+
+template <typename T>
+void Solver<T>::analyze(Explanation<T> &e, const bool only_boolean) {
+    
+    cut.clear(this);
+    learnt_clause.clear();
+    all_literals.clear();
+    
+    index_t decision_stamp;
+    
+    auto UIP{1 - only_boolean};
+    
+    //  /*
+    //   We distinguish between standard conflict analysis and conflict analysis
+    //   from a global fail (@decision level 0)
+    //   */
+    if (decisions.empty()) {
+        ground_stamp = 1;
+        decision_stamp = assumption_stamp;
+    } else {
+        // marker to distinguish literal from the current decision level from the
+        // rest
+        decision_stamp = propagationStamp(decisions.back());
+    }
+    
+    // number of literals of the current decision level in the conflict clause
+    int num_lit{0};
+    index_t lit_pointer{static_cast<index_t>(numLiteral())};
+    Literal<T> l{Contradiction<T>};
+    
+#ifdef DBG_TRACE
+    if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+        std::cout << "analyze conflict (" << e << "):\n";
+    }
+#endif
+    
+    // the first reason is the conflicting clause itself
+    Explanation<T> &exp = e;
+    do {
+        
+#ifdef DBG_TRACE
+            if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+                if(l == Contradiction<T>)
+                    std::cout << " explain contradiction" << std::endl;
+                else
+                    std::cout << "(#lit=" << num_lit << ") explore " << l << " @" << decisionLevel(l) << " b/c " << exp << std::endl;
+            }
+#endif
+        
+        if (exp == Constant::NoReason<T>) {
+            // can happen when only_boolean = true (pass over the UIP)
+          cut.add(l, lit_pointer);
+            
+#ifdef DBG_TRACE
+            if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+                std::cout << " => add to cut (decision): " << cut << std::endl;
+            }
+#endif
+            
+        } else {
+            lit_buffer.clear();
+            
+            exp.explain(l, lit_buffer);
+            
+#ifdef DBG_CLPLUS
+            if (cl_file != NULL) {
+                *cl_file << "1 " << (lit_buffer.size() + 1 + (l != Contradiction<T>))
+                << " 0 1 " << numeric.upper(1);
+                for (auto p : lit_buffer) {
+                    writeLiteral(p);
+                }
+                if (l != Contradiction<T>)
+                    writeLiteral(~l);
+                *cl_file << std::endl;
+            }
+            if (++num_clauses > DBG_CL) {
+                std::cout << "exit because of dbg clause limit (#fails = " << num_fails
+                << ", #cpts = " << num_choicepoints << ")\n";
+                exit(1);
+            }
+#endif
+            
+            for (auto p : lit_buffer) {
+                
+#ifdef DBG_TRACE
+                if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+                    std::cout << "   ** " << pretty(p) << " @" << decisionLevel(p);
+                    std::cout.flush();
+                }
+#endif
+                
+                // rank of p in the trail
+                auto p_stamp{propagationStamp(p)};
+                
+                if (p_stamp < ground_stamp) {
+                    // if p is a ground fact, we ignore it
+#ifdef DBG_TRACE
+                    if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+                        std::cout << " => ground fact\n";
+                    }
+#endif
+                    continue;
+                } else if ((not(only_boolean and p.isNumeric())) and
+                           p_stamp < decision_stamp) {
+                    // p is not from the current decision level
+                    
+                    if (cut.entailed(p)) {
+                        // p is entailed by the current conflict
+#ifdef DBG_TRACE
+                        if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+                            std::cout << " => entailed by cut\n";
+                        }
+#endif
+                        continue;
+                    } else {
+                        
+                        if (cut.add(p, p_stamp)) {
+                            all_literals.push_back(p);
+                        }
+                        
+                        //                cut.add(p, p_stamp);
+                        
+#ifdef DBG_TRACE
+                        if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+                            std::cout << " => add to cut: " << cut << std::endl;
+                        }
+#endif
+                    }
+                    // p_stamp >= decision_stamp
+                } else if (cut.cached(p_stamp)) {
+                    
+#ifdef DBG_TRACE
+                    if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+                        std::cout << " => already in 'to-explore'\n";
+                    }
+#endif
+                    
+                    continue;
+                    
+                } else {
+                    
+                    // literal from the current decision level, and since there
+                    // are now at least two of them, we do not add it to the
+                    // conflict yet
+                    cut.cache(p_stamp);
+                    ++num_lit;
+                    
+#ifdef DBG_TRACE
+                    if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+                        std::cout << " => add in 'to-explore':";
+                        for (auto ii{lit_pointer}; --ii > 0;) {
+                            if (cut.cached(ii)) {
+                                std::cout << " [" << getLiteral(ii) << "]";
+                            }
+                        }
+                        std::cout << std::endl;
+                    }
+#endif
+                }
+            }
+        }
+        
+        if (num_lit >= 1) {
+            while (not cut.cached(--lit_pointer))
+                ;
+            l = getLiteral(lit_pointer);
+            exp = getReason(lit_pointer);
+            all_literals.push_back(l);
+            
+        }
+        
+        --num_lit;
+    } while (num_lit >= UIP and (only_boolean or lit_pointer >= decision_stamp));
+    
+    // l i the UIP, but to add it to the conflict, we must do the numeric test
+    if (not only_boolean and cut.add(l, lit_pointer)) {
+        all_literals.push_back(l);
+    }
+    
+#ifdef DBG_TRACE
+    if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+        std::cout << " => add UIP to cut: " << cut << std::endl;
+    }
+#endif
+    
+#ifdef DBG_TRACE
+    auto size_before{cut.size()};
+#endif
+    
+#ifdef DBG_CL
+    if ((options.minimization > 0 or options.shrinking) and cl_file != NULL) {
+        *cl_file << "2 " << (cut.size() + 1) << " 0 1 " << numeric.upper(1);
+        for (auto p : cut) {
+            writeLiteral(p.second);
+        }
+        *cl_file << std::endl;
+    }
+    if (++num_clauses > DBG_CL) {
+        std::cout << "exit because of dbg clause limit (#fails = " << num_fails
+        << ", #cpts = " << num_choicepoints << ")\n";
+        exit(1);
+    }
+#endif
+    
+    if (options.shrinking) {
+        shrinkClause();
+    } else if (options.minimization > 0) {
+        minimizeClause();
+    }
+    
+    cut.get(learnt_clause);
+    
+#ifdef DBG_TRACE
+    if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+        std::cout << "\nlearn clause of size " << learnt_clause.size();
+        if (size_before > learnt_clause.size())
+            std::cout << " (minimized from " << size_before << ")";
+        std::cout << std::endl;
+        
+        for (auto l : learnt_clause) {
+            std::cout << std::setw(4) << decisionLevel(~l) << " " << pretty(l)
+            << std::endl;
+        }
         std::cout << std::endl;
     }
 #endif
-
+    
+    //    shrinkClause();
+    
 #ifdef DBG_CL
     if (cl_file != NULL) {
         *cl_file << "0 " << (learnt_clause.size() + 1) << " 0 1 " << numeric.upper(1);
@@ -2440,32 +2846,425 @@ template <typename T> void Solver<T>::analyze(Explanation<T> &e) {
         }
         *cl_file << std::endl;
     }
+    if (++num_clauses > DBG_CL) {
+        std::cout << "exit because of dbg clause limit (#fails = " << num_fails
+        << ", #cpts = " << num_choicepoints << ")\n";
+        exit(1);
+    }
 #endif
-
+    
     assert(static_cast<int>(decisionLevel(~(learnt_clause[0]))) == level());
 }
+
+template <typename T> void Solver<T>::analyzeDecisions(Explanation<T> &e) {
+
+  cut.clear(this);
+  learnt_clause.clear();
+  all_literals.clear();
+
+  //  /*
+  //   We distinguish between standard conflict analysis and conflict analysis
+  //   from a global fail (@decision level 0)
+  //   */
+  if (decisions.empty()) {
+    return;
+  }
+
+  // number of literals of the current decision level in the conflict clause
+  index_t lit_pointer{static_cast<index_t>(numLiteral())};
+  Literal<T> l{Contradiction<T>};
+  auto num_lit{0};
+
+#ifdef DBG_TRACE
+  if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+    std::cout << "analyze conflict (" << e << "):\n";
+  }
+#endif
+
+  // the first reason is the conflicting clause itself
+  Explanation<T> &exp = e;
+  do {
+
+    if (exp == Constant::NoReason<T>) {
+      cut.add(l, lit_pointer);
+    } else {
+
+      lit_buffer.clear();
+      exp.explain(l, lit_buffer);
+
+#ifdef DBG_CLPLUS
+      if (cl_file != NULL) {
+        *cl_file << "1 " << (lit_buffer.size() + 1 + (l != Contradiction<T>))
+                 << " 0 1 " << numeric.upper(1);
+        for (auto p : lit_buffer) {
+          writeLiteral(p);
+        }
+        if (l != Contradiction<T>)
+          writeLiteral(~l);
+        *cl_file << std::endl;
+      }
+      if (++num_clauses > DBG_CL) {
+        std::cout << "exit because of dbg clause limit (#fails = " << num_fails
+                  << ", #cpts = " << num_choicepoints << ")\n";
+        exit(1);
+      }
+#endif
+
+      for (auto p : lit_buffer) {
+
+#ifdef DBG_TRACE
+        if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+          std::cout << "   ** " << pretty(p) << " @" << decisionLevel(p);
+          std::cout.flush();
+        }
+#endif
+
+        // rank of p in the trail
+        auto p_stamp{propagationStamp(p)};
+
+        if (p_stamp < ground_stamp) {
+          // if p is a ground fact, we ignore it
+#ifdef DBG_TRACE
+          if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+            std::cout << " => ground fact\n";
+          }
+#endif
+          continue;
+        } else if (not cut.cached(p_stamp)) {
+          // p is not a ground fact nor a decision, and is not marked 'to
+          // explore' yet
+          cut.cache(p_stamp);
+          ++num_lit;
+
+#ifdef DBG_TRACE
+          if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+            std::cout << " => add in 'to-explore'\n";
+          }
+#endif
+        }
+      }
+    }
+
+#ifdef DBG_TRACE
+    if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+      std::cout << num_lit << " open literals:";
+      for (auto ii{lit_pointer}; --ii > 0;) {
+        if (cut.cached(ii)) {
+          std::cout << " [" << getLiteral(ii) << "]";
+        }
+      }
+      std::cout << std::endl;
+    }
+#endif
+
+    if (num_lit == 0)
+      break;
+
+    while (not cut.cached(--lit_pointer))
+      ;
+
+    l = getLiteral(lit_pointer);
+    exp = getReason(lit_pointer);
+    all_literals.push_back(l);
+
+#ifdef DBG_TRACE
+    if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+      std::cout << " explore " << l << " b/c " << exp << std::endl;
+    }
+#endif
+
+    --num_lit;
+
+  } while (true);
+
+  cut.get(learnt_clause);
+
+#ifdef DBG_TRACE
+  if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+    std::cout << "\nlearn clause of size " << learnt_clause.size() << std::endl;
+
+    for (auto l : learnt_clause) {
+      std::cout << std::setw(4) << decisionLevel(~l) << " " << pretty(l)
+                << std::endl;
+    }
+    std::cout << std::endl;
+  }
+#endif
+
+#ifdef DBG_CL
+  if (cl_file != NULL) {
+    *cl_file << "0 " << (learnt_clause.size() + 1) << " 0 1 "
+             << numeric.upper(1);
+    for (auto p : learnt_clause) {
+      writeLiteral(~p);
+    }
+    *cl_file << std::endl;
+  }
+  if (++num_clauses > DBG_CL) {
+    std::cout << "exit because of dbg clause limit (#fails = " << num_fails
+              << ", #cpts = " << num_choicepoints << ")\n";
+    exit(1);
+  }
+#endif
+
+  assert(static_cast<int>(decisionLevel(~(learnt_clause[0]))) == level());
+}
+
+// template <typename T> void Solver<T>::analyzeBooleans(Explanation<T> &e) {
+//
+//   cut.clear(this);
+//   learnt_clause.clear();
+//   all_literals.clear();
+//
+//   index_t decision_stamp;
+//
+//   auto UIP{1};
+//
+//   //  /*
+//   //   We distinguish between standard conflict analysis and conflict
+//   analysis
+//   //   from a global fail (@decision level 0)
+//   //   */
+//   if (decisions.empty()) {
+//     ground_stamp = 1;
+//     decision_stamp = assumption_stamp;
+//   } else {
+//     // marker to distinguish literal from the current decision level from the
+//     // rest
+//     decision_stamp = propagationStamp(decisions.back());
+//   }
+//
+//   // number of literals of the current decision level in the conflict clause
+//   int num_lit{0};
+//   index_t lit_pointer{static_cast<index_t>(numLiteral())};
+//   Literal<T> l{Contradiction<T>};
+//
+// #ifdef DBG_TRACE
+//     if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+//       std::cout << "analyze conflict (" << e << "):\n";
+//     }
+// #endif
+//
+//     // the first reason is the conflicting clause itself
+//     Explanation<T> &exp = e;
+//     do {
+//
+//       lit_buffer.clear();
+//       exp.explain(l, lit_buffer);
+//
+// #ifdef DBG_CLPLUS
+//       if (cl_file != NULL) {
+//         *cl_file << "1 " << (lit_buffer.size() + 1 + (l != Contradiction<T>))
+//                  << " 0 1 " << numeric.upper(1);
+//         for (auto p : lit_buffer) {
+//           writeLiteral(p);
+//         }
+//         if (l != Contradiction<T>)
+//           writeLiteral(~l);
+//         *cl_file << std::endl;
+//       }
+//       if (++num_clauses > DBG_CL) {
+//         std::cout << "exit because of dbg clause limit (#fails = " <<
+//         num_fails
+//                   << ", #cpts = " << num_choicepoints << ")\n";
+//         exit(1);
+//       }
+// #endif
+//
+//       for (auto p : lit_buffer) {
+//
+// #ifdef DBG_TRACE
+//             if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+//               std::cout << " ** " << pretty(p) << " @" << decisionLevel(p);
+//               std::cout.flush();
+//             }
+// #endif
+//
+//             // rank of p in the trail
+//             auto p_stamp{propagationStamp(p)};
+//
+//             if (p_stamp < ground_stamp) {
+//               // if p is a ground fact, we ignore it
+// #ifdef DBG_TRACE
+//                 if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+//                   std::cout << " => ground fact\n";
+//                 }
+// #endif
+//                 continue;
+//             } else if (p_stamp < decision_stamp) {
+//               // p is not from the current decision level
+//
+//               if (cut.entailed(p)) {
+//                 // p is entailed by the current conflict
+// #ifdef DBG_TRACE
+//                     if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+//                       std::cout << " => entailed by cut\n";
+//                     }
+// #endif
+//                     continue;
+//               } else {
+//
+//                 if (cut.add(p, p_stamp)) {
+//                   all_literals.push_back(p);
+//                 }
+//
+//                 //                cut.add(p, p_stamp);
+//
+// #ifdef DBG_TRACE
+//                 if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+//                   std::cout << " => add to cut: " << cut << std::endl;
+//                 }
+// #endif
+//               }
+//               // p_stamp >= decision_stamp
+//             } else if (cut.cached(p_stamp)) {
+//
+// #ifdef DBG_TRACE
+//               if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+//                 std::cout << " => already in 'to-explore'\n";
+//               }
+// #endif
+//
+//               continue;
+//
+//             } else {
+//
+//               // literal from the current decision level, and since there
+//               // are now at least two of them, we do not add it to the
+//               // conflict yet
+//               cut.cache(p_stamp);
+//               ++num_lit;
+//
+// #ifdef DBG_TRACE
+//               if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+//                 std::cout << " => add in 'to-explore':";
+//                 for (auto ii{lit_pointer}; --ii > 0;) {
+//                   if (cut.cached(ii)) {
+//                     std::cout << " [" << getLiteral(ii) << "]";
+//                   }
+//                 }
+//                 std::cout << std::endl;
+//               }
+// #endif
+//             }
+//       }
+//
+//       if (num_lit >= 1) {
+//         while (not cut.cached(--lit_pointer))
+//           ;
+//         l = getLiteral(lit_pointer);
+//         exp = getReason(lit_pointer);
+//         all_literals.push_back(l);
+//
+// #ifdef DBG_TRACE
+//         if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+//           std::cout << " explore " << l << " b/c " << exp << std::endl;
+//         }
+// #endif
+//       }
+//
+//       --num_lit;
+//
+//     } while (num_lit >= UIP and
+//              lit_pointer >= decision_stamp);
+//
+//     // l i the UIP, but to add it to the conflict, we must do the numeric
+//     test if (cut.add(l, lit_pointer)) {
+//       all_literals.push_back(l);
+//     }
+//
+// #ifdef DBG_TRACE
+//     if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+//       std::cout << " => add UIP to cut: " << cut << std::endl;
+//     }
+// #endif
+//
+// #ifdef DBG_TRACE
+//     auto size_before{cut.size()};
+// #endif
+//
+// #ifdef DBG_CL
+//     if ((options.minimization > 0 or options.shrinking) and cl_file != NULL)
+//     {
+//       *cl_file << "2 " << (cut.size() + 1) << " 0 1 " << numeric.upper(1);
+//       for (auto p : cut) {
+//         writeLiteral(p.second);
+//       }
+//       *cl_file << std::endl;
+//     }
+//     if (++num_clauses > DBG_CL) {
+//       std::cout << "exit because of dbg clause limit (#fails = " << num_fails
+//                 << ", #cpts = " << num_choicepoints << ")\n";
+//       exit(1);
+//     }
+// #endif
+//
+//     if (options.shrinking) {
+//       shrinkClause();
+//     } else if (options.minimization > 0) {
+//       minimizeClause();
+//     }
+//
+//     cut.get(learnt_clause);
+//
+// #ifdef DBG_TRACE
+//     if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+//       std::cout << "\nlearn clause of size " << learnt_clause.size();
+//       if (size_before > learnt_clause.size())
+//         std::cout << " (minimized from " << size_before << ")";
+//       std::cout << std::endl;
+//
+//       for (auto l : learnt_clause) {
+//         std::cout << std::setw(4) << decisionLevel(~l) << " " << pretty(l)
+//                   << std::endl;
+//       }
+//         std::cout << std::endl;
+//     }
+// #endif
+//
+//     //    shrinkClause();
+//
+// #ifdef DBG_CL
+//     if (cl_file != NULL) {
+//         *cl_file << "0 " << (learnt_clause.size() + 1) << " 0 1 " <<
+//         numeric.upper(1); for (auto p : learnt_clause) {
+//             writeLiteral(~p);
+//         }
+//         *cl_file << std::endl;
+//     }
+//     if (++num_clauses > DBG_CL) {
+//       std::cout << "exit because of dbg clause limit (#fails = " << num_fails
+//                 << ", #cpts = " << num_choicepoints << ")\n";
+//       exit(1);
+//     }
+// #endif
+//
+//     assert(static_cast<int>(decisionLevel(~(learnt_clause[0]))) == level());
+// }
+
 
 template <typename T> bool Solver<T>::isAssertive(std::vector<Literal<T>> &conf) const {
 
   if (conf.empty()) {
-    std::cout << "learnt empty clause @lvl " << level() << "!\n";
+    std::cout << "learnt empty clause @lvl " << level()
+              << "! (#fails=" << num_fails << ")\n";
     return true;
   }
 
     if(conf[0].isNumeric() and numeric.falsified(conf[0])) {
-      std::cout << conf[0] << " is falsified!\n";
+      std::cout << conf[0] << " is falsified! (#fails=" << num_fails << ")\n";
       return false;
     }
     if(conf[0].isNumeric() and numeric.satisfied(conf[0])) {
-      std::cout << conf[0] << " is satisfied!\n";
+      std::cout << conf[0] << " is satisfied! (#fails=" << num_fails << ")\n";
       return false;
     }
     if(not conf[0].isNumeric() and boolean.falsified(conf[0])) {
-      std::cout << conf[0] << " is falsified!\n";
+      std::cout << conf[0] << " is falsified! (#fails=" << num_fails << ")\n";
       return false;
     }
     if(not conf[0].isNumeric() and boolean.satisfied(conf[0])) {
-      std::cout << conf[0] << " is satisfied!\n";
+      std::cout << conf[0] << " is satisfied! (#fails=" << num_fails << ")\n";
       return false;
     }
 
@@ -2474,11 +3273,13 @@ template <typename T> bool Solver<T>::isAssertive(std::vector<Literal<T>> &conf)
 
     for (size_t i{1}; i < conf.size(); ++i) {
         if(not conf[i].isNumeric() and not boolean.falsified(conf[i])) {
-          std::cout << conf[i] << " is not falsified!\n";
+          std::cout << conf[i] << " is not falsified! (#fails=" << num_fails
+                    << ")\n";
           return false;
         }
         if(conf[i].isNumeric() and not numeric.falsified(conf[i])) {
-          std::cout << conf[i] << " is not falsified!\n";
+          std::cout << conf[i] << " is not falsified! (#fails=" << num_fails
+                    << ")\n";
           return false;
         }
     }
@@ -2486,8 +3287,14 @@ template <typename T> bool Solver<T>::isAssertive(std::vector<Literal<T>> &conf)
 }
 
 template <typename T> void Solver<T>::learnConflict(Explanation<T> &e) {
-
-  analyze(e);
+    
+//    std::cout << (int)(options.cut_type) << std::endl;
+    
+    if(options.cut_type == Options::Cut::Decisions) {
+        analyzeDecisions(e);
+    } else {
+        analyze(e, options.cut_type == Options::Cut::Booleans);
+    }
 
   if (decisions.empty()) {
     throw SearchExhausted();
@@ -2521,6 +3328,21 @@ template <typename T> void Solver<T>::learnConflict(Explanation<T> &e) {
       std::cout << " @lvl " << level() << std::endl;
     }
 #endif
+
+    for (auto i{learnt_clause.begin()}; i != learnt_clause.end(); ++i) {
+      for (auto j{learnt_clause.begin()}; j != learnt_clause.end(); ++j) {
+        if (i != j) {
+          if (i->isNumeric() == j->isNumeric() and
+              i->variable() == j->variable() and i->sign() == j->sign()) {
+            std::cout << "duplicates!!! (" << num_fails << ")\n";
+
+            std::cout << *i << " AND " << *j << std::endl;
+
+            exit(1);
+          }
+        }
+      }
+    }
 
     ClauseAdded.trigger(all_literals);
     
@@ -2979,6 +3801,7 @@ template <typename T> void tempo::Solver<T>::propagate() {
         if (not l.isNumeric()) {
 
             clauses.unit_propagate_boolean(l);
+            ++num_unit_propagations;
 
         } else {
               if (numeric.lastLitIndex(l.sign(), l.variable()) > p_index) {
