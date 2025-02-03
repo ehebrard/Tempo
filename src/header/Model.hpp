@@ -2477,6 +2477,174 @@ namespace tempo {
     std::ostream &operator<<(std::ostream &os, const Interval<T> &x) {
         return x.display(os);
     }
+
+template<typename T>
+class SchedulingInstance {
+    
+    struct ModPrecedence {
+        int start{0};
+        int end{0};
+        T lag{0};
+    };
+    
+    struct ModInterval {
+        int start{0};
+        int end{0};
+        int duration{0};
+        int optional{-2};
+    };
+    
+public:
+    SchedulingInstance() {}
+    
+    size_t numNumeric() { return LBs.size(); }
+    size_t numBoolean() { return static_cast<size_t>(num_booleans); }
+    
+    void encode(Solver<T>& solver, Interval<T>& schedule, std::vector<BooleanVar<T>>& boolean, std::vector<NumericVar<T>>& numeric, std::vector<Interval<T>>& interval, std::vector<DistanceConstraint<T>>& constraint);
+    
+    int addBoolean() {
+        return num_booleans++;
+        //        return (val == ? num_booleans++ : val);
+    }
+    int addNumeric(const T lb=-Constant::Infinity<T>, const T ub=Constant::Infinity<T>) {
+        auto x{static_cast<int>(LBs.size())};
+        LBs.push_back(lb);
+        UBs.push_back(ub);
+        return x;
+    }
+    void declareDisjunctiveResources(const int n) {
+        
+//        std::cout << "declare " << n << " disjunctive resources\n";
+        
+        disjunctive_resources.resize(disjunctive_resources.size() + n);
+        disjunctive_resource_transitions.resize(disjunctive_resources.size());
+    }
+    void declareCumulativeResources(const int n) {
+        cumulative_resources.resize(cumulative_resources.size() + n);
+    }
+    void addDisjunctiveResourceUsage(const int i, const int r) {
+        
+//        std::cout << " task " << i << " requires resource " << r << std::endl;
+        
+        disjunctive_resources[r].push_back(i);
+    }
+    void addCumulativeResourceUsage(const int i, const int r, const int x) {
+        cumulative_resources[r].emplace_back(i,x);
+    }
+    int addPrecedence(const int t1, const int t2, const T lag=0) {
+        auto p{static_cast<int>(precedence_rep.size())};
+        precedence_rep.emplace_back(t1, t2, lag);
+        return p;
+    }
+    int addInterval(const int t1, const int t2, const T min_duration=0, const T max_duration=Constant::Infinity<T>, const int b=-1) {
+        auto l{addNumeric(min_duration, max_duration)};
+        auto i{static_cast<int>(interval_rep.size())};
+        interval_rep.emplace_back(t1, t2, l, b);
+        return i;
+    }
+    int addFixedDurationIntervalFrom(const int t, const T duration) {
+        auto l{addNumeric(duration, duration)};
+        auto i{static_cast<int>(interval_rep.size())};
+        interval_rep.emplace_back(t, t, l, -1);
+        return i;
+    }
+    
+    //    int addInterval(const int t1, const int t2, const T min_duration=0, const T max_duration=Constant::Infinity<T>, const int b=0) {
+    //        auto l{addNumeric(min_duration, max_duration)};
+    //        interval_rep.emplace_back(t1, t2, l, b);
+    //    }
+    
+private:
+    
+    // solver agnostic model
+    int num_booleans{0};
+    int num_timepoints{0};
+    std::vector<T> LBs;
+    std::vector<T> UBs;
+    std::vector<ModInterval> interval_rep;
+    std::vector<ModPrecedence> precedence_rep;
+    std::vector<std::vector<int>> disjunctive_resources;
+    std::vector<std::vector<std::pair<int,int>>> cumulative_resources;
+    //    std::vector<T> interval_weights;
+    std::vector<std::vector<std::vector<T>>> disjunctive_resource_transitions;
+    
+};
+  
+template<typename T>
+class SchedulingModel {
+    
+public:
+    SchedulingModel(SchedulingInstance<T>& data, Solver<T>& solver) {
+        data.encode(solver, schedule, boolean, numeric, interval, constraint);
+    }
+    
+    Interval<T> getScheduleInterval() { return schedule; }
+    
+private:
+    
+    
+    // model in
+    Interval<T> schedule;
+    
+    std::vector<BooleanVar<T>> boolean;
+    std::vector<NumericVar<T>> numeric;
+    std::vector<Interval<T>> interval;
+    
+    std::vector<DistanceConstraint<T>> constraint;
+};
+
+template<typename T>
+void SchedulingInstance<T>::encode(Solver<T>& solver, Interval<T>& schedule, std::vector<BooleanVar<T>>& boolean, std::vector<NumericVar<T>>& numeric, std::vector<Interval<T>>& interval, std::vector<DistanceConstraint<T>>& constraint) {
+    
+    schedule = solver.newInterval(0, Constant::Infinity<int>, 0, 0, 0,
+                  Constant::Infinity<int>);
+    
+    
+    for(size_t i{0}; i<numBoolean(); ++i) {
+        boolean.push_back(solver.newBoolean());
+    }
+    
+    for(size_t i{0}; i<numNumeric(); ++i) {
+        numeric.push_back(solver.newNumeric(LBs[i], UBs[i]));
+    }
+    
+    
+    for(auto I : interval_rep) {
+        if(LBs[I.duration] == UBs[I.duration]) {
+            interval.push_back(solver.between(numeric[I.start], numeric[I.start]+LBs[I.duration]));
+        } else {
+            interval.push_back(solver.between(numeric[I.start], numeric[I.end]));
+        }
+        
+        solver.set(interval.back().end.before(schedule.end));
+    }
+    
+    
+    for(auto P : precedence_rep) {
+        auto prec{numeric[P.end].after(numeric[P.start], P.lag)};
+        constraint.push_back(prec);
+
+//                std::cout << " add " << constraint.back() << " (" << P.lag << ")"<< std::endl;
+        
+        solver.set(prec);
+    }
+    
+    
+    std::vector<Interval<T>> scope;
+    int i{0};
+    for (auto &tasks : disjunctive_resources) {
+        for (auto j : tasks) {
+            scope.push_back(interval[j]);
+        }
+        solver.post(NoOverlap(interval[0], scope, disjunctive_resource_transitions[i++]));
+        scope.clear();
+    }
+    
+//    solver.set({0, 1, solver.numeric.upper(1)});
+    
+    
+}
+
 }
 
 #endif // __MODEL_HPP

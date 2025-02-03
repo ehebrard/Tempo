@@ -31,6 +31,7 @@
 #include "util/parsing/path.hpp"
 #include "util/parsing/tsptw.hpp"
 #include "util/parsing/jssdst.hpp"
+//#include "util/parsing/airbus.hpp"
 #include "helpers/cli.hpp"
 #include "util/Profiler.hpp"
 #include "helpers/shell.hpp"
@@ -158,11 +159,17 @@ int main(int argc, char *argv[]) {
   } else if (opt.input_format == "jssdst") {
       jssdst::parse(opt.instance_file, S, schedule, intervals, resource_tasks, resource_transitions);
     }
+//  else if (opt.input_format == "airbus") {
+//      airbus::parse(opt.instance_file, S, schedule, intervals, resource_tasks);
+//    }
 
   //    for(auto i : intervals) {
   //        std::cout << i.id() << ": " << i << std::endl;
   //    }
   //    exit(1);
+    
+    
+//    std::cout << S << std::endl;
 
   resource_transitions.resize(resource_tasks.size());
 
@@ -206,7 +213,7 @@ int main(int argc, char *argv[]) {
 
   // HACK!!: add an edge from origin to end to allow propagation of
   // shortest path
-  S.set({0, 1, S.numeric.upper(1)});
+//  S.set({0, 1, S.numeric.upper(1)});
 
   int num_restart{0};
   SubscriberHandle handlerToken;
