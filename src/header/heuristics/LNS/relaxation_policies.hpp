@@ -357,27 +357,31 @@ public:
 };
 
 /**
- * @brief Relaxation policy wrapper that randomly triggers a search without relaxation
+ * @brief Relaxation policy wrapper that randomly falls back on a different strategy
  * @details @copybrief
- * The root search is triggered with a probability that increases on failed relaxation runs
+ * The fallback policy is triggered with a probability that increases on failed relaxation runs
  * @tparam P base relaxation policy type
+ * @tparam F fallback relaxation policy type
  */
-template<relaxation_policy P>
-class SporadicRootSearch {
+template<relaxation_policy P, relaxation_policy F>
+class FallbackSearch {
     static constexpr auto Resolution = 100000;
     P basePolicy;
+    F fallbackPolicy;
     double rootSearchProbability = 0;
     double probabilityIncrement;
+    bool isFallback = false;
 public:
     /**
      * Ctor
      * @tparam Pol base relaxation policy type
      * @param probabilityIncrement increment to apply to the relaxation probability on failed relaxation
      * @param policy base relaxation policy
+     * @param fallback fallback policy
      */
-    template<relaxation_policy Pol>
-    SporadicRootSearch(double probabilityIncrement, Pol &&policy) :
-            basePolicy(std::forward<Pol>(policy)), probabilityIncrement(probabilityIncrement) {
+    template<relaxation_policy Pol, relaxation_policy FPol>
+    FallbackSearch(double probabilityIncrement, Pol &&policy, FPol &&fallback) : basePolicy(std::forward<Pol>(policy)),
+        fallbackPolicy(std::forward<FPol>(fallback)), probabilityIncrement(probabilityIncrement) {
         if (probabilityIncrement > 1 or probabilityIncrement < 0) {
             throw std::runtime_error("invalid probability increment");
         }
@@ -396,12 +400,12 @@ public:
         }
 
         if (random_event_occurred<Resolution>(rootSearchProbability)) {
-            if (s.getSolver().getOptions().verbosity >= Options::YACKING) {
-                std::cout << "-- root search" << std::endl;
-            }
+            isFallback = true;
+            fallbackPolicy.relax(s);
             return;
         }
 
+        isFallback = false;
         basePolicy.relax(s);
     }
 
@@ -411,7 +415,11 @@ public:
      */
     void notifyFailure(unsigned numFailures) {
         rootSearchProbability += probabilityIncrement;
-        basePolicy.notifyFailure(numFailures);
+        if (isFallback) {
+            fallbackPolicy.notifyFailure(numFailures);
+        } else {
+            basePolicy.notifyFailure(numFailures);
+        }
     }
 
     /**
@@ -420,9 +428,43 @@ public:
      */
     void notifySuccess(unsigned numFailures) {
         rootSearchProbability = 0;
-        basePolicy.notifySuccess(numFailures);
+        if (isFallback) {
+            fallbackPolicy.notifySuccess(numFailures);
+        } else {
+            basePolicy.notifySuccess(numFailures);
+        }
     }
 };
+
+/**
+ * @brief Relaxation policy that relaxes everything, aka performs a search from the root of the search tree
+ */
+struct RootSearch {
+    template<assumption_interface AI>
+    static void relax(AI &s) {
+        if (s.getSolver().getOptions().verbosity >= Options::YACKING) {
+            std::cout << "-- root search" << std::endl;
+        }
+    }
+
+    static constexpr void notifyFailure(unsigned) noexcept {}
+    static constexpr void notifySuccess(unsigned) noexcept {}
+};
+
+/**
+ * Helper method for constructing fallback search policies facilitating template argument deduction
+ * @tparam P base policy type
+ * @tparam F fallback policy type
+ * @param fallbackProbabilityIncrement increment to apply to the relaxation probability on failed relaxation
+ * @param basePolicy base relaxation policy
+ * @param fallbackPolicy fallback relaxation policy
+ * @return constructed FallbackSearch policy
+ */
+template<relaxation_policy P, relaxation_policy F>
+auto make_fallback_search(double fallbackProbabilityIncrement, P&& basePolicy, F &&fallbackPolicy) {
+    return FallbackSearch<P, F>(fallbackProbabilityIncrement, std::forward<P>(basePolicy),
+                                std::forward<F>(fallbackPolicy));
+}
 
 /**
  * Helper method for constructing sporadic root search policies facilitating template argument deduction
@@ -433,7 +475,7 @@ public:
  */
 template<relaxation_policy P>
 auto make_sporadic_root_search(double rootProbabilityIncrement, P &&policy) {
-    return SporadicRootSearch<P>(rootProbabilityIncrement, std::forward<P>(policy));
+    return make_fallback_search(rootProbabilityIncrement, std::forward<P>(policy), RootSearch{});
 }
 
 /**
