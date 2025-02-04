@@ -2500,6 +2500,22 @@ public:
     size_t numNumeric() { return LBs.size(); }
     size_t numBoolean() { return static_cast<size_t>(num_booleans); }
     
+    int getStart(const int i) const {
+        return interval_rep[i].start;
+    }
+    
+    int getEnd(const int i) const {
+        return interval_rep[i].end;
+    }
+    
+    int getDuration(const int i) const {
+        return interval_rep[i].duration;
+    }
+    
+    int getOptional(const int i) const {
+        return interval_rep[i].optional;
+    }
+    
     void encode(Solver<T>& solver, Interval<T>& schedule, std::vector<BooleanVar<T>>& boolean, std::vector<NumericVar<T>>& numeric, std::vector<Interval<T>>& interval, std::vector<DistanceConstraint<T>>& constraint);
     
     int addBoolean() {
@@ -2545,7 +2561,14 @@ public:
     int addFixedDurationIntervalFrom(const int t, const T duration) {
         auto l{addNumeric(duration, duration)};
         auto i{static_cast<int>(interval_rep.size())};
-        interval_rep.emplace_back(t, t, l, -1);
+        interval_rep.emplace_back(t, -1, l, -1);
+        return i;
+    }
+    int addFixedDurationOptionalIntervalFrom(const int t, const T duration) {
+        auto l{addNumeric(duration, duration)};
+        auto b{addBoolean()};
+        auto i{static_cast<int>(interval_rep.size())};
+        interval_rep.emplace_back(t, -1, l, b);
         return i;
     }
     
@@ -2610,10 +2633,18 @@ void SchedulingInstance<T>::encode(Solver<T>& solver, Interval<T>& schedule, std
     
     
     for(auto I : interval_rep) {
-        if(LBs[I.duration] == UBs[I.duration]) {
-            interval.push_back(solver.between(numeric[I.start], numeric[I.start]+LBs[I.duration]));
+        if(I.optional >= 0) {
+            if(LBs[I.duration] == UBs[I.duration]) {
+                interval.push_back(solver.between(numeric[I.start], numeric[I.start]+LBs[I.duration], boolean[I.optional]));
+            } else {
+                interval.push_back(solver.between(numeric[I.start], numeric[I.end], boolean[I.optional]));
+            }
         } else {
-            interval.push_back(solver.between(numeric[I.start], numeric[I.end]));
+            if(LBs[I.duration] == UBs[I.duration]) {
+                interval.push_back(solver.between(numeric[I.start], numeric[I.start]+LBs[I.duration]));
+            } else {
+                interval.push_back(solver.between(numeric[I.start], numeric[I.end]));
+            }
         }
         
         solver.set(interval.back().end.before(schedule.end));
