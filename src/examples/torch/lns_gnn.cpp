@@ -48,6 +48,7 @@ int main(int argc, char **argv) {
     unsigned numThreads = std::max(1u, std::thread::hardware_concurrency() / 2);
     bool useDRPolicy = false;
     bool reuseSolutions = false;
+    bool gnnFallback = false;
     std::string optSol;
     std::string solutionDest;
     auto opt = cli::parseOptions(argc, argv,
@@ -101,7 +102,8 @@ int main(int argc, char **argv) {
                                                  false),
                                  cli::ArgSpec("threads", "GNN inference threads", false,
                                               numThreads),
-                                 cli::ArgSpec("save-to", "save solutions to", false, solutionDest));
+                                 cli::ArgSpec("save-to", "save solutions to", false, solutionDest),
+                                 cli::SwitchSpec("gnn-fallback", "use GNN as fallback", gnnFallback, false));
     auto problemInfo = loadSchedulingProblem(opt);
     torch::set_num_threads(numThreads);
     bool optimal = false;
@@ -143,9 +145,8 @@ int main(int argc, char **argv) {
 
     MinimizationObjective objective(problemInfo.instance.schedule().duration);
     long elapsedTime = 0;
-    std::cout << "-- root search probability increment " << sporadicIncrement << std::endl;
     if (not optimal and useDRPolicy) {
-        std::cout << "-- exhaustion probability " << exhaustionProbability << std::endl;
+        std::cout << "-- root search probability increment " << sporadicIncrement << std::endl;
         nn::GNNRepair gnnRepair(*problemInfo.solver, gnnLocation, featureExtractorConf, problemInfo.instance,
                                 config, assumptionMode, minCertainty, exhaustionThreshold, sampleSmoothingFactor,
                                 problemInfo.constraints);
@@ -156,11 +157,27 @@ int main(int argc, char **argv) {
         auto policy = lns::make_sporadic_root_search(sporadicIncrement,
                                                      lns::make_RD_policy(destroy, gnnRepair,
                                                                          exhaustionProbability));
-        elapsedTime = runLNS(std::move(policy), optSol, *problemInfo.solver, objective);
+        elapsedTime = runLNS(policy, optSol, *problemInfo.solver, objective);
+    } else if (not optimal and gnnFallback) {
+        std::cout << "-- fallback search probability increment " << sporadicIncrement << std::endl;
+        std::cout << "-- using base relaxation policy " << destroyType << std::endl;
+        destroyParameters.decayConfig = config;
+        auto policy =
+                lns::make_fallback_search(sporadicIncrement,
+                                          lns::make_relaxation_policy(destroyType, problemInfo.instance.tasks(),
+                                                                      problemInfo.constraints, destroyParameters,
+                                                                      opt.verbosity),
+                                          lns::MovablePolicy<nn::GNNRelax<Time, Resource>>(
+                                              *problemInfo.solver, gnnLocation, featureExtractorConf,
+                                              problemInfo.instance, config,
+                                              assumptionMode, exhaustionThreshold, exhaustionProbability,
+                                              reuseSolutions,
+                                              sampleSmoothingFactor, problemInfo.constraints));
+        elapsedTime = runLNS(policy, optSol, *problemInfo.solver, objective);
     } else if (not optimal) {
         nn::GNNRelax policy(*problemInfo.solver, gnnLocation, featureExtractorConf, problemInfo.instance, config,
                             assumptionMode, exhaustionThreshold, exhaustionProbability, reuseSolutions,
-                            sampleSmoothingFactor,problemInfo.constraints);
+                            sampleSmoothingFactor, problemInfo.constraints);
         elapsedTime = runLNS(policy, optSol, *problemInfo.solver, objective);
     }
 
