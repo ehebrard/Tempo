@@ -111,7 +111,7 @@ namespace tempo::concepts {
     template<typename R, typename T>
     concept ctyped_range = std::ranges::range<R>and std::convertible_to<std::ranges::range_value_t<R>, T>;
 
-    template<typename R, template<typename> typename T>
+    template<typename R, template<typename...> typename T>
     concept ttyped_range = std::ranges::range<R> && traits::is_same_template_v<T, std::ranges::range_value_t<R>>;
 
     template<typename T>
