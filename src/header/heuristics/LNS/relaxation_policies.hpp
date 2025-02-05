@@ -542,6 +542,37 @@ struct VariantPolicy : public std::variant<R...> {
 
 };
 
+/**
+ * @brief Movable wrapper for relaxation policies
+ * @tparam P policy type
+ */
+template<relaxation_policy P>
+class MovablePolicy {
+    std::unique_ptr<P> policy;
+
+public:
+    /**
+     * Ctor
+     * @tparam Args argument types
+     * @param args arguments for actual heuristic
+     */
+    template<typename ... Args>
+    explicit MovablePolicy(Args &&...args): policy(std::make_unique<P>(std::forward<Args>(args)...)) {}
+
+    template<assumption_interface AI>
+    void relax(AI &ai) {
+        policy->relax(ai);
+    }
+
+    void notifyFailure(unsigned numFailures) {
+        policy->notifyFailure(numFailures);
+    }
+
+    void notifySuccess(unsigned numFailures) {
+        policy->notifySuccess(numFailures);
+    }
+};
+
 } // namespace tempo
 
 #endif
