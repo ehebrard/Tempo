@@ -10,59 +10,148 @@
 #include <vector>
 #include <ranges>
 #include <stdexcept>
+#include <optional>
+#include <limits>
 
-#include "Global.hpp"
 #include "Constant.hpp"
 #include "util/traits.hpp"
 #include "util/random.hpp"
-#include "Literal.hpp"
 #include "Solver.hpp"
 #include "Solution.hpp"
 
 namespace tempo::lns {
 
     /**
-     * @brief Basically a stack that also supports removal from random positions
+     * @brief Ringbuffer that supports stack operations as well as random element retrival
      * @tparam T element type
+     * @note Element order is LiFo
      */
     template<typename T>
-    struct Pool : protected std::vector<T> {
-        using std::vector<T>::size;
-        using std::vector<T>::empty;
-        using std::vector<T>::emplace_back;
-        using std::vector<T>::clear;
-        using std::vector<T>::begin;
-        using std::vector<T>::end;
-        using std::vector<T>::cbegin;
-        using std::vector<T>::cend;
+    class Pool {
+        std::vector<T> buffer;
+        std::size_t head = 0;
+        std::size_t currSize = 0;
+        std::optional<std::size_t> maxSize;
 
-        const T &peekLast() const noexcept {
-            return this->back();
+        void addElem() noexcept {
+            head = currSize == 0 ? 0 : (head + 1) % capacity();
+            currSize = std::min(currSize + 1, capacity());
         }
 
-        T &peekLast() noexcept {
-            return this->back();
+        void removeElem() noexcept {
+            --currSize;
+            if (head == 0) {
+                head = capacity() - 1;
+            } else {
+                --head;
+            }
+        }
+    public:
+        /**
+         * Ctor
+         * @param size optional max size parameter. If not given, pool has no size limit
+         */
+        constexpr explicit Pool(std::optional<std::size_t> size = {}) : buffer(size.value_or(0)), maxSize(size)  {}
+
+        /**
+         * Maximum number of elements the pool can hold
+         * @return max number of elements
+         */
+        [[nodiscard]] constexpr std::size_t capacity() const noexcept {
+            return maxSize.value_or(std::numeric_limits<std::size_t>::max());
         }
 
-        T popLast() noexcept(std::is_nothrow_move_constructible_v<T>) {
-            auto elem = std::move(this->back());
-            this->pop_back();
+        /**
+         * Number of elements contained in the pool
+         * @return number of elements contained in the pool
+         */
+        [[nodiscard]] constexpr std::size_t size() const noexcept {
+            return currSize;
+        }
+
+        /**
+         * Whether pool is empty
+         * @return true if pool is empty, false otherwise
+         */
+        [[nodiscard]] constexpr bool empty() const noexcept {
+            return currSize == 0;
+        }
+
+        /**
+         * @brief Add an element to the back of the pool
+         * @tparam Args element ctor argument types
+         * @param args arguments to element ctor
+         */
+        template<typename... Args>
+        constexpr void emplace_back(Args &&... args) {
+            addElem();
+            if (currSize > buffer.size()) {
+                buffer.emplace_back(std::forward<Args>(args)...);
+            } else {
+                std::construct_at(buffer.data() + head, std::forward<Args>(args)...);
+            }
+        }
+
+        /**
+         * @brief Retrieve last element without removing it
+         * @return reference to last element
+         */
+        constexpr const T &peekLast() const noexcept {
+            return buffer[head];
+        }
+
+        /**
+         * @copydoc peekLast
+         */
+        constexpr T &peekLast() noexcept {
+            return buffer[head];
+        }
+
+        /**
+         * @brief Remove last element and retrieve it
+         * @return element retrieved from the back of the pool
+         */
+        constexpr T popLast() noexcept(std::is_nothrow_move_constructible_v<T>) {
+            auto elem = std::move(buffer[head]);
+            removeElem();
             return elem;
         }
 
-        T &peekRandom() noexcept {
-            return random_select(*this);
+        /**
+         * Retrieve a random element without removing it
+         * @return reference to random element
+         */
+        constexpr T &peekRandom() noexcept {
+            return random_select(buffer, currSize);
         }
 
-        const T&peekRandom() const noexcept {
+        /**
+         * @copydoc peekRandom
+         */
+        constexpr const T&peekRandom() const noexcept {
             return const_cast<Pool*>(this)->peekRandom();
         }
 
-        T popRandom() {
-            auto it = random_select_iterator(*this);
+        /**
+         * @brief Remove random element and retrieve it
+         * @return element retrieved from the back of the pool
+         * @note complexity is linear in the size of the pool
+         */
+        constexpr T popRandom() {
+            auto it = random_select_iterator(buffer, currSize);
             auto elem = std::move(*it);
-            this->erase(it);
+            buffer.erase(it);
+            removeElem();
             return elem;
+        }
+
+        /**
+         * remove all elements
+         */
+        constexpr void clear() noexcept {
+            currSize = 0;
+            head = 0;
+            buffer.clear();
         }
     };
 
@@ -75,7 +164,8 @@ namespace tempo::lns {
         NumericVar<T> makespan;
         T makespanValue = Constant::Infinity<T>;
     public:
-        explicit SolutionPool(const NumericVar<T> &makespanVar) noexcept : makespan(makespanVar) {}
+        explicit SolutionPool(const NumericVar<T> &makespanVar, std::optional<std::size_t> maxCapacity = {}) noexcept
+            : Pool<Solution<T>>(maxCapacity), makespan(makespanVar) {}
 
         void addSolution(const Solver<T> &solver) {
             if (not solver.boolean.hasSolution() or not solver.numeric.hasSolution()) {
@@ -83,7 +173,7 @@ namespace tempo::lns {
             }
 
             this->emplace_back(solver);
-            makespanValue = this->back().numeric.lower(makespan);
+            makespanValue = this->peekLast().numeric.lower(makespan);
         }
 
         T bestMakespan() const noexcept {
@@ -91,7 +181,7 @@ namespace tempo::lns {
         }
 
         T getMakespan() const noexcept {
-            return this->back().numeric.lower(makespan);
+            return this->peekLast().numeric.lower(makespan);
         }
 
         T getMakespan(const Solution<T> &sol) const noexcept {
