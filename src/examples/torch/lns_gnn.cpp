@@ -51,6 +51,7 @@ int main(int argc, char **argv) {
     bool gnnFallback = false;
     std::string optSol;
     std::string solutionDest;
+    std::optional<std::size_t> solutionPoolSize;
     auto opt = cli::parseOptions(argc, argv,
                                  cli::SwitchSpec("dr", "use destroy-repair policy", useDRPolicy, false),
                                  cli::ArgSpec("gnn-loc", "Location of the GNN model", false, gnnLocation),
@@ -103,7 +104,8 @@ int main(int argc, char **argv) {
                                  cli::ArgSpec("threads", "GNN inference threads", false,
                                               numThreads),
                                  cli::ArgSpec("save-to", "save solutions to", false, solutionDest),
-                                 cli::SwitchSpec("gnn-fallback", "use GNN as fallback", gnnFallback, false));
+                                 cli::SwitchSpec("gnn-fallback", "use GNN as fallback", gnnFallback, false),
+                                 cli::ArgSpec("pool-size", "max solution pool size", false, solutionPoolSize));
     auto problemInfo = loadSchedulingProblem(opt);
     torch::set_num_threads(numThreads);
     bool optimal = false;
@@ -172,12 +174,12 @@ int main(int argc, char **argv) {
                                               problemInfo.instance, config,
                                               assumptionMode, exhaustionThreshold, exhaustionProbability,
                                               reuseSolutions,
-                                              sampleSmoothingFactor, problemInfo.constraints));
+                                              sampleSmoothingFactor, problemInfo.constraints, solutionPoolSize));
         elapsedTime = runLNS(policy, optSol, *problemInfo.solver, objective);
     } else if (not optimal) {
         nn::GNNRelax policy(*problemInfo.solver, gnnLocation, featureExtractorConf, problemInfo.instance, config,
                             assumptionMode, exhaustionThreshold, exhaustionProbability, reuseSolutions,
-                            sampleSmoothingFactor, problemInfo.constraints);
+                            sampleSmoothingFactor, problemInfo.constraints, solutionPoolSize);
         elapsedTime = runLNS(policy, optSol, *problemInfo.solver, objective);
     }
 
