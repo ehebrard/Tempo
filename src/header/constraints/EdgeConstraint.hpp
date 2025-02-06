@@ -77,7 +77,7 @@ template <typename T> void EdgeConstraint<T>::post(const int idx) {
     if(edge.from != Constant::K)
         m_solver.wake_me_on(lb<T>(edge.from), Constraint<T>::cons_id);
     if(edge.to != Constant::K)
-  m_solver.wake_me_on(ub<T>(edge.to), Constraint<T>::cons_id);
+      m_solver.wake_me_on(ub<T>(edge.to), Constraint<T>::cons_id);
 }
 
 template <typename T>

@@ -27,11 +27,53 @@ int percolate_down(RandomIt begin, RandomIt end, int idx, Compare comp) {
     }
 
     // stop when the parent is lower than the child
-    if (comp(*itr_current, *itr_child)) {
+    //    if (comp(*itr_current, *itr_child)) {
+
+    // stop when the child is not lower than the parent
+    if (not comp(*itr_child, *itr_current)) {
       break;
     }
 
     // or advance
+    std::swap(*itr_current, *itr_child);
+    current = child;
+  }
+
+  return current;
+}
+
+template <class RandomIt, class Array, class Compare>
+int percolate_down(RandomIt begin, RandomIt end, int idx, Array &indexing,
+                   Compare comp) {
+
+  int size = std::distance(begin, end);
+  int current = idx;
+  int child;
+
+  // limits
+  while ((child = 2 * current + 1) < size) {
+    RandomIt itr_child = begin + child;
+    RandomIt itr_current = begin + current;
+
+    // check if there is a right child and it is lower than the left child
+    if (child < size - 1 && comp(*(itr_child + 1), *itr_child)) {
+      ++itr_child;
+      ++child;
+    }
+
+    // stop when the parent is lower than the child
+    //    if (comp(*itr_current, *itr_child)) {
+
+    // stop when the child is not lower than the parent
+    if (not comp(*itr_child, *itr_current)) {
+      break;
+    }
+
+    // or advance
+
+    indexing[*itr_current] = child;
+    indexing[*itr_child] = current;
+
     std::swap(*itr_current, *itr_child);
     current = child;
   }
@@ -55,6 +97,31 @@ int percolate_up(RandomIt begin, int idx, Compare comp) {
     }
 
     // or back off
+    std::swap(*itr_current, *itr_parent);
+    current = parent;
+  }
+
+  return current;
+}
+
+template <class RandomIt, class Array, class Compare>
+int percolate_up(RandomIt begin, int idx, Array &indexing, Compare comp) {
+  int current = idx;
+  int parent;
+
+  while (current > 0) {
+    parent = (current - 1) / 2;
+    RandomIt itr_parent = begin + parent;
+    RandomIt itr_current = begin + current;
+
+    // stop when the parent is lower than the child
+    if (comp(*itr_parent, *itr_current)) {
+      break;
+    }
+
+    // or back off
+    indexing[*itr_current] = parent;
+    indexing[*itr_parent] = current;
     std::swap(*itr_current, *itr_parent);
     current = parent;
   }
@@ -88,6 +155,14 @@ template <class RandomIt, class Compare>
 void remove_min(RandomIt begin, RandomIt end, Compare comp) {
   std::swap(*begin, *(end - 1));
   percolate_down(begin, end - 1, 0, comp);
+}
+
+template <class RandomIt, class Array, class Compare>
+void remove_min(RandomIt begin, RandomIt end, Array &indexing, Compare comp) {
+  indexing[*(end - 1)] = 0;
+  indexing[*begin] = (end - begin - 1);
+  std::swap(*begin, *(end - 1));
+  percolate_down(begin, end - 1, 0, indexing, comp);
 }
 
 } // namespace heap

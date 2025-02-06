@@ -112,7 +112,8 @@ auto tempo::getBaseParser() -> Parser {
 
     cmd.add<ValueArg<int>>(opt.choice_point_heuristics, "", "cp-heuristic",
                            "type of heuristic used for choice point selection "
-                           "(0: Tightest, 1: WDEG, 2: VSIDS (default), 3: Random, 4: LRB)",
+                           "(0: Tightest, 1: WDEG, 2: VSIDS (default), 3: "
+                           "Random, 4: LRB, 5: HEAP)",
                            false, 2, "int");
     cmd.add<ValueArg<int>>(
             opt.polarity_heuristic, "", "polarity-heuristic",

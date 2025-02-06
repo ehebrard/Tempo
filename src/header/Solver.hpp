@@ -796,7 +796,6 @@ private:
     //@{
     ConflictSet<T> cut;
 
-    std::vector<Literal<T>> all_literals;
     std::vector<Literal<T>> lit_buffer;
     std::vector<Literal<T>> learnt_clause;
 
@@ -1421,7 +1420,7 @@ template <typename T> void BooleanStore<T>::updateActivity(const var_t x) {
 
 template <typename T> void BooleanStore<T>::undo(Literal<T> l) {
     polarity[l] = false;
-    
+
 #ifdef LEARNING_RATE_STUFF
     // learning rate stuff
     updateLearningRate(l.variable());
@@ -2602,8 +2601,7 @@ void Solver<T>::analyze(Explanation<T> &e, const bool only_boolean) {
     
     cut.clear(this);
     learnt_clause.clear();
-    all_literals.clear();
-    
+
     index_t decision_stamp;
     
     auto UIP{1 - only_boolean};
@@ -2711,13 +2709,9 @@ void Solver<T>::analyze(Explanation<T> &e, const bool only_boolean) {
 #endif
                         continue;
                     } else {
-                        
-                        if (cut.add(p, p_stamp)) {
-                            all_literals.push_back(p);
-                        }
-                        
-                        //                cut.add(p, p_stamp);
-                        
+
+                      cut.add(p, p_stamp);
+
 #ifdef DBG_TRACE
                         if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
                             std::cout << " => add to cut: " << cut << std::endl;
@@ -2763,8 +2757,6 @@ void Solver<T>::analyze(Explanation<T> &e, const bool only_boolean) {
                 ;
             l = getLiteral(lit_pointer);
             exp = getReason(lit_pointer);
-            all_literals.push_back(l);
-            
         }
         
         --num_lit;
@@ -2772,7 +2764,7 @@ void Solver<T>::analyze(Explanation<T> &e, const bool only_boolean) {
     
     // l i the UIP, but to add it to the conflict, we must do the numeric test
     if (not only_boolean and cut.add(l, lit_pointer)) {
-        all_literals.push_back(l);
+      cut.uncache(lit_pointer);
     }
     
 #ifdef DBG_TRACE
@@ -2847,7 +2839,6 @@ template <typename T> void Solver<T>::analyzeDecisions(Explanation<T> &e) {
 
   cut.clear(this);
   learnt_clause.clear();
-  all_literals.clear();
 
   //  /*
   //   We distinguish between standard conflict analysis and conflict analysis
@@ -2952,7 +2943,6 @@ template <typename T> void Solver<T>::analyzeDecisions(Explanation<T> &e) {
 
     l = getLiteral(lit_pointer);
     exp = getReason(lit_pointer);
-    all_literals.push_back(l);
 
 #ifdef DBG_TRACE
     if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
@@ -2996,239 +2986,6 @@ template <typename T> void Solver<T>::analyzeDecisions(Explanation<T> &e) {
 
   assert(static_cast<int>(decisionLevel(~(learnt_clause[0]))) == level());
 }
-
-// template <typename T> void Solver<T>::analyzeBooleans(Explanation<T> &e) {
-//
-//   cut.clear(this);
-//   learnt_clause.clear();
-//   all_literals.clear();
-//
-//   index_t decision_stamp;
-//
-//   auto UIP{1};
-//
-//   //  /*
-//   //   We distinguish between standard conflict analysis and conflict
-//   analysis
-//   //   from a global fail (@decision level 0)
-//   //   */
-//   if (decisions.empty()) {
-//     ground_stamp = 1;
-//     decision_stamp = assumption_stamp;
-//   } else {
-//     // marker to distinguish literal from the current decision level from the
-//     // rest
-//     decision_stamp = propagationStamp(decisions.back());
-//   }
-//
-//   // number of literals of the current decision level in the conflict clause
-//   int num_lit{0};
-//   index_t lit_pointer{static_cast<index_t>(numLiteral())};
-//   Literal<T> l{Contradiction<T>};
-//
-// #ifdef DBG_TRACE
-//     if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
-//       std::cout << "analyze conflict (" << e << "):\n";
-//     }
-// #endif
-//
-//     // the first reason is the conflicting clause itself
-//     Explanation<T> &exp = e;
-//     do {
-//
-//       lit_buffer.clear();
-//       exp.explain(l, lit_buffer);
-//
-// #ifdef DBG_CLPLUS
-//       if (cl_file != NULL) {
-//         *cl_file << "1 " << (lit_buffer.size() + 1 + (l != Contradiction<T>))
-//                  << " 0 1 " << numeric.upper(1);
-//         for (auto p : lit_buffer) {
-//           writeLiteral(p);
-//         }
-//         if (l != Contradiction<T>)
-//           writeLiteral(~l);
-//         *cl_file << std::endl;
-//       }
-//       if (++num_clauses > DBG_CL) {
-//         std::cout << "exit because of dbg clause limit (#fails = " <<
-//         num_fails
-//                   << ", #cpts = " << num_choicepoints << ")\n";
-//         exit(1);
-//       }
-// #endif
-//
-//       for (auto p : lit_buffer) {
-//
-// #ifdef DBG_TRACE
-//             if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
-//               std::cout << " ** " << pretty(p) << " @" << decisionLevel(p);
-//               std::cout.flush();
-//             }
-// #endif
-//
-//             // rank of p in the trail
-//             auto p_stamp{propagationStamp(p)};
-//
-//             if (p_stamp < ground_stamp) {
-//               // if p is a ground fact, we ignore it
-// #ifdef DBG_TRACE
-//                 if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
-//                   std::cout << " => ground fact\n";
-//                 }
-// #endif
-//                 continue;
-//             } else if (p_stamp < decision_stamp) {
-//               // p is not from the current decision level
-//
-//               if (cut.entailed(p)) {
-//                 // p is entailed by the current conflict
-// #ifdef DBG_TRACE
-//                     if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
-//                       std::cout << " => entailed by cut\n";
-//                     }
-// #endif
-//                     continue;
-//               } else {
-//
-//                 if (cut.add(p, p_stamp)) {
-//                   all_literals.push_back(p);
-//                 }
-//
-//                 //                cut.add(p, p_stamp);
-//
-// #ifdef DBG_TRACE
-//                 if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
-//                   std::cout << " => add to cut: " << cut << std::endl;
-//                 }
-// #endif
-//               }
-//               // p_stamp >= decision_stamp
-//             } else if (cut.cached(p_stamp)) {
-//
-// #ifdef DBG_TRACE
-//               if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
-//                 std::cout << " => already in 'to-explore'\n";
-//               }
-// #endif
-//
-//               continue;
-//
-//             } else {
-//
-//               // literal from the current decision level, and since there
-//               // are now at least two of them, we do not add it to the
-//               // conflict yet
-//               cut.cache(p_stamp);
-//               ++num_lit;
-//
-// #ifdef DBG_TRACE
-//               if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
-//                 std::cout << " => add in 'to-explore':";
-//                 for (auto ii{lit_pointer}; --ii > 0;) {
-//                   if (cut.cached(ii)) {
-//                     std::cout << " [" << getLiteral(ii) << "]";
-//                   }
-//                 }
-//                 std::cout << std::endl;
-//               }
-// #endif
-//             }
-//       }
-//
-//       if (num_lit >= 1) {
-//         while (not cut.cached(--lit_pointer))
-//           ;
-//         l = getLiteral(lit_pointer);
-//         exp = getReason(lit_pointer);
-//         all_literals.push_back(l);
-//
-// #ifdef DBG_TRACE
-//         if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
-//           std::cout << " explore " << l << " b/c " << exp << std::endl;
-//         }
-// #endif
-//       }
-//
-//       --num_lit;
-//
-//     } while (num_lit >= UIP and
-//              lit_pointer >= decision_stamp);
-//
-//     // l i the UIP, but to add it to the conflict, we must do the numeric
-//     test if (cut.add(l, lit_pointer)) {
-//       all_literals.push_back(l);
-//     }
-//
-// #ifdef DBG_TRACE
-//     if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
-//       std::cout << " => add UIP to cut: " << cut << std::endl;
-//     }
-// #endif
-//
-// #ifdef DBG_TRACE
-//     auto size_before{cut.size()};
-// #endif
-//
-// #ifdef DBG_CL
-//     if ((options.minimization > 0 or options.shrinking) and cl_file != NULL)
-//     {
-//       *cl_file << "2 " << (cut.size() + 1) << " 0 1 " << numeric.upper(1);
-//       for (auto p : cut) {
-//         writeLiteral(p.second);
-//       }
-//       *cl_file << std::endl;
-//     }
-//     if (++num_clauses > DBG_CL) {
-//       std::cout << "exit because of dbg clause limit (#fails = " << num_fails
-//                 << ", #cpts = " << num_choicepoints << ")\n";
-//       exit(1);
-//     }
-// #endif
-//
-//     if (options.shrinking) {
-//       shrinkClause();
-//     } else if (options.minimization > 0) {
-//       minimizeClause();
-//     }
-//
-//     cut.get(learnt_clause);
-//
-// #ifdef DBG_TRACE
-//     if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
-//       std::cout << "\nlearn clause of size " << learnt_clause.size();
-//       if (size_before > learnt_clause.size())
-//         std::cout << " (minimized from " << size_before << ")";
-//       std::cout << std::endl;
-//
-//       for (auto l : learnt_clause) {
-//         std::cout << std::setw(4) << decisionLevel(~l) << " " << pretty(l)
-//                   << std::endl;
-//       }
-//         std::cout << std::endl;
-//     }
-// #endif
-//
-//     //    shrinkClause();
-//
-// #ifdef DBG_CL
-//     if (cl_file != NULL) {
-//         *cl_file << "0 " << (learnt_clause.size() + 1) << " 0 1 " <<
-//         numeric.upper(1); for (auto p : learnt_clause) {
-//             writeLiteral(~p);
-//         }
-//         *cl_file << std::endl;
-//     }
-//     if (++num_clauses > DBG_CL) {
-//       std::cout << "exit because of dbg clause limit (#fails = " << num_fails
-//                 << ", #cpts = " << num_choicepoints << ")\n";
-//       exit(1);
-//     }
-// #endif
-//
-//     assert(static_cast<int>(decisionLevel(~(learnt_clause[0]))) == level());
-// }
-
 
 template <typename T> bool Solver<T>::isAssertive(std::vector<Literal<T>> &conf) const {
 
@@ -3305,6 +3062,15 @@ template <typename T> void Solver<T>::learnConflict(Explanation<T> &e) {
     if (bt_level < init_level)
       throw SearchExhausted();
 
+    lit_buffer.clear();
+    for (auto l : learnt_clause) {
+      lit_buffer.push_back(~l);
+    }
+    for (auto i : cut.cached_) {
+      lit_buffer.push_back(getLiteral(i));
+    }
+    ClauseAdded.trigger(lit_buffer);
+
     decisions.resize(decisions.size() + bt_level - env.level());
     restoreState(bt_level);
 
@@ -3331,8 +3097,6 @@ template <typename T> void Solver<T>::learnConflict(Explanation<T> &e) {
       }
     }
 
-    ClauseAdded.trigger(all_literals);
-    
     assert(isAssertive(learnt_clause));
 
     clauses.add(learnt_clause.begin(), learnt_clause.end(), true);
@@ -3670,6 +3434,8 @@ template <typename T> void Solver<T>::makeAssumption(const Literal<T> lit) {
 
 template <typename T> boolean_state Solver<T>::search() {
 
+  //
+
   //    assumption_stamp =
   init_level = env.level();
 
@@ -3748,6 +3514,13 @@ template <typename T> boolean_state Solver<T>::search() {
         } catch (const SearchExhausted &f) {
           satisfiability = FalseState;
         }
+
+#ifdef DBG_TRACE
+        if (DBG_BOUND) {
+          std::cout << "--- after fail [i=" << num_choicepoints << "] ---\n";
+          printTrace();
+        }
+#endif
     }
   }
 
@@ -3786,32 +3559,32 @@ template <typename T> void tempo::Solver<T>::propagate() {
       }
 #endif
 
-        //TODO: not sure why it is better to do it like this than with the standard constraint queue system (PRIORITY?)
-        if (not l.isNumeric()) {
+      // TODO: not sure why it is better to do it like this than with the
+      // standard constraint queue system (PRIORITY?)
+      if (not l.isNumeric()) {
 
-            clauses.unit_propagate_boolean(l);
-            ++num_unit_propagations;
+        clauses.unit_propagate_boolean(l);
+        ++num_unit_propagations;
 
-        } else {
-              if (numeric.lastLitIndex(l.sign(), l.variable()) > p_index) {
-                ++p_index;
-                continue;
-                //                    std::cout << "subsumed\n";
-              }
-            }
+      } else {
+        if (numeric.lastLitIndex(l.sign(), l.variable()) > p_index) {
+          ++p_index;
+          continue;
+          //                    std::cout << "subsumed\n";
+        }
+      }
 
-            const std::vector<int> &cid =
-                (l.isNumeric() ? numeric_constraints[l]
-                               : boolean_constraints[l]);
-            const std::vector<unsigned> &rank =
-                (l.isNumeric() ? numeric_constraints.rank(l)
-                               : boolean_constraints.rank(l));
+      const std::vector<int> &cid =
+          (l.isNumeric() ? numeric_constraints[l] : boolean_constraints[l]);
+      const std::vector<unsigned> &rank =
+          (l.isNumeric() ? numeric_constraints.rank(l)
+                         : boolean_constraints.rank(l));
 
-            for (auto i{cid.size()}; i-- > 0;) {
-              auto cons{constraints[cid[i]]};
-              if (cons->idempotent and culprit == cons) {
-                continue;
-              }
+      for (auto i{cid.size()}; i-- > 0;) {
+        auto cons{constraints[cid[i]]};
+        if (cons->idempotent and culprit == cons) {
+          continue;
+        }
 
 #ifdef DBG_TRACE
         if (DBG_BOUND and (DBG_TRACE & QUEUE)) {
@@ -3820,7 +3593,7 @@ template <typename T> void tempo::Solver<T>::propagate() {
 #endif
 
         propagation_queue.triggers(l, rank[i], cons);
-        }
+      }
 
       ++p_index;
     }
@@ -3998,8 +3771,6 @@ template <typename T> void Solver<T>::relax(Constraint<T> *con) {
   if (numeric_constraints.indegree(con->id()) > 0) {
     numeric_constraints.remove(con->id(), IN);
   }
-    
-//    exit(1);
 }
 
 template <typename T> void Solver<T>::addToSearch(const NumericVar<T> &x) {
@@ -4316,6 +4087,7 @@ std::ostream &Solver<T>::display(std::ostream &os, const bool dom,
                                  const bool bra, const bool sva, const bool pre,
                                  const bool cla, const bool bgr, const bool ngr,
                                  const bool con, const bool trl) const {
+
   if (bra) {
     //    os << "decisions:";
     os << "branch:";
@@ -4409,6 +4181,8 @@ template <typename T> void Solver<T>::printTrace() const {
     display(std::cout, (DBG_TRACE & DOMAINS), (DBG_TRACE & BRANCH), false,
             false, (DBG_TRACE & CLAUSES), false, false, false,
             (DBG_TRACE & TRAIL));
+
+    std::cout << "bsv: " << boolean_search_vars << std::endl;
   }
 }
 #endif
