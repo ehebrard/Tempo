@@ -49,6 +49,7 @@ int main(int argc, char **argv) {
     bool useDRPolicy = false;
     bool reuseSolutions = false;
     bool gnnFallback = false;
+    bool policyStats;
     std::string optSol;
     std::string solutionDest;
     std::optional<std::size_t> solutionPoolSize;
@@ -105,7 +106,8 @@ int main(int argc, char **argv) {
                                               numThreads),
                                  cli::ArgSpec("save-to", "save solutions to", false, solutionDest),
                                  cli::SwitchSpec("gnn-fallback", "use GNN as fallback", gnnFallback, false),
-                                 cli::ArgSpec("pool-size", "max solution pool size", false, solutionPoolSize));
+                                 cli::ArgSpec("pool-size", "max solution pool size", false, solutionPoolSize),
+                                 cli::SwitchSpec("stats", "enable policy statistics", policyStats, false));
     auto problemInfo = loadSchedulingProblem(opt);
     torch::set_num_threads(numThreads);
     bool optimal = false;
@@ -159,7 +161,7 @@ int main(int argc, char **argv) {
         auto policy = lns::make_sporadic_root_search(sporadicIncrement,
                                                      lns::make_RD_policy(destroy, gnnRepair,
                                                                          exhaustionProbability));
-        elapsedTime = runLNS(policy, optSol, *problemInfo.solver, objective);
+        elapsedTime = runLNS(policy, *problemInfo.solver, objective, policyStats, optSol);
     } else if (not optimal and gnnFallback) {
         std::cout << "-- fallback search probability increment " << sporadicIncrement << std::endl;
         std::cout << "-- using base relaxation policy " << destroyType << std::endl;
@@ -175,12 +177,12 @@ int main(int argc, char **argv) {
                                               assumptionMode, exhaustionThreshold, exhaustionProbability,
                                               reuseSolutions,
                                               sampleSmoothingFactor, problemInfo.constraints, solutionPoolSize));
-        elapsedTime = runLNS(policy, optSol, *problemInfo.solver, objective);
+        elapsedTime = runLNS(policy, *problemInfo.solver, objective, policyStats, optSol);
     } else if (not optimal) {
         nn::GNNRelax policy(*problemInfo.solver, gnnLocation, featureExtractorConf, problemInfo.instance, config,
                             assumptionMode, exhaustionThreshold, exhaustionProbability, reuseSolutions,
                             sampleSmoothingFactor, problemInfo.constraints, solutionPoolSize);
-        elapsedTime = runLNS(policy, optSol, *problemInfo.solver, objective);
+        elapsedTime = runLNS(policy, *problemInfo.solver, objective, policyStats, optSol);
     }
 
     if (problemInfo.solver->numeric.hasSolution()) {
