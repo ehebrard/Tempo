@@ -94,15 +94,6 @@ namespace tempo::nn {
             using enum lns::AssumptionMode;
             using enum lns::OrderType;
             using GF = lns::GreedyFix<T, lns::OrderType::Descending>;
-
-            if (decayConfig.fixRatio < 0 or decayConfig.fixRatio > 1) {
-                throw std::runtime_error("invalid fix ratio");
-            }
-
-            if (decayConfig.decay < 0 or decayConfig.decay >= 1) {
-                throw std::runtime_error("invalid decay");
-            }
-
             if (solver.getOptions().verbosity >= Options::YACKING) {
                 std::cout << "-- GNN repair policy config\n"
                           << "\t-- fix policy " << assumptionMode << "\n"
@@ -129,16 +120,16 @@ namespace tempo::nn {
                     break;
                 case BestN:
                     break;
-                case TaskFull:
+                /*case TaskFull:
                     fixPolicy.template emplace<lns::TaskFix<T, false>>(problemInstance.tasks(),
                                                                        resourceConstraints, true);
                     break;
                 case TaskReduced:
                     fixPolicy.template emplace<lns::TaskFix<T, false>>(problemInstance.tasks(),
                                                                        resourceConstraints, false);
-                    break;
+                    break;*/
                 default:
-                    throw std::runtime_error("invalid assumption mode " + to_string(assumptionMode));
+                    throw std::runtime_error("unsupported assumption mode " + to_string(assumptionMode));
             }
         }
 
