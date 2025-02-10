@@ -53,8 +53,11 @@ int main(int argc, char *argv[]) {
     Solver<int> S(opt);
     
     // an interval standing for the makespan of schedule
-    auto schedule{S.newInterval(0, Constant::Infinity<int>, 0, 0, 0,
-                                Constant::Infinity<int>)};
+    auto makespan{S.newNumeric(0,Constant::Infinity<int>)};
+    auto origin{S.newConstant(0)};
+    auto schedule{S.between(origin, makespan)};
+//    auto schedule{S.newInterval(0, Constant::Infinity<int>, 0, 0, 0,
+//                                Constant::Infinity<int>)};
 
     // depending on the option "input-format", parse a disjunctive scheduling
     // instance, and collect resources and interval objects

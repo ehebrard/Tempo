@@ -57,8 +57,11 @@ int main(int argc, char *argv[]) {
     Solver<int> S(opt);
     
     // an interval standing for the makespan of schedule
-    auto schedule{S.newInterval(0, Constant::Infinity<int>, 0, 0, 0,
-                                Constant::Infinity<int>)};
+    auto makespan{S.newNumeric(0,Constant::Infinity<int>)};
+    auto origin{S.newConstant(0)};
+    auto schedule{S.between(origin, makespan)};
+//    auto schedule{S.newInterval(0, Constant::Infinity<int>, 0, 0, 0,
+//                                Constant::Infinity<int>)};
 
     // depending on the option "input-format", parse a disjunctive scheduling
     // instance, and collect resources and interval objects
@@ -207,9 +210,9 @@ int main(int argc, char *argv[]) {
           if (opt.print_sol) {
             for (auto i : intervals) {
               std::cout << "x" << i.start.id() << ": "
-                        << S.numeric.lower(i.start) << ".."
-                        << S.numeric.lower(i.end) << " ("
-                        << S.numeric.lower(i.duration) << ")\n";
+                        << S.numeric.solutionLower(i.start) << ".."
+                        << S.numeric.solutionLower(i.end) << " ("
+                        << S.numeric.solutionLower(i.duration) << ")\n";
             }
           }
 

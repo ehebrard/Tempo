@@ -70,7 +70,7 @@ Result VarImportanceRunner::evaluateRun(const tempo::Solver<Time> &solver, const
     totalNumDecisions += solver.num_choicepoints;
     ++numSearches;
     if (solver.boolean.hasSolution() and solver.numeric.hasSolution()) {
-        const auto makeSpan = solver.numeric.lower(duration);
+        const auto makeSpan = solver.numeric.solutionLower(duration);
         if (makeSpan == optimum) {
             for (auto [litId, cacheVal] : iterators::enumerate(literalCache)) {
                 cacheVal = cacheVal or solver.boolean.bestSolution().at(litId);

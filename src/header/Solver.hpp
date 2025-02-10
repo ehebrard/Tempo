@@ -83,7 +83,81 @@ template <typename T> struct TrailItem {
  Read/write access
  */
 template<typename T>
-class BooleanStore {
+class StaticBooleanStore {
+    
+public:
+    /**
+     * @name constructors
+     */
+    //@{
+    StaticBooleanStore();
+    ~StaticBooleanStore() = default;
+    //@}
+    
+    /**
+     * @name Boolean variable constructors
+     */
+    //@{
+    // declare a new Boolean variable
+    BooleanVar<T> newVar(const info_t s = Constant::NoSemantic);
+    // declare a new Boolean variable with a semantic (disjunction)
+    BooleanVar<T> newDisjunct(const DistanceConstraint<T> &d1,
+                              const DistanceConstraint<T> &d2);
+    //@}
+    
+    /**
+     * @name utils
+     */
+    //@{
+    // number of Boolean variables
+    size_t size() const;
+    
+    // returns a literal from a sign and a variable
+    Literal<T> getLiteral(const bool s, const var_t x) const;
+
+    // returns the difference logic constraint corresponding to a sign and a
+    // variable [or Constant::NoEdge<T> if the variable has no semantic]
+    const DistanceConstraint<T> &getEdge(const bool s, const var_t x) const;
+    
+    // returns the difference logic constraint corresponding to a literal [or
+    // Constant::NoEdge<T> if the literal has no semantic]
+    const DistanceConstraint<T> &getEdge(const Literal<T> l) const;
+    
+    // returns the k-th difference logic constraint
+    const DistanceConstraint<T> &getEdge(const index_t k) const;
+    
+    // whether variable x has a difference logic constraint attached
+    bool hasSemantic(const var_t x) const;
+    //@}
+    
+    const std::vector<info_t>& getEdgeInfo() {return edge_index;}
+    
+    // the list of difference logic constraints
+    const std::vector<DistanceConstraint<T>>& getEdges() { return edges; }
+    
+protected:
+
+    // the rank of the difference logic constraint in "edges" for each Boolean
+    // variable
+    std::vector<info_t> edge_index;
+    
+    // the list of difference logic constraints
+    std::vector<DistanceConstraint<T>> edges;
+    
+};
+
+
+
+
+//! Boolean variables and literals manager
+/*!
+ Responsible for:
+ Storage (memory)
+ Read/write access
+ */
+template<typename T>
+class BooleanStore : public StaticBooleanStore<T>
+{
     
 public:
     /**
@@ -92,6 +166,7 @@ public:
     //@{
     BooleanStore(Solver<T> &s);
     ~BooleanStore() = default;
+    void copy(StaticBooleanStore<T>& s);
     //@}
     
     /**
@@ -120,41 +195,23 @@ public:
     // declare a new Boolean variable with a semantic (disjunction)
     BooleanVar<T> newDisjunct(const DistanceConstraint<T> &d1,
                               const DistanceConstraint<T> &d2);
+    void reserveVarMemory();
+    void reserveVariablesMemory(const size_t n);
     //@}
     
     /**
      * @name utils
      */
     //@{
-    // number of Boolean variables
-    size_t size() const;
-    
     // set literal l to true
     void set(Literal<T> l);
     
     // unset literal l
     void undo(Literal<T> l);
     
-    // returns a literal from a sign and a variable
-    Literal<T> getLiteral(const bool s, const var_t x) const;
-    
     // returns the rank of literal l in the trail
     index_t litIndex(const Literal<T> l) const;
 
-    // returns the difference logic constraint corresponding to a sign and a
-    // variable [or Constant::NoEdge<T> if the variable has no semantic]
-    const DistanceConstraint<T> &getEdge(const bool s, const var_t x) const;
-    
-    // returns the difference logic constraint corresponding to a literal [or
-    // Constant::NoEdge<T> if the literal has no semantic]
-    const DistanceConstraint<T> &getEdge(const Literal<T> l) const;
-    
-    // returns the k-th difference logic constraint
-    const DistanceConstraint<T> &getEdge(const index_t k) const;
-    
-    // whether variable x has a difference logic constraint attached
-    bool hasSemantic(const var_t x) const;
-    
     // saves the current solution
     void saveSolution() { best_solution = polarity; }
     bool hasSolution() const { return not best_solution.empty(); }
@@ -180,13 +237,6 @@ protected:
     // [for each literal] the polarity in the best solution
     std::vector<bool> best_solution;
 
-    // the rank of the difference logic constraint in "edges" for each Boolean
-    // variable
-    std::vector<info_t> edge_index;
-    
-    // the list of difference logic constraints
-    std::vector<DistanceConstraint<T>> edges;
-    
     // the rank of each literal in the trail (Constant::NoIndex if the literal
     // is not on the trail)
     std::vector<index_t> propagation_stamp;
@@ -206,6 +256,7 @@ protected:
 #endif
 };
 
+
 //! Numeric variables and literals manager
 /*!
  Responsible for:
@@ -213,7 +264,183 @@ protected:
  Read/write access
  */
 template<typename T>
-class NumericStore {
+class StaticNumericStore {
+    
+public:
+    /**
+     * @name constructors
+     */
+    //@{
+    StaticNumericStore();
+    ~StaticNumericStore() = default;
+    //@}
+    
+    /**
+     * @name value accessors
+     */
+    //@{
+    // for use in search
+    bool falsified(const Literal<T> l) const;
+    bool satisfied(const Literal<T> l) const;
+    T upper(const var_t x) const;
+    T lower(const var_t x) const;
+    //@}
+    
+    /**
+     * @name Boolean variable constructors
+     */
+    //@{
+    // declare a new numeric variable
+    NumericVar<T> newVar(const T b = Constant::Infinity<T>);
+    //@}
+    
+    /**
+     * @name utils
+     */
+    //@{
+    size_t size() const;
+    void set(Literal<T> l);
+    const std::vector<T> &get(const int b) const;
+    //@}
+
+  protected:
+    // [for each numeric signed_var] the current bounds
+    std::vector<T> bound[2];
+    
+};
+
+
+
+////! Numeric variables and literals manager
+///*!
+// Responsible for:
+// Storage (memory)
+// Read/write access
+// */
+//template<typename T>
+//class NumericStore {
+//    
+//public:
+//    /**
+//     * @name constructors
+//     */
+//    //@{
+//    NumericStore(Solver<T> &s);
+//    ~NumericStore() = default;
+//    //@}
+//    
+//    /**
+//     * @name value accessors
+//     */
+//    //@{
+//    // solution (do not use in search)
+//    T upper(const NumericVar<T> x) const;
+//    T lower(const NumericVar<T> x) const;
+//    
+//    // for use in search
+//    bool falsified(const Literal<T> l) const;
+//    bool satisfied(const Literal<T> l) const;
+//    T upper(const var_t x) const;
+//    T lower(const var_t x) const;
+//    //@}
+//    
+//    /**
+//     * @name Boolean variable constructors
+//     */
+//    //@{
+//    // declare a new numeric variable
+//    NumericVar<T> newVar(const T b = Constant::Infinity<T>);
+//    //    NumericVar<T> newVar(const T lb, const T ub);
+//    //@}
+//    
+//    /**
+//     * @name utils
+//     */
+//    //@{
+//    Literal<T> getLiteral(const bool s, const var_t x) const;
+//    Literal<T> previousBound(const Literal<T> l) const;
+//
+//    index_t litIndex(const Literal<T> l) const;
+//    index_t lastLitIndex(const bool s, const var_t x) const;
+//    
+//    size_t size() const;
+//    
+//    void set(Literal<T> l);
+//    void undo(Literal<T> l);
+//    
+//    const std::vector<T> &get(const int b) const;
+//    //@}
+//
+//    /**
+//     * @name debug
+//     */
+//    //@{
+//    std::ostream &displayLiteralTrail(std::ostream &os, const bool s,
+//                                      const var_t x) const {
+//        for (auto i : bound_index[s][x]) {
+//            os << " @" << i << ": " << solver.getLiteral(i);
+//        }
+//        return os;
+//    }
+//    //@}
+//    
+//    // saves the current solution
+//    void saveSolution() {
+//      best_solution[bound::lower] = bound[bound::lower];
+//      best_solution[bound::upper] = bound[bound::upper];
+//    }
+//    bool hasSolution() const { return not best_solution[bound::lower].empty(); }
+//    auto bestSolution(const int b) const noexcept -> const std::vector<T> & {
+//      return best_solution[b];
+//    }
+//    //@}
+//
+//#ifdef LEARNING_RATE_STUFF
+//    //@{
+//    // learning rate stuff
+//    double getLearningRate(const var_t x) const;
+//    void updateLearningRate(const var_t x);
+//    void updateActivity(const var_t x);
+//    //@}
+//#endif
+//
+//  private:
+//    Solver<T> &solver;
+//    
+//    // [for each numeric signed_var] the current bounds
+//    std::vector<T> bound[2];
+//    
+//    // [for each numeric signed_var] the bound in the best solution
+//    std::vector<T> best_solution[2];
+//    
+//    // [for each numeric signed_var] the current index in the 'propagation_events'
+//    // stack
+//    std::vector<std::vector<index_t>> bound_index[2];
+//
+//#ifdef LEARNING_RATE_STUFF
+//    // learning rate stuff
+//    double alpha{.4};
+//
+//    // [for each variable] the number of times it participated to a conflict
+//    std::vector<std::vector<long unsigned int>> participated;
+//
+//    // [for each variable] the number of conflicts when it was assigned
+//    std::vector<std::vector<long unsigned int>> assigned_at;
+//
+//    // [for each variable] its current learning rate
+//    std::vector<double> learning_rate;
+//#endif
+//};
+
+
+//! Numeric variables and literals manager
+/*!
+ Responsible for:
+ Storage (memory)
+ Read/write access
+ */
+template<typename T>
+class NumericStore : public StaticNumericStore<T> {
     
 public:
     /**
@@ -229,15 +456,15 @@ public:
      */
     //@{
     // solution (do not use in search)
-    T upper(const NumericVar<T> x) const;
-    T lower(const NumericVar<T> x) const;
+    T solutionUpper(const NumericVar<T> x) const;
+    T solutionLower(const NumericVar<T> x) const;
     
-    // for use in search
-    bool falsified(const Literal<T> l) const;
-    bool satisfied(const Literal<T> l) const;
-    T upper(const var_t x) const;
-    T lower(const var_t x) const;
-    //@}
+//    // for use in search
+//    bool falsified(const Literal<T> l) const;
+//    bool satisfied(const Literal<T> l) const;
+//    T upper(const var_t x) const;
+//    T lower(const var_t x) const;
+//    //@}
     
     /**
      * @name Boolean variable constructors
@@ -245,6 +472,8 @@ public:
     //@{
     // declare a new numeric variable
     NumericVar<T> newVar(const T b = Constant::Infinity<T>);
+    void reserveVarMemory();
+    void reserveVariablesMemory(const size_t n);
     //    NumericVar<T> newVar(const T lb, const T ub);
     //@}
     
@@ -258,12 +487,12 @@ public:
     index_t litIndex(const Literal<T> l) const;
     index_t lastLitIndex(const bool s, const var_t x) const;
     
-    size_t size() const;
+//    size_t size() const;
     
     void set(Literal<T> l);
     void undo(Literal<T> l);
     
-    const std::vector<T> &get(const int b) const;
+//    const std::vector<T> &get(const int b) const;
     //@}
 
     /**
@@ -281,8 +510,8 @@ public:
     
     // saves the current solution
     void saveSolution() {
-      best_solution[bound::lower] = bound[bound::lower];
-      best_solution[bound::upper] = bound[bound::upper];
+      best_solution[bound::lower] = StaticNumericStore<T>::bound[bound::lower];
+      best_solution[bound::upper] = StaticNumericStore<T>::bound[bound::upper];
     }
     bool hasSolution() const { return not best_solution[bound::lower].empty(); }
     auto bestSolution(const int b) const noexcept -> const std::vector<T> & {
@@ -303,7 +532,7 @@ public:
     Solver<T> &solver;
     
     // [for each numeric signed_var] the current bounds
-    std::vector<T> bound[2];
+//    std::vector<T> bound[2];
     
     // [for each numeric signed_var] the bound in the best solution
     std::vector<T> best_solution[2];
@@ -326,6 +555,7 @@ public:
     std::vector<double> learning_rate;
 #endif
 };
+
 
 //! Explainer for literals from difference logic
 template <typename T = int> class GraphExplainer : public Explainer<T> {
@@ -429,20 +659,20 @@ protected:
 public:
     NumericVar<T> newConstant(const T k);
     NumericVar<T> newOffset(NumericVar<T> &x, const T k);
-    // create an internal temporal variable and return a model object pointing
-    // to it
-    //    TemporalVar<T> newTemporal(const T offset = 0);
-    //    NumericVar<T> newTemporal(const T offset = 0);
-    // create the internal variables (depending on the type of Interval) and
-    // return a model object pointing to them
-    Interval<T> newInterval(const T mindur = 0,
-                            const T maxdur = Constant::Infinity<T>,
-                            const T earliest_start = -Constant::Infinity<T>,
-                            const T latest_start = Constant::Infinity<T>,
-                            const T earliest_end = -Constant::Infinity<T>,
-                            const T latest_end = Constant::Infinity<T>,
-                            const BooleanVar<T> opt = Constant::True
-                            );
+//    // create an internal temporal variable and return a model object pointing
+//    // to it
+//    //    TemporalVar<T> newTemporal(const T offset = 0);
+//    //    NumericVar<T> newTemporal(const T offset = 0);
+//    // create the internal variables (depending on the type of Interval) and
+//    // return a model object pointing to them
+//    Interval<T> newInterval(const T mindur = 0,
+//                            const T maxdur = Constant::Infinity<T>,
+//                            const T earliest_start = -Constant::Infinity<T>,
+//                            const T latest_start = Constant::Infinity<T>,
+//                            const T earliest_end = -Constant::Infinity<T>,
+//                            const T latest_end = Constant::Infinity<T>,
+//                            const BooleanVar<T> opt = Constant::True
+//                            );
 
     Interval<T> maybe_between(const NumericVar<T> s, const NumericVar<T> e);
     Interval<T> maybe_continuefor(const NumericVar<T> s, const NumericVar<T> d);
@@ -1295,83 +1525,128 @@ std::ostream &BoundExplainer<T>::print_reason(std::ostream &os,
 template <typename T>
 BoundExplainer<T>::BoundExplainer(Solver<T> &s) : solver(s) {}
 
+
+
 /*!
- BooleanStore implementation
+ StaticBooleanStore implementation
  */
+
 template <typename T>
-Literal<T> BooleanStore<T>::getLiteral(const bool s, const var_t x) const {
+Literal<T> StaticBooleanStore<T>::getLiteral(const bool s, const var_t x) const {
     return makeBooleanLiteral<T>(s, x, edge_index[x]);
 }
 
 template <typename T>
-index_t BooleanStore<T>::litIndex(const Literal<T> l) const {
-  return propagation_stamp[l.variable()];
-}
-
-template <typename T>
-const DistanceConstraint<T> &BooleanStore<T>::getEdge(const bool s,
+const DistanceConstraint<T> &StaticBooleanStore<T>::getEdge(const bool s,
                                                       const var_t x) const {
     return edges[edge_index[x] + s];
 }
 
 template <typename T>
 const DistanceConstraint<T> &
-BooleanStore<T>::getEdge(const Literal<T> l) const {
+StaticBooleanStore<T>::getEdge(const Literal<T> l) const {
     return edges[l.constraint()];
 }
 
 template <typename T>
-const DistanceConstraint<T> &BooleanStore<T>::getEdge(const index_t i) const {
+const DistanceConstraint<T> &StaticBooleanStore<T>::getEdge(const index_t i) const {
     return edges[i];
 }
 
-template <typename T> bool BooleanStore<T>::hasSemantic(const var_t x) const {
+template <typename T> bool StaticBooleanStore<T>::hasSemantic(const var_t x) const {
     return edge_index[x] >= Constant::SomeSemantic;
 }
 
-template <typename T> BooleanStore<T>::BooleanStore(Solver<T> &s) : solver(s) {
+template <typename T> StaticBooleanStore<T>::StaticBooleanStore() {
     // I don't remember what's that for
     edges.push_back(Constant::NoEdge<T>);
     edges.push_back(Constant::NoEdge<T>);
     
     // this is to have the constants true/false
     auto x{newVar()};
-    set(makeBooleanLiteral<T>(true, x.id()));
 }
 
-template <typename T> size_t BooleanStore<T>::size() const {
+template <typename T> size_t StaticBooleanStore<T>::size() const {
 //    return polarity.size() / 2;
-return propagation_stamp.size();
+return edge_index.size();
 }
 
-template <typename T> BooleanVar<T> BooleanStore<T>::newVar(const info_t s) {
+template <typename T> BooleanVar<T> StaticBooleanStore<T>::newVar(const info_t s) {
     BooleanVar<T> x{static_cast<var_t>(size())};
-
-    propagation_stamp.push_back(Constant::NoIndex);
-
-    polarity.push_back(false);
-    polarity.push_back(false);
-    
     edge_index.push_back(s);
-
-#ifdef LEARNING_RATE_STUFF
-    // learning rate stuff
-    participated.push_back(0);
-    assigned_at.push_back(0);
-    learning_rate.push_back(0.0);
-#endif
-    
     return x;
 }
 
 template <typename T>
-BooleanVar<T> BooleanStore<T>::newDisjunct(const DistanceConstraint<T> &d1,
+BooleanVar<T> StaticBooleanStore<T>::newDisjunct(const DistanceConstraint<T> &d1,
                                            const DistanceConstraint<T> &d2) {
     info_t d{static_cast<info_t>(edges.size())};
     BooleanVar<T> x{newVar(d).id(), d};
     edges.push_back(d1);
     edges.push_back(d2);
     return x;
+}
+
+
+
+/*!
+ BooleanStore implementation
+ */
+
+template <typename T>
+index_t BooleanStore<T>::litIndex(const Literal<T> l) const {
+  return propagation_stamp[l.variable()];
+}
+
+// deep copy of static boolean store
+template <typename T> void BooleanStore<T>::copy(StaticBooleanStore<T>& s) {
+    StaticBooleanStore<T>::edge_index = s.getEdgeIndex();
+    StaticBooleanStore<T>::edges = s.getEdges();
+    reserveVariablesMemory(s.size());
+    set(makeBooleanLiteral<T>(true, 0));
+}
+
+template <typename T> BooleanStore<T>::BooleanStore(Solver<T> &s) : StaticBooleanStore<T>(), solver(s) {
+    reserveVarMemory();
+    set(makeBooleanLiteral<T>(true, 0));
+}
+
+template <typename T> void BooleanStore<T>::reserveVarMemory() {
+    propagation_stamp.push_back(Constant::NoIndex);
+    
+    polarity.push_back(false);
+    polarity.push_back(false);
+    
+#ifdef LEARNING_RATE_STUFF
+    // learning rate stuff
+    participated.push_back(0);
+    assigned_at.push_back(0);
+    learning_rate.push_back(0.0);
+#endif
+}
+
+template <typename T> void BooleanStore<T>::reserveVariablesMemory(const size_t n) {
+    propagation_stamp.resize(n,Constant::NoIndex);
+    polarity.resize(2*n,false);
+    
+#ifdef LEARNING_RATE_STUFF
+    // learning rate stuff
+    participated.resize(n,0);
+    assigned_at.resize(n,0);
+    learning_rate.resize(n,0.0);
+#endif
+}
+
+template <typename T> BooleanVar<T> BooleanStore<T>::newVar(const info_t s) {
+    reserveVarMemory();
+    return StaticBooleanStore<T>::newVar(s);
+}
+
+template <typename T>
+BooleanVar<T> BooleanStore<T>::newDisjunct(const DistanceConstraint<T> &d1,
+                                           const DistanceConstraint<T> &d2) {
+    reserveVarMemory();
+    return StaticBooleanStore<T>::newDisjunct(d1,d2);
 }
 
 template <typename T> void BooleanStore<T>::set(Literal<T> l) {
@@ -1388,12 +1663,12 @@ template <typename T> void BooleanStore<T>::set(Literal<T> l) {
     
     
     if (l.hasSemantic()) {
-        assert(l.constraint() == (edge_index[l.variable()] + l.sign()));
-        auto e{edges[l.constraint()]};
+        assert(l.constraint() == (StaticBooleanStore<T>::edge_index[l.variable()] + l.sign()));
+        auto e{StaticBooleanStore<T>::edges[l.constraint()]};
         if (e != Constant::NoEdge<T>)
             solver.set(e, static_cast<index_t>(solver.numLiteral() - 1));
     }
-    assert(l.hasSemantic() or edge_index[l.variable()] == Constant::NoSemantic);
+    assert(l.hasSemantic() or StaticBooleanStore<T>::edge_index[l.variable()] == Constant::NoSemantic);
 }
 
 #ifdef LEARNING_RATE_STUFF
@@ -1463,47 +1738,275 @@ bool BooleanStore<T>::falsified(const Literal<T> l) const {
     return polarity[~l];
 }
 
-/*!
- NumericStore implementation
- */
-template <typename T> NumericStore<T>::NumericStore(Solver<T> &s) : solver(s) {}
 
-template <typename T> size_t NumericStore<T>::size() const {
+
+
+/*!
+ StaticNumericStore implementation
+ */
+template <typename T> StaticNumericStore<T>::StaticNumericStore() {}
+
+template <typename T> size_t StaticNumericStore<T>::size() const {
     return bound[bound::lower].size();
 }
 
-template <typename T>
-const std::vector<T> &NumericStore<T>::get(const int b) const {
-    return bound[b];
-}
-
-template <typename T> NumericVar<T> NumericStore<T>::newVar(const T b) {
+template <typename T> NumericVar<T> StaticNumericStore<T>::newVar(const T b) {
     NumericVar<T> x{static_cast<var_t>(size())};
     
     bound[bound::lower].push_back(b);
     bound[bound::upper].push_back(b);
 
-    bound_index[bound::lower].resize(size());
-    bound_index[bound::upper].resize(size());
-    
-    bound_index[bound::lower].back().push_back(Constant::InfIndex);
-    bound_index[bound::upper].back().push_back(Constant::InfIndex);
-
-#ifdef LEARNING_RATE_STUFF
-    // learning rate stuff
-    participated.resize(size());
-    assigned_at.resize(size());
-    learning_rate.push_back(0.0);
-#endif
-
     return x;
 }
 
+
+template <typename T> void StaticNumericStore<T>::set(Literal<T> l) {
+    auto s{l.sign()};
+    auto v{l.variable()};
+    
+//    std::cout << "set lit " << l << std::endl;
+//    
+//    std::cout << "was " << bound[s][v] << " set to " << l.value() << std::endl;
+//
+//    assert(bound[s][v] > l.value());
+
+    
+    if(bound[s][v] > l.value())
+        bound[s][v] = l.value();
+}
+
+template <typename T>
+const std::vector<T> &StaticNumericStore<T>::get(const int b) const {
+    return bound[b];
+}
+
+//template <typename T> void StaticNumericStore<T>::setLowerBound(const NumericVar<T> var, const T val) {
+//    bound[bound::lower][var.id()] = -val;
+//}
+//
+//template <typename T> void StaticNumericStore<T>::setUpperBound(const NumericVar<T> var, const T val) {
+//    bound[bound::upper][var.id()] = val;
+//}
+
+template <typename T> T StaticNumericStore<T>::upper(const var_t x) const {
+    return bound[bound::upper][x];
+}
+
+template <typename T> T StaticNumericStore<T>::lower(const var_t x) const {
+    return -bound[bound::lower][x];
+}
+
+template <typename T>
+bool StaticNumericStore<T>::falsified(const Literal<T> l) const {
+    return -(l.value()) > bound[not l.sign()][l.variable()];
+}
+
+template <typename T>
+bool StaticNumericStore<T>::satisfied(const Literal<T> l) const {
+    return l.value() >= bound[l.sign()][l.variable()];
+}
+
+
+///*!
+// NumericStore implementation
+// */
+//template <typename T> NumericStore<T>::NumericStore(Solver<T> &s) : solver(s) {}
+//
+//template <typename T> size_t NumericStore<T>::size() const {
+//    return bound[bound::lower].size();
+//}
+//
+//template <typename T>
+//const std::vector<T> &NumericStore<T>::get(const int b) const {
+//    return bound[b];
+//}
+//
+//template <typename T> NumericVar<T> NumericStore<T>::newVar(const T b) {
+//    NumericVar<T> x{static_cast<var_t>(size())};
+//    
+//    bound[bound::lower].push_back(b);
+//    bound[bound::upper].push_back(b);
+//
+//    bound_index[bound::lower].resize(size());
+//    bound_index[bound::upper].resize(size());
+//    
+//    bound_index[bound::lower].back().push_back(Constant::InfIndex);
+//    bound_index[bound::upper].back().push_back(Constant::InfIndex);
+//
+//#ifdef LEARNING_RATE_STUFF
+//    // learning rate stuff
+//    participated.resize(size());
+//    assigned_at.resize(size());
+//    learning_rate.push_back(0.0);
+//#endif
+//
+//    return x;
+//}
+//
+//template <typename T> void NumericStore<T>::set(Literal<T> l) {
+//    auto s{l.sign()};
+//    auto v{l.variable()};
+//
+//    assert(bound[s][v] > l.value());
+//
+//#ifdef LEARNING_RATE_STUFF
+//    // learning rate stuff
+//    assigned_at[v].push_back(solver.num_fails);
+//    participated[v].push_back(0);
+//    //
+//#endif
+//
+//    bound[s][v] = l.value();
+//    bound_index[s][v].push_back(static_cast<index_t>(solver.numLiteral() - 1));
+//}
+//
+//template <typename T> void NumericStore<T>::undo(Literal<T> l) {
+//    
+//    auto s{l.sign()};
+//    auto v{l.variable()};
+//
+//    bound_index[s][v].pop_back();
+//    bound[s][v] = solver.getLiteral(bound_index[s][v].back()).value();
+//
+//#ifdef LEARNING_RATE_STUFF
+//    // learning rate stuff
+//    updateLearningRate(l.variable());
+//#endif
+//}
+//
+//#ifdef LEARNING_RATE_STUFF
+//
+//template <typename T>
+//double NumericStore<T>::getLearningRate(const var_t x) const {
+//  return learning_rate[x];
+//}
+//
+//// learning rate stuff
+//template <typename T> void NumericStore<T>::updateLearningRate(const var_t x) {
+//  if (solver.num_fails == 0)
+//    return;
+//
+//  learning_rate[x] *= (1.0 - alpha);
+//
+//  learning_rate[x] +=
+//      (static_cast<double>(participated[x].back()) /
+//       static_cast<double>(solver.num_fails - assigned_at[x].back() + 1)) *
+//      alpha;
+//
+//  participated[x].pop_back();
+//  assigned_at[x].pop_back();
+//}
+//
+//template <typename T> void NumericStore<T>::updateActivity(const var_t x) {
+//  ++participated[x].back();
+//}
+//#endif
+//
+//template <typename T> T NumericStore<T>::upper(const NumericVar<T> x) const {
+//    
+//    assert(best_solution[bound::upper].size() == bound[bound::upper].size());
+//    
+//    assert(best_solution[bound::upper].size() > x.id());
+//    
+//    return best_solution[bound::upper][x.id()] + x.offset();
+//}
+//template <typename T> T NumericStore<T>::lower(const NumericVar<T> x) const {
+//    
+//    assert(best_solution[bound::lower].size() == bound[bound::lower].size());
+//    
+//    assert(best_solution[bound::lower].size() > x.id());
+//    
+//    return -best_solution[bound::lower][x.id()] + x.offset();
+//}
+//
+//template <typename T> T NumericStore<T>::upper(const var_t x) const {
+//    return bound[bound::upper][x];
+//}
+//
+//template <typename T> T NumericStore<T>::lower(const var_t x) const {
+//    return -bound[bound::lower][x];
+//}
+//
+//template <typename T>
+//Literal<T> NumericStore<T>::getLiteral(const bool s, const var_t x) const {
+//    return solver.getLiteral(bound_index[s][x].back());
+//}
+//
+//template <typename T>
+//Literal<T> NumericStore<T>::previousBound(const Literal<T> l) const {
+//  auto i{bound_index[l.sign()][l.variable()].rbegin()};
+//  assert(solver.getLiteral(*i) == l);
+//  --i;
+//  return solver.getLiteral(*i);
+//}
+//
+//template <typename T>
+//index_t NumericStore<T>::lastLitIndex(const bool s, const var_t x) const {
+//    return bound_index[s][x].back();
+//}
+//
+//// get the highest index in the literal stack of literal p directly entailing literal l
+//template <typename T>
+//index_t NumericStore<T>::litIndex(const Literal<T> l) const {
+//  auto i{bound_index[l.sign()][l.variable()].rbegin()};
+//  while (solver.getLiteral(*(i + 1)).value() <= l.value()) {
+//    ++i;
+//  }
+//
+//  return *i;
+//}
+//
+//template <typename T>
+//bool NumericStore<T>::falsified(const Literal<T> l) const {
+//    return -(l.value()) > bound[not l.sign()][l.variable()];
+//}
+//
+//template <typename T>
+//bool NumericStore<T>::satisfied(const Literal<T> l) const {
+//    return l.value() >= bound[l.sign()][l.variable()];
+//}
+
+
+/*!
+ NumericStore implementation
+ */
+template <typename T> NumericStore<T>::NumericStore(Solver<T> &s) : solver(s) {}
+
+template <typename T> void NumericStore<T>::reserveVarMemory() {
+    reserveVariablesMemory(bound_index[bound::lower].size()+1);
+}
+
+template <typename T> void NumericStore<T>::reserveVariablesMemory(const size_t n) {
+    
+    auto i{bound_index[bound::lower].size()};
+    
+    bound_index[bound::lower].resize(n);
+    bound_index[bound::upper].resize(n);
+    
+    while(i < n) {
+        bound_index[bound::lower][i].push_back(Constant::InfIndex);
+        bound_index[bound::upper][i].push_back(Constant::InfIndex);
+        ++i;
+    }
+    
+#ifdef LEARNING_RATE_STUFF
+    // learning rate stuff
+    participated.resize(n);
+    assigned_at.resize(n);
+    learning_rate.resize(n,0.0);
+#endif
+}
+
+template <typename T> NumericVar<T> NumericStore<T>::newVar(const T b) {
+    reserveVarMemory();
+    return StaticNumericStore<T>::newVar(b);
+}
+ 
 template <typename T> void NumericStore<T>::set(Literal<T> l) {
     auto s{l.sign()};
     auto v{l.variable()};
 
-    assert(bound[s][v] > l.value());
+    assert(StaticNumericStore<T>::bound[s][v] > l.value());
 
 #ifdef LEARNING_RATE_STUFF
     // learning rate stuff
@@ -1512,7 +2015,7 @@ template <typename T> void NumericStore<T>::set(Literal<T> l) {
     //
 #endif
 
-    bound[s][v] = l.value();
+    StaticNumericStore<T>::bound[s][v] = l.value();
     bound_index[s][v].push_back(static_cast<index_t>(solver.numLiteral() - 1));
 }
 
@@ -1522,7 +2025,7 @@ template <typename T> void NumericStore<T>::undo(Literal<T> l) {
     auto v{l.variable()};
 
     bound_index[s][v].pop_back();
-    bound[s][v] = solver.getLiteral(bound_index[s][v].back()).value();
+    StaticNumericStore<T>::bound[s][v] = solver.getLiteral(bound_index[s][v].back()).value();
 
 #ifdef LEARNING_RATE_STUFF
     // learning rate stuff
@@ -1558,30 +2061,30 @@ template <typename T> void NumericStore<T>::updateActivity(const var_t x) {
 }
 #endif
 
-template <typename T> T NumericStore<T>::upper(const NumericVar<T> x) const {
+template <typename T> T NumericStore<T>::solutionUpper(const NumericVar<T> x) const {
     
-    assert(best_solution[bound::upper].size() == bound[bound::upper].size());
+    assert(best_solution[bound::upper].size() == StaticNumericStore<T>::bound[bound::upper].size());
     
     assert(best_solution[bound::upper].size() > x.id());
     
     return best_solution[bound::upper][x.id()] + x.offset();
 }
-template <typename T> T NumericStore<T>::lower(const NumericVar<T> x) const {
+template <typename T> T NumericStore<T>::solutionLower(const NumericVar<T> x) const {
     
-    assert(best_solution[bound::lower].size() == bound[bound::lower].size());
+    assert(best_solution[bound::lower].size() == StaticNumericStore<T>::bound[bound::lower].size());
     
     assert(best_solution[bound::lower].size() > x.id());
     
     return -best_solution[bound::lower][x.id()] + x.offset();
 }
 
-template <typename T> T NumericStore<T>::upper(const var_t x) const {
-    return bound[bound::upper][x];
-}
-
-template <typename T> T NumericStore<T>::lower(const var_t x) const {
-    return -bound[bound::lower][x];
-}
+//template <typename T> T NumericStore<T>::upper(const var_t x) const {
+//    return bound[bound::upper][x];
+//}
+//
+//template <typename T> T NumericStore<T>::lower(const var_t x) const {
+//    return -bound[bound::lower][x];
+//}
 
 template <typename T>
 Literal<T> NumericStore<T>::getLiteral(const bool s, const var_t x) const {
@@ -1612,15 +2115,15 @@ index_t NumericStore<T>::litIndex(const Literal<T> l) const {
   return *i;
 }
 
-template <typename T>
-bool NumericStore<T>::falsified(const Literal<T> l) const {
-    return -(l.value()) > bound[not l.sign()][l.variable()];
-}
-
-template <typename T>
-bool NumericStore<T>::satisfied(const Literal<T> l) const {
-    return l.value() >= bound[l.sign()][l.variable()];
-}
+//template <typename T>
+//bool NumericStore<T>::falsified(const Literal<T> l) const {
+//    return -(l.value()) > bound[not l.sign()][l.variable()];
+//}
+//
+//template <typename T>
+//bool NumericStore<T>::satisfied(const Literal<T> l) const {
+//    return l.value() >= bound[l.sign()][l.variable()];
+//}
 
 /*!
  Solver implementation
@@ -1764,51 +2267,51 @@ NumericVar<T> Solver<T>::newNumeric(const T lb, const T ub) {
     }
 }
 
-template <typename T>
-Interval<T> Solver<T>::newInterval(const T mindur, const T maxdur,
-                                   const T earliest_start, const T latest_start,
-                                   const T earliest_end, const T latest_end,
-                                   const BooleanVar<T> opt) {
-    return Interval<T>(*this, mindur, maxdur, earliest_start, latest_start, earliest_end, latest_end, opt);
-}
+//template <typename T>
+//Interval<T> Solver<T>::newInterval(const T mindur, const T maxdur,
+//                                   const T earliest_start, const T latest_start,
+//                                   const T earliest_end, const T latest_end,
+//                                   const BooleanVar<T> opt) {
+//    return Interval<T>(*this, mindur, maxdur, earliest_start, latest_start, earliest_end, latest_end, opt);
+//}
 
 
 template <typename T>
 Interval<T> Solver<T>::between(const NumericVar<T> s, const NumericVar<T> e) {
-    Interval<T> i(*this, s, e, e - s, BooleanVar<T>(Constant::True));
+    Interval<T> i(s, e, e - s, BooleanVar<T>(Constant::True));
     post(i.duration >= 0);
     return i;
 }
 
 template <typename T>
 Interval<T> Solver<T>::continuefor(const NumericVar<T> s, const NumericVar<T> d) {
-    Interval<T> i(*this, s, s+d, d, BooleanVar<T>(Constant::True));
+    Interval<T> i(s, s+d, d, BooleanVar<T>(Constant::True));
     return i;
 }
 
 template <typename T>
 Interval<T> Solver<T>::maybe_between(const NumericVar<T> s, const NumericVar<T> e) {
-        Interval<T> i(*this, s, e, e - s, newBoolean());
+        Interval<T> i(s, e, e - s, newBoolean());
     post(i.duration >= 0);
     return i;
 }
 
 template <typename T>
 Interval<T> Solver<T>::maybe_continuefor(const NumericVar<T> s, const NumericVar<T> d) {
-        Interval<T> i(*this, s, s+d, d, newBoolean());
+        Interval<T> i(s, s+d, d, newBoolean());
     return i;
 }
 
 template <typename T>
 Interval<T> Solver<T>::between(const NumericVar<T> s, const NumericVar<T> e, const BooleanVar<T> optional) {
-    Interval<T> i(*this, s, e, e - s, optional);
+    Interval<T> i(s, e, e - s, optional);
     post(i.duration >= 0);
     return i;
 }
 
 template <typename T>
 Interval<T> Solver<T>::continuefor(const NumericVar<T> s, const NumericVar<T> d, const BooleanVar<T> optional) {
-        Interval<T> i(*this, s, s+d, d, optional);
+        Interval<T> i(s, s+d, d, optional);
     return i;
 }
 

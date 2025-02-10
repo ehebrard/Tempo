@@ -51,6 +51,8 @@ namespace tempo {
     template<typename T>
     class Solver;
 
+
+
     //template <typename T> class BooleanExpression;
 
     //! "This expression is not a constraint" exception
@@ -82,6 +84,7 @@ namespace tempo {
 
         // if target is not Constant::NoVar, reference to it instead of creating a
         // new var
+//        virtual var_t extract(Solver<T> &, const var_t target = Constant::NoVar) = 0;
         virtual var_t extract(Solver<T> &, const var_t target = Constant::NoVar) = 0;
 
         virtual void post(Solver<T> &) {
@@ -94,6 +97,10 @@ namespace tempo {
         virtual T offset() const { return 0; }
         virtual index_t semantic() const { return Constant::NoSemantic; }
 
+        virtual std::ostream &display(std::ostream &os) const {
+            os << "unknown expression";
+            return os;
+        };
         //    bool extraction_flag{false};
     };
 
@@ -253,7 +260,8 @@ namespace tempo {
 
         void setOffset(const T o) { this->data()._offset = o; }
 
-        void extract(Solver<T> &solver, const var_t target = Constant::NoVar) {
+        template<distance_provider S>
+        void extract(S &solver, const var_t target = Constant::NoVar) {
 #ifdef DBG_EXTRACT
       std::cout << "beg extract " << *this << std::endl;
 #endif
@@ -271,7 +279,7 @@ namespace tempo {
                     this->implem()->extract(solver, target);
 
 #ifdef DBG_EXTRACT
-          std::cout << " ==> " << implem->id() << std::endl;
+          std::cout << " ==> " << this->implem()->id() << std::endl;
 #endif
                 }
 
@@ -287,7 +295,8 @@ namespace tempo {
 #endif
         }
 
-        void post(Solver<T> &solver) {
+        template<distance_provider S>
+        void post(S &solver) {
             if (this->isExpression()) {
                 throw ModelingException("Numeric expression cannot be constraints");
             } else {
@@ -362,7 +371,8 @@ namespace tempo {
 
         void setId(const var_t i) { this->data()._id_ = i; }
 
-        void extract(Solver<T> &solver, const var_t target = Constant::NoVar) {
+        template<distance_provider S>
+        void extract(S &solver, const var_t target = Constant::NoVar) {
 #ifdef DBG_EXTRACT
     std::cout << "beg extract " << *this << std::endl;
 #endif
@@ -380,7 +390,7 @@ namespace tempo {
                 this->implem()->extract(solver, target);
 
 #ifdef DBG_EXTRACT
-          std::cout << " ==> " << implem->id() << std::endl;
+          std::cout << " ==> " << this->implem()->id() << std::endl;
 #endif
             }
 
@@ -396,7 +406,8 @@ namespace tempo {
 #endif
         }
 
-        void post(Solver<T> &solver) {
+        template<distance_provider S>
+        void post(S &solver) {
 #ifdef DBG_EXTRACT
     std::cout << "beg post" << std::endl;
 #endif
@@ -438,22 +449,23 @@ namespace tempo {
      */
     template<typename T = int>
     class Interval {
-    protected:
-        Interval(NumericVar<T> start, NumericVar<T> end, NumericVar<T> duration) : _id_(start.id()), start(start),
-            end(end), duration(duration) {}
+//    protected:
+//        Interval(NumericVar<T> start, NumericVar<T> end, NumericVar<T> duration) : _id_(start.id()), start(start), end(end), duration(duration) {}
 
     public:
         constexpr Interval() noexcept : start(), end(), duration() {}
 
-        Interval(Solver<T> &solver, const T mindur = 0,
-                 const T maxdur = Constant::Infinity<T>,
-                 const T earliest_start = -Constant::Infinity<T>,
-                 const T latest_start = Constant::Infinity<T>,
-                 const T earliest_end = -Constant::Infinity<T>,
-                 const T latest_end = Constant::Infinity<T>,
-                 const BooleanVar<T> opt = Solver<T>::truism());
+//        template<distance_provider S>
+//        Interval(S &solver, const T mindur = 0,
+//                 const T maxdur = Constant::Infinity<T>,
+//                 const T earliest_start = -Constant::Infinity<T>,
+//                 const T latest_start = Constant::Infinity<T>,
+//                 const T earliest_end = -Constant::Infinity<T>,
+//                 const T latest_end = Constant::Infinity<T>,
+//                 const BooleanVar<T> opt = Solver<T>::truism());
 
-        Interval(Solver<T> &solver, const NumericVar<T> s, const NumericVar<T> e,
+//        template<distance_provider S>
+        Interval(/*S &solver,*/ const NumericVar<T> s, const NumericVar<T> e,
                  const NumericVar<T> d, const BooleanVar<T> opt = Constant::True);
 
         template<distance_provider S>
@@ -502,6 +514,9 @@ namespace tempo {
 
         //  bool isOptional() const { return exist.id() != Constant::NoVar; }
         bool isOptional(Solver<T> &s) const { return not exist.isTrue(s); }
+        
+        
+        void extract(Solver<T>& solver);
 
         BooleanVar<T> exist{Constant::True};
 
@@ -540,7 +555,8 @@ namespace tempo {
             NumericExpressionImpl<T>::self.setOffset(NumericExpressionImpl<T>::self.offset() + v);
         }
 
-        void preprocessNumeric(Solver<T> &solver) {
+        template<distance_provider S>
+        void preprocessNumeric(S &solver) {
 #ifdef DBG_EXTRACT_SUM
       std::cout << "preprocess\n";
 #endif
@@ -693,7 +709,8 @@ namespace tempo {
             num_weights = ws;
         }
 
-        void preprocessBoolean(Solver<T> &solver) {
+        template<distance_provider S>
+        void preprocessBoolean(S &solver) {
             if (boolean_arguments.empty()) { return; }
             // preprocessing to remove duplicates and constants
 
@@ -947,7 +964,7 @@ namespace tempo {
             return *this;
         }
 
-        std::ostream &display(std::ostream &os) const;
+        std::ostream &display(std::ostream &os) const override;
 
     private:
         T num_lb{0};
@@ -1105,6 +1122,14 @@ namespace tempo {
         NumEqExpressionImpl(NumericVar<T> x, NumericVar<T> y, const T k)
             : x(x), y(y), k(k) {}
 
+        virtual std::ostream &display(std::ostream &os) const override {
+            os << x << " = " << y ;
+            if(k > 0)
+                os << " + " << k;
+            else if(k < 0)
+                os << " - " << -k;
+            return os;
+        };
 
         std::string name() const override { return "eq"; }
 
@@ -1179,6 +1204,16 @@ namespace tempo {
             //    std::cout << "leq expr " << x << " + " << x.offset() << " + " << k
             //              << " <= " << y << " + " << y.offset() << std::endl;
         }
+        
+        virtual std::ostream &display(std::ostream &os) const override {
+            os << x ;
+            if(k > 0)
+                os << " + " << k;
+            else if(k < 0)
+                os << " - " << -k;
+            os << " <= " << y ;
+            return os;
+        };
 
         std::string name() const override { return "leq"; }
 
@@ -1598,6 +1633,11 @@ namespace tempo {
         void post(Solver<T> &solver) override {
             using iterators::const_enumerate;
             using namespace std::views;
+            
+            for(auto& inter : *this) {
+                inter.extract(solver);
+            }
+            
 
             bool opt_flag{false};
             disjunctiveLiterals.fill(this->size(), this->size(), Contradiction<T>);
@@ -1781,7 +1821,6 @@ namespace tempo {
         for (auto x: X) {
             exp.provide(x);
         }
-
         exp.setTransisions(D);
         return exp;
     }
@@ -1792,7 +1831,6 @@ namespace tempo {
         for (auto x: X) {
             exp.provide(x);
         }
-
         return exp;
     }
 
@@ -2263,7 +2301,14 @@ namespace tempo {
     */
     template<typename T>
     std::ostream &BooleanVar<T>::display(std::ostream &os) const {
-        os << "b" << id();
+        if(this->isExpression()) {
+//            os << "expr ";
+            os << "(";
+            this->implem()->display(os);
+            os << ")";
+        } else {
+            os << "b" << id();
+        }
         return os;
     }
 
@@ -2300,15 +2345,26 @@ namespace tempo {
         return x.display(os);
     }
 
+
+
     /*!
      Interval  impl
     */
 
     template<typename T>
-    Interval<T>::Interval(Solver<T> &solver, const NumericVar<T> s,
+//    template<distance_provider S>
+    Interval<T>::Interval(/*S &solver,*/ const NumericVar<T> s,
                           const NumericVar<T> e, const NumericVar<T> d,
                           const BooleanVar<T> o)
-        : _id_(num_intervals++), start(s), end(e), duration(d), exist(o) {
+: _id_(num_intervals++), start(s), end(e), duration(d), exist(o) {
+    
+    //            std::cout << "this interval\n";
+//    extract(solver);
+}
+ 
+template<typename T>
+void Interval<T>::extract(Solver<T> &solver) {
+
         start.extract(solver);
         //        std::cout << "\ncreate start " << start << "\n";
 
@@ -2331,48 +2387,44 @@ namespace tempo {
         }
     }
 
-    template<typename T>
-    Interval<T>::Interval(Solver<T> &solver, const T mindur, const T maxdur,
-                          const T earliest_start, const T latest_start,
-                          const T earliest_end, const T latest_end,
-                          const BooleanVar<T> opt)
-        : _id_(num_intervals++), exist(opt) {
-        //                          exist.extract(solver);
-        //                          std::cout << "here " << opt << " / " <<
-        //                          exist._is_expression << " / " << exist.id() << " /
-        //                          " << Constant::NoVar << std::endl;
-
-        //                          if(exist.id() == Constant::NoVar) {
-        //                              exist = BooleanVar<T>(Constant::True);
-        //                          }
-
-        if (earliest_start == latest_start) {
-            start = NumericVar(Constant::K, earliest_start);
-        } else {
-            start = solver.newNumeric(earliest_start, latest_start);
-        }
-
-        if (mindur == maxdur) {
-            end = NumericVar(start.id(), mindur);
-            duration = NumericVar(Constant::K, mindur);
-        } else {
-            auto s{start.min(solver)};
-            if (s != start.max(solver)) {
-                end = solver.newNumeric(earliest_end, latest_end);
-                duration = solver.newNumeric(mindur, maxdur);
-                solver.post((start + duration) == end);
-                solver.post(start.before(end, mindur));
-
-                if (maxdur != Constant::Infinity<T>)
-                    solver.post(end.before(start, -maxdur));
-            } else {
-                auto ect{std::max(earliest_end, s + mindur)};
-                auto lct{std::min(latest_end, s + maxdur)};
-                end = solver.newNumeric(ect, lct);
-                duration = NumericVar(end.id(), -s);
-            }
-        }
-    }
+//    template<typename T>
+//    template<distance_provider S>
+//    Interval<T>::Interval(S &solver, const T mindur, const T maxdur,
+//                          const T earliest_start, const T latest_start,
+//                          const T earliest_end, const T latest_end,
+//                          const BooleanVar<T> opt)
+//        : _id_(num_intervals++), exist(opt) {
+//  
+//        if (earliest_start == latest_start) {
+//            start = NumericVar(Constant::K, earliest_start);
+//        } else {
+//            start = solver.newNumeric(earliest_start, latest_start);
+//        }
+//
+//        if (mindur == maxdur) {
+//            end = NumericVar(start.id(), mindur);
+//            duration = NumericVar(Constant::K, mindur);
+//        } else {
+//            auto s{start.min(solver)};
+//            if (s != start.max(solver)) {
+//                end = solver.newNumeric(earliest_end, latest_end);
+//                duration = solver.newNumeric(mindur, maxdur);
+//                solver.post((start + duration) == end);
+//                solver.post(start.before(end, mindur));
+//
+//                if (maxdur != Constant::Infinity<T>)
+//                    solver.post(end.before(start, -maxdur));
+//            } else {
+//                auto ect{std::max(earliest_end, s + mindur)};
+//                auto lct{std::min(latest_end, s + maxdur)};
+//                end = solver.newNumeric(ect, lct);
+//                duration = NumericVar(end.id(), -s);
+//            }
+//        }
+//            
+//            
+////            std::cout << *this << std::endl;
+//    }
 
     template<typename T>
     int Interval<T>::id() const {
@@ -2478,202 +2530,603 @@ namespace tempo {
         return x.display(os);
     }
 
-template<typename T>
-class SchedulingInstance {
-    
-    struct ModPrecedence {
-        int start{0};
-        int end{0};
-        T lag{0};
-    };
-    
-    struct ModInterval {
-        int start{0};
-        int end{0};
-        int duration{0};
-        int optional{-2};
-    };
-    
-public:
-    SchedulingInstance() {}
-    
-    size_t numNumeric() { return LBs.size(); }
-    size_t numBoolean() { return static_cast<size_t>(num_booleans); }
-    
-    int getStart(const int i) const {
-        return interval_rep[i].start;
-    }
-    
-    int getEnd(const int i) const {
-        return interval_rep[i].end;
-    }
-    
-    int getDuration(const int i) const {
-        return interval_rep[i].duration;
-    }
-    
-    int getOptional(const int i) const {
-        return interval_rep[i].optional;
-    }
-    
-    void encode(Solver<T>& solver, Interval<T>& schedule, std::vector<BooleanVar<T>>& boolean, std::vector<NumericVar<T>>& numeric, std::vector<Interval<T>>& interval, std::vector<DistanceConstraint<T>>& constraint);
-    
-    int addBoolean() {
-        return num_booleans++;
-        //        return (val == ? num_booleans++ : val);
-    }
-    int addNumeric(const T lb=-Constant::Infinity<T>, const T ub=Constant::Infinity<T>) {
-        auto x{static_cast<int>(LBs.size())};
-        LBs.push_back(lb);
-        UBs.push_back(ub);
-        return x;
-    }
-    void declareDisjunctiveResources(const int n) {
-        
-//        std::cout << "declare " << n << " disjunctive resources\n";
-        
-        disjunctive_resources.resize(disjunctive_resources.size() + n);
-        disjunctive_resource_transitions.resize(disjunctive_resources.size());
-    }
-    void declareCumulativeResources(const int n) {
-        cumulative_resources.resize(cumulative_resources.size() + n);
-    }
-    void addDisjunctiveResourceUsage(const int i, const int r) {
-        
-//        std::cout << " task " << i << " requires resource " << r << std::endl;
-        
-        disjunctive_resources[r].push_back(i);
-    }
-    void addCumulativeResourceUsage(const int i, const int r, const int x) {
-        cumulative_resources[r].emplace_back(i,x);
-    }
-    int addPrecedence(const int t1, const int t2, const T lag=0) {
-        auto p{static_cast<int>(precedence_rep.size())};
-        precedence_rep.emplace_back(t1, t2, lag);
-        return p;
-    }
-    int addInterval(const int t1, const int t2, const T min_duration=0, const T max_duration=Constant::Infinity<T>, const int b=-1) {
-        auto l{addNumeric(min_duration, max_duration)};
-        auto i{static_cast<int>(interval_rep.size())};
-        interval_rep.emplace_back(t1, t2, l, b);
-        return i;
-    }
-    int addFixedDurationIntervalFrom(const int t, const T duration) {
-        auto l{addNumeric(duration, duration)};
-        auto i{static_cast<int>(interval_rep.size())};
-        interval_rep.emplace_back(t, -1, l, -1);
-        return i;
-    }
-    int addFixedDurationOptionalIntervalFrom(const int t, const T duration) {
-        auto l{addNumeric(duration, duration)};
-        auto b{addBoolean()};
-        auto i{static_cast<int>(interval_rep.size())};
-        interval_rep.emplace_back(t, -1, l, b);
-        return i;
-    }
-    
-    //    int addInterval(const int t1, const int t2, const T min_duration=0, const T max_duration=Constant::Infinity<T>, const int b=0) {
-    //        auto l{addNumeric(min_duration, max_duration)};
-    //        interval_rep.emplace_back(t1, t2, l, b);
-    //    }
-    
-private:
-    
-    // solver agnostic model
-    int num_booleans{0};
-    int num_timepoints{0};
-    std::vector<T> LBs;
-    std::vector<T> UBs;
-    std::vector<ModInterval> interval_rep;
-    std::vector<ModPrecedence> precedence_rep;
-    std::vector<std::vector<int>> disjunctive_resources;
-    std::vector<std::vector<std::pair<int,int>>> cumulative_resources;
-    //    std::vector<T> interval_weights;
-    std::vector<std::vector<std::vector<T>>> disjunctive_resource_transitions;
-    
-};
-  
-template<typename T>
-class SchedulingModel {
-    
-public:
-    SchedulingModel(SchedulingInstance<T>& data, Solver<T>& solver) {
-        data.encode(solver, schedule, boolean, numeric, interval, constraint);
-    }
-    
-    Interval<T> getScheduleInterval() { return schedule; }
-    
-private:
-    
-    
-    // model in
-    Interval<T> schedule;
-    
-    std::vector<BooleanVar<T>> boolean;
-    std::vector<NumericVar<T>> numeric;
-    std::vector<Interval<T>> interval;
-    
-    std::vector<DistanceConstraint<T>> constraint;
-};
 
 template<typename T>
-void SchedulingInstance<T>::encode(Solver<T>& solver, Interval<T>& schedule, std::vector<BooleanVar<T>>& boolean, std::vector<NumericVar<T>>& numeric, std::vector<Interval<T>>& interval, std::vector<DistanceConstraint<T>>& constraint) {
-    
-    schedule = solver.newInterval(0, Constant::Infinity<int>, 0, 0, 0,
-                  Constant::Infinity<int>);
-    
-    
-    for(size_t i{0}; i<numBoolean(); ++i) {
-        boolean.push_back(solver.newBoolean());
-    }
-    
-    for(size_t i{0}; i<numNumeric(); ++i) {
-        numeric.push_back(solver.newNumeric(LBs[i], UBs[i]));
-    }
-    
-    
-    for(auto I : interval_rep) {
-        if(I.optional >= 0) {
-            if(LBs[I.duration] == UBs[I.duration]) {
-                interval.push_back(solver.between(numeric[I.start], numeric[I.start]+LBs[I.duration], boolean[I.optional]));
-            } else {
-                interval.push_back(solver.between(numeric[I.start], numeric[I.end], boolean[I.optional]));
-            }
-        } else {
-            if(LBs[I.duration] == UBs[I.duration]) {
-                interval.push_back(solver.between(numeric[I.start], numeric[I.start]+LBs[I.duration]));
-            } else {
-                interval.push_back(solver.between(numeric[I.start], numeric[I.end]));
-            }
-        }
-        
-        solver.set(interval.back().end.before(schedule.end));
-    }
-    
-    
-    for(auto P : precedence_rep) {
-        auto prec{numeric[P.end].after(numeric[P.start], P.lag)};
-        constraint.push_back(prec);
+class StaticBooleanStore;
 
-//                std::cout << " add " << constraint.back() << " (" << P.lag << ")"<< std::endl;
-        
-        solver.set(prec);
+template<typename T>
+class StaticNumericStore;
+
+template<typename T>
+class Model {
+    
+public:
+    
+    Model() {
+        newNumeric();
+        numeric.set(geq<T>(0, 0));
+        numeric.set(leq<T>(0, 0));
     }
     
+    // create an internal Boolean variable and return a model object pointing to
+    // it
+    BooleanVar<T> newBoolean();
+    // create an internal Boolean variable with a difference logic semantic,
+    // post the channelling constraints, and return a model object pointing to
+    // it
+    BooleanVar<T> newDisjunct(const DistanceConstraint<T> &,
+                              const DistanceConstraint<T> &);
+    // returns the constant 0
+    NumericVar<T> zero() { return NumericVar<T>(Constant::K,0); }
+    // returns the constant true
+    BooleanVar<T> truism() { return BooleanVar<T>(0); }
+    // create an internal numeric variable and return a model object pointing to it
+    NumericVar<T> newNumeric(const T lb = -Constant::Infinity<T>,
+                             const T ub = Constant::Infinity<T>);
+    // create a modeling object representing a constant
+    NumericVar<T> newConstant(const T k);
+    NumericVar<T> newOffset(NumericVar<T> &x, const T k);
+    // create an internal temporal variable and return a model object pointing
+    // to it
+    //    TemporalVar<T> newTemporal(const T offset = 0);
+    //    NumericVar<T> newTemporal(const T offset = 0);
+    // create the internal variables (depending on the type of Interval) and
+    // return a model object pointing to them
+    Interval<T> newInterval(const T mindur = 0,
+                            const T maxdur = Constant::Infinity<T>,
+                            const T earliest_start = -Constant::Infinity<T>,
+                            const T latest_start = Constant::Infinity<T>,
+                            const T earliest_end = -Constant::Infinity<T>,
+                            const T latest_end = Constant::Infinity<T>,
+                            const BooleanVar<T> opt = Constant::True
+                            );
+
+    Interval<T> maybe_between(const NumericVar<T> s, const NumericVar<T> e);
+    Interval<T> maybe_continuefor(const NumericVar<T> s, const NumericVar<T> d);
     
-    std::vector<Interval<T>> scope;
-    int i{0};
-    for (auto &tasks : disjunctive_resources) {
-        for (auto j : tasks) {
-            scope.push_back(interval[j]);
-        }
-        solver.post(NoOverlap(interval[0], scope, disjunctive_resource_transitions[i++]));
-        scope.clear();
+    Interval<T> between(const NumericVar<T> s, const NumericVar<T> e);
+    Interval<T> continuefor(const NumericVar<T> s, const NumericVar<T> d);
+    
+    Interval<T> between(const NumericVar<T> s, const NumericVar<T> e, const BooleanVar<T> opt);
+    Interval<T> continuefor(const NumericVar<T> s, const NumericVar<T> d, const BooleanVar<T> opt);
+    
+    
+    void post(BooleanVar<T> expr) {
+        constraint.push_back(expr);
     }
     
-//    solver.set({0, 1, solver.numeric.upper(1)});
+    void post(DistanceConstraint<T> c) {
+        precedence.push_back(c);
+    }
+    
+    void post(Literal<T> l) {
+        literal.push_back(l);
+    }
+    
+    std::ostream &display(std::ostream &os) const;
+    
+        std::vector<BooleanVar<T>> boolean_var;
+        std::vector<NumericVar<T>> numeric_var;
+        std::vector<Interval<T>> interval;
     
     
+    
+        std::vector<DistanceConstraint<T>> precedence;
+    std::vector<Literal<T>> literal;
+//        std::vector<std::vector<Literal<T>>> clause;
+
+        std::vector<BooleanVar<T>> constraint;
+        std::vector<NoOverlapExpression<T>> disjunctive_resource;
+        std::vector<CumulativeExpression<T>> cumulative_resource;
+
+     
+    StaticBooleanStore<T> boolean;
+    StaticNumericStore<T> numeric;
+    
+};
+
+
+template <typename T> BooleanVar<T> Model<T>::newBoolean() {
+    boolean_var.push_back(boolean.newVar());
+    return boolean_var.back();
+}
+
+template <typename T>
+BooleanVar<T> Model<T>::newDisjunct(const DistanceConstraint<T> &d1,
+                                     const DistanceConstraint<T> &d2) {
+    boolean_var.push_back(boolean.newVnewDisjunctar(d1, d2));
+    return boolean_var.back();
+}
+
+template <typename T> NumericVar<T> Model<T>::newConstant(const T k) {
+    return NumericVar(Constant::K, k);
+}
+
+template <typename T>
+NumericVar<T> Model<T>::newOffset(NumericVar<T> &x, const T k) {
+    return NumericVar<T>(x.id(), k);
+}
+
+template <typename T>
+NumericVar<T> Model<T>::newNumeric(const T lb, const T ub) {
+    if (lb > ub) {
+      throw Failure<T>(Constant::NoReason<T>);
+    }
+    else if (lb == ub) {
+        return NumericVar(Constant::K, lb);
+    }
+    else {
+        auto x{numeric.newVar(Constant::Infinity<T>)};
+        numeric_var.push_back(x);
+//        constraint.push_back(x >= lb);
+//        constraint.push_back(x <= ub);
+        numeric.set(geq<T>(x.id(), lb));
+        numeric.set(leq<T>(x.id(), ub));
+        return numeric_var.back();
+    }
+}
+
+template <typename T>
+Interval<T> Model<T>::newInterval(const T mindur, const T maxdur,
+                                   const T earliest_start, const T latest_start,
+                                   const T earliest_end, const T latest_end,
+                                   const BooleanVar<T> opt) {
+    interval.emplace_back(*this, mindur, maxdur, earliest_start, latest_start, earliest_end, latest_end, opt);
+    return interval.back();
+}
+
+
+template <typename T>
+Interval<T> Model<T>::between(const NumericVar<T> s, const NumericVar<T> e) {
+    interval.emplace_back(*this, s, e, e - s, BooleanVar<T>(Constant::True));
+//    numeric.set(interval.back().duration >= 0);
+    numeric.set(geq<T>(interval.back().duration.id(), 0));
+//    constraint.push_back(interval.back().duration >= 0);
+    return interval.back();
+}
+
+template <typename T>
+Interval<T> Model<T>::continuefor(const NumericVar<T> s, const NumericVar<T> d) {
+    interval.emplace_back(*this, s, s+d, d, BooleanVar<T>(Constant::True));
+    return interval.back();
+}
+
+template <typename T>
+Interval<T> Model<T>::maybe_between(const NumericVar<T> s, const NumericVar<T> e) {
+    interval.emplace_back(*this, s, e, e - s, newBoolean());
+//    constraint.push_back(interval.back().duration >= 0);
+    numeric.set(geq<T>(interval.back().duration.id(), 0));
+    return interval.back();
+}
+
+template <typename T>
+Interval<T> Model<T>::maybe_continuefor(const NumericVar<T> s, const NumericVar<T> d) {
+    interval.emplace_back(*this, s, s+d, d, newBoolean());
+    return interval.back();
+}
+
+template <typename T>
+Interval<T> Model<T>::between(const NumericVar<T> s, const NumericVar<T> e, const BooleanVar<T> optional) {
+    interval.emplace_back(*this, s, e, e - s, optional);
+//    constraint.push_back(interval.back().duration >= 0);
+    numeric.set(geq<T>(interval.back().duration.id(), 0));
+    return interval.back();
+}
+
+template <typename T>
+Interval<T> Model<T>::continuefor(const NumericVar<T> s, const NumericVar<T> d, const BooleanVar<T> optional) {
+    interval.emplace_back(*this, s, s+d, d, optional);
+    return interval.back();
+}
+
+
+template <typename T>
+std::ostream &Model<T>::display(std::ostream &os) const {
+    if(not boolean_var.empty())
+        os << "b1,...,b" << boolean_var.back().id() << std::endl;
+    for(auto x : numeric_var) {
+        os << "x" << x.id() << " in [" << x.min(*this) << ".." << x.max(*this) << "]\n";
+    }
+//    for(auto i : interval) {
+//        os << i << " est=" << i.start.min(this->numeric)
+//        << ", lst=" << i.start.max(this->numeric)
+//        << ", ect=" << i.end.max(this->numeric)
+//        << ", lct=" << i.end.max(this->numeric)
+//        << std::endl;
+//    }
+    for(auto c : constraint) {
+        os << c << std::endl;
+    }
+    return os;
+}
+
+
+
+////template<typename T>
+////class SchedulingModel;
+//
+//
+//
+//template<typename T>
+//class SchedulingInstance {
+//    
+//public:
+//    
+//    struct ModNum {
+//        int id;
+//        T offset;
+//        
+//        bool isConstant() {return id == 0;}
+//        
+//        std::ostream &display(std::ostream &os) const {
+//            if(id > 0) {
+//                os << "x" << id;
+//                if(offset > 0) {
+//                    os << "+" << offset;
+//                } else if(offset < 0) {
+//                    os << offset;
+//                }
+//            } else {
+//                os << offset;
+//            }
+//            return os;
+//        }
+//    };
+//    
+//private:
+//    
+//    struct ModPrecedence {
+//        ModNum start{0};
+//        ModNum end{0};
+//        T lag{0};
+//    };
+//    
+//    struct ModInterval {
+//        ModNum start{0};
+//        ModNum end{0};
+//        ModNum duration{0};
+//        int optional{-2};
+//    };
+//    
+//    struct CardConstraint {
+//        std::vector<int> vars;
+//        T lb;
+//        T ub;
+//    };
+//    
+//public:
+//    SchedulingInstance() {
+//        LBs.push_back(0);
+//        UBs.push_back(0);
+//        variables.push_back()
+//    }
+//    
+////    size_t numConstant() { return constant.size(); }
+//    size_t numNumeric() { return LBs.size(); }
+//    size_t numBoolean() { return static_cast<size_t>(num_booleans); }
+//    
+//    ModNum getStart(const int i) const {
+//        return interval_rep[i].start;
+//    }
+//    
+//    ModNum getEnd(const int i) const {
+//        return interval_rep[i].end;
+//    }
+//    
+//    ModNum getDuration(const int i) const {
+//        return interval_rep[i].duration;
+//    }
+//    
+//    int getOptional(const int i) const {
+//        return interval_rep[i].optional;
+//    }
+//    
+//    T getLb(const ModNum x) {
+//        return LBs[x.id] + x.offset;
+//    }
+//    
+//    T getUb(const ModNum x) {
+//        return UBs[x.id] + x.offset;
+//    }
+//    
+////    void encode(Solver<T>& solver, Interval<T>& schedule, std::vector<BooleanVar<T>>& boolean, std::vector<NumericVar<T>>& numeric, std::vector<Interval<T>>& interval, std::vector<DistanceConstraint<T>>& constraint);
+////    void encode(Solver<T>& solver, SchedulingModel<T>& model);
+//    
+//    int addBoolean() {
+//        return num_booleans++;
+//        //        return (val == ? num_booleans++ : val);
+//    }
+//    ModNum addNumeric(const T lb=-Constant::Infinity<T>, const T ub=Constant::Infinity<T>) {
+//        if(lb != ub) {
+//            auto x{static_cast<int>(LBs.size())};
+//            LBs.push_back(lb);
+//            UBs.push_back(ub);
+//            variables.emplace_back(x,0);
+////            return ModNum(x,0);
+//            variables.back();
+//        } else {
+////            variables.emplace_back(x,0);
+//            return ModNum(0,lb);
+//        }
+//    }
+//    ModNum addView(const ModNum x, const T offset) {
+//        variables.emplace_back(x.id,x.offset + offset);
+//        return variables.back();
+////        return ModNum(x.id,x.offset + offset);
+//    }
+//    ModNum addConstant(const T v) {
+//        return ModNum(0,v);
+//    }
+//    void declareCardinalityConstraints(const int n) {
+//        cardinalities.resize(n);
+//    }
+//    void addCardinalityArgument(const int i, const int c) {
+//        cardinalities[c].vars.push_back(i);
+//    }
+//    void setCardinalityBounds(const int c, const T l, const T u) {
+//        cardinalities[c].lb = l;
+//        cardinalities[c].ub = u;
+//    }
+//    void declareDisjunctiveResources(const int n) {
+//        disjunctive_resources.resize(disjunctive_resources.size() + n);
+//        disjunctive_resource_transitions.resize(disjunctive_resources.size());
+//    }
+//    void declareCumulativeResources(const int n) {
+//        cumulative_resources.resize(cumulative_resources.size() + n);
+//    }
+//    void addDisjunctiveResourceUsage(const int i, const int r) {
+//        disjunctive_resources[r].push_back(i);
+//    }
+//    void addCumulativeResourceUsage(const int i, const int r, const int x) {
+//        cumulative_resources[r].emplace_back(i,x);
+//    }
+//    int addPrecedence(const ModNum t1, const ModNum t2, const T lag=0) {
+//        auto p{static_cast<int>(precedence_rep.size())};
+//        precedence_rep.emplace_back(t1, t2, lag);
+//        return p;
+//    }
+//    int addInterval(const ModNum t1, const ModNum t2, const ModNum p, const int b=-1) {
+////        auto l{addNumeric(min_duration, max_duration)};
+//        auto i{static_cast<int>(interval_rep.size())};
+//        interval_rep.emplace_back(t1, t2, p, b);
+//        return i;
+//    }
+////    int addFixedDurationIntervalFrom(const int t, const T duration) {
+////        auto l{addNumeric(duration, duration)};
+////        auto i{static_cast<int>(interval_rep.size())};
+////        interval_rep.emplace_back(t, -1, l, -1);
+////        return i;
+////    }
+////    int addFixedDurationOptionalIntervalFrom(const int t, const T duration) {
+////        auto l{addNumeric(duration, duration)};
+////        auto b{addBoolean()};
+////        auto i{static_cast<int>(interval_rep.size())};
+////        interval_rep.emplace_back(t, -1, l, b);
+////        return i;
+////    }
+//    
+//    void addSameAllocation(const int i, const int j) {
+////        equivalences.resize(interval_rep.size());
+//        equivalences.emplace_back(i,j);
+//    }
+//    
+//    //    int addInterval(const int t1, const int t2, const T min_duration=0, const T max_duration=Constant::Infinity<T>, const int b=0) {
+//    //        auto l{addNumeric(min_duration, max_duration)};
+//    //        interval_rep.emplace_back(t1, t2, l, b);
+//    //    }
+//    
+////    int origin; // var id for origin
+//    ModNum makespan; // var id for makespan
+//    
+//    std::vector<ModNum> variables;
+//    std::vector<ModInterval> interval_rep;
+//    std::vector<ModPrecedence> precedence_rep;
+//    std::vector<std::vector<int>> disjunctive_resources;
+//    std::vector<std::vector<std::pair<int,int>>> cumulative_resources;
+//    std::vector<std::vector<std::vector<T>>> disjunctive_resource_transitions;
+//    std::vector<std::pair<int,int>> equivalences;
+//    std::vector<CardConstraint> cardinalities;
+//    
+//private:
+//    
+//    // solver agnostic model
+//    int num_booleans{0};
+//    int num_timepoints{0};
+//    std::vector<T> LBs;
+//    std::vector<T> UBs;
+////    std::vector<T> constant;
+//    
+//    
+//};
+//  
+//template<typename T>
+//class SchedulingModel {
+//    
+//public:
+//    SchedulingModel(SchedulingInstance<T>& data, Solver<T>& solver);
+////    {
+////        data.encode(solver, schedule, boolean, numeric, interval, constraint);
+////    }
+//    
+//    Interval<T> getScheduleInterval() { return schedule; }
+//    
+//private:
+//    
+//    // model in
+//    Interval<T> schedule;
+//    
+//    std::vector<BooleanVar<T>> boolean;
+//    std::vector<NumericVar<T>> numeric;
+//    std::vector<Interval<T>> interval;
+//    
+//    std::vector<DistanceConstraint<T>> precedence;
+//    std::vector<std::vector<Literal<T>>> clause;
+//    
+//    std::vector<BooleanVar<T>> constraint;
+//    
+//    std::vector<NoOverlapExpression<T>> disjunctive_resource;
+//    std::vector<CumulativeExpression<T>> cumulative_resource;
+//};
+//
+//template<typename T>
+////void SchedulingInstance<T>::encode(Solver<T>& solver, Interval<T>& schedule, std::vector<BooleanVar<T>>& boolean, std::vector<NumericVar<T>>& numeric, std::vector<Interval<T>>& interval, std::vector<DistanceConstraint<T>>& precedence) {
+////void SchedulingInstance<T>::encode(Solver<T>& solver, SchedulingModel<T>& model) {
+//SchedulingModel<T>::SchedulingModel(SchedulingInstance<T>& data, Solver<T>& solver) {
+////
+////    model.schedule = solver.newInterval(0, Constant::Infinity<int>, 0, 0, 0,
+////                  Constant::Infinity<int>);
+////    
+////    
+////    for(size_t i{0}; i<numBoolean(); ++i) {
+////        model.boolean.push_back(solver.newBoolean());
+////    }
+////    
+////    for(size_t i{0}; i<numNumeric(); ++i) {
+////        model.numeric.push_back(solver.newNumeric(LBs[i], UBs[i]));
+////    }
+////    
+////    
+////    for(auto I : interval_rep) {
+////        if(I.optional >= 0) {
+////            if(LBs[I.duration] == UBs[I.duration]) {
+////                model.interval.push_back(solver.between(model.numeric[I.start], model.numeric[I.start]+LBs[I.duration], model.boolean[I.optional]));
+////            } else {
+////                model.interval.push_back(solver.between(model.numeric[I.start], model.numeric[I.end], model.boolean[I.optional]));
+////            }
+////        } else {
+////            if(LBs[I.duration] == UBs[I.duration]) {
+////                model.interval.push_back(solver.between(model.numeric[I.start], model.numeric[I.start]+LBs[I.duration]));
+////            } else {
+////                model.interval.push_back(solver.between(model.numeric[I.start], model.numeric[I.end]));
+////            }
+////        }
+////        
+////        solver.set(model.interval.back().end.before(model.schedule.end));
+////    }
+////    
+////    
+////    for(auto P : precedence_rep) {
+////        auto prec{model.numeric[P.end].after(model.numeric[P.start], P.lag)};
+////        model.precedence.push_back(prec);
+////
+//////                std::cout << " add " << constraint.back() << " (" << P.lag << ")"<< std::endl;
+////        
+////        solver.set(prec);
+////    }
+////    
+////    
+////    std::vector<Interval<T>> scope;
+////    int i{0};
+////    for (auto &tasks : disjunctive_resources) {
+////        for (auto j : tasks) {
+////            scope.push_back(model.interval[j]);
+////        }
+////        solver.disjunctive_resource.push_back(NoOverlap(solver.schedule, scope, disjunctive_resource_transitions[i++]));
+////        solver.post(solver.disjunctive_resource.back());
+////        scope.clear();
+////    }
+////    
+////    for(auto p : equivalences) {
+////        solver.addClause({model.boolean[p.first] == false, model.boolean[p.second] == true});
+////        solver.addClause({model.boolean[p.first] == true, model.boolean[p.second] == false});
+////    }
+////    
+//////    for(auto )
+////    
+////    
+//////    solver.set({0, 1, solver.numeric.upper(1)});
+////    
+////
+//    
+//    
+////    schedule = solver.newInterval(0, Constant::Infinity<int>, 0, 0, 0,
+////                  Constant::Infinity<int>);
+//    
+//    
+//    for(size_t i{0}; i<data.numBoolean(); ++i) {
+//        boolean.push_back(solver.newBoolean());
+//    }
+//    
+////    for(size_t i{0}; i<data.numNumeric(); ++i) {
+////        numeric.push_back(solver.newNumeric(data.getLb(i), data.getUb(i)));
+////    }
+//    for( auto x : data.variables) {
+//        if(x.)
+//        numeric.push_back(solver.newNumeric(data.getLb(i), data.getUb(i)));
+//    }
+//    
+//    
+//    schedule = solver.continuefor(data.origin, data.makespan);
+//    
+//    
+//    std::cout << "add variables\n";
+//    std::cout << solver << std::endl;
+//    
+//    for(auto x : numeric) {
+//        std::cout << x << std::endl;
+//    }
+//    
+//    
+//    for(auto& I : data.interval_rep) {
+//        if(I.optional >= 0) {
+//            if(data.getLb(I.duration) == data.getUb(I.duration)) {
+//                interval.push_back(solver.between(numeric[I.start], numeric[I.start]+data.getLb(I.duration), boolean[I.optional]));
+//            } else {
+//                interval.push_back(solver.between(numeric[I.start], numeric[I.end], boolean[I.optional]));
+//            }
+//        } else {
+//            if(data.getLb(I.duration) == data.getUb(I.duration)) {
+//                interval.push_back(solver.between(numeric[I.start], numeric[I.start]+data.getLb(I.duration)));
+//            } else {
+//                interval.push_back(solver.between(numeric[I.start], numeric[I.end]));
+//            }
+//        }
+//        
+////        solver.set(interval.back().end.before(schedule.end));
+//    }
+//    
+//    
+//    std::cout << "add intervals\n";
+//    std::cout << solver << std::endl;
+//    
+//    
+//    for(auto P : data.precedence_rep) {
+//        auto prec{numeric[P.end].after(numeric[P.start], P.lag)};
+//        precedence.push_back(prec);
+//
+//                std::cout << " add " << precedence.back() << " (" << P.lag << ")"<< std::endl;
+//        
+//        solver.set(prec);
+//    }
+//    
+//    
+//    std::vector<Interval<T>> scope;
+//    int i{0};
+//    for (auto &tasks : data.disjunctive_resources) {
+//        for (auto j : tasks) {
+//            scope.push_back(interval[j]);
+//        }
+//        disjunctive_resource.push_back(NoOverlap(schedule, scope, data.disjunctive_resource_transitions[i++]));
+//        solver.post(disjunctive_resource.back());
+//        scope.clear();
+//    }
+//    
+////    for(auto p : data.equivalences) {
+////        solver.clauses.add({boolean[p.first] == false, boolean[p.second] == true});
+////        solver.clauses.add({boolean[p.first] == true, boolean[p.second] == false});
+////    }
+// 
+//}
+//
+//
+//template<typename T>
+//std::ostream &operator<<(std::ostream &os, const typename SchedulingInstance<T>::ModNum &x) {
+//    return x.display(os);
+//}
+
+template<typename T>
+std::ostream &operator<<(std::ostream &os, const Model<T> &x) {
+    return x.display(os);
 }
 
 }

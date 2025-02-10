@@ -121,7 +121,11 @@ auto loadSchedulingProblem(const tempo::Options &options)
     using namespace tempo;
     using namespace std::views;
     auto solver = std::make_unique<Solver<>>(options);
-    const auto schedule{solver->newInterval(0, Constant::Infinity<Time>, 0, 0, 0, Constant::Infinity<Time>)};
+//    const auto schedule{solver->newInterval(0, Constant::Infinity<Time>, 0, 0, 0, Constant::Infinity<Time>)};
+    const auto origin{solver->newConstant(0)};
+    const auto makespan{solver->newNumeric(0, Constant::Infinity<Time>)};
+    const auto schedule{solver->between(origin,makespan)};
+    
     auto res = parseDisjunctive(options, *solver, schedule);
     std::vector<ResourceConstraint> constraints;
     if (res.has_value()) {

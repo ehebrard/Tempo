@@ -79,7 +79,10 @@ void parse(const std::string &fn, M &solver, J &schedule,
             exit(1);
           }
 
-          auto j{solver.newInterval(dur, dur)};
+            auto s{solver.newNumeric()};
+            auto d{solver.newConstant(dur)};
+            auto j{solver.continuefor(s,d)};
+//          auto j{solver.newInterval(dur, dur)};
 
           //                    std::cout << j << std::endl;
 

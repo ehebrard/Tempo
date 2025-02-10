@@ -81,6 +81,10 @@ public:
     // flag distinguished constraints from cuts
     template <typename iter>
     Clause<T> *add(const iter first, const iter last, const bool learnt = false);
+//    template <typename Iterable>
+    Clause<T> *add(const std::vector<Literal<T>>& lits) {
+        add(lits.begin(), lits.end());
+    }
     // helpers to handle any type of literal
     bool satisfied(const Literal<T>) const;
     bool falsified(const Literal<T>) const;
