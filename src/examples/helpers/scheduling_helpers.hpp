@@ -175,22 +175,24 @@ auto runLNS(Policy &&policy, tempo::Solver<T> &solver,
     auto evalPolicy = lns::make_evaluator(std::forward<Policy>(policy), std::move(solution));
     sw.start();
     solver.largeNeighborhoodSearch(objective, evalPolicy);
-    std::cout << "-- policy run accuracy: " << evalPolicy.runAccuracy() << std::endl;
-    std::cout << "-- policy assumption accuracy: " << evalPolicy.totalAssumptionAccuracy() << std::endl;
-    std::cout << "-- runs: ";
-    printRange(evalPolicy.runStatus(), std::cout) << "\n";
-    std::cout << "-- acc: ";
-    printRange(evalPolicy.assumptionAccuracyPerRun(), std::cout) << "\n";
-    std::cout << "-- normalized acc: ";
-    printRange(evalPolicy.normalizedAssumptionAccuracyPerRun(), std::cout) << "\n";
     std::cout << "-- assumptions per run: ";
     printRange(evalPolicy.assumptionsPerRun(), std::cout) << "\n";
-    std::cout << "-- solution discrepancy: ";
-    printRange(evalPolicy.solutionDiscrepancy(), std::cout) << "\n";
+    std::cout << "-- runs: ";
+    printRange(evalPolicy.runStatus(), std::cout) << "\n";
     std::cout << "-- fails per run: ";
     printRange(evalPolicy.failsPerRun(), std::cout) << "\n";
     std::cout << "-- search time per run: ";
     printRange(evalPolicy.searchTimesPerRun(), std::cout) << "\n";
+    std::cout << "-- assumption time per run: ";
+    printRange(evalPolicy.assumptionTimePerRun(), std::cout) << "\n";
+    std::cout << "-- acc: ";
+    printRange(evalPolicy.assumptionAccuracyPerRun(), std::cout) << "\n";
+    std::cout << "-- normalized acc: ";
+    printRange(evalPolicy.normalizedAssumptionAccuracyPerRun(), std::cout) << "\n";
+    std::cout << "-- solution discrepancy: ";
+    printRange(evalPolicy.solutionDiscrepancy(), std::cout) << "\n";
+    std::cout << "-- policy run accuracy: " << evalPolicy.runAccuracy() << std::endl;
+    std::cout << "-- policy assumption accuracy: " << evalPolicy.totalAssumptionAccuracy() << std::endl;
     return sw.elapsed<std::chrono::milliseconds>();
 }
 
