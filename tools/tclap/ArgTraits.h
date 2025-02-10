@@ -27,6 +27,8 @@
 #define TCLAP_ARGTRAITS_H
 
 #include <type_traits>
+#include <optional>
+#include "util/traits.hpp"
 
 namespace TCLAP {
 
@@ -75,6 +77,10 @@ struct EnumLike {
     using ValueCategory = EnumLike;
 };
 
+struct Optional {
+    using ValueCategory = Optional;
+};
+
 /**
  * Arg traits are used to get compile type specialization when parsing
  * argument values. Using an ArgTraits you can specify the way that
@@ -97,6 +103,11 @@ concept enumc = std::is_enum_v<T>;
 template<enumc E>
 struct ArgTraits<E> {
     using ValueCategory = EnumLike;
+};
+
+template<tempo::concepts::same_template<std::optional> O>
+struct ArgTraits<O> {
+    using ValueCategory = Optional;
 };
 
 } // namespace

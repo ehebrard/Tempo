@@ -463,6 +463,17 @@ void ExtractValue(T &destVal, const std::string &strVal, EnumLike) {
     destVal = static_cast<T>(val);
 }
 
+/**
+ * @author Tim Luchterhand
+ * ExtractValue overload for optional
+ */
+template<typename T>
+void ExtractValue(T &destVal, const std::string &strVal, Optional) {
+    typename T::value_type val;
+    ExtractValue(val, strVal, ValueLike{});
+    destVal = val;
+}
+
 
 //////////////////////////////////////////////////////////////////////
 // BEGIN Arg.cpp

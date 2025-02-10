@@ -113,6 +113,10 @@ namespace tempo::lns {
 
             decltype(auto) fixedRegion = destroy.relax(s);
             if (s.getState() == AssumptionState::Fail) {
+                if (s.getSolver().getOptions().verbosity >= Options::YACKING) {
+                    std::cout << "-- destroy policy failed" << std::endl;
+                }
+
                 return;
             }
 

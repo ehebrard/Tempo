@@ -126,6 +126,7 @@ int main(int argc, char *argv[]) {
   lns::RelaxPolicy policyType;
   std::string optSolutionLoc;
   bool useOracle = false;
+  bool policyStats;
   double oracleEpsilon = 0;
   double sporadicIncrement = 0;
   cli::detail::configureParser(parser, cli::SwitchSpec("heuristic-profiling", "activate heuristic profiling",
@@ -155,7 +156,8 @@ int main(int argc, char *argv[]) {
                                             cli::SwitchSpec("oracle", "use perfect relaxation oracle", useOracle, false),
                                cli::ArgSpec("oracle-epsilon", "LNS oracle policy epsilon", false, oracleEpsilon),
                                cli::ArgSpec("sporadic-increment", "sporadic root search probability increment", false,
-                                            sporadicIncrement));
+                                            sporadicIncrement),
+                               cli::SwitchSpec("stats", "enable policy statistics", policyStats, false));
 
   parser.parse(argc, argv);
   Options opt = parser.getOptions();
@@ -307,10 +309,10 @@ int main(int argc, char *argv[]) {
             auto policy = lns::make_relaxation_policy(policyType, intervals, resources, policyParams, opt.verbosity);
             if (sporadicIncrement != 0) {
               std::cout << "-- root search probability increment " << sporadicIncrement << std::endl;
-              runLNS(lns::make_sporadic_root_search(sporadicIncrement, std::move(policy)), optSolutionLoc, S,
-                     objective);
+              runLNS(lns::make_sporadic_root_search(sporadicIncrement, std::move(policy)), S,
+                     objective, policyStats, optSolutionLoc);
             } else {
-              runLNS(policy, optSolutionLoc, S, objective);
+              runLNS(policy, S, objective, policyStats, optSolutionLoc);
             }
         } else {
             std::cout << "-- using perfect relaxation oracle" << std::endl;
@@ -318,7 +320,7 @@ int main(int argc, char *argv[]) {
             lns::PerfectRelaxationOracle policy(toSolution(sol, opt), schedule.duration,
                                                 booleanVarsFromResources(resources),
                                                 policyParams.decayConfig.fixRatio, oracleEpsilon);
-            runLNS(policy, optSolutionLoc, S, objective);
+            runLNS(policy, S, objective, policyStats, optSolutionLoc);
         }
     }
 

@@ -74,18 +74,20 @@ namespace tempo::nn {
          * @param reuseSolutions whether the same solution may be used twice
          * @param sampleSmoothingFactor smoothing factor for sample fix policy
          * @param resourceConstraints Resource expression needed for task fix policy, default empty
+         * @param poolSize optional maximum pool size (default unlimited)
          */
         template<resource_range RR = std::vector<NoOverlapExpression<>>>
         GNNRelax(const Solver<T> &solver, const fs::path &modelLocation,
                  const fs::path &featureExtractorConfigLocation, const SchedulingProblemHelper<T, R> &problemInstance,
                  const lns::PolicyDecayConfig &decayConfig, lns::AssumptionMode assumptionMode,
                  double exhaustionThreshold, double exhaustionProbability, bool reuseSolutions = false,
-                 double sampleSmoothingFactor = 0, const RR &resourceConstraints = {}) :
+                 double sampleSmoothingFactor = 0, const RR &resourceConstraints = {},
+                 std::optional<std::size_t> poolSize = {}) :
                 predictor(modelLocation, featureExtractorConfigLocation, problemInstance,
                           problemInstance.getSearchLiterals(solver)),
                 policyDecay(decayConfig, predictor.numLiterals(), solver.getOptions().verbosity),
-                solutions(problemInstance.schedule().duration), handle(solver.SolutionFound.subscribe_handled(
-                [this](const auto &s) { solutions.addSolution(s); })),
+                solutions(problemInstance.schedule().duration, poolSize), handle(solver.SolutionFound.subscribe_handled(
+                    [this](const auto &s) { solutions.addSolution(s); })),
                 exhaustionThreshold(exhaustionThreshold), exhaustionProbability(exhaustionProbability),
                 verbosity(solver.getOptions().verbosity), reuseSolutions(reuseSolutions) {
             using enum lns::AssumptionMode;
