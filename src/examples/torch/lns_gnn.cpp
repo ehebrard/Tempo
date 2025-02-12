@@ -26,7 +26,7 @@
 namespace lns = tempo::lns;
 namespace fs = std::filesystem;
 
-using RP = lns::RelaxationPolicy<Time, ResourceConstraint>;
+using RP = lns::RelaxationPolicy<tempo::Time, tempo::ResourceConstraint>;
 
 
 int main(int argc, char **argv) {

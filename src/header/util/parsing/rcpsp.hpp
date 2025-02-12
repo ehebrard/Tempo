@@ -7,6 +7,8 @@
 #include <vector>
 
 
+#include "Solver.hpp"
+
 namespace rcpsp {
 
 using namespace tempo;
