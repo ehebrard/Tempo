@@ -13,7 +13,7 @@
 #include "util/Options.hpp"
 #include "util/Matrix.hpp"
 #include "Model.hpp"
-#include "util/scheduling_helpers.hpp"
+#include "scheduling_helpers.hpp"
 #include "util/serialization.hpp"
 
 using Time = int;

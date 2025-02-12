@@ -4,7 +4,7 @@
 * @brief runs the scheduler using the perfect oracle value heuristic
 */
 
-#include "util/scheduling_helpers.hpp"
+#include "helpers/scheduling_helpers.hpp"
 #include "heuristics/PerfectValueOracle.hpp"
 #include "helpers/cli.hpp"
 #include "helpers/shell.hpp"
