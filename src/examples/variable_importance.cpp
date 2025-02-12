@@ -16,7 +16,7 @@
 #include "helpers/shell.hpp"
 #include "helpers/cli.hpp"
 #include "helpers/git_sha.hpp"
-#include "helpers/scheduling_helpers.hpp"
+#include "util/scheduling_helpers.hpp"
 #include "data_generation.hpp"
 #include "util/KillHandler.hpp"
 #include "helpers/VarImportanceRunner.hpp"

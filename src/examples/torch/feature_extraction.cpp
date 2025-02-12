@@ -17,7 +17,7 @@
 #include "nn/GraphBuilder.hpp"
 #include "util/KillHandler.hpp"
 #include "util/Matrix.hpp"
-#include "../helpers/scheduling_helpers.hpp"
+#include "util/scheduling_helpers.hpp"
 #include "../helpers/cli.hpp"
 #include "../helpers/shell.hpp"
 #include "../helpers/git_sha.hpp"

@@ -8,7 +8,7 @@
 #include <filesystem>
 
 #include "data_generation.hpp"
-#include "helpers/scheduling_helpers.hpp"
+#include "util/scheduling_helpers.hpp"
 #include "util/Options.hpp"
 #include "helpers/cli.hpp"
 #include "helpers/VarImportanceRunner.hpp"

@@ -7,7 +7,7 @@
 #include <ranges>
 #include <Iterators.hpp>
 
-#include "scheduling_helpers.hpp"
+#include "util/scheduling_helpers.hpp"
 #include "util/SchedulingProblemHelper.hpp"
 #include "util/parsing/osp.hpp"
 #include "util/parsing/jsp.hpp"

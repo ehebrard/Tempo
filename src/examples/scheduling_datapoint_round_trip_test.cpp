@@ -10,7 +10,7 @@
 
 #include "util/serialization.hpp"
 #include "data_generation.hpp"
-#include "helpers/scheduling_helpers.hpp"
+#include "util/scheduling_helpers.hpp"
 #include "helpers/cli.hpp"
 
 auto setDifference(const tempo::serialization::Branch &a, const tempo::serialization::Branch &b) {
