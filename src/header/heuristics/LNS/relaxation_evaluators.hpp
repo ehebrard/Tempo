@@ -5,8 +5,8 @@
 * @brief Relaxation policy evaluation wrapper
 */
 
-#ifndef RELAXATIONEVALUATOR_HPP
-#define RELAXATIONEVALUATOR_HPP
+#ifndef RELAXATION_EVALUATORS_HPP
+#define RELAXATION_EVALUATORS_HPP
 
 
 #include <vector>
@@ -15,6 +15,11 @@
 
 #include "util/traits.hpp"
 #include "util/Profiler.hpp"
+#include "util/parsing/scheduling_collection.hpp"
+#include "util/Options.hpp"
+#include "util/ThreadPool.hpp"
+#include "util/enum.hpp"
+#include "util/KillHandler.hpp"
 #include "relaxation_interface.hpp"
 #include "Solution.hpp"
 #include "Model.hpp"
@@ -175,6 +180,140 @@ namespace tempo::lns {
     auto make_evaluator(Policy &&policy, std::optional<Solution<T>> solution) {
         return RelaxationEvaluator<Policy, T>(std::move(solution), std::forward<Policy>(policy));
     }
+
+    /**
+     * @brief Local search result
+     */
+    PENUM(RegionStatus, Optimal, Unsat, Cancelled, Empty)
+
+    template<concepts::scalar T>
+    using RegionResult = std::pair<T, RegionStatus>;
+
+    /**
+     * @brief Relaxation policy wrapper that performs a deep search for each sub problem obtained by relaxation
+     * @tparam T timing type
+     * @tparam Policy base policy type
+     */
+    template<concepts::scalar T, relaxation_policy Policy>
+    class RelaxationRegionEvaluator {
+        Policy basePolicy;
+        Options options;
+        ThreadPool tp;
+        std::vector<std::future<RegionResult<T>>> localOptima{};
+        unsigned timeout;
+    public:
+        /**
+         * Ctor
+         * @tparam Args policy ctor argument types
+         * @param options solver options
+         * @param timeout timout for local search in ms (if 0, no local search is performed)
+         * @param numThreads number of threads to use for local searches (if 0, no local search is performed)
+         * @param args arguments for base policy ctor
+         */
+        template<typename... Args>
+        RelaxationRegionEvaluator(Options options, unsigned timeout, unsigned numThreads, Args &&... args)
+            : basePolicy(std::forward<Args>(args)...), options(std::move(options)), tp(numThreads),
+              timeout(timeout) {}
+
+        /**
+         * Gets the underlying relaxation policy
+         * @return reference to underlying policy
+         */
+        auto getBasePolicy() -> auto & {
+            return basePolicy;
+        }
+
+        /**
+         * @copydoc getBasePolicy
+         */
+        auto getBasePolicy() const -> const auto & {
+            return basePolicy;
+        }
+
+        template<assumption_interface AI>
+        void relax(AI &proxy) {
+            using enum RegionStatus;
+            if (tp.numWorkers() == 0 or timeout == 0) {
+                basePolicy.relax(proxy);
+                return;
+            }
+
+            AssumptionCollector<T, AI> ac(proxy);
+            basePolicy.relax(ac);
+            localOptima.emplace_back(tp.submit(
+                [this, state = ac.getState(), assumptions = std::move(ac.getAssumptions())]() -> RegionResult<T> {
+                if (state == AssumptionState::Fail) {
+                    return {0, Unsat};
+                } else if (state == AssumptionState::Empty) {
+                    return {0, Empty};
+                }
+
+                auto opt = options;
+                opt.verbosity = Options::SILENT;
+                auto p = loadSchedulingProblem(opt);
+                AssumptionProxy s(*p.solver);
+                s.makeAssumptions(assumptions);
+                assert(s.getState() == AssumptionState::Success);
+                bool cancelled = false;
+                p.solver->PropagationCompleted.subscribe_unhandled(
+                    [this, sw = util::StopWatch{}, &cancelled, &solver = *p.solver](auto &) {
+                        if (sw.elapsed<std::chrono::milliseconds>() > this->timeout) {
+                            solver.cancelSearch();
+                            cancelled = true;
+                        }
+                    });
+                p.solver->minimize(p.instance.schedule().duration);
+                cancelled |= KillHandler::instance().signalReceived();
+                if (p.solver->numeric.hasSolution()) {
+                    auto makespan = p.solver->numeric.lower(p.instance.schedule().duration);
+                    return {makespan, cancelled ? Cancelled : Optimal};
+                }
+
+                return {0, cancelled ? Cancelled : Unsat};
+            }));
+        }
+
+        void notifySuccess(unsigned numFails) {
+            basePolicy.notifySuccess(numFails);
+        }
+
+        void notifyFailure(unsigned numFails) {
+            basePolicy.notifyFailure(numFails);
+        }
+
+        /**
+         * Gets the results if the local search
+         * @return reference to vector with local search results
+         * @note Results are run asynchronously and need to be awaited
+         */
+        auto getResults() const -> const auto & {
+            return localOptima;
+        }
+
+        /**
+         * @copydoc getResults
+         */
+        auto getResults() -> auto & {
+            return localOptima;
+        }
+
+    };
+
+    /**
+     * Helper function for creating a region evaluating relaxation heuristic from an arbitrary relaxation policy
+     * @tparam T timing type
+     * @tparam Policy base policy type
+     * @param policy base relaxation policy
+     * @param options solver options
+     * @param timeout timout for local search
+     * @param numThreads number of threads to use for local search
+     * @return
+     */
+    template<concepts::scalar T, relaxation_policy Policy>
+    auto make_region_evaluator(Policy &&policy, Options options, unsigned timeout, unsigned numThreads) {
+        return RelaxationRegionEvaluator<T, Policy>(std::move(options), timeout, numThreads,
+                                                    std::forward<Policy>(policy));
+    }
 }
 
-#endif //RELAXATIONEVALUATOR_HPP
+#endif //RELAXATION_EVALUATORS_HPP
