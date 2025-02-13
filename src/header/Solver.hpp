@@ -644,9 +644,9 @@ public:
     BooleanVar<T> newDisjunct(const DistanceConstraint<T> &,
                               const DistanceConstraint<T> &);
     // returns the constant 0
-    NumericVar<T> zero() { return NumericVar<T>(Constant::K,0); }
+    static NumericVar<T> zero() { return NumericVar<T>(Constant::K, 0); }
     // returns the constant true
-    BooleanVar<T> truism() { return BooleanVar<T>(0); }
+    static BooleanVar<T> truism() { return BooleanVar<T>(0); }
     // create an internal numeric variable and return a model object pointing to it
     NumericVar<T> newNumeric(const T lb = -Constant::Infinity<T>,
                              const T ub = Constant::Infinity<T>);
@@ -2291,7 +2291,7 @@ Interval<T> Solver<T>::continuefor(const NumericVar<T> s, const NumericVar<T> d)
 
 template <typename T>
 Interval<T> Solver<T>::maybe_between(const NumericVar<T> s, const NumericVar<T> e) {
-        Interval<T> i(s, e, e - s, newBoolean());
+    Interval<T> i(s, e, e - s, newBoolean());
     post(i.duration >= 0);
     return i;
 }
@@ -3614,12 +3614,12 @@ template <typename T> void Solver<T>::learnConflict(Explanation<T> &e) {
 
 template <typename T> void Solver<T>::branchRight() {
     
-    auto deduction{~decisions.back()};
-    
-    DeductionMade.trigger(deduction);
-    
     if (env.level() <= init_level)
         throw SearchExhausted();
+    
+    auto deduction{~decisions.back()};
+    DeductionMade.trigger(deduction);
+    
     restoreState(env.level() - 1);
     decisions.pop_back();
     
@@ -4479,6 +4479,11 @@ std::ostream &Solver<T>::displayDomains(std::ostream &os) const {
 
 template <typename T>
 std::ostream &Solver<T>::displayBranches(std::ostream &os) const {
+    os << " " << boolean_search_vars.capacity() << " Boolean search vars";
+    if(boolean.size() > boolean_search_vars.capacity())
+        os << " out of " << boolean.size() ;
+    if(boolean_search_vars.backsize() > 0)
+        os << ", (" << boolean_search_vars.backsize() << ") units:";
     for (auto b{boolean_search_vars.bbegin()}; b!=boolean_search_vars.bend(); ++b) {
       os << " " << pretty(boolean.getLiteral(boolean.isTrue(*b), *b)) ;
     }
@@ -4685,7 +4690,7 @@ template <typename T> void Solver<T>::printTrace() const {
             false, (DBG_TRACE & CLAUSES), false, false, false,
             (DBG_TRACE & TRAIL));
 
-    std::cout << "bsv: " << boolean_search_vars << std::endl;
+//    std::cout << "bsv: " << boolean_search_vars << std::endl;
   }
 }
 #endif

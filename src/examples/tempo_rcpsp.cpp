@@ -37,11 +37,11 @@ std::string prettyJob(const Interval<T> &task, const Solver<T> &S,
                       const bool dur_flag) {
   std::stringstream ss;
 
-  auto est{S.numeric.lower(task.start)};
-  auto lst{S.numeric.upper(task.start)};
-  auto ect{S.numeric.lower(task.end)};
-  auto lct{S.numeric.upper(task.end)};
-    
+  auto est{S.numeric.solutionLower(task.start)};
+  auto lst{S.numeric.solutionUpper(task.start)};
+  auto ect{S.numeric.solutionLower(task.end)};
+  auto lct{S.numeric.solutionUpper(task.end)};
+
   ss << "[";
 
   if (est == lst)
@@ -56,12 +56,12 @@ std::string prettyJob(const Interval<T> &task, const Solver<T> &S,
   ss << "]";
 
   if (dur_flag) {
-    auto pmin{S.numeric.lower(task.duration)};
-    auto pmax{S.numeric.upper(task.duration)};
-      if(pmin == pmax)
-          ss << "(" << pmin << ")";
-      else
-          ss << " (" << pmin << "-" << pmax << ")";
+    auto pmin{S.numeric.solutionLower(task.duration)};
+    auto pmax{S.numeric.solutionUpper(task.duration)};
+    if (pmin == pmax)
+      ss << "(" << pmin << ")";
+    else
+      ss << " (" << pmin << "-" << pmax << ")";
   }
 
   return ss.str();
@@ -83,12 +83,12 @@ void checkResource(const Solver<T>& S, const std::vector<Interval<T>>& tasks, co
     for (auto job : tasks) {
         
         std::cout << job << std::endl;
-        
-        auto s{S.numeric.lower(job.start)};
-        auto d{S.numeric.lower(job.duration)};
-        auto e{S.numeric.lower(job.end)};
-        auto dem{S.numeric.lower(demands[i])};
-        
+
+        auto s{S.numeric.solutionLower(job.start)};
+        auto d{S.numeric.solutionLower(job.duration)};
+        auto e{S.numeric.solutionLower(job.end)};
+        auto dem{S.numeric.solutionLower(demands[i])};
+
         if(s+d!=e) {
             std::cout << "bug span task " << i << ": " << job << std::endl;
         }
@@ -136,15 +136,14 @@ void printResources(const Solver<T>& S, const std::vector<std::vector<Interval<T
           ++j;
       }
 
-      std::sort(order.begin(), order.end(),
-                [&](const int a, const int b) {
-                  return S.numeric.lower(tasks[a].start) <
-                         S.numeric.lower(tasks[b].start);
-                });
+      std::sort(order.begin(), order.end(), [&](const int a, const int b) {
+        return S.numeric.solutionLower(tasks[a].start) <
+               S.numeric.solutionLower(tasks[b].start);
+      });
 
       std::cout << "resource " << i << " (" << resource_capacities[i] << "):";
       for (auto o : order) {
-        std::cout << " " << S.numeric.lower((*demands)[o]) << "x"
+        std::cout << " " << S.numeric.solutionLower((*demands)[o]) << "x"
                   << prettyJob(tasks[o], S, false);
       }
       std::cout << std::endl;
@@ -164,18 +163,27 @@ int main(int argc, char *argv[]) {
 //    bool tt_reasoning;
     lns::RelaxationPolicyParams policyParams;
     lns::RelaxPolicy policyType;
-    cli::detail::configureParser(parser,
-//                                 cli::SwitchSpec("no-ttef", "switch tt reasoning off in edge-finding", false, tt_reasoning, true),
-                                 cli::SwitchSpec("lns", "activate large neighborhood search",
-                                                         useLNS, false),
-                                 cli::ArgSpec("relax-decay", "relaxation ratio decay",
-                                              false, policyParams.ratioDecay, 0.5),
-                                 cli::ArgSpec("relax-ratio", "initial relaxation ratio",
-                                              false, policyParams.relaxRatio, 0.5),
-                                 cli::ArgSpec("relax-slices", "number of schedule slices",
-                                              false, policyParams.numScheduleSlices, 4),
-                                 cli::ArgSpec("lns-policy", "lns relaxation policy", false, policyType, lns::RelaxPolicy::RandomTasks));
-    
+    cli::detail::configureParser(
+        parser,
+        //                                 cli::SwitchSpec("no-ttef", "switch tt
+        //                                 reasoning off in edge-finding",
+        //                                 false, tt_reasoning, true),
+        cli::SwitchSpec("lns", "activate large neighborhood search", useLNS,
+                        false),
+        //                                 cli::ArgSpec("relax-decay",
+        //                                 "relaxation ratio decay",
+        //                                              false,
+        //                                              policyParams.ratioDecay,
+        //                                              0.5),
+        //                                 cli::ArgSpec("relax-ratio", "initial
+        //                                 relaxation ratio",
+        //                                              false,
+        //                                              policyParams.relaxRatio,
+        //                                              0.5),
+        cli::ArgSpec("relax-slices", "number of schedule slices", false,
+                     policyParams.numScheduleSlices, 4),
+        cli::ArgSpec("lns-policy", "lns relaxation policy", false, policyType,
+                     lns::RelaxPolicy::RandomTasks));
 
     parser.parse(argc, argv);
     Options opt = parser.getOptions();
@@ -188,13 +196,16 @@ int main(int argc, char *argv[]) {
     seed(opt.seed);
 
   // an interval standing for the makespan of schedule
-  auto schedule{S.newInterval(0, Constant::Infinity<int>, 0, 0, 0,
-                              Constant::Infinity<int>)};
+    auto makespan{S.newNumeric(0, Constant::Infinity<int>)};
+    auto origin{S.newConstant(0)};
+    auto schedule{S.between(origin, makespan)};
+    //  auto schedule{S.newInterval(0, Constant::Infinity<int>, 0, 0, 0,
+    //                              Constant::Infinity<int>)};
 
-  // depending on the option "input-format", parse a disjunctive scheduling
-  // instance, and collect resources and interval objects
-  std::vector<CumulativeExpression<>> resources;
-  std::vector<std::vector<size_t>> tasks_requirements;
+    // depending on the option "input-format", parse a disjunctive scheduling
+    // instance, and collect resources and interval objects
+    std::vector<CumulativeExpression<>> resources;
+    std::vector<std::vector<size_t>> tasks_requirements;
     std::vector<std::vector<int>> task_demands;
     std::vector<int> resource_capacities;
   std::vector<Interval<>> intervals;

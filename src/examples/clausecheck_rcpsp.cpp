@@ -67,9 +67,10 @@ int main(int argc, char *argv[]) {
       std::vector<int> resource_capacities;
     std::vector<Interval<>> intervals;
     std::vector<std::pair<int, int>> precedences;
+    std::vector<std::vector<int>> graph;
 
     psplib::parse(opt.instance_file, S, schedule, intervals, tasks_requirements,
-                 task_demands, resource_capacities, precedences);
+                 task_demands, resource_capacities, precedences, graph);
 
     std::vector<std::vector<Interval<int>>> resource_tasks(
         resource_capacities.size());

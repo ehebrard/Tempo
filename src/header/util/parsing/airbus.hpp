@@ -7,6 +7,8 @@
 #include <vector>
 #include <nlohmann/json.hpp>
 
+#include "Model.hpp"
+
 namespace airbus {
 
 
@@ -24,132 +26,98 @@ void parse(const std::string &fn, M &model) {
         }
 
         auto json{nlohmann::json::parse(file)};
+        auto makespan{model.newNumeric(0, tempo::Constant::Infinity<int>)};
+        auto origin{model.newConstant(0)};
+        auto schedule{model.between(origin, makespan)};
         
-//        std::cout << json["teams"].size() << std::endl;
-        
-        
-//        auto origin = model.newConstant(0);
-//        auto makespan = model.newNumeric(0, tempo::Constant::Infinity<int>);
-        
-        // from task keys to variable ids (0 is for constants, 1 is for the schedule duration/end)
-//        std::map<std::string, typename tempo::SchedulingInstance<int>::ModNum> var_map;
-//        auto t{2};
-//        for(auto task_key : json["tasks"]) {
-//            var_map[task_key] = t++;
-//        }
-        
-//        auto schedule = model.between(origin, makespan);
-        
-//        auto schedule
-        
-        auto schedule{model.newInterval(0, tempo::Constant::Infinity<int>, 0, 0, 0,
-                                    tempo::Constant::Infinity<int>)};
-        
+    
+        std::vector<tempo::NoOverlapExpression<int>> R;
         for(auto t : json["teams"]) {
-            model.post(NoOverlap(schedule));
+            auto r{NoOverlap(schedule)};
+            R.push_back(r);
+        }
+        
+        std::map<std::string, size_t> interval_map;
+        std::vector<tempo::Interval<int>> intervals; // the actual intervals, affectations are copies
+        std::map<std::string, tempo::BooleanVar<int>> affectation_map;
+        
+        std::vector<std::vector<tempo::BooleanVar<int>>> alternatives(json["tasks"].size());
+        
+//        std::cout << "init: " << model.boolean.size() << " Boolean vars and " << model.numeric.size() << " numeric vars\n";
+
+        for(auto& task_key : json["tasks"]) {
+            
+            auto
+            lb_s{static_cast<int>(json["start_window"][task_key][0])};
+            auto
+            ub_s{static_cast<int>(json["start_window"][task_key][1])};
+            auto
+            lb_e{static_cast<int>(json["end_window"][task_key][0])};
+            auto
+            ub_e{static_cast<int>(json["end_window"][task_key][1])};
+            auto
+            dur{static_cast<int>(json["tasks_data"][task_key]["duration"])};
+            auto s{model.newNumeric(std::max(lb_s,lb_e-dur),std::min(ub_s, ub_e-dur))};
+            auto j{model.between(s, s+dur)};
+            interval_map[task_key] = intervals.size();
+                            
+            for(auto& team_key : json["teams"]) {
+                auto r{static_cast<int>(json["teams_to_index"][team_key])};
+                auto oj{model.maybe_between(s, s+dur)};
+                oj.require(R[r]);
+                alternatives[intervals.size()].push_back(oj.exist);
+            }
+                                                                    
+            model.post(Cardinality(alternatives[intervals.size()],1,1));
+            intervals.push_back(j);
+            
+            
+//            std::cout << "task " << task_key << ": " << model.boolean.size() << " Boolean vars and " << model.numeric.size() << " numeric vars\n";
+            
+        }
+ 
+//        auto k{0};
+        for(auto &r : R) {
+            model.post(r);
+            
+//            std::cout << "resource " << k++ << ": " << model.boolean.size() << " Boolean vars and " << model.numeric.size() << " numeric vars\n";
         }
         
         
-//        auto num_resources{json["teams"].size()};
-//        auto num_intervals{json["tasks"].size()};
-//        
-//        model.declareDisjunctiveResources(num_resources);
-//        model.declareCardinalityConstraints(num_intervals);
-//        
-//        
-//        
-//        auto t{0};
-//        for(auto& task_key : json["tasks"]) {
-//            
-//            
-//            auto lb{static_cast<int>(json["start_window"][task_key][0])};
-//            auto ub{static_cast<int>(json["start_window"][task_key][1])};
-//            auto dur{static_cast<int>(json["tasks_data"][task_key]["duration"])};
-//            auto s{model.addNumeric(lb,ub)};
-//            auto p{model.addConstant(dur)};
-//            auto e{model.addView(s,dur)};
-//            var_map[task_key] = s;
-//            
-//            std::cout << "task ";
-//            
-//            
-//            var_map[task_key].display(std::cout);
-//            
-//            std::cout << ": dur="
-//            << dur << " start window = " << lb << ".." << ub << std::endl;
-//            
-//            for(auto& team_key : json["teams"]) {
-//                auto r{static_cast<int>(json["teams_to_index"][team_key])};
-////                for(auto& task_key : json["tasks"]) {
-//                for(size_t x{0}; x<num_intervals; ++x) {
-//                    auto b{model.addBoolean()};
-//                    auto j{model.addInterval(s,e,p,b)};
-//                    
-//                    model.addDisjunctiveResourceUsage(j, r);
-//                    model.addCardinalityArgument(b, t);
-//                }
-//            }
-//            
-//            ++t;
-//            
-////            std::cout << s << " " << j << " " << var_map[task_key] << std::endl;
-//        }
-//        
-//        for(auto& task_key : json["tasks"]) {
-//            auto dur{static_cast<int>(json["tasks_data"][task_key]["duration"])};
-//            std::cout << "*prec ";
-//            var_map[task_key].display(std::cout);
-//            std::cout << " << ";
-//            model.makespan.display(std::cout);
-//            std::cout << std::endl;
-//            
-//            model.addPrecedence(var_map[task_key], model.makespan, dur);
-//            
-//            for(auto& successor_key : json["successors"][task_key]) {
-//                std::cout << "+prec " ;
-//                
-//                var_map[task_key].display(std::cout);
-//                
-//                std::cout << " << " ;
-//                var_map[successor_key].display(std::cout);
-//                
-//                std::cout << std::endl;
-//                
-//                model.addPrecedence(var_map[task_key], var_map[successor_key], dur);
-//            }
-//        }
-//        
-//        
-////        for(auto& team_key : json["teams"]) {
-////            auto r{static_cast<int>(json["teams_to_index"][team_key])};
-////            for(auto& task_key : json["tasks"]) {
-////                model.addDisjunctiveResourceUsage(var_map[task_key], r);
-////            }
-////        }
-//        
-//        
-//        for(auto &clique : json["same_allocation"]) {
-//            for(auto i : clique)
-//                for(auto j : clique)
-//                    if(var_map[i].id < var_map[j].id) {
-//                        for(size_t k{0}; k<num_resources; ++k) {
-//                            model.addSameAllocation(k * num_intervals + var_map[i].id-1, k * num_intervals + var_map[j].id-1);
-//                        }
-//                    }
-//        }
-//        
-//        
-////        for
-//        
-//        
-////        auto zero{model.addNumeric(0,0)};
-////        model.declareDisjunctiveResources(json["teams"].size());
-////        
-////        for(auto task_key : json["tasks"]) {
-////            auto s{model.addNumeric()};
-////            auto j{model.addFixedDurationIntervalFrom(s, json["tasks_data"][task_key]["duration"])};
-////        }
         
+        for(auto& task_key : json["tasks"]) {
+            model.post(intervals[interval_map[task_key]].end <= makespan);
+            for(auto& successor_key : json["successors"][task_key]) {
+                model.post(intervals[interval_map[task_key]].end <= intervals[interval_map[successor_key]].start);
+            }
+        }
+        
+        for(auto& tasks : json["same_allocation"]) {
+            for(auto ti{tasks.begin()}; ti!=tasks.end(); ++ti) {
+                auto i{interval_map[*ti]};
+                for(auto tj{ti+1}; tj!=tasks.end(); ++tj) {
+                    auto j{interval_map[*tj]};
+                    for(size_t k{0}; k<json["teams"].size(); ++k) {
+                        model.post(alternatives[i][k] == alternatives[j][k]);
+                    }
+                }
+            }
+        }
+        
+        for(auto& team_key : json["teams"]) {
+            auto r{static_cast<int>(json["teams_to_index"][team_key])};
+            auto& windows{json["calendar"][team_key]};
+            for(size_t i{0}; i<intervals.size(); ++i) {
+                auto affectation_ir{alternatives[i][r]};
+                model.post(affectation_ir.implies(intervals[i].end >= static_cast<int>(windows[0][0])));
+                for(size_t k{1}; k<windows.size(); ++k) {
+                    int end_prev{windows[k-1][1]};
+                    int beg_next{windows[k][0]};
+                    model.post(affectation_ir.implies((intervals[i].end <= end_prev) || (intervals[i].start >= beg_next)));
+                }
+                model.post(affectation_ir.implies((intervals[i].end <= static_cast<int>(windows.back()[1]))));
+            }
+        }
         
     } catch (std::exception &e) {
         std::cout.flush();

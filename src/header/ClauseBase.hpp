@@ -83,7 +83,7 @@ public:
     Clause<T> *add(const iter first, const iter last, const bool learnt = false);
 //    template <typename Iterable>
     Clause<T> *add(const std::vector<Literal<T>>& lits) {
-        add(lits.begin(), lits.end());
+        return add(lits.begin(), lits.end());
     }
     // helpers to handle any type of literal
     bool satisfied(const Literal<T>) const;
