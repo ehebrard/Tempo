@@ -20,6 +20,8 @@
 
 #include <iostream>
 #include <vector>
+#include <utility>
+#include <string>
 
 #include "Solver.hpp"
 #include "heuristics/Greedy.hpp"
@@ -37,7 +39,6 @@
 
 #include "heuristics/LNS/relaxation_policy_factories.hpp"
 #include "heuristics/LNS/PerfectRelaxationOracle.hpp"
-#include "heuristics/LNS/RelaxationEvaluator.hpp"
 #include "heuristics/warmstart.hpp"
 
 using namespace tempo;
@@ -124,11 +125,10 @@ int main(int argc, char *argv[]) {
     .decayConfig = lns::PolicyDecayConfig(), .numScheduleSlices = 4, .allTaskEdges = false
   };
   lns::RelaxPolicy policyType;
-  std::string optSolutionLoc;
   bool useOracle = false;
-  bool policyStats;
   double oracleEpsilon = 0;
   double sporadicIncrement = 0;
+  StatsConfig statsConfig{.displayStats = false, .regionTimeout = 0, .nRegionThreads = 0, .solPath = {}};
   cli::detail::configureParser(parser, cli::SwitchSpec("heuristic-profiling", "activate heuristic profiling",
                                                        profileHeuristic, false),
                                cli::ArgSpec("fix-decay", "relaxation ratio decay",
@@ -152,12 +152,18 @@ int main(int argc, char *argv[]) {
                                                policyParams.allTaskEdges, false),
                                cli::ArgSpec("lns-policy", "lns relaxation policy", true, policyType),
                                cli::ArgSpec("optimal-solution", "location of optimal solution (e.g. for oracle)", false,
-                                            optSolutionLoc),
+                                            statsConfig.solPath),
                                             cli::SwitchSpec("oracle", "use perfect relaxation oracle", useOracle, false),
                                cli::ArgSpec("oracle-epsilon", "LNS oracle policy epsilon", false, oracleEpsilon),
                                cli::ArgSpec("sporadic-increment", "sporadic root search probability increment", false,
                                             sporadicIncrement),
-                               cli::SwitchSpec("stats", "enable policy statistics", policyStats, false));
+                               cli::SwitchSpec("stats", "enable policy statistics", statsConfig.displayStats, false),
+                               cli::ArgSpec("local-optimum-timeout",
+                                            "timeout for search for local optimum (stats only)", false,
+                                            statsConfig.regionTimeout),
+                               cli::ArgSpec("local-optimum-threads",
+                                            "number of threads for local optimum search (stats only)", false,
+                                            statsConfig.nRegionThreads));
 
   parser.parse(argc, argv);
   Options opt = parser.getOptions();
@@ -310,17 +316,17 @@ int main(int argc, char *argv[]) {
             if (sporadicIncrement != 0) {
               std::cout << "-- root search probability increment " << sporadicIncrement << std::endl;
               runLNS(lns::make_sporadic_root_search(sporadicIncrement, std::move(policy)), S,
-                     objective, policyStats, optSolutionLoc);
+                     objective, statsConfig);
             } else {
-              runLNS(policy, S, objective, policyStats, optSolutionLoc);
+              runLNS(policy, S, objective, statsConfig);
             }
         } else {
             std::cout << "-- using perfect relaxation oracle" << std::endl;
-            const auto sol = serialization::deserializeFromFile<serialization::Solution<int>>(optSolutionLoc);
+            const auto sol = serialization::deserializeFromFile<serialization::Solution<int>>(statsConfig.solPath);
             lns::PerfectRelaxationOracle policy(toSolution(sol, opt), schedule.duration,
                                                 booleanVarsFromResources(resources),
                                                 policyParams.decayConfig.fixRatio, oracleEpsilon);
-            runLNS(policy, S, objective, policyStats, optSolutionLoc);
+            runLNS(policy, S, objective, statsConfig);
         }
     }
 

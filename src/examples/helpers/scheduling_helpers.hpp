@@ -19,7 +19,7 @@
 #include "util/printing.hpp"
 #include "util/Profiler.hpp"
 #include "Solution.hpp"
-#include "heuristics/LNS/RelaxationEvaluator.hpp"
+#include "heuristics/LNS/relaxation_evaluators.hpp"
 #include "util/parsing/scheduling_collection.hpp"
 
 
@@ -46,54 +46,72 @@ auto toSolution(const tempo::serialization::Solution<T> &solution,
     return tempo::Solution(*problem.solver);
 }
 
+struct StatsConfig {
+    bool displayStats; ///< whether to display policy stats
+    unsigned regionTimeout; ///< timout in ms for local optimum search (if 0, no local optimum stats)
+    unsigned nRegionThreads; ///< number of threads for local optimum search (if 0, no local optimum stats)
+    std::string solPath; ///< path to optimal solution (ignored if empty)
+};
+
 /**
  * @tparam Policy LNS relaxation policy type
  * @tparam T timing type
  * @param policy LNS relaxation policy
  * @param solver solver instance
  * @param objective objective variable
- * @param stats whether to record policy stats
- * @param solPath path to optimal solution (ignored if empty)
+ * @param stats policy stats config
  * @return elapsed time in ms
  */
 template<tempo::lns::relaxation_policy Policy, tempo::concepts::scalar T>
-auto runLNS(Policy &&policy, tempo::Solver<T> &solver,
-            tempo::MinimizationObjective<T> objective, bool stats, const std::string &solPath) {
+auto runLNS(Policy &&policy, tempo::Solver<T> &solver, tempo::MinimizationObjective<T> objective,
+            const StatsConfig stats) {
     namespace ser = tempo::serialization;
     using namespace tempo;
     util::StopWatch sw;
-    if (not stats) {
+    if (not stats.displayStats) {
         solver.largeNeighborhoodSearch(objective, std::forward<Policy>(policy));
         return sw.elapsed<std::chrono::milliseconds>();
     }
 
     std::optional<Solution<Time>> solution;
-    if (not solPath.empty()) {
-        const auto sol = ser::deserializeFromFile<ser::Solution<int>>(solPath);
+    if (not stats.solPath.empty()) {
+        const auto sol = ser::deserializeFromFile<ser::Solution<int>>(stats.solPath);
         solution = toSolution(sol, solver.getOptions());
     }
 
-    auto evalPolicy = lns::make_evaluator(std::forward<Policy>(policy), std::move(solution));
+    auto evalPolicy = lns::make_region_evaluator<T>(
+        lns::make_evaluator(std::forward<Policy>(policy), std::move(solution)), solver.getOptions(),
+        stats.regionTimeout, stats.nRegionThreads);
     sw.start();
     solver.largeNeighborhoodSearch(objective, evalPolicy);
+    std::vector<lns::RegionResult<T>> localOptima;
+    localOptima.reserve(evalPolicy.getResults().size());
+    std::cout << "-- waiting for local optima...\n";
+    for (auto &result : evalPolicy.getResults()) {
+        localOptima.emplace_back(result.get());
+    }
+
+    std::cout << "-- local optima: ";
+    printRange(localOptima, std::cout) << "\n";
+    const auto &statsPolicy = evalPolicy.getBasePolicy();
     std::cout << "-- assumptions per run: ";
-    printRange(evalPolicy.assumptionsPerRun(), std::cout) << "\n";
+    printRange(statsPolicy.assumptionsPerRun(), std::cout) << "\n";
     std::cout << "-- runs: ";
-    printRange(evalPolicy.runStatus(), std::cout) << "\n";
+    printRange(statsPolicy.runStatus(), std::cout) << "\n";
     std::cout << "-- fails per run: ";
-    printRange(evalPolicy.failsPerRun(), std::cout) << "\n";
+    printRange(statsPolicy.failsPerRun(), std::cout) << "\n";
     std::cout << "-- search time per run: ";
-    printRange(evalPolicy.searchTimesPerRun(), std::cout) << "\n";
+    printRange(statsPolicy.searchTimesPerRun(), std::cout) << "\n";
     std::cout << "-- assumption time per run: ";
-    printRange(evalPolicy.assumptionTimePerRun(), std::cout) << "\n";
+    printRange(statsPolicy.assumptionTimePerRun(), std::cout) << "\n";
     std::cout << "-- acc: ";
-    printRange(evalPolicy.assumptionAccuracyPerRun(), std::cout) << "\n";
+    printRange(statsPolicy.assumptionAccuracyPerRun(), std::cout) << "\n";
     std::cout << "-- normalized acc: ";
-    printRange(evalPolicy.normalizedAssumptionAccuracyPerRun(), std::cout) << "\n";
+    printRange(statsPolicy.normalizedAssumptionAccuracyPerRun(), std::cout) << "\n";
     std::cout << "-- solution discrepancy: ";
-    printRange(evalPolicy.solutionDiscrepancy(), std::cout) << "\n";
-    std::cout << "-- policy run accuracy: " << evalPolicy.runAccuracy() << std::endl;
-    std::cout << "-- policy assumption accuracy: " << evalPolicy.totalAssumptionAccuracy() << std::endl;
+    printRange(statsPolicy.solutionDiscrepancy(), std::cout) << "\n";
+    std::cout << "-- policy run accuracy: " << statsPolicy.runAccuracy() << std::endl;
+    std::cout << "-- policy assumption accuracy: " << statsPolicy.totalAssumptionAccuracy() << std::endl;
     return sw.elapsed<std::chrono::milliseconds>();
 }
 
