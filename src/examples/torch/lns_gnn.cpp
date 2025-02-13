@@ -50,7 +50,10 @@ int main(int argc, char **argv) {
     bool gnnFallback = false;
     std::string solutionDest;
     std::optional<std::size_t> solutionPoolSize;
-    StatsConfig statsConfig{.displayStats = false, .regionTimeout = 0, .nRegionThreads = 0, .solPath = {}};
+    StatsConfig statsConfig{
+        .displayStats = false, .regionTimeout = 0, .nRegionThreads = 0, .solPath = {},
+        .regionExecutionPolicy = lns::ExecutionPolicy::Lazy
+    };
     auto opt = cli::parseOptions(argc, argv,
                                  cli::SwitchSpec("dr", "use destroy-repair policy", useDRPolicy, false),
                                  cli::ArgSpec("gnn-loc", "Location of the GNN model", false, gnnLocation),
@@ -74,8 +77,8 @@ int main(int argc, char **argv) {
                                  cli::ArgSpec("num-slices", "number of schedule slices", false,
                                               destroyParameters.numScheduleSlices),
                                  cli::SwitchSpec("fix-all-task-edges",
-                                               "whether to fix all task edges or only those between fixed tasks",
-                                               destroyParameters.allTaskEdges, false),
+                                                 "whether to fix all task edges or only those between fixed tasks",
+                                                 destroyParameters.allTaskEdges, false),
                                  cli::ArgSpec("sporadic-increment", "probability increment on fail for root search",
                                               false, sporadicIncrement),
                                  cli::ArgSpec("fix-ratio", "percentage of literals to relax", false,
@@ -111,7 +114,10 @@ int main(int argc, char **argv) {
                                               statsConfig.regionTimeout),
                                  cli::ArgSpec("local-optimum-threads",
                                               "number of threads for local optimum search (stats only)", false,
-                                              statsConfig.nRegionThreads));
+                                              statsConfig.nRegionThreads),
+                                 cli::ArgSpec("local-optimum-exec",
+                                              "execution policy for local optimum search (stats only)", false,
+                                              statsConfig.regionExecutionPolicy));
     auto problemInfo = loadSchedulingProblem(opt);
     torch::set_num_threads(numThreads);
     bool optimal = false;

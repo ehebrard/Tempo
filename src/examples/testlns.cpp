@@ -128,7 +128,10 @@ int main(int argc, char *argv[]) {
   bool useOracle = false;
   double oracleEpsilon = 0;
   double sporadicIncrement = 0;
-  StatsConfig statsConfig{.displayStats = false, .regionTimeout = 0, .nRegionThreads = 0, .solPath = {}};
+  StatsConfig statsConfig{
+    .displayStats = false, .regionTimeout = 0, .nRegionThreads = 0, .solPath = {},
+    .regionExecutionPolicy = lns::ExecutionPolicy::Lazy
+  };
   cli::detail::configureParser(parser, cli::SwitchSpec("heuristic-profiling", "activate heuristic profiling",
                                                        profileHeuristic, false),
                                cli::ArgSpec("fix-decay", "relaxation ratio decay",
@@ -163,7 +166,10 @@ int main(int argc, char *argv[]) {
                                             statsConfig.regionTimeout),
                                cli::ArgSpec("local-optimum-threads",
                                             "number of threads for local optimum search (stats only)", false,
-                                            statsConfig.nRegionThreads));
+                                            statsConfig.nRegionThreads),
+                               cli::ArgSpec("local-optimum-exec",
+                                            "execution policy for local optimum search (stats only)", false,
+                                            statsConfig.regionExecutionPolicy));
 
   parser.parse(argc, argv);
   Options opt = parser.getOptions();

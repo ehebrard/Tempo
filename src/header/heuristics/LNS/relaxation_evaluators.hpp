@@ -190,6 +190,15 @@ namespace tempo::lns {
     using RegionResult = std::pair<T, RegionStatus>;
 
     /**
+     * @brief When to do local search
+     */
+    enum class ExecutionPolicy {
+        Blocking, ///< local search pauses the actual search for its duration
+        Lazy, ///< local search is deferred until the result is needed
+        MultiThreaded ///< local search is performed during search in a separate thread pool
+    };
+
+    /**
      * @brief Relaxation policy wrapper that performs a deep search for each sub problem obtained by relaxation
      * @tparam T timing type
      * @tparam Policy base policy type
@@ -201,19 +210,23 @@ namespace tempo::lns {
         ThreadPool tp;
         std::vector<std::future<RegionResult<T>>> localOptima{};
         unsigned timeout;
+        ExecutionPolicy policy;
     public:
         /**
          * Ctor
          * @tparam Args policy ctor argument types
          * @param options solver options
          * @param timeout timout for local search in ms (if 0, no local search is performed)
-         * @param numThreads number of threads to use for local searches (if 0, no local search is performed)
+         * @param executionPolicy execution policy for running local search
+         * @param numThreads number of threads to use for local searches (if 0, local search is performed at end of search)
          * @param args arguments for base policy ctor
          */
         template<typename... Args>
-        RelaxationRegionEvaluator(Options options, unsigned timeout, unsigned numThreads, Args &&... args)
-            : basePolicy(std::forward<Args>(args)...), options(std::move(options)), tp(numThreads),
-              timeout(timeout) {}
+        RelaxationRegionEvaluator(Options options, unsigned timeout, ExecutionPolicy executionPolicy,
+                                  unsigned numThreads, Args &&... args)
+            : basePolicy(std::forward<Args>(args)...), options(std::move(options)),
+              tp(executionPolicy != ExecutionPolicy::MultiThreaded ? 0 : numThreads),
+              timeout(timeout), policy(executionPolicy) {}
 
         /**
          * Gets the underlying relaxation policy
@@ -233,15 +246,15 @@ namespace tempo::lns {
         template<assumption_interface AI>
         void relax(AI &proxy) {
             using enum RegionStatus;
-            if (tp.numWorkers() == 0 or timeout == 0) {
+            if (timeout == 0) {
                 basePolicy.relax(proxy);
                 return;
             }
 
             AssumptionCollector<T, AI> ac(proxy);
             basePolicy.relax(ac);
-            localOptima.emplace_back(tp.submit(
-                [this, state = ac.getState(), assumptions = std::move(ac.getAssumptions())]() -> RegionResult<T> {
+            auto job = [this, state = ac.getState(),
+                        assumptions = std::move(ac.getAssumptions())]() -> RegionResult<T> {
                 if (state == AssumptionState::Fail) {
                     return {0, Unsat};
                 } else if (state == AssumptionState::Empty) {
@@ -270,7 +283,20 @@ namespace tempo::lns {
                 }
 
                 return {0, cancelled ? Cancelled : Unsat};
-            }));
+            };
+
+            switch (policy) {
+                case ExecutionPolicy::Blocking:
+                    localOptima.emplace_back(std::async(std::launch::deferred, std::move(job)));
+                    localOptima.back().wait();
+                    break;
+                case ExecutionPolicy::Lazy:
+                    localOptima.emplace_back(std::async(std::launch::deferred, std::move(job)));
+                    break;
+                case ExecutionPolicy::MultiThreaded:
+                    localOptima.emplace_back(tp.submit(std::move(job)));
+                    break;
+            }
         }
 
         void notifySuccess(unsigned numFails) {
@@ -306,12 +332,14 @@ namespace tempo::lns {
      * @param policy base relaxation policy
      * @param options solver options
      * @param timeout timout for local search
+     * @param execPolicy local search execution policy
      * @param numThreads number of threads to use for local search
      * @return
      */
     template<concepts::scalar T, relaxation_policy Policy>
-    auto make_region_evaluator(Policy &&policy, Options options, unsigned timeout, unsigned numThreads) {
-        return RelaxationRegionEvaluator<T, Policy>(std::move(options), timeout, numThreads,
+    auto make_region_evaluator(Policy &&policy, Options options, unsigned timeout, ExecutionPolicy execPolicy,
+                               unsigned numThreads) {
+        return RelaxationRegionEvaluator<T, Policy>(std::move(options), timeout, execPolicy, numThreads,
                                                     std::forward<Policy>(policy));
     }
 }

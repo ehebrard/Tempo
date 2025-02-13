@@ -51,6 +51,7 @@ struct StatsConfig {
     unsigned regionTimeout; ///< timout in ms for local optimum search (if 0, no local optimum stats)
     unsigned nRegionThreads; ///< number of threads for local optimum search (if 0, no local optimum stats)
     std::string solPath; ///< path to optimal solution (ignored if empty)
+    tempo::lns::ExecutionPolicy regionExecutionPolicy; ///< execution policy for local search
 };
 
 /**
@@ -81,7 +82,7 @@ auto runLNS(Policy &&policy, tempo::Solver<T> &solver, tempo::MinimizationObject
 
     auto evalPolicy = lns::make_region_evaluator<T>(
         lns::make_evaluator(std::forward<Policy>(policy), std::move(solution)), solver.getOptions(),
-        stats.regionTimeout, stats.nRegionThreads);
+        stats.regionTimeout, stats.regionExecutionPolicy, stats.nRegionThreads);
     sw.start();
     solver.largeNeighborhoodSearch(objective, evalPolicy);
     std::vector<lns::RegionResult<T>> localOptima;
