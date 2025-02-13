@@ -34,6 +34,7 @@ namespace tempo::lns {
         std::vector<unsigned> numFails{};
         std::vector<unsigned> discrepancy{};
         std::vector<unsigned> solverRunTimes{};
+        std::vector<unsigned> assumptionTime{};
         std::vector<bool> successfulRuns{};
         util::StopWatch stopWatch;
         unsigned long totalSet = 0;
@@ -68,9 +69,10 @@ namespace tempo::lns {
                 discrepancy.emplace_back(discr);
             }
 
-            stopWatch.start();
             AssumptionCollector<T, AI> ac(proxy);
+            stopWatch.start();
             policy.relax(ac);
+            assumptionTime.emplace_back(stopWatch.elapsed<std::chrono::milliseconds>());
             const auto &assumptions = ac.getAssumptions();
             totalSet += assumptions.size();
             assumptionSize.emplace_back(assumptions.size());
@@ -83,6 +85,8 @@ namespace tempo::lns {
 
                 errors.emplace_back(numErrors);
             }
+
+            stopWatch.start();
         }
 
         void notifySuccess(unsigned numFails) {
@@ -156,6 +160,7 @@ namespace tempo::lns {
         const auto &failsPerRun() const noexcept { return numFails; }
 
         const auto &searchTimesPerRun() const noexcept { return solverRunTimes; }
+        const auto &assumptionTimePerRun() const noexcept { return assumptionTime; }
     };
 
     /**
