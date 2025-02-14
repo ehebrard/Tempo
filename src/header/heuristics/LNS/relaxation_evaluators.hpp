@@ -23,6 +23,7 @@
 #include "relaxation_interface.hpp"
 #include "Solution.hpp"
 #include "Model.hpp"
+#include "Objective.hpp"
 
 namespace tempo::lns {
     /**
@@ -211,6 +212,7 @@ namespace tempo::lns {
         std::vector<std::future<RegionResult<T>>> localOptima{};
         unsigned timeout;
         ExecutionPolicy policy;
+        MinimizationObjective<T> objective;
     public:
         /**
          * Ctor
@@ -219,14 +221,15 @@ namespace tempo::lns {
          * @param timeout timout for local search in ms (if 0, no local search is performed)
          * @param executionPolicy execution policy for running local search
          * @param numThreads number of threads to use for local searches (if 0, local search is performed at end of search)
+         * @param objective search objective
          * @param args arguments for base policy ctor
          */
         template<typename... Args>
-        RelaxationRegionEvaluator(Options options, unsigned timeout, ExecutionPolicy executionPolicy,
-                                  unsigned numThreads, Args &&... args)
+        RelaxationRegionEvaluator(Options options, MinimizationObjective<T> objective, unsigned timeout,
+                                  ExecutionPolicy executionPolicy, unsigned numThreads, Args &&... args)
             : basePolicy(std::forward<Args>(args)...), options(std::move(options)),
               tp(executionPolicy != ExecutionPolicy::MultiThreaded ? 0 : numThreads),
-              timeout(timeout), policy(executionPolicy) {}
+              timeout(timeout), policy(executionPolicy), objective(objective) {}
 
         /**
          * Gets the underlying relaxation policy
@@ -253,7 +256,7 @@ namespace tempo::lns {
 
             AssumptionCollector<T, AI> ac(proxy);
             basePolicy.relax(ac);
-            auto job = [this, state = ac.getState(),
+            auto job = [this, state = ac.getState(), ub = proxy.getSolver().numeric.lower(objective.X) - 1,
                         assumptions = std::move(ac.getAssumptions())]() -> RegionResult<T> {
                 if (state == AssumptionState::Fail) {
                     return {0, Unsat};
@@ -263,6 +266,7 @@ namespace tempo::lns {
 
                 auto opt = options;
                 opt.verbosity = Options::SILENT;
+                opt.ub = ub;
                 auto p = loadSchedulingProblem(opt);
                 AssumptionProxy s(*p.solver);
                 s.makeAssumptions(assumptions);
@@ -337,9 +341,9 @@ namespace tempo::lns {
      * @return
      */
     template<concepts::scalar T, relaxation_policy Policy>
-    auto make_region_evaluator(Policy &&policy, Options options, unsigned timeout, ExecutionPolicy execPolicy,
-                               unsigned numThreads) {
-        return RelaxationRegionEvaluator<T, Policy>(std::move(options), timeout, execPolicy, numThreads,
+    auto make_region_evaluator(Policy &&policy, Options options, MinimizationObjective<T> obj, unsigned timeout,
+                               ExecutionPolicy execPolicy, unsigned numThreads) {
+        return RelaxationRegionEvaluator<T, Policy>(std::move(options), obj, timeout, execPolicy, numThreads,
                                                     std::forward<Policy>(policy));
     }
 }
