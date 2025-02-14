@@ -11,6 +11,7 @@
 
 #include <vector>
 #include <ranges>
+#include <tuple>
 #include <Iterators.hpp>
 
 #include "util/traits.hpp"
@@ -188,7 +189,7 @@ namespace tempo::lns {
     PENUM(RegionStatus, Optimal, Unsat, Cancelled, Empty)
 
     template<concepts::scalar T>
-    using RegionResult = std::pair<T, RegionStatus>;
+    using RegionResult = std::tuple<T, T, RegionStatus>;
 
     /**
      * @brief When to do local search
@@ -256,17 +257,17 @@ namespace tempo::lns {
 
             AssumptionCollector<T, AI> ac(proxy);
             basePolicy.relax(ac);
-            auto job = [this, state = ac.getState(), ub = proxy.getSolver().numeric.lower(objective.X) - 1,
+            auto job = [this, state = ac.getState(), ub = proxy.getSolver().numeric.lower(objective.X),
                         assumptions = std::move(ac.getAssumptions())]() -> RegionResult<T> {
                 if (state == AssumptionState::Fail) {
-                    return {0, Unsat};
+                    return {ub, 0, Unsat};
                 } else if (state == AssumptionState::Empty) {
-                    return {0, Empty};
+                    return {ub, 0, Empty};
                 }
 
                 auto opt = options;
                 opt.verbosity = Options::SILENT;
-                opt.ub = ub;
+                opt.ub = ub - 1;
                 auto p = loadSchedulingProblem(opt);
                 AssumptionProxy s(*p.solver);
                 s.makeAssumptions(assumptions);
@@ -283,10 +284,10 @@ namespace tempo::lns {
                 cancelled |= KillHandler::instance().signalReceived();
                 if (p.solver->numeric.hasSolution()) {
                     auto makespan = p.solver->numeric.lower(p.instance.schedule().duration);
-                    return {makespan, cancelled ? Cancelled : Optimal};
+                    return {ub, makespan, cancelled ? Cancelled : Optimal};
                 }
 
-                return {0, cancelled ? Cancelled : Unsat};
+                return {ub, 0, cancelled ? Cancelled : Unsat};
             };
 
             switch (policy) {
