@@ -111,6 +111,7 @@ public:
     //@{
     // number of Boolean variables
     size_t size() const;
+    void resize(const size_t n);
     
     // returns a literal from a sign and a variable
     Literal<T> getLiteral(const bool s, const var_t x) const;
@@ -196,7 +197,7 @@ public:
     BooleanVar<T> newDisjunct(const DistanceConstraint<T> &d1,
                               const DistanceConstraint<T> &d2);
     void reserveVarMemory();
-    void reserveVariablesMemory(const size_t n);
+    void resize(const size_t n);
     //@}
     
     /**
@@ -299,6 +300,7 @@ public:
      */
     //@{
     size_t size() const;
+    void resize(const size_t n);
     void set(Literal<T> l);
     const std::vector<T> &get(const int b) const;
     //@}
@@ -309,128 +311,6 @@ public:
     
 };
 
-
-
-////! Numeric variables and literals manager
-///*!
-// Responsible for:
-// Storage (memory)
-// Read/write access
-// */
-//template<typename T>
-//class NumericStore {
-//    
-//public:
-//    /**
-//     * @name constructors
-//     */
-//    //@{
-//    NumericStore(Solver<T> &s);
-//    ~NumericStore() = default;
-//    //@}
-//    
-//    /**
-//     * @name value accessors
-//     */
-//    //@{
-//    // solution (do not use in search)
-//    T upper(const NumericVar<T> x) const;
-//    T lower(const NumericVar<T> x) const;
-//    
-//    // for use in search
-//    bool falsified(const Literal<T> l) const;
-//    bool satisfied(const Literal<T> l) const;
-//    T upper(const var_t x) const;
-//    T lower(const var_t x) const;
-//    //@}
-//    
-//    /**
-//     * @name Boolean variable constructors
-//     */
-//    //@{
-//    // declare a new numeric variable
-//    NumericVar<T> newVar(const T b = Constant::Infinity<T>);
-//    //    NumericVar<T> newVar(const T lb, const T ub);
-//    //@}
-//    
-//    /**
-//     * @name utils
-//     */
-//    //@{
-//    Literal<T> getLiteral(const bool s, const var_t x) const;
-//    Literal<T> previousBound(const Literal<T> l) const;
-//
-//    index_t litIndex(const Literal<T> l) const;
-//    index_t lastLitIndex(const bool s, const var_t x) const;
-//    
-//    size_t size() const;
-//    
-//    void set(Literal<T> l);
-//    void undo(Literal<T> l);
-//    
-//    const std::vector<T> &get(const int b) const;
-//    //@}
-//
-//    /**
-//     * @name debug
-//     */
-//    //@{
-//    std::ostream &displayLiteralTrail(std::ostream &os, const bool s,
-//                                      const var_t x) const {
-//        for (auto i : bound_index[s][x]) {
-//            os << " @" << i << ": " << solver.getLiteral(i);
-//        }
-//        return os;
-//    }
-//    //@}
-//    
-//    // saves the current solution
-//    void saveSolution() {
-//      best_solution[bound::lower] = bound[bound::lower];
-//      best_solution[bound::upper] = bound[bound::upper];
-//    }
-//    bool hasSolution() const { return not best_solution[bound::lower].empty(); }
-//    auto bestSolution(const int b) const noexcept -> const std::vector<T> & {
-//      return best_solution[b];
-//    }
-//    //@}
-//
-//#ifdef LEARNING_RATE_STUFF
-//    //@{
-//    // learning rate stuff
-//    double getLearningRate(const var_t x) const;
-//    void updateLearningRate(const var_t x);
-//    void updateActivity(const var_t x);
-//    //@}
-//#endif
-//
-//  private:
-//    Solver<T> &solver;
-//    
-//    // [for each numeric signed_var] the current bounds
-//    std::vector<T> bound[2];
-//    
-//    // [for each numeric signed_var] the bound in the best solution
-//    std::vector<T> best_solution[2];
-//    
-//    // [for each numeric signed_var] the current index in the 'propagation_events'
-//    // stack
-//    std::vector<std::vector<index_t>> bound_index[2];
-//
-//#ifdef LEARNING_RATE_STUFF
-//    // learning rate stuff
-//    double alpha{.4};
-//
-//    // [for each variable] the number of times it participated to a conflict
-//    std::vector<std::vector<long unsigned int>> participated;
-//
-//    // [for each variable] the number of conflicts when it was assigned
-//    std::vector<std::vector<long unsigned int>> assigned_at;
-//
-//    // [for each variable] its current learning rate
-//    std::vector<double> learning_rate;
-//#endif
-//};
 
 
 //! Numeric variables and literals manager
@@ -473,7 +353,7 @@ public:
     // declare a new numeric variable
     NumericVar<T> newVar(const T b = Constant::Infinity<T>);
     void reserveVarMemory();
-    void reserveVariablesMemory(const size_t n);
+    void resize(const size_t n);
     //    NumericVar<T> newVar(const T lb, const T ub);
     //@}
     
@@ -824,12 +704,12 @@ public:
     // index of the first literal that is not a ground truth
     index_t ground_stamp{1};
     // index of the first literal that is not an assumption nor a ground truth
-    index_t assumption_stamp{1};
+    index_t assumption_stamp{0};
 
     void updateGroundTruth() {
-      if (assumption_stamp == 1 and env.level() == 0) {
+      if (assumption_stamp == 0 and env.level() == 0) {
         ground_stamp = numLiteral();
-      }
+      } else ground_stamp = assumption_stamp;
     }
 
     void saveSolution();
@@ -935,6 +815,13 @@ public:
   private:
     // reversible strutures
     BacktrackEnvironment env;
+    
+    Reversible<size_t> boolean_size;
+    Reversible<size_t> numeric_size;
+    Reversible<size_t> constraint_size;
+//    std::vector<size_t> boolean_size_trail;
+//    std::vector<size_t> numeric_size_trail;
+//    std::vector<size_t> constraint_size_trail;
     
 public:
     /**
@@ -1571,6 +1458,12 @@ template <typename T> size_t StaticBooleanStore<T>::size() const {
 return edge_index.size();
 }
 
+template <typename T>
+void StaticBooleanStore<T>::resize(const size_t n) {
+    edge_index.resize(n, 0);
+    edges.resize(2*n, Constant::NoEdge<T>);
+}
+
 template <typename T> BooleanVar<T> StaticBooleanStore<T>::newVar(const info_t s) {
     BooleanVar<T> x{static_cast<var_t>(size())};
     edge_index.push_back(s);
@@ -1602,7 +1495,7 @@ index_t BooleanStore<T>::litIndex(const Literal<T> l) const {
 template <typename T> void BooleanStore<T>::copy(StaticBooleanStore<T>& s) {
     StaticBooleanStore<T>::edge_index = s.getEdgeIndex();
     StaticBooleanStore<T>::edges = s.getEdges();
-    reserveVariablesMemory(s.size());
+    resize(s.size());
     set(makeBooleanLiteral<T>(true, 0));
 }
 
@@ -1625,7 +1518,10 @@ template <typename T> void BooleanStore<T>::reserveVarMemory() {
 #endif
 }
 
-template <typename T> void BooleanStore<T>::reserveVariablesMemory(const size_t n) {
+template <typename T> void BooleanStore<T>::resize(const size_t n) {
+    
+//    StaticBooleanStore<T>::resize(n);
+    
     propagation_stamp.resize(n,Constant::NoIndex);
     polarity.resize(2*n,false);
     
@@ -1748,6 +1644,12 @@ template <typename T> StaticNumericStore<T>::StaticNumericStore() {}
 
 template <typename T> size_t StaticNumericStore<T>::size() const {
     return bound[bound::lower].size();
+}
+
+template <typename T>
+void StaticNumericStore<T>::resize(const size_t n) {
+    bound[bound::lower].resize(n, Constant::Infinity<T>);
+    bound[bound::upper].resize(n, Constant::Infinity<T>);
 }
 
 template <typename T> NumericVar<T> StaticNumericStore<T>::newVar(const T b) {
@@ -1973,10 +1875,12 @@ bool StaticNumericStore<T>::satisfied(const Literal<T> l) const {
 template <typename T> NumericStore<T>::NumericStore(Solver<T> &s) : solver(s) {}
 
 template <typename T> void NumericStore<T>::reserveVarMemory() {
-    reserveVariablesMemory(bound_index[bound::lower].size()+1);
+    resize(bound_index[bound::lower].size()+1);
 }
 
-template <typename T> void NumericStore<T>::reserveVariablesMemory(const size_t n) {
+template <typename T> void NumericStore<T>::resize(const size_t n) {
+    
+//    StaticNumericStore<T>::resize(n);
     
     auto i{bound_index[bound::lower].size()};
     
@@ -2130,7 +2034,11 @@ index_t NumericStore<T>::litIndex(const Literal<T> l) const {
  */
 template <typename T>
 Solver<T>::Solver()
-    : ReversibleObject(&env), boolean(*this), numeric(*this), clauses(*this),
+    : ReversibleObject(&env),
+boolean_size(0, &env),
+numeric_size(0, &env),
+constraint_size(0, &env),
+boolean(*this), numeric(*this), clauses(*this),
       core(&env), boolean_search_vars(0, &env), numeric_search_vars(0, &env),
       propag_pointer(1, &env), propagation_queue(constraints),
       boolean_constraints(&env), numeric_constraints(&env),
@@ -2143,6 +2051,11 @@ Solver<T>::Solver()
   // pointed-to by all constants
   _newNumeric_(0, 0);
   seed(options.seed);
+          
+          
+//          boolean_size_trail.push_back(0);
+//          numeric_size_trail.push_back(0);
+//          constraint_size_trail.push_back(0);
 }
 
 template <typename T> Solver<T>::~Solver() {
@@ -2159,7 +2072,11 @@ template <typename T> Solver<T>::~Solver() {
  */
 template <typename T>
 Solver<T>::Solver(Options opt)
-    : ReversibleObject(&env), boolean(*this), numeric(*this), clauses(*this),
+    : ReversibleObject(&env),
+boolean_size(0, &env),
+numeric_size(0, &env),
+constraint_size(0, &env),
+boolean(*this), numeric(*this), clauses(*this),
       core(&env), boolean_search_vars(0, &env), numeric_search_vars(0, &env),
       options(std::move(opt)), rdecisions(&env), propag_pointer(1, &env),
       propagation_queue(constraints), boolean_constraints(&env),
@@ -2173,6 +2090,10 @@ Solver<T>::Solver(Options opt)
   // pointed-to by all constants
   _newNumeric_(0, 0);
   seed(options.seed);
+          
+//          boolean_size_trail.push_back(0);
+//          numeric_size_trail.push_back(0);
+//          constraint_size_trail.push_back(0);
 
 #ifdef DBG_CL
     if (options.dbg_file != "")
@@ -2485,7 +2406,7 @@ void Solver<T>::setBoolean(Literal<T> l, const Explanation<T> &e) {
 #endif
     
     if (boolean_search_vars.has(l.variable()))
-        boolean_search_vars.remove_back(l.variable());
+        boolean_search_vars.remove_front(l.variable());
 }
 
 template <typename T>
@@ -3636,14 +3557,15 @@ template <typename T> void Solver<T>::branchRight() {
 }
 
 template <typename T> void Solver<T>::initializeSearch() {
+    
+    start_time = cpu_time();
+    stopWatch.start();
+
+    if (/*not initialized and*/ options.verbosity >= Options::QUIET) {
+        displayHeader(std::cout);
+    }
+
     if(not initialized) {
-        start_time = cpu_time();
-        stopWatch.start();
-        
-        if (/*not initialized and*/ options.verbosity >= Options::QUIET) {
-            displayHeader(std::cout);
-        }
-        
         post(&clauses);
         
         restartPolicy.initialize();
@@ -3658,6 +3580,23 @@ template <typename T> void Solver<T>::initializeSearch() {
 
         initialized = true;
     }
+    
+    
+    std::cout << "INIT:\n";
+    std::cout << boolean_size << " / " << boolean.size() << std::endl;
+    std::cout << numeric_size << " / " << numeric.size() << std::endl;
+    std::cout << constraint_size << " / " << constraints.size() << std::endl;
+  
+    assert(boolean.size() > boolean_size);
+    assert(numeric.size() > numeric_size);
+    assert(constraints.size() >= constraint_size);
+    
+    boolean_size = boolean.size();
+    numeric_size = numeric.size();
+    constraint_size = constraints.size();
+    
+    
+//    heuristic.notifyStartSearch(*this);
 }
 
 template<typename T>
@@ -3928,7 +3867,8 @@ template <typename T> void Solver<T>::makeAssumption(const Literal<T> lit) {
   initializeSearch();
   saveState();
 
-  assumption_stamp = numLiteral();
+  if(assumption_stamp == 0)
+     assumption_stamp = numLiteral();
 
   set(lit);
 
@@ -4131,6 +4071,23 @@ template <typename T> int Solver<T>::saveState() {
 
 template <typename T> void Solver<T>::restoreState(const int l) {
     env.restore(l);
+    
+    if(boolean_size < boolean.size()) {
+        boolean.resize(boolean_size);
+    }
+    if(numeric_size < numeric.size()) {
+        numeric.resize(numeric_size);
+    }
+    const size_t csize{constraint_size};
+    while(csize < constraints.size()) {
+        delete constraints.back();
+        constraints.pop_back();
+    }
+    
+    std::cout << "RESTORESTATE:\n";
+    std::cout << boolean_size << " / " << boolean.size() << std::endl;
+    std::cout << numeric_size << " / " << numeric.size() << std::endl;
+    std::cout << constraint_size << " / " << constraints.size() << std::endl;
 }
 
 template <typename T> void Solver<T>::undo() {
@@ -4479,12 +4436,12 @@ std::ostream &Solver<T>::displayDomains(std::ostream &os) const {
 
 template <typename T>
 std::ostream &Solver<T>::displayBranches(std::ostream &os) const {
-    os << " " << boolean_search_vars.capacity() << " Boolean search vars";
+    os << " " << boolean_search_vars.size() + boolean_search_vars.frontsize() << " Boolean search vars";
     if(boolean.size() > boolean_search_vars.capacity())
         os << " out of " << boolean.size() ;
-    if(boolean_search_vars.backsize() > 0)
-        os << ", (" << boolean_search_vars.backsize() << ") units:";
-    for (auto b{boolean_search_vars.bbegin()}; b!=boolean_search_vars.bend(); ++b) {
+    if(boolean_search_vars.frontsize() > 0)
+        os << ", (" << boolean_search_vars.frontsize() << ") units:";
+    for (auto b{boolean_search_vars.fbegin()}; b!=boolean_search_vars.fend(); ++b) {
       os << " " << pretty(boolean.getLiteral(boolean.isTrue(*b), *b)) ;
     }
     

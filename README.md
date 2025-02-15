@@ -27,8 +27,23 @@ Executables usually require a positional argument standing for the instance file
 
 
 
-## DEBUG CLAUSE LEARNING
+## Debugging Clause-learning
 1/ define the macro DBG_CL X (X is a number standing for the maximum number of generated clauses to debug)
 2/ run tempo_scheduler with the option --dbg <filename> (it outputs clauses in <filename>)
 3/ run the same cmd line as above, but with 'clausecheck' instead of tempo_scheduler
+
+
+
+
+## Design Concepts
+
+### Model
+
+The important modeling concepts are 'BooleanVar', 'NumericVar' and 'ExpressionImpl'.
+- BooleanVar and NumericVar are handles for variable and expression objects. Their role is 1/ to make modeling easier by allowing unrestricted nested expressions, and 2/ to provide a mapping to internal solver representation in order to retrieve information after processing. If they are variables, their id() is variable identifier. If they are expressions, they point to an expression object. 
+    - BooleanVar: x.post(Solver) post the constraint x == true (if x is an expression it is extracted first)
+    - BooleanVar and NumericVar: x.extract(Solver), if x is a variable, does nothing. If x is an expression e, then extract e; turn x into a variable and post the constraint x == e
+- ExpressionImpl are interfaces for modeling expression objects. 
+
+### Heuristics
 

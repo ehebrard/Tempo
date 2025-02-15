@@ -50,7 +50,11 @@ namespace tempo::heuristics {
         ~GapOverActivity() = default;
 
         template<concepts::scalar T>
-        [[nodiscard]] double getCost(const var_t x, const Solver<T> &solver) const {
+        [[nodiscard]] double getCost(const var_t x, const Solver<T> &solver) {
+            
+            activity.resize(solver);
+            
+            
             //@TODO: there shoud be a normalization thingy and Boolean variables without semantic should get the highest value
             double dom{1};
             if (solver.boolean.hasSemantic(x)) {
@@ -79,7 +83,7 @@ namespace tempo::heuristics {
          * @return variable according to criteria described above
          */
         template<concepts::scalar T>
-        [[nodiscard]] var_t chooseBest(var_t x, var_t y, const Solver<T> &solver) const {
+        [[nodiscard]] var_t chooseBest(var_t x, var_t y, const Solver<T> &solver) {
             return getCost(x, solver) <= getCost(y, solver) ? x : y;
         }
 
@@ -90,7 +94,7 @@ namespace tempo::heuristics {
          * @todo currently only selects boolean variables
          */
         template<concepts::scalar T>
-        auto nextVariable(const Solver<T> &solver) const -> VariableSelection {
+        auto nextVariable(const Solver<T> &solver) -> VariableSelection {
             return {this->bestVariable(solver.getBranch(), solver), VariableType::Boolean};
         }
 
