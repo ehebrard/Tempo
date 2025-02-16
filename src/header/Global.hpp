@@ -63,7 +63,7 @@ using hint = int;
 #define SHRINKING 2048
 
 /////// UNCOMMENT TO DEBUG
-//#define DBG_TRACE (SEARCH)
+//#define DBG_TRACE (SEARCH + LEARNING + MINIMIZATION)
 //#define DBG_BOUND (num_fails >= 0)
 //#define DBG_CBOUND (solver.num_fails < 0)
 //#define DBG_CLBOUND (solver.num_fails >= 0)

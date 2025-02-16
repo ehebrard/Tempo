@@ -20,6 +20,8 @@
 
 #include <iostream>
 #include <vector>
+#include <utility>
+#include <string>
 
 #include "Solver.hpp"
 #include "heuristics/Greedy.hpp"
@@ -37,7 +39,6 @@
 
 #include "heuristics/LNS/relaxation_policy_factories.hpp"
 #include "heuristics/LNS/PerfectRelaxationOracle.hpp"
-#include "heuristics/LNS/RelaxationEvaluator.hpp"
 #include "heuristics/warmstart.hpp"
 
 using namespace tempo;
@@ -47,10 +48,10 @@ std::string prettyJob(const Interval<T> &task, const Solver<T> &S,
                       const bool dur_flag) {
   std::stringstream ss;
 
-  auto est{S.numeric.lower(task.start)};
-  auto lst{S.numeric.upper(task.start)};
-  auto ect{S.numeric.lower(task.end)};
-  auto lct{S.numeric.upper(task.end)};
+  auto est{S.numeric.solutionLower(task.start)};
+  auto lst{S.numeric.solutionUpper(task.start)};
+  auto ect{S.numeric.solutionLower(task.end)};
+  auto lct{S.numeric.solutionUpper(task.end)};
 
   ss << "[";
 
@@ -66,8 +67,8 @@ std::string prettyJob(const Interval<T> &task, const Solver<T> &S,
   ss << "]";
 
   if (dur_flag) {
-    auto pmin{S.numeric.lower(task.duration)};
-    auto pmax{S.numeric.upper(task.duration)};
+    auto pmin{S.numeric.solutionLower(task.duration)};
+    auto pmax{S.numeric.solutionUpper(task.duration)};
     ss << " (" << pmin << "-" << pmax << ")";
   }
 
@@ -100,8 +101,8 @@ void printResources(const Solver<T>& S, const std::vector<Interval<T>>& interval
 
       std::sort(order.begin(), order.end(),
                 [&](const index_t a, const index_t b) {
-                  return S.numeric.lower(intervals[a].start) <
-                         S.numeric.lower(intervals[b].start);
+                  return S.numeric.solutionLower(intervals[a].start) <
+                         S.numeric.solutionLower(intervals[b].start);
                 });
 
       std::cout << "resource " << i << ":";
@@ -124,11 +125,13 @@ int main(int argc, char *argv[]) {
     .decayConfig = lns::PolicyDecayConfig(), .numScheduleSlices = 4, .allTaskEdges = false
   };
   lns::RelaxPolicy policyType;
-  std::string optSolutionLoc;
   bool useOracle = false;
-  bool policyStats;
   double oracleEpsilon = 0;
   double sporadicIncrement = 0;
+  StatsConfig statsConfig{
+    .displayStats = false, .regionTimeout = 0, .nRegionThreads = 0, .solPath = {},
+    .regionExecutionPolicy = lns::ExecutionPolicy::Lazy
+  };
   cli::detail::configureParser(parser, cli::SwitchSpec("heuristic-profiling", "activate heuristic profiling",
                                                        profileHeuristic, false),
                                cli::ArgSpec("fix-decay", "relaxation ratio decay",
@@ -152,12 +155,21 @@ int main(int argc, char *argv[]) {
                                                policyParams.allTaskEdges, false),
                                cli::ArgSpec("lns-policy", "lns relaxation policy", true, policyType),
                                cli::ArgSpec("optimal-solution", "location of optimal solution (e.g. for oracle)", false,
-                                            optSolutionLoc),
+                                            statsConfig.solPath),
                                             cli::SwitchSpec("oracle", "use perfect relaxation oracle", useOracle, false),
                                cli::ArgSpec("oracle-epsilon", "LNS oracle policy epsilon", false, oracleEpsilon),
                                cli::ArgSpec("sporadic-increment", "sporadic root search probability increment", false,
                                             sporadicIncrement),
-                               cli::SwitchSpec("stats", "enable policy statistics", policyStats, false));
+                               cli::SwitchSpec("stats", "enable policy statistics", statsConfig.displayStats, false),
+                               cli::ArgSpec("local-optimum-timeout",
+                                            "timeout for search for local optimum (stats only)", false,
+                                            statsConfig.regionTimeout),
+                               cli::ArgSpec("local-optimum-threads",
+                                            "number of threads for local optimum search (stats only)", false,
+                                            statsConfig.nRegionThreads),
+                               cli::ArgSpec("local-optimum-exec",
+                                            "execution policy for local optimum search (stats only)", false,
+                                            statsConfig.regionExecutionPolicy));
 
   parser.parse(argc, argv);
   Options opt = parser.getOptions();
@@ -313,22 +325,22 @@ int main(int argc, char *argv[]) {
             if (sporadicIncrement != 0) {
               std::cout << "-- root search probability increment " << sporadicIncrement << std::endl;
               runLNS(lns::make_sporadic_root_search(sporadicIncrement, std::move(policy)), S,
-                     objective, policyStats, optSolutionLoc);
+                     objective, statsConfig);
             } else {
-              runLNS(policy, S, objective, policyStats, optSolutionLoc);
+              runLNS(policy, S, objective, statsConfig);
             }
         } else {
             std::cout << "-- using perfect relaxation oracle" << std::endl;
-            const auto sol = serialization::deserializeFromFile<serialization::Solution<int>>(optSolutionLoc);
+            const auto sol = serialization::deserializeFromFile<serialization::Solution<int>>(statsConfig.solPath);
             lns::PerfectRelaxationOracle policy(toSolution(sol, opt), schedule.duration,
                                                 booleanVarsFromResources(resources),
                                                 policyParams.decayConfig.fixRatio, oracleEpsilon);
-            runLNS(policy, S, objective, policyStats, optSolutionLoc);
+            runLNS(policy, S, objective, statsConfig);
         }
     }
 
   if (S.numeric.hasSolution()) {
-      std::cout << "-- makespan " << S.numeric.lower(schedule.duration) << std::endl;
+      std::cout << "-- makespan " << S.numeric.solutionLower(schedule.duration) << std::endl;
   }
 
   if (opt.print_sol) {

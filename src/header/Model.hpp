@@ -2450,7 +2450,7 @@ auto booleanVarsFromResources(Resources &&resources) {
   }
 
   std::ranges::sort(variables, {}, [](const auto &var) { return var.id(); });
-  auto res = std::ranges::unique(variables);
+    auto res = std::ranges::unique(variables, [](const auto &var1, const auto &var2) {return var1.id() == var2.id();});
   variables.erase(res.begin(), res.end());
   variables.shrink_to_fit();
   return variables;

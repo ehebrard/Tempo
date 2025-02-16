@@ -38,6 +38,7 @@ namespace tempo::lns {
      */
     template<typename I>
     concept assumption_interface = requires(I interface, Literal<int> l, std::vector<Literal<int>> lits) {
+        requires concepts::scalar<typename I::TimingType>;
         interface.reset();
         { interface.makeAssumptions(lits) } -> std::convertible_to<bool>;
         { interface.tryMakeAssumption(l) } -> std::convertible_to<bool>;
@@ -59,6 +60,7 @@ namespace tempo::lns {
         AssumptionState state = AssumptionState::Empty;
 
     public:
+        using TimingType = T;
 
         AssumptionProxy(const AssumptionProxy &) = delete;
         AssumptionProxy(AssumptionProxy &&) = delete;
@@ -203,6 +205,8 @@ namespace tempo::lns {
         std::vector<Literal<T>> assumptions;
         AI &proxy;
     public:
+        using TimingType = T;
+
         AssumptionCollector(const AssumptionCollector &) = delete;
         AssumptionCollector(AssumptionCollector &&) = delete;
         AssumptionCollector &operator=(const AssumptionCollector &) = delete;
@@ -303,6 +307,7 @@ namespace tempo::lns {
     template<concepts::scalar T>
     class LoggingAssumptionProxy {
     public:
+        using TimingType = T;
         using PolicyTrace = std::vector<std::pair<PolicyAction, std::vector<Literal<T>>>>;
     private:
         AssumptionProxy<T> proxy;

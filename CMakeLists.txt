@@ -92,6 +92,7 @@ else ()
 endif ()
 
 file(GLOB SOURCES ${CMAKE_SOURCE_DIR}/src/cpp/*.cpp ${CMAKE_SOURCE_DIR}/src/cpp/util/*.cpp
+        ${CMAKE_SOURCE_DIR}/src/cpp/util/parsing/*.cpp
         ${CMAKE_SOURCE_DIR}/src/cpp/constraints/*.cpp ${CMAKE_SOURCE_DIR}/src/cpp/heuristics/*.cpp
         ${CMAKE_SOURCE_DIR}/src/cpp/heuristics/LNS/*.cpp ${CMAKE_CURRENT_BINARY_DIR}/git_sha.cpp)
 

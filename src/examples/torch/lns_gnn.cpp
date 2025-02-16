@@ -21,12 +21,11 @@
 #include "heuristics/LNS/relaxation_policy_factories.hpp"
 #include "nn/gnn_relaxation.hpp"
 #include "heuristics/warmstart.hpp"
-#include "heuristics/LNS/RelaxationEvaluator.hpp"
 
 namespace lns = tempo::lns;
 namespace fs = std::filesystem;
 
-using RP = lns::RelaxationPolicy<Time, ResourceConstraint>;
+using RP = lns::RelaxationPolicy<tempo::Time, tempo::ResourceConstraint>;
 
 
 int main(int argc, char **argv) {
@@ -49,10 +48,12 @@ int main(int argc, char **argv) {
     bool useDRPolicy = false;
     bool reuseSolutions = false;
     bool gnnFallback = false;
-    bool policyStats;
-    std::string optSol;
     std::string solutionDest;
     std::optional<std::size_t> solutionPoolSize;
+    StatsConfig statsConfig{
+        .displayStats = false, .regionTimeout = 0, .nRegionThreads = 0, .solPath = {},
+        .regionExecutionPolicy = lns::ExecutionPolicy::Lazy
+    };
     auto opt = cli::parseOptions(argc, argv,
                                  cli::SwitchSpec("dr", "use destroy-repair policy", useDRPolicy, false),
                                  cli::ArgSpec("gnn-loc", "Location of the GNN model", false, gnnLocation),
@@ -76,8 +77,8 @@ int main(int argc, char **argv) {
                                  cli::ArgSpec("num-slices", "number of schedule slices", false,
                                               destroyParameters.numScheduleSlices),
                                  cli::SwitchSpec("fix-all-task-edges",
-                                               "whether to fix all task edges or only those between fixed tasks",
-                                               destroyParameters.allTaskEdges, false),
+                                                 "whether to fix all task edges or only those between fixed tasks",
+                                                 destroyParameters.allTaskEdges, false),
                                  cli::ArgSpec("sporadic-increment", "probability increment on fail for root search",
                                               false, sporadicIncrement),
                                  cli::ArgSpec("fix-ratio", "percentage of literals to relax", false,
@@ -97,7 +98,7 @@ int main(int argc, char **argv) {
                                               false, config.retryLimit),
                                  cli::ArgSpec("decay-mode", "relaxation ratio decay mode on failure", false,
                                               config.decayMode),
-                                 cli::ArgSpec("optimal-solution", "optimal solution", false, optSol),
+                                 cli::ArgSpec("optimal-solution", "optimal solution", false, statsConfig.solPath),
                                  cli::ArgSpec("destroy-mode", "destroy policy type", false, destroyType),
                                  cli::SwitchSpec("reuse-solutions",
                                                  "whether the GNN may reuse solutions multiple times", reuseSolutions,
@@ -107,7 +108,16 @@ int main(int argc, char **argv) {
                                  cli::ArgSpec("save-to", "save solutions to", false, solutionDest),
                                  cli::SwitchSpec("gnn-fallback", "use GNN as fallback", gnnFallback, false),
                                  cli::ArgSpec("pool-size", "max solution pool size", false, solutionPoolSize),
-                                 cli::SwitchSpec("stats", "enable policy statistics", policyStats, false));
+                                 cli::SwitchSpec("stats", "enable policy statistics", statsConfig.displayStats, false),
+                                 cli::ArgSpec("local-optimum-timeout",
+                                              "timeout for search for local optimum (stats only)", false,
+                                              statsConfig.regionTimeout),
+                                 cli::ArgSpec("local-optimum-threads",
+                                              "number of threads for local optimum search (stats only)", false,
+                                              statsConfig.nRegionThreads),
+                                 cli::ArgSpec("local-optimum-exec",
+                                              "execution policy for local optimum search (stats only)", false,
+                                              statsConfig.regionExecutionPolicy));
     auto problemInfo = loadSchedulingProblem(opt);
     torch::set_num_threads(numThreads);
     bool optimal = false;
@@ -161,7 +171,7 @@ int main(int argc, char **argv) {
         auto policy = lns::make_sporadic_root_search(sporadicIncrement,
                                                      lns::make_RD_policy(destroy, gnnRepair,
                                                                          exhaustionProbability));
-        elapsedTime = runLNS(policy, *problemInfo.solver, objective, policyStats, optSol);
+        elapsedTime = runLNS(policy, *problemInfo.solver, objective, statsConfig);
     } else if (not optimal and gnnFallback) {
         std::cout << "-- fallback search probability increment " << sporadicIncrement << std::endl;
         std::cout << "-- using base relaxation policy " << destroyType << std::endl;
@@ -177,12 +187,12 @@ int main(int argc, char **argv) {
                                               assumptionMode, exhaustionThreshold, exhaustionProbability,
                                               reuseSolutions,
                                               sampleSmoothingFactor, problemInfo.constraints, solutionPoolSize));
-        elapsedTime = runLNS(policy, *problemInfo.solver, objective, policyStats, optSol);
+        elapsedTime = runLNS(policy, *problemInfo.solver, objective, statsConfig);
     } else if (not optimal) {
         nn::GNNRelax policy(*problemInfo.solver, gnnLocation, featureExtractorConf, problemInfo.instance, config,
                             assumptionMode, exhaustionThreshold, exhaustionProbability, reuseSolutions,
                             sampleSmoothingFactor, problemInfo.constraints, solutionPoolSize);
-        elapsedTime = runLNS(policy, *problemInfo.solver, objective, policyStats, optSol);
+        elapsedTime = runLNS(policy, *problemInfo.solver, objective, statsConfig);
     }
 
     if (problemInfo.solver->numeric.hasSolution()) {

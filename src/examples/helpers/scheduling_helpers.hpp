@@ -7,119 +7,20 @@
 #ifndef TEMPO_SCHEDULING_HELPERS_HPP
 #define TEMPO_SCHEDULING_HELPERS_HPP
 
-#include <vector>
 #include <memory>
-#include <tuple>
 #include <optional>
-#include <ranges>
-#include <variant>
+#include <string>
+#include <iostream>
 
+#include "Model.hpp"
 #include "Solver.hpp"
 #include "util/Options.hpp"
-#include "util/SchedulingProblemHelper.hpp"
 #include "util/serialization.hpp"
-#include "util/factory_pattern.hpp"
 #include "util/printing.hpp"
+#include "util/Profiler.hpp"
 #include "Solution.hpp"
-#include "Model.hpp"
-#include "heuristics/LNS/RelaxationEvaluator.hpp"
-
-/**
- * @brief represents a disjunctive resource in scheduling problems
- */
-class DisjunctiveResource : public std::vector<unsigned> {
-public:
-    using std::vector<unsigned>::vector;
-
-    [[nodiscard]] constexpr auto tasks() const -> const std::vector<unsigned>& {
-        return *this;
-    }
-
-    static constexpr auto resourceCapacity() noexcept { return 1; }
-
-    static constexpr auto getDemand(unsigned) noexcept { return 1; }
-};
-
-/**
- * @brief represents a cumulative resource in scheduling problems
- * @tparam R resource unit type
- */
-template<tempo::concepts::scalar R = int>
-class CumulativeResource {
-    std::vector<unsigned> ts;
-    std::vector<R> demands;
-    R capacity;
-public:
-    constexpr CumulativeResource() noexcept: ts(), demands(), capacity(0) {}
-
-    CumulativeResource(std::vector<unsigned> tasks, std::vector<R> demands, R capacity) noexcept:
-            ts(std::move(tasks)), demands(std::move(demands)), capacity(capacity) {}
-
-    [[nodiscard]] constexpr auto tasks() const noexcept -> const std::vector<unsigned> &{
-        return ts;
-    }
-
-    [[nodiscard]] constexpr auto resourceCapacity() const noexcept {
-        return capacity;
-    }
-
-    [[nodiscard]] constexpr auto getDemand(std::size_t taskIndex) const noexcept {
-        return demands[taskIndex];
-    }
-};
-
-/**
- * @brief Variant wrapper around different types of resources
- * @tparam Rs resource types
- */
-template<tempo::SchedulingResource ...Rs>
-class VariantResource : public std::variant<Rs...> {
-public:
-    using std::variant<Rs...>::variant;
-
-    [[nodiscard]] DYNAMIC_DISPATCH_VOID(tasks, const)
-
-    [[nodiscard]] DYNAMIC_DISPATCH_VOID(resourceCapacity, const)
-
-    [[nodiscard]] DYNAMIC_DISPATCH(getDemand, unsigned index, =, index, const)
-};
-
-template<tempo::resource_expression ...E>
-struct VariantResourceConstraint : public std::variant<E...> {
-    using std::variant<E...>::variant;
-
-    [[nodiscard]] DYNAMIC_DISPATCH_VOID(begin, const)
-
-    [[nodiscard]] DYNAMIC_DISPATCH_VOID(end, const)
-
-    [[nodiscard]] DYNAMIC_DISPATCH_VOID(getDisjunctiveLiterals, const)
-};
-
-
-using Time = int;
-using ResourceUnit = int;
-using Resource = VariantResource<DisjunctiveResource, CumulativeResource<ResourceUnit>>;
-using ResourceConstraint = VariantResourceConstraint<tempo::NoOverlapExpression<Time>,
-                                                     tempo::CumulativeExpression<Time>>;
-using SolverPtr = std::unique_ptr<tempo::Solver<Time>>;
-using ProblemInstance = tempo::SchedulingProblemHelper<Time, Resource>;
-
-struct Problem {
-    SolverPtr solver;
-    ProblemInstance instance;
-    std::vector<ResourceConstraint> constraints;
-    std::optional<Time> optimalSolution;
-    Time upperBound;
-    unsigned numTasks;
-};
-
-/**
- * loads a problem instance and instantiates the solver using the given options
- * @param options options for the solver
- * @return ready to run scheduler (with default heuristics) and problem scheduling problem instance struct,
- * optionally the optimal solution and the number of tasks
- */
-auto loadSchedulingProblem(const tempo::Options &options) -> Problem;
+#include "heuristics/LNS/relaxation_evaluators.hpp"
+#include "util/parsing/scheduling_collection.hpp"
 
 
 /**
@@ -145,54 +46,73 @@ auto toSolution(const tempo::serialization::Solution<T> &solution,
     return tempo::Solution(*problem.solver);
 }
 
+struct StatsConfig {
+    bool displayStats; ///< whether to display policy stats
+    unsigned regionTimeout; ///< timout in ms for local optimum search (if 0, no local optimum stats)
+    unsigned nRegionThreads; ///< number of threads for local optimum search (if 0, no local optimum stats)
+    std::string solPath; ///< path to optimal solution (ignored if empty)
+    tempo::lns::ExecutionPolicy regionExecutionPolicy; ///< execution policy for local search
+};
+
 /**
  * @tparam Policy LNS relaxation policy type
  * @tparam T timing type
  * @param policy LNS relaxation policy
  * @param solver solver instance
  * @param objective objective variable
- * @param stats whether to record policy stats
- * @param solPath path to optimal solution (ignored if empty)
+ * @param stats policy stats config
  * @return elapsed time in ms
  */
 template<tempo::lns::relaxation_policy Policy, tempo::concepts::scalar T>
-auto runLNS(Policy &&policy, tempo::Solver<T> &solver,
-            tempo::MinimizationObjective<T> objective, bool stats, const std::string &solPath) {
+auto runLNS(Policy &&policy, tempo::Solver<T> &solver, tempo::MinimizationObjective<T> objective,
+            const StatsConfig stats) {
     namespace ser = tempo::serialization;
     using namespace tempo;
     util::StopWatch sw;
-    if (not stats) {
+    if (not stats.displayStats) {
         solver.largeNeighborhoodSearch(objective, std::forward<Policy>(policy));
         return sw.elapsed<std::chrono::milliseconds>();
     }
 
     std::optional<Solution<Time>> solution;
-    if (not solPath.empty()) {
-        const auto sol = ser::deserializeFromFile<ser::Solution<int>>(solPath);
+    if (not stats.solPath.empty()) {
+        const auto sol = ser::deserializeFromFile<ser::Solution<int>>(stats.solPath);
         solution = toSolution(sol, solver.getOptions());
     }
 
-    auto evalPolicy = lns::make_evaluator(std::forward<Policy>(policy), std::move(solution));
+    auto evalPolicy = lns::make_region_evaluator<T>(
+        lns::make_evaluator(std::forward<Policy>(policy), std::move(solution)), solver.getOptions(),
+        objective, stats.regionTimeout, stats.regionExecutionPolicy, stats.nRegionThreads);
     sw.start();
     solver.largeNeighborhoodSearch(objective, evalPolicy);
+    std::vector<lns::RegionResult<T>> localOptima;
+    localOptima.reserve(evalPolicy.getResults().size());
+    std::cout << "-- waiting for local optima...\n";
+    for (auto &result : evalPolicy.getResults()) {
+        localOptima.emplace_back(result.get());
+    }
+
+    std::cout << "-- local optima: ";
+    printRange(localOptima, std::cout) << "\n";
+    const auto &statsPolicy = evalPolicy.getBasePolicy();
     std::cout << "-- assumptions per run: ";
-    printRange(evalPolicy.assumptionsPerRun(), std::cout) << "\n";
+    printRange(statsPolicy.assumptionsPerRun(), std::cout) << "\n";
     std::cout << "-- runs: ";
-    printRange(evalPolicy.runStatus(), std::cout) << "\n";
+    printRange(statsPolicy.runStatus(), std::cout) << "\n";
     std::cout << "-- fails per run: ";
-    printRange(evalPolicy.failsPerRun(), std::cout) << "\n";
+    printRange(statsPolicy.failsPerRun(), std::cout) << "\n";
     std::cout << "-- search time per run: ";
-    printRange(evalPolicy.searchTimesPerRun(), std::cout) << "\n";
+    printRange(statsPolicy.searchTimesPerRun(), std::cout) << "\n";
     std::cout << "-- assumption time per run: ";
-    printRange(evalPolicy.assumptionTimePerRun(), std::cout) << "\n";
+    printRange(statsPolicy.assumptionTimePerRun(), std::cout) << "\n";
     std::cout << "-- acc: ";
-    printRange(evalPolicy.assumptionAccuracyPerRun(), std::cout) << "\n";
+    printRange(statsPolicy.assumptionAccuracyPerRun(), std::cout) << "\n";
     std::cout << "-- normalized acc: ";
-    printRange(evalPolicy.normalizedAssumptionAccuracyPerRun(), std::cout) << "\n";
+    printRange(statsPolicy.normalizedAssumptionAccuracyPerRun(), std::cout) << "\n";
     std::cout << "-- solution discrepancy: ";
-    printRange(evalPolicy.solutionDiscrepancy(), std::cout) << "\n";
-    std::cout << "-- policy run accuracy: " << evalPolicy.runAccuracy() << std::endl;
-    std::cout << "-- policy assumption accuracy: " << evalPolicy.totalAssumptionAccuracy() << std::endl;
+    printRange(statsPolicy.solutionDiscrepancy(), std::cout) << "\n";
+    std::cout << "-- policy run accuracy: " << statsPolicy.runAccuracy() << std::endl;
+    std::cout << "-- policy assumption accuracy: " << statsPolicy.totalAssumptionAccuracy() << std::endl;
     return sw.elapsed<std::chrono::milliseconds>();
 }
 
@@ -201,8 +121,8 @@ auto runLNS(Policy &&policy, tempo::Solver<T> &solver,
  * @details @copybrief
  */
 class EdgeMapper {
-    std::unique_ptr<tempo::Solver<Time>> solver;
-    ProblemInstance problem;
+    std::unique_ptr<tempo::Solver<tempo::Time>> solver;
+    tempo::ProblemInstance problem;
 
 public:
     /**
@@ -216,7 +136,7 @@ public:
      * @param lit literal to map
      * @return corresponding TASK edge
      */
-    [[nodiscard]] auto getTaskEdge(tempo::Literal<Time> lit) const -> std::pair<unsigned, unsigned>;
+    [[nodiscard]] auto getTaskEdge(tempo::Literal<tempo::Time> lit) const -> std::pair<unsigned, unsigned>;
 
     /**
      * @return number of tasks in the problem
@@ -227,13 +147,13 @@ public:
      * Access to the solver
      * @return
      */
-    auto getSolver() noexcept -> tempo::Solver<Time> &;
+    auto getSolver() noexcept -> tempo::Solver<tempo::Time> &;
 
     /**
      * Access to the solver
      * @return
      */
-    [[nodiscard]] auto getSolver() const noexcept -> const tempo::Solver<Time> &;
+    [[nodiscard]] auto getSolver() const noexcept -> const tempo::Solver<tempo::Time> &;
 };
 
 

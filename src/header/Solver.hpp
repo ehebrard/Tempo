@@ -707,9 +707,15 @@ public:
     index_t assumption_stamp{0};
 
     void updateGroundTruth() {
-      if (assumption_stamp == 0 and env.level() == 0) {
-        ground_stamp = numLiteral();
-      } else ground_stamp = assumption_stamp;
+        if (assumption_stamp == 0) {
+            if(env.level() == init_level) {
+                ground_stamp = numLiteral();
+            }
+        } else ground_stamp = assumption_stamp;
+        
+//        if (env.level() == init_level) {
+//                ground_stamp = numLiteral();
+//              }
     }
 
     void saveSolution();
@@ -3582,10 +3588,10 @@ template <typename T> void Solver<T>::initializeSearch() {
     }
     
     
-    std::cout << "INIT:\n";
-    std::cout << boolean_size << " / " << boolean.size() << std::endl;
-    std::cout << numeric_size << " / " << numeric.size() << std::endl;
-    std::cout << constraint_size << " / " << constraints.size() << std::endl;
+//    std::cout << "INIT:\n";
+//    std::cout << boolean_size << " / " << boolean.size() << std::endl;
+//    std::cout << numeric_size << " / " << numeric.size() << std::endl;
+//    std::cout << constraint_size << " / " << constraints.size() << std::endl;
   
     assert(boolean.size() > boolean_size);
     assert(numeric.size() > numeric_size);
@@ -4083,11 +4089,11 @@ template <typename T> void Solver<T>::restoreState(const int l) {
         delete constraints.back();
         constraints.pop_back();
     }
-    
-    std::cout << "RESTORESTATE:\n";
-    std::cout << boolean_size << " / " << boolean.size() << std::endl;
-    std::cout << numeric_size << " / " << numeric.size() << std::endl;
-    std::cout << constraint_size << " / " << constraints.size() << std::endl;
+//    
+//    std::cout << "RESTORESTATE:\n";
+//    std::cout << boolean_size << " / " << boolean.size() << std::endl;
+//    std::cout << numeric_size << " / " << numeric.size() << std::endl;
+//    std::cout << constraint_size << " / " << constraints.size() << std::endl;
 }
 
 template <typename T> void Solver<T>::undo() {
