@@ -68,28 +68,61 @@ struct VSIDSHeap {
         solver.getBranch();
 
     assert(not variables.empty());
-    assert(checkHeap(0));
-
+    
+      
+      
+//      sstd::cout << variables << std::endl;
+//
+//      
+//      if(static_cast<int>(trail.size()) > solver.level())
+//      for(auto t : trail)
+//          std::cout << " " << t;
+      
     auto n{trail.back()};
     while (static_cast<int>(trail.size()) > solver.level()) {
       trail.pop_back();
     }
 
+      
+//      std::cout << " last=" << trail.back() << "\n";
+      
+//      std::cout << variables << std::endl;
+      
+      
+      
     while (n < trail.back()) {
+        
+//        std::cout << " +" << var_heap[n] ;
+        
       heap::percolate_up(var_heap.begin(), n, index,
                          [&](const var_t x, const var_t y) {
                            return var_activity[x] > var_activity[y];
                          });
       ++n;
     }
+//      std::cout << std::endl;
+      
+      while(static_cast<int>(trail.size()) < solver.level())
+          trail.push_back(trail.back());
+      
+//      std::cout << "pick var @" << solver.level() << " |trail|=" << trail.size() ;
+      
+      assert(checkVars(solver));
+      assert(checkHeap(0));
 
     auto last{trail.back()};
     var_t x;
     do {
       x = pickBest(last);
+        
+//        std::cout << " -" << x;
+        
     } while (not variables.has(x));
-
-    trail.push_back(last);
+//      std::cout << std::endl;
+      
+      
+//    while(static_cast<int>(trail.size()) <= solver.level())
+        trail.push_back(last);
 
     assert(checkHeap(0));
 
@@ -150,6 +183,24 @@ struct VSIDSHeap {
 
     assert(checkHeap(0));
   }
+    
+    template <concepts::scalar T>
+    bool checkVars(const Solver<T> &solver) {
+        auto last{trail.back()};
+        for(auto x : solver.getBranch()) {
+            bool notin{true};
+            for(auto v{var_heap.begin()}; notin and v != (var_heap.begin() + last); ++v) {
+                if(*v == x) {
+                    notin = false;
+                }
+            }
+            if(notin) {
+                std::cout << x << " is not in the heap!\n";
+                return false;
+            }
+        }
+        return true;
+    }
 
   bool checkHeap(const int i) {
     auto lc{heap::left(i)};
