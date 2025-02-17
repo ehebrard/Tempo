@@ -142,7 +142,7 @@ int main(int argc, char **argv) {
                     branch.emplace_back(var.id(), solver.boolean.value(var));
                 }
 
-                const auto makeSpan = solver.numeric.lower(dur);
+                const auto makeSpan = solver.numeric.solutionLower(dur);
                 serializer->addSolution(makeSpan, std::move(branch));
             });
     }
@@ -196,7 +196,7 @@ int main(int argc, char **argv) {
     }
 
     if (problemInfo.solver->numeric.hasSolution()) {
-        auto makespan = problemInfo.solver->numeric.lower(problemInfo.instance.schedule().duration);
+        auto makespan = problemInfo.solver->numeric.solutionLower(problemInfo.instance.schedule().duration);
         std::cout << "-- makespan " << makespan << std::endl;
         if (problemInfo.optimalSolution.has_value() and makespan > *problemInfo.optimalSolution) {
             std::cout << "-- suboptimal solution! Optimum is " << *problemInfo.optimalSolution << std::endl;

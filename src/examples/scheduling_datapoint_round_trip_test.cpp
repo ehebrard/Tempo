@@ -91,7 +91,7 @@ int main(int argc, char **argv) {
         std::cout << "no solution for data point" << std::endl;
         std::exit(3);
     }
-    const int makeSpan = solver->numeric.lower(problem.schedule().duration);
+    const int makeSpan = solver->numeric.solutionLower(problem.schedule().duration);
     if (makeSpan != solution.objective) {
         std::cout << "locally optimal solution differs from expected solutions: makespan " << makeSpan << " vs "
                   << solution.objective << std::endl;

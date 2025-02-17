@@ -2960,9 +2960,10 @@ Interval<T> Model<T>::continuefor(const NumericVar<T> s, const NumericVar<T> d, 
 
 template <typename T>
 std::ostream &Model<T>::display(std::ostream &os) const {
-  if (not boolean_var.empty())
+  if (not boolean_var.empty()) {
     os << "b1,...,b" << boolean_var.back().id() << std::endl;
-    os << "numeric variables:\n";
+  }
+  os << "numeric variables:\n";
   for (auto x : numeric_var) {
     os << "x" << x.id() << " in [" << x.min(*this) << ".." << x.max(*this)
        << "]\n";

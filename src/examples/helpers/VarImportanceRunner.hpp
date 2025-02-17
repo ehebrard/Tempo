@@ -104,7 +104,7 @@ public:
         tempo::MinimizationObjective objective(p.schedule().duration);
         s.SolutionFound.subscribe_unhandled(
             [o = optimum, durVar = p.schedule().duration, &objective](auto &solver) mutable {
-                if (solver.numeric.lower(durVar) == o) {
+                if (solver.numeric.solutionLower(durVar) == o) {
                     objective.setDual(objective.primalBound());
                 }
             });

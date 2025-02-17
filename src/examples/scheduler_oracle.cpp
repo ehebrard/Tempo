@@ -30,7 +30,7 @@ int main(int argc, char **argv) {
         std::exit(1);
     }
 
-    auto [solver, problem, _1, _2, _3] = loadSchedulingProblem(options);
+    auto [solver, problem, _1, _2, _3, _4] = loadSchedulingProblem(options);
     using Oracle = util::ProfiledHeuristic<PerfectValueHeuristic>;
     util::Profiler profiler;
     Oracle valueOracle(profiler, options.polarity_epsilon, solution);
@@ -38,7 +38,7 @@ int main(int argc, char **argv) {
                                                           std::move(valueOracle)));
     solver->minimize(problem.schedule().duration);
     if (solver->numeric.hasSolution()) {
-        std::cout << "-- makespan " << solver->numeric.lower(problem.schedule().duration) << std::endl;
+        std::cout << "-- makespan " << solver->numeric.solutionLower(problem.schedule().duration) << std::endl;
     }
 
     profiler.printAll<std::chrono::microseconds>(std::cout);
