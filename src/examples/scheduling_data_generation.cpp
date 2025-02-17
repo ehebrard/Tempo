@@ -82,7 +82,7 @@ int main(int argc, char **argv) {
 
     std::optional<int> makespan;
     if (problemInfo.solver->numeric.hasSolution()) {
-        makespan = problemInfo.solver->numeric.lower(schedule.duration);
+        makespan = problemInfo.solver->numeric.solutionLower(schedule.duration);
     }
 
     fs::copy(options.instance_file, destinationFolder / ProblemFileName, fs::copy_options::overwrite_existing);

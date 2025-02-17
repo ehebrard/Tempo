@@ -47,7 +47,7 @@ enum class PredictorType {
     GNN, Tightest
 };
 
-using GNNPredictor = tempo::nn::GNNPrecedencePredictor<int, Resource>;
+using GNNPredictor = tempo::nn::GNNPrecedencePredictor<int, tempo::Resource>;
 using TightestPredictor = tempo::heuristics::TightestPrecedencePredictor<int>;
 
 using Predictor = std::variant<TightestPredictor, GNNPredictor>;
@@ -116,7 +116,7 @@ int main(int argc, char **argv) {
     problemInfo.solver->minimize(schedule.duration);
     auto [start, end] = sw.getTiming();
     if (problemInfo.solver->numeric.hasSolution()) {
-        auto makespan = problemInfo.solver->numeric.lower(schedule.duration);
+        auto makespan = problemInfo.solver->numeric.solutionLower(schedule.duration);
         std::cout << "-- makespan " << makespan << std::endl;
         if (problemInfo.optimalSolution.has_value() and makespan > *problemInfo.optimalSolution) {
             std::cout << "-- suboptimal solution! Optimum is " << *problemInfo.optimalSolution << std::endl;

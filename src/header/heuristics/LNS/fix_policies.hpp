@@ -213,7 +213,7 @@ namespace tempo::lns {
             template<concepts::scalar U>
             auto operator()(Literal<U> lit) -> Literal<T> {
                 auto &var = cache[lit.variable()];
-                if (var != NoVar) {
+                if (var.id() != NoVar.id()) {
                     return var == lit.sign();
                 }
 
