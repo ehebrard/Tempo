@@ -704,18 +704,14 @@ public:
     // index of the first literal that is not a ground truth
     index_t ground_stamp{1};
     // index of the first literal that is not an assumption nor a ground truth
-    index_t assumption_stamp{0};
+    index_t assumption_stamp{1};
 
     void updateGroundTruth() {
-        if (assumption_stamp == 0) {
+        if (assumption_stamp <= ground_stamp) {
             if(env.level() == init_level) {
                 ground_stamp = numLiteral();
             }
-        } else ground_stamp = assumption_stamp;
-        
-//        if (env.level() == init_level) {
-//                ground_stamp = numLiteral();
-//              }
+        }
     }
 
     void saveSolution();
@@ -3041,8 +3037,13 @@ void Solver<T>::analyze(Explanation<T> &e, const bool only_boolean) {
     //   from a global fail (@decision level 0)
     //   */
     if (decisions.empty()) {
-        ground_stamp = 1;
-        decision_stamp = assumption_stamp;
+        if(assumption_stamp <= ground_stamp) {
+            decision_stamp = ground_stamp;
+            ground_stamp = 1;
+        } else {
+            decision_stamp = assumption_stamp;
+        }
+        UIP = 0;
     } else {
         // marker to distinguish literal from the current decision level from the
         // rest
@@ -3567,10 +3568,6 @@ template <typename T> void Solver<T>::initializeSearch() {
     start_time = cpu_time();
     stopWatch.start();
 
-    if (/*not initialized and*/ options.verbosity >= Options::QUIET) {
-        displayHeader(std::cout);
-    }
-
     if(not initialized) {
         post(&clauses);
         
@@ -3579,10 +3576,11 @@ template <typename T> void Solver<T>::initializeSearch() {
             heuristic = heuristics::make_heuristic(*this);
         }
         
-        
         propag_pointer = 1;
 
         propagate();
+        
+        ground_stamp = assumption_stamp = numLiteral();
 
         initialized = true;
     }
@@ -3593,14 +3591,17 @@ template <typename T> void Solver<T>::initializeSearch() {
 //    std::cout << numeric_size << " / " << numeric.size() << std::endl;
 //    std::cout << constraint_size << " / " << constraints.size() << std::endl;
   
-    assert(boolean.size() > boolean_size);
-    assert(numeric.size() > numeric_size);
+    assert(boolean.size() >= boolean_size);
+    assert(numeric.size() >= numeric_size);
     assert(constraints.size() >= constraint_size);
     
     boolean_size = boolean.size();
     numeric_size = numeric.size();
     constraint_size = constraints.size();
     
+    if (options.verbosity >= Options::QUIET) {
+        displayHeader(std::cout);
+    }
     
 //    heuristic.notifyStartSearch(*this);
 }
@@ -3726,11 +3727,17 @@ void Solver<T>::optimize(S &objective) {
     objective.X.extract(*this);
     objective_var = objective.X.id();
     
+    
+    T lower_bound;
+    
     try {
         initializeSearch();
+        
+        lower_bound = objective.getDual(*this);
         if (options.verbosity >= Options::NORMAL) {
-            std::cout << "-- Initial bound = " << objective.getDual(*this) << std::endl;
+            std::cout << "-- Lower bound = " << lower_bound << std::endl;
         }
+        
     } catch (Failure<T> &f) {
       objective.setDual(objective.primalBound());
     }
@@ -3752,16 +3759,44 @@ void Solver<T>::optimize(S &objective) {
             //            assumption_stamp = numLiteral();
             try {
                 objective.setPrimal(best, *this);
+                propagate();
+                
+                auto lb{objective.getDual(*this)};
+                if (options.verbosity >= Options::NORMAL and lb > lower_bound) {
+                    lower_bound = lb;
+                    std::cout << "-- Lower bound = " << lower_bound << std::endl;
+                }
             } catch (Failure<T> &f) {
-                objective.setDual(objective.primalBound());
+                satisfiability = FalseState;
             }
-        } else if (satisfiability == FalseState) {
+        }
+        
+        if (satisfiability == FalseState) {
             objective.setDual(objective.primalBound());
+            
+            if (options.verbosity >= Options::NORMAL) {
+                lower_bound = objective.primalBound();
+                std::cout << "-- Lower bound = " << lower_bound << std::endl;
+            }
         }
     }
     
-    if (options.verbosity >= Options::QUIET)
-        displaySummary(std::cout, (objective.gap() > 0 ? "killed" : "optimal"));
+    
+//    std::cout << "hi " << objective.getDual(*this) << "\n";
+    
+    
+    if (options.verbosity >= Options::QUIET) {
+        auto msg{"optimal"};
+        if(objective.gap() > 0) {
+            if(KillHandler::instance().signalReceived() or searchCancelled)
+                msg = "killed";
+            else
+                msg = "limit";
+        }
+        displaySummary(std::cout, msg);
+        
+//        displaySummary(std::cout, (objective.gap() > 0 ? "killed" : "optimal"));
+    }
 }
 
 template <typename T>
@@ -3859,13 +3894,14 @@ template <concepts::typed_range<Literal<T>> L>
   initializeSearch();
   saveState();
 
-  assumption_stamp = numLiteral();
-
   for (auto lit : literals) {
     set(lit);
   }
 
     propagate();
+     
+     assumption_stamp = numLiteral();
+     
 }
 
 template <typename T> void Solver<T>::makeAssumption(const Literal<T> lit) {
@@ -3873,12 +3909,14 @@ template <typename T> void Solver<T>::makeAssumption(const Literal<T> lit) {
   initializeSearch();
   saveState();
 
-  if(assumption_stamp == 0)
-     assumption_stamp = numLiteral();
+//  if(assumption_stamp == 0)
+//     assumption_stamp = numLiteral();
 
   set(lit);
 
   propagate();
+    
+    assumption_stamp = numLiteral();
 }
 
 template <typename T> boolean_state Solver<T>::search() {
@@ -4061,9 +4099,8 @@ template <typename T> void tempo::Solver<T>::propagate() {
     }
   }
 
-  propag_pointer = p_index;
-
-  updateGroundTruth();
+    propag_pointer = p_index;
+    updateGroundTruth();
 }
 
 template <typename T> int Solver<T>::saveState() {
@@ -4450,6 +4487,7 @@ std::ostream &Solver<T>::displayBranches(std::ostream &os) const {
     for (auto b{boolean_search_vars.fbegin()}; b!=boolean_search_vars.fend(); ++b) {
       os << " " << pretty(boolean.getLiteral(boolean.isTrue(*b), *b)) ;
     }
+    os << " " << numLiteral() << " literals" ;
     
     return os;
 }
