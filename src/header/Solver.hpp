@@ -707,10 +707,8 @@ public:
     index_t assumption_stamp{1};
     
     void updateGroundTruth() {
-        if (assumption_stamp <= ground_stamp) {
-            if(env.level() == init_level) {
-                ground_stamp = numLiteral();
-            }
+        if(env.level() == 0) {
+            ground_stamp = numLiteral();
         }
     }
     
@@ -2069,11 +2067,9 @@ restartPolicy(*this), graph_exp(*this), bound_exp(*this) {
 }
 
 template <typename T> Solver<T>::~Solver() {
-    for (auto c : constraints) {
-        if (c != &clauses) {
-            //          std::cout << "delete " << *c << std::endl;
-            delete c;
-        }
+    for (auto c : constraints|std::views::drop(1)) {
+        assert(c != &clauses);
+        delete c;
     }
 }
 
@@ -3979,6 +3975,9 @@ void Solver<T>::makeAssumptions(const L &literals) {
     
     assumption_stamp = numLiteral();
     
+    
+//    std::cout << "make assumptions : " << ground_stamp << " " << assumption_stamp << std::endl;
+    
 }
 
 template <typename T> void Solver<T>::makeAssumption(const Literal<T> lit) {
@@ -3994,6 +3993,8 @@ template <typename T> void Solver<T>::makeAssumption(const Literal<T> lit) {
     propagate();
     
     assumption_stamp = numLiteral();
+    
+//    std::cout << "make assumption : " << ground_stamp << " " << assumption_stamp << std::endl;
 }
 
 template <typename T> boolean_state Solver<T>::search() {
@@ -4195,20 +4196,23 @@ template <typename T> void Solver<T>::restoreState(const int l) {
     
     if(boolean_size < boolean.size()) {
         
-        std::cout << "remove " << (boolean.size() - boolean_size) << " Boolean variables when backtracking to lvl " << l << std::endl;
+//        std::cout << "remove " << (boolean.size() - boolean_size) << " Boolean variables when backtracking to lvl " << l << std::endl;
         
         boolean.resize(boolean_size);
     }
     if(numeric_size < numeric.size()) {
         
-        std::cout << "remove " << (numeric.size() - numeric_size) << " numeric variables when backtracking to lvl " << l << std::endl;
+//        std::cout << "remove " << (numeric.size() - numeric_size) << " numeric variables when backtracking to lvl " << l << std::endl;
         
         numeric.resize(numeric_size);
     }
     const size_t csize{constraint_size};
     
-    if(csize < constraints.size())
-        std::cout << "remove " << (constraints.size() - csize) << " constraints when backtracking to lvl " << l << std::endl;
+    assert(csize >= 1);
+    
+    
+//    if(csize < constraints.size())
+//        std::cout << "remove " << (constraints.size() - csize) << " constraints when backtracking to lvl " << l << std::endl;
     
     while(csize < constraints.size()) {
         delete constraints.back();
@@ -4806,8 +4810,9 @@ template <typename T> void Solver<T>::writeLiteral(const Literal<T> l) const {
 
 template <typename T> void Solver<T>::writeConflict() const {
     if (cl_file != NULL) {
-        *cl_file << 2 << " " << (cut.size() + (options.ground_update));
-        if(options.ground_update)
+        auto pb{options.ground_update};
+        *cl_file << 2 << " " << (cut.size() + pb);
+        if(pb)
             *cl_file << " 0 1 " << numeric.upper(1);
         for (auto p : cut) {
             writeLiteral(p.second);
@@ -4818,8 +4823,9 @@ template <typename T> void Solver<T>::writeConflict() const {
 
 template <typename T> void Solver<T>::writeClause() const {
     if (cl_file != NULL) {
-        *cl_file << 2 << " " << (learnt_clause.size() + (options.ground_update));
-        if(options.ground_update)
+        auto pb{options.ground_update};
+        *cl_file << 2 << " " << (learnt_clause.size() + pb);
+        if(pb)
             *cl_file << " 0 1 " << numeric.upper(1);
         for (auto p : learnt_clause) {
             writeLiteral(~p);

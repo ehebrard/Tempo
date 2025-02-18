@@ -143,7 +143,10 @@ int main(int argc, char *argv[]) {
   // depending on the option "input-format", parse a disjunctive scheduling
   // instance, and collect resources and interval objects
   std::vector<NoOverlapExpression<>> resources;
-  std::vector<std::vector<size_t>> resource_tasks;
+  
+    std::vector<std::vector<size_t>> resource_tasks;
+    
+    
   std::vector<Interval<>> intervals;
   std::vector<int> weights;
   std::vector<std::vector<std::vector<int>>> resource_transitions;
@@ -170,6 +173,16 @@ int main(int argc, char *argv[]) {
   //        std::cout << i.id() << ": " << i << std::endl;
   //    }
   //    exit(1);
+    
+    
+//    std::vector<size_t> task2machine(intervals.size());
+//    
+//    size_t i{0};
+//    for(size_t r{0}; r<resource_tasks.size(); ++r) {
+//        for(size_t k{0}; k<resource_tasks[r].size(); ++k) {
+//            task2machine[i++] = r;
+//        }
+//    }
     
     
 //    std::cout << S << std::endl;
