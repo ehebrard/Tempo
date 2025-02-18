@@ -109,6 +109,9 @@ auto tempo::getBaseParser() -> Parser {
 
     cmd.add<SwitchArg>(opt.primal_boost, "", "no-primal-boost",
                        "do not use primal boost", true);
+    
+    cmd.add<SwitchArg>(opt.ground_update, "", "no-ground-update",
+                       "do not consider new upper bounds as ground fact", true);
 
     cmd.add<ValueArg<int>>(opt.choice_point_heuristics, "", "cp-heuristic",
                            "type of heuristic used for choice point selection "

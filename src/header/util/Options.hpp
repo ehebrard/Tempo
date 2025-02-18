@@ -122,6 +122,7 @@ public:
     
     bool full_transitivity{false};
     bool primal_boost{false};
+    bool ground_update{false};
 
     enum class ChoicePointHeuristics {
       Tightest = 0,
