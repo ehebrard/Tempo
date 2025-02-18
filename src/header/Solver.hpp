@@ -1110,9 +1110,9 @@ std::ostream &ConflictSet<T>::display(std::ostream &os) const {
 template <typename T>
 template <typename Iter>
 void ConflictSet<T>::remove(Iter i) {
+    i->first = 0;
     if (i->second.isNumeric()) {
         setConflictIndex(i->second, Constant::NoIndex);
-        i->first = 0;
     } else {
         in_conflict[i->second.variable()] = false;
     }
@@ -1219,12 +1219,23 @@ template <typename T> int ConflictSet<T>::backtrackLevel(Solver<T> &solver) {
     
 //    assert(this->size() >= 2);
     
+//    std::cout << "comp. bt level (sz=" << this->size() << ")\n";
+    
+    
     if (this->size() < 2) {
         return 0;
     } else {
         sort();
     }
-    auto bl{solver.decisionLevel(this->operator[](1).second)};
+//    auto bl{solver.decisionLevel(this->operator[](1).second)};
+    
+    int bl{0};
+    for(auto p : *this | std::views::drop(1)) {
+        if(p.first != 0) {
+            bl = solver.getLevel(p.first);
+            break;
+        }
+    }
     
     //    std::cout << "BT LEVEL = " << bl << " (LIT = " <<
     //    this->operator[](1).second << " / " << this->operator[](1).first <<
@@ -3581,20 +3592,20 @@ template <typename T> void Solver<T>::learnConflict(Explanation<T> &e) {
     }
 #endif
     
-    for (auto i{learnt_clause.begin()}; i != learnt_clause.end(); ++i) {
-        for (auto j{learnt_clause.begin()}; j != learnt_clause.end(); ++j) {
-            if (i != j) {
-                if (i->isNumeric() == j->isNumeric() and
-                    i->variable() == j->variable() and i->sign() == j->sign()) {
-                    std::cout << "duplicates!!! (" << num_fails << ")\n";
-                    
-                    std::cout << *i << " AND " << *j << std::endl;
-                    
-                    exit(1);
-                }
-            }
-        }
-    }
+//    for (auto i{learnt_clause.begin()}; i != learnt_clause.end(); ++i) {
+//        for (auto j{learnt_clause.begin()}; j != learnt_clause.end(); ++j) {
+//            if (i != j) {
+//                if (i->isNumeric() == j->isNumeric() and
+//                    i->variable() == j->variable() and i->sign() == j->sign()) {
+//                    std::cout << "duplicates!!! (" << num_fails << ")\n";
+//                    
+//                    std::cout << *i << " AND " << *j << std::endl;
+//                    
+//                    exit(1);
+//                }
+//            }
+//        }
+//    }
     
     assert(isAssertive(learnt_clause));
     
