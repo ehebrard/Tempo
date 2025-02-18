@@ -88,7 +88,9 @@ namespace tempo::lns {
             if (currSize > buffer.size()) {
                 buffer.emplace_back(std::forward<Args>(args)...);
             } else {
-                std::construct_at(buffer.data() + head, std::forward<Args>(args)...);
+                auto *pos = buffer.data() + head;
+                std::destroy_at(pos);
+                std::construct_at(pos, std::forward<Args>(args)...);
             }
         }
 
