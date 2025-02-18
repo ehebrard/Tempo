@@ -3656,6 +3656,9 @@ template <typename T> void Solver<T>::initializeSearch() {
         ground_stamp = assumption_stamp = numLiteral();
         
         initialized = true;
+        if (options.verbosity >= Options::QUIET) {
+            displayHeader(std::cout);
+        }
     }
     
     
@@ -3671,10 +3674,6 @@ template <typename T> void Solver<T>::initializeSearch() {
 //    boolean_size = boolean.size();
 //    numeric_size = numeric.size();
 //    constraint_size = constraints.size();
-    
-    if (options.verbosity >= Options::QUIET) {
-        displayHeader(std::cout);
-    }
     
     //    heuristic.notifyStartSearch(*this);
 }
