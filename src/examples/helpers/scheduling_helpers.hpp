@@ -76,7 +76,7 @@ auto runLNS(Policy &&policy, tempo::Solver<T> &solver, tempo::MinimizationObject
             solver.largeNeighborhoodSearch(objective, std::forward<Policy>(policy));
         } else {
             auto saver = lns::make_region_saver<T>(std::forward<Policy>(policy), stats.regionRecordPath,
-                                                   stats.nRegionSaverFails);
+                                                   stats.nRegionSaverFails, objective.X);
             solver.largeNeighborhoodSearch(objective, saver);
         }
         return sw.elapsed<std::chrono::milliseconds>();
@@ -95,7 +95,8 @@ auto runLNS(Policy &&policy, tempo::Solver<T> &solver, tempo::MinimizationObject
     if (stats.regionRecordPath.empty()) {
         solver.largeNeighborhoodSearch(objective, evalPolicy);
     } else {
-        auto saver = lns::make_region_saver<T>(evalPolicy, stats.regionRecordPath, stats.nRegionSaverFails);
+        auto saver = lns::make_region_saver<T>(evalPolicy, stats.regionRecordPath, stats.nRegionSaverFails,
+                                               objective.X);
         solver.largeNeighborhoodSearch(objective, saver);
     }
     std::vector<lns::RegionResult<T>> localOptima;

@@ -372,6 +372,19 @@ namespace tempo::lns {
     }
 
     /**
+     * @brief LNS region produced by an LNS relaxation policy
+     * @tparam T timing type
+     */
+    template<concepts::scalar T>
+    struct Region {
+        std::vector<DistanceConstraint<T>> assumptions; ///< assumptions
+        T ub; ///< current upper bound
+        bool SAT; ///< whether the region contains an improving solution
+
+        NLOHMANN_DEFINE_TYPE_INTRUSIVE(Region, assumptions, ub, SAT)
+    };
+
+    /**
      * @brief Relaxation policy wrapper that records all assumptions made by the base policy and
      * writes them to a json file
      * @tparam T timing type
@@ -380,8 +393,9 @@ namespace tempo::lns {
     template<concepts::scalar T, relaxation_policy Policy>
     class RegionSaver {
         Policy policy;
-        std::vector<std::vector<DistanceConstraint<T>>> regions;
+        std::vector<Region<T>> regions{};
         std::filesystem::path destination;
+        NumericVar<T> objectiveVar;
         unsigned minNumFails;
         unsigned numFails = 0;
 
@@ -403,11 +417,14 @@ namespace tempo::lns {
          * @tparam Args argument types to base policy ctor
          * @param destination destination file
          * @param minNumFails minimum number of fails before assumptions are recorded
+         * @param objectiveVar objective variable
          * @param args arguments to base policy ctor
          */
         template<typename... Args>
-        explicit RegionSaver(std::filesystem::path destination, unsigned minNumFails, Args &&... args)
-            : policy(std::forward<Args>(args)...), destination(std::move(destination)), minNumFails(minNumFails) {
+        explicit RegionSaver(std::filesystem::path destination, unsigned minNumFails, const NumericVar<T> &objectiveVar,
+                             Args &&... args)
+            : policy(std::forward<Args>(args)...), destination(std::move(destination)), objectiveVar(objectiveVar),
+              minNumFails(minNumFails) {
             std::ofstream f(this->destination);
             using namespace std::string_literals;
             if (not f.is_open()) {
@@ -434,7 +451,7 @@ namespace tempo::lns {
                 }
             }
 
-            regions.emplace_back(std::move(constraints));
+            regions.emplace_back(std::move(constraints), proxy.getSolver().numeric.lower(objectiveVar), true);
         }
 
         void notifySuccess(unsigned numFails) {
@@ -444,6 +461,10 @@ namespace tempo::lns {
 
         void notifyFailure(unsigned numFails) {
             this->numFails = numFails;
+            if (not regions.empty()) {
+                regions.back().SAT = false;
+            }
+
             policy.notifyFailure(numFails);
         }
 
@@ -461,12 +482,14 @@ namespace tempo::lns {
      * @tparam Policy base policy type
      * @param destination destination file
      * @param minNumFails minimum number of fails before assumptions are recorded
+     * @param objectiveVar objective variable
      * @param policy base policy
      * @return
      */
     template<concepts::scalar T, relaxation_policy Policy>
-    auto make_region_saver(Policy &&policy, std::filesystem::path destination, unsigned minNumFails) {
-        return RegionSaver<T, Policy>(std::move(destination), minNumFails, std::forward<Policy>(policy));
+    auto make_region_saver(Policy &&policy, std::filesystem::path destination, unsigned minNumFails,
+                           const NumericVar<T> &objectiveVar) {
+        return RegionSaver<T, Policy>(std::move(destination), minNumFails, objectiveVar, std::forward<Policy>(policy));
     }
 }
 
