@@ -26,11 +26,12 @@ namespace tempo::heuristics {
          * @tparam T timing type
          * @param solver target solver
          */
-        template<concepts::scalar T>
-        explicit VSIDS(Solver<T> &solver) :
-                GapOverActivity(solver, solver.ClauseAdded.subscribe_handled(
-                        [this, &solver](const auto &arg) { this->activity.update(arg, solver); })) {}
-
+      template <concepts::scalar T>
+      explicit VSIDS(Solver<T> &solver)
+          : GapOverActivity(solver, solver.ClauseAdded.subscribe_handled(
+                                        [this](const auto &arg) {
+                                          this->activity.update(arg);
+                                        })) {}
     };
 }
 

@@ -10,9 +10,10 @@
 
 //#include <algorithm>
 
-#include "util/traits.hpp"
-#include "util/SparseSet.hpp"
+#include "heuristics/impl/ActivityMap.hpp"
 #include "util/Heap.hpp"
+#include "util/SparseSet.hpp"
+#include "util/traits.hpp"
 
 #include "heuristic_interface.hpp"
 #include "ReversibleObject.hpp"
@@ -34,13 +35,11 @@ struct VSIDSHeap {
   VSIDSHeap(Solver<T> &solver)
       : handlerToken(solver.ClauseAdded.subscribe_handled(
             [this](const auto &arg) { this->updateActivity(arg); })),
-        decay(solver.getOptions().vsids_decay) {
+        activity(solver.getOptions().vsids_decay) {
 
     var_heap.resize(solver.boolean.size());
     std::iota(var_heap.begin(), var_heap.end(), 0);
-    var_activity.resize(solver.boolean.size(), base_epsilon);
     index.resize(solver.boolean.size(), 0);
-
     trail.push_back(var_heap.size());
 
     //@TODO: better initialisation
@@ -48,6 +47,8 @@ struct VSIDSHeap {
       std::swap(var_heap[i], var_heap[i + random() % (var_heap.size() - i)]);
       index[var_heap[i]] = static_cast<index_t>(i);
     }
+
+    activity.resize(solver.boolean.size(), impl::ActivityMap::baseIncrement);
   }
 
   VSIDSHeap(const VSIDSHeap &) = delete;
@@ -68,45 +69,23 @@ struct VSIDSHeap {
         solver.getBranch();
 
     assert(not variables.empty());
-    
-      
-      
-//      sstd::cout << variables << std::endl;
-//
-//      
-//      if(static_cast<int>(trail.size()) > solver.level())
-//      for(auto t : trail)
-//          std::cout << " " << t;
-      
+
     auto n{trail.back()};
     while (static_cast<int>(trail.size()) > solver.level()) {
       trail.pop_back();
     }
 
-      
-//      std::cout << " last=" << trail.back() << "\n";
-      
-//      std::cout << variables << std::endl;
-      
-      
-      
     while (n < trail.back()) {
-        
-//        std::cout << " +" << var_heap[n] ;
-        
       heap::percolate_up(var_heap.begin(), n, index,
                          [&](const var_t x, const var_t y) {
-                           return var_activity[x] > var_activity[y];
+                           return activity[x] > activity[y];
                          });
       ++n;
     }
-//      std::cout << std::endl;
-      
+
       while(static_cast<int>(trail.size()) < solver.level())
           trail.push_back(trail.back());
-      
-//      std::cout << "pick var @" << solver.level() << " |trail|=" << trail.size() ;
-      
+
       assert(checkVars(solver));
       assert(checkHeap(0));
 
@@ -114,14 +93,8 @@ struct VSIDSHeap {
     var_t x;
     do {
       x = pickBest(last);
-        
-//        std::cout << " -" << x;
-        
     } while (not variables.has(x));
-//      std::cout << std::endl;
-      
-      
-//    while(static_cast<int>(trail.size()) <= solver.level())
+
         trail.push_back(last);
 
     assert(checkHeap(0));
@@ -129,61 +102,35 @@ struct VSIDSHeap {
     return {x, VariableType::Boolean};
   }
 
-  template <class Iterable> void updateActivity(const Iterable &literals) {
-    bool need_rescaling{false};
-    for (auto l : literals) {
+  template <concepts::scalar T> void updateActivity(const Solver<T> &solver) {
+
+    var_buffer.clear();
+    for (auto l : solver.lastLearnt()) {
       if (not l.isNumeric()) {
-        var_activity[l.variable()] += epsilon;
-        need_rescaling |= (var_activity[l.variable()] > max_activity);
-        if (index[l.variable()] < trail.back()) {
-          heap::percolate_up(var_heap.begin(), index[l.variable()], index,
-                             [&](const var_t x, const var_t y) {
-                               return var_activity[x] > var_activity[y];
-                             });
-        }
+        var_buffer.push_back(l.variable());
       }
     }
 
-    if (need_rescaling) {
+    for (auto i : solver.cut.cached_) {
+      auto l{solver.getLiteral(i)};
+      if (not l.isNumeric())
+        var_buffer.push_back(l.variable());
+    }
 
-//                      std::cout << "rescale";
-//                      for(auto a : var_activity) {
-//                          std::cout << " " << a;
-//                      }
+    activity.update(var_buffer);
 
-      auto [lp, up] = std::ranges::minmax_element(var_activity.begin() + 1,
-                                                  var_activity.end());
-      double l{std::numeric_limits<double>::max()};
-      if (lp != var_activity.end())
-        l = *lp;
-
-      double u{-std::numeric_limits<double>::max()};
-      if (up != var_activity.end())
-        u = *up;
-
-      auto factor{base_gap / (u - l)};
-      //                for(auto &a : var_activity) {
-      //                    a = base_epsilon + (a - l) * factor;
-      //                }
-      for (auto a{var_activity.begin() + 1}; a != var_activity.end(); ++a) {
-        *a = base_epsilon + (*a - l) * factor;
+    for (auto x : var_buffer) {
+      if (index[x] < trail.back()) {
+        heap::percolate_up(var_heap.begin(), index[x], index,
+                           [&](const var_t x, const var_t y) {
+                             return activity[x] > activity[y];
+                           });
       }
-
-//                      std::cout << "\n ----> ";
-//                      for(auto a : var_activity) {
-//                          std::cout << " " << a;
-//                      }
-//                      std::cout << std::endl;
-//                      std::cout << std::endl;
-
-      epsilon = base_epsilon;
-    } else {
-      epsilon /= decay;
     }
 
     assert(checkHeap(0));
   }
-    
+
     template <concepts::scalar T>
     bool checkVars(const Solver<T> &solver) {
         auto last{trail.back()};
@@ -210,14 +157,12 @@ struct VSIDSHeap {
 
     bool ok_left =
         ((lc >= n) or
-         ((var_activity[var_heap[i]] >= var_activity[var_heap[lc]]) and
-          checkHeap(lc)));
+         ((activity[var_heap[i]] >= activity[var_heap[lc]]) and checkHeap(lc)));
 
     if (ok_left) {
       auto ok_right =
-          ((rc >= n) or
-           ((var_activity[var_heap[i]] >= var_activity[var_heap[rc]]) and
-            checkHeap(rc)));
+          ((rc >= n) or ((activity[var_heap[i]] >= activity[var_heap[rc]]) and
+                         checkHeap(rc)));
       return ok_right;
     }
 
@@ -228,7 +173,7 @@ struct VSIDSHeap {
     var_t x{var_heap[0]};
     heap::remove_min(var_heap.begin(), var_heap.begin() + _end_, index,
                      [&](const var_t x, const var_t y) {
-                       return var_activity[x] > var_activity[y];
+                       return activity[x] > activity[y];
                      });
     --_end_;
     return x;
@@ -244,17 +189,13 @@ struct VSIDSHeap {
   std::vector<index_t> index;
 
   std::vector<var_t> var_heap;
-  std::vector<double> var_activity;
 
   SubscriberHandle handlerToken;
 
-  constexpr static const double base_epsilon{1e-6};
-  const double decay{.999};
-  constexpr static const double max_activity{1e12};
-  constexpr static const double base_gap{1 - base_epsilon};
+  std::vector<var_t> var_buffer;
 
-  double epsilon{base_epsilon};
+  impl::ActivityMap activity;
 };
 }
 
-#endif //TEMPO_RANDOMVARIABLESELECTION_HPP
+#endif // TEMPO_VSIDSHEAP_HPP

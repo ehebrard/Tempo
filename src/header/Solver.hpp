@@ -497,8 +497,10 @@ public:
      */
     ///@{
     mutable SubscribableEvent<Literal<T>> ChoicePoint; ///< triggered on choicepoints
-    mutable SubscribableEvent<const std::vector<Literal<T>> &>
-    ClauseAdded; ///< triggered when a new clause is learned
+    //    mutable SubscribableEvent<const std::vector<Literal<T>> &>
+    //    ClauseAdded; ///< triggered when a new clause is learned
+    mutable SubscribableEvent<const Solver<T> &>
+        ClauseAdded; ///< triggered when a new clause is learned
     mutable SubscribableEvent<Literal<T>>
     DeductionMade; ///< triggered when branching right
     mutable SubscribableEvent<Explanation<T> &>
@@ -911,22 +913,23 @@ private:
      * @name helpers for conflict-analysis
      */
     //@{
-    ConflictSet<T> cut;
-    
+
     std::vector<Literal<T>> lit_buffer;
     std::vector<Literal<T>> learnt_clause;
     
     util::StopWatch stopWatch;
     
 public:
-    
-    const std::vector<int>& getNumericScope(const int cons_idx) const {
-        return numeric_constraints.backward()[cons_idx];
+  ConflictSet<T> cut;
+
+  const std::vector<int> &getNumericScope(const int cons_idx) const {
+    return numeric_constraints.backward()[cons_idx];
     }
     const std::vector<int>& getBooleanScope(const int cons_idx) const {
         return boolean_constraints.backward()[cons_idx];
     }
-    
+
+    const std::vector<Literal<T>> &lastLearnt() const { return learnt_clause; }
     std::vector<Literal<T>>::iterator begin_learnt() {
         return learnt_clause.begin();
     }
@@ -984,7 +987,6 @@ public:
     long unsigned int num_unit_propagations{0};
     // average depth of the search tree
     double avg_fail_level{0};
-    
     //@}
     
 private:
@@ -3575,16 +3577,16 @@ template <typename T> void Solver<T>::learnConflict(Explanation<T> &e) {
     
 //    if (bt_level < init_level)
 //        throw SearchExhausted();
-    
-    lit_buffer.clear();
-    for (auto l : learnt_clause) {
-        lit_buffer.push_back(~l);
-    }
-    for (auto i : cut.cached_) {
-        lit_buffer.push_back(getLiteral(i));
-    }
-    ClauseAdded.trigger(lit_buffer);
-    
+
+    //    lit_buffer.clear();
+    //    for (auto l : learnt_clause) {
+    //        lit_buffer.push_back(~l);
+    //    }
+    //    for (auto i : cut.cached_) {
+    //        lit_buffer.push_back(getLiteral(i));
+    //    }
+    ClauseAdded.trigger(*this);
+
     restoreState(bt_level);
         
 #ifdef DBG_TRACE

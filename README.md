@@ -45,5 +45,15 @@ The important modeling concepts are 'BooleanVar', 'NumericVar' and 'ExpressionIm
     - BooleanVar and NumericVar: x.extract(Solver), if x is a variable, does nothing. If x is an expression e, then extract e; turn x into a variable and post the constraint x == e
 - ExpressionImpl are interfaces for modeling expression objects. 
 
+### Callback
+
+TODO: 
+1/ SubscribableEvent should be renamed Callbacks
+2/ They should not have an argument because they are supposed to be add-ons implemented by users and having pre-defined arguments limits their use
+3/ Several things should be implemented with callbacks (e.g., constraints and other objects that want to be notified of the creation of new variables)
+
 ### Heuristics
 
+TODO:
+1/ explain / give examples on how to declare branching heuristics from existing variable and value selection heuristics
+2/ have a "activity provider" interface (the activity provider is in charge of storing the activity of literals)

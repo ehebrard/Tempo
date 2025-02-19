@@ -68,79 +68,100 @@ namespace tempo::heuristics::impl {
             }
             return need_rescaling;
         }
-            
-        
-//        /**
-//         * Updates the activity map of the variables involved in the given clause, also applies the decay to each value
-//         * @tparam Clause
-//         * @param clause
-//         */
-//        template<class Iterable>
-//        void update(Iterable &clause, const Scheduler<T>& sched) noexcept {
-//          //            static_assert(traits::is_iterable_v<Clause>, "Expected
-//          //            iterable for Clause type");
-//          bool normalize = false;
-//
-//          for (const auto gl : clause) {
-//
-//#ifdef DEBUG_HEURISTICS
-//                std::cout << " increment activity because of " << sched.prettyLiteral(gl) << std::endl;
-//#endif
-//                
-//                if(LTYPE(gl) == BOUND_LIT) {
-//                    normalize |= incrementActivity(EVENT(sched.getBoundLiteral(FROM_GEN(gl))));
-//                } else {
-//                    DistanceConstraint<T> bc{sched.getEdge(FROM_GEN(gl))};
-//                    normalize |= incrementActivity(bc.from);
-//                    normalize |= incrementActivity(bc.to);
-//                }
-//          }
-//
-//#ifdef DEBUG_HEURISTICS
-//            for(event x{0}; x<static_cast<event>(EventActivityMap<T>::activity.size()); ++x) {
-//                std::cout << std::setw(6) << prettyEvent(x);
-//            }
-//            std::cout << std::endl;
-//            for(event x{0}; x<static_cast<event>(EventActivityMap<T>::activity.size()); ++x) {
-//                std::cout << std::setw(6) << EventActivityMap<T>::activity[x];
-//            }
-//            std::cout << std::endl;
-// #endif
-//
-//            // protect against overflow
-//            if (normalize) {
-//                
-//#ifdef DEBUG_HEURISTICS
-//                std::cout << "\nnormalize (" << increment << ")\n" ;
-//#endif
-//
-//                auto [l, u] = std::ranges::minmax_element(this->numeric_activity);
-//                this->for_each([lb = *l, gap = *u - *l](auto &val) {
-//                  val = (val - lb) / gap * baseGap + baseIncrement;
-//                });
-//                increment = baseIncrement;
-//            }
-//
-//            increment /= decay;
-//        }
-        
-        template<class Iterable, concepts::scalar T>
-        void update(Iterable &clause, const Solver<T>& solver) noexcept {
 
-            bool normalize = false;
-            
-            for (const auto l : clause) {
-                
-//                if(solver.num_fails >= 20901)
-//                    std::cout << " " << l ;
-//                
+        template <concepts::scalar T>
+        void update(const Solver<T> &solver) noexcept {
+
+          bool normalize = false;
+
+          for (const auto l : solver.lastLearnt()) {
+
+    //                if(solver.num_fails >= 20901)
+    //                    std::cout << " " << l ;
+    //
 #ifdef DEBUG_HEURISTICS
-                std::cout << " increment activity because of " << l << std::endl;
+          std::cout << " increment activity because of " << l << std::endl;
 #endif
-                
-                normalize |= incrementActivity(l, solver);
-                
-            }
+
+          normalize |= incrementActivity(l, solver);
+        }
+
+    //            if(solver.num_fails >= 20901)
+    //                std::cout << "\n--\n" ;
+    //
+#ifdef DEBUG_HEURISTICS
+        for (event x{0}; x < static_cast<event>(
+                                 EventActivityMap<T>::numeric_activity.size());
+             ++x) {
+          std::cout << std::setw(6) << x;
+        }
+        std::cout << std::endl;
+        for (event x{0}; x < static_cast<event>(
+                                 EventActivityMap<T>::numeric_activity.size());
+             ++x) {
+          std::cout << std::setw(6) << EventActivityMap<T>::numeric_activity[x];
+        }
+        std::cout << std::endl;
+#endif
+
+        // protect against overflow
+        if (normalize) {
+
+          //                if(solver.num_fails >= 20901)
+          //                std::cout << "\nnormalize (" << increment << ")\n" ;
+
+#ifdef DEBUG_HEURISTICS
+          std::cout << "\nnormalize (" << increment << ")\n";
+#endif
+
+          auto [nl, nu] = std::ranges::minmax_element(this->numeric_activity);
+          auto [bl, bu] = std::ranges::minmax_element(this->boolean_activity);
+          double l{std::numeric_limits<double>::max()};
+          if (nl != this->numeric_activity.end())
+            l = *nl;
+          if (bl != this->boolean_activity.end() and *bl < l)
+            l = *bl;
+
+          double u{-std::numeric_limits<double>::max()};
+          if (nu != this->numeric_activity.end())
+            u = *nu;
+          if (bu != this->boolean_activity.end() and *bu > u)
+            u = *bu;
+
+          //                auto l{std::min(*nl,*bl)};
+          //                auto u{std::max(*nu,*bu)};
+          this->for_each([lb = l, gap = u - l](auto &val) {
+            val = (val - lb) / gap * baseGap + baseIncrement;
+          });
+
+          increment = baseIncrement;
+        }
+
+        increment /= decay;
+
+        //            if(solver.num_fails >= 20901)
+        //                std::cout << "end update (" << solver.num_fails
+        //                <<")\n";
+
+        //            this->display(std::cout);
+      }
+
+      template <class Iterable, concepts::scalar T>
+      void update(Iterable &clause, const Solver<T> &solver) noexcept {
+
+        bool normalize = false;
+
+        for (const auto l : clause) {
+
+    //                if(solver.num_fails >= 20901)
+    //                    std::cout << " " << l ;
+    //
+#ifdef DEBUG_HEURISTICS
+          std::cout << " increment activity because of " << l << std::endl;
+#endif
+
+          normalize |= incrementActivity(l, solver);
+        }
             
 //            if(solver.num_fails >= 20901)
 //                std::cout << "\n--\n" ;
