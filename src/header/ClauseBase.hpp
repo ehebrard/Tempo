@@ -1792,8 +1792,7 @@ double ClauseBase<T>::activity(const Literal<T> l) {
 
 template <typename T>
 double ClauseBase<T>::loosenessOverActivity(const Literal<T> l) {
-    
-    return solver.looseness(l) / activity(l);
+    return solver.looseness(l) * inverseActivity(l);
 }
 
 template <typename T>
@@ -1898,10 +1897,10 @@ template <typename T> void ClauseBase<T>::forget() {
     free_cl_indices.re_index(free_cl_indices.bbegin(), free_cl_indices.bend());
     
     
-        std::cout << "ordering, from worst to best:\n";
-        for(auto i{free_cl_indices.bbegin()}; i!=free_cl_indices.bend(); ++i) {
-            std::cout << std::setw(4) << glue[*i] << " " << std::setw(8) << std::setprecision(3) << score[*i] << " " << *base[*i] << std::endl;
-        }
+//        std::cout << "ordering, from worst to best:\n";
+//        for(auto i{free_cl_indices.bbegin()}; i!=free_cl_indices.bend(); ++i) {
+//            std::cout << std::setw(4) << glue[*i] << " " << std::setw(8) << std::setprecision(3) << score[*i] << " " << *base[*i] << std::endl;
+//        }
     
     auto target_size =
     static_cast<size_t>(static_cast<double>(numLearnt()) *
@@ -1911,10 +1910,10 @@ template <typename T> void ClauseBase<T>::forget() {
         forget_worst();
     }
     
-        std::cout << "\n===>\n";
-        for(auto i{free_cl_indices.bbegin()}; i!=free_cl_indices.bend(); ++i) {
-            std::cout << std::setw(4) << glue[*i] << " " << std::setw(8) << std::setprecision(3) << score[*i] << " " << *base[*i] << std::endl;
-        }
+//        std::cout << "\n===>\n";
+//        for(auto i{free_cl_indices.bbegin()}; i!=free_cl_indices.bend(); ++i) {
+//            std::cout << std::setw(4) << glue[*i] << " " << std::setw(8) << std::setprecision(3) << score[*i] << " " << *base[*i] << std::endl;
+//        }
     
 #ifdef DBG_WATCHERS
     verifyWatchers("after forget");
