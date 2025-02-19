@@ -49,6 +49,7 @@
 #include "heuristics/LNS/relaxation_interface.hpp"
 #include "heuristics/heuristic_factories.hpp"
 #include "heuristics/impl/DecayingEventActivityMap.hpp"
+#include "heuristics/impl/ActivityMap.hpp"
 #include "util/KillHandler.hpp"
 #include "util/Options.hpp"
 #include "util/Profiler.hpp"
@@ -957,12 +958,31 @@ private:
     
     heuristics::impl::EventActivityMap *activityMap{nullptr};
     
+    heuristics::impl::ActivityMap numericActivityMap{options.vsids_decay};
+    heuristics::impl::ActivityMap booleanActivityMap{options.vsids_decay};
+    
 public:
+    
+    heuristics::impl::ActivityMap& getNumericActivity() {return numericActivityMap; }
+    heuristics::impl::ActivityMap& getBooleanActivity() {return booleanActivityMap; }
+    
     void setActivityMap(heuristics::impl::EventActivityMap *map) {
         activityMap = map;
     }
     heuristics::impl::EventActivityMap *getActivityMap() {
         return activityMap;
+    }
+    
+    double getActivity(const Literal<T> l) const {
+        auto x{l.variable()};
+        if(l.isNumeric()) {
+            if(numericActivityMap.size() > static_cast<size_t>(x))
+                return numericActivityMap[x];
+        } else {
+            if(booleanActivityMap.size() > static_cast<size_t>(x))
+                return booleanActivityMap[x];
+        }
+        return heuristics::impl::ActivityMap::baseIncrement;
     }
     
     /**
@@ -1104,6 +1124,8 @@ struct ConflictSet : public std::vector<std::pair<index_t, Literal<T>>> {
     
     int backtrackLevel(Solver<T> &solver);
     
+    int glueScore(Solver<T> &solver);
+    
     std::ostream &display(std::ostream &os) const;
     
     bool verifyIntegrity();
@@ -1223,6 +1245,26 @@ void ConflictSet<T>::get(std::vector<Literal<T>> &clause) {
             clause.push_back(~(p.second));
         }
     }
+}
+
+template <typename T> int ConflictSet<T>::glueScore(Solver<T> &solver) {
+    if (this->size() < 2) {
+        return 1;
+    } else {
+        sort();
+    }
+    int g{0};
+    int pl{-1};
+    for(auto p : *this) {
+        if(p.first != 0) {
+            auto l{solver.getLevel(p.first)};
+            if(l != pl) {
+                ++g;
+                pl=l;
+            }
+        }
+    }
+    return g;
 }
 
 template <typename T> int ConflictSet<T>::backtrackLevel(Solver<T> &solver) {
@@ -3612,7 +3654,7 @@ template <typename T> void Solver<T>::learnConflict(Explanation<T> &e) {
     
     assert(isAssertive(learnt_clause));
     
-    clauses.add(learnt_clause.begin(), learnt_clause.end(), true);
+    clauses.add(learnt_clause.begin(), learnt_clause.end(), true, cut.glueScore(*this));
     
 #ifdef DBG_CL
     if (++num_clauses > DBG_CL) {
@@ -3651,6 +3693,10 @@ template <typename T> void Solver<T>::initializeSearch() {
     stopWatch.start();
     
     if(not initialized) {
+        
+//        booleanActivityMap.resize(boolean.size(), heuristics::impl::ActivityMap::baseIncrement);
+//        numericActivityMap.resize(numeric.size(), heuristics::impl::ActivityMap::baseIncrement);
+        
         
 //        std::cout << "here: " << numConstraint() << " / " << constraint_size << std::endl;
         

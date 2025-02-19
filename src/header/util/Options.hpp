@@ -159,7 +159,9 @@ public:
       Size = 0,
       Looseness,
       Activity,
-      LoosenessOverActivity
+      LoosenessOverActivity,
+        Glue,
+        GlueTimesActivity
     };
 
     LiteralScore forget_strategy{3};

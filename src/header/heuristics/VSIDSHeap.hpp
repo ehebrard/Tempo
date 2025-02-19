@@ -35,7 +35,10 @@ struct VSIDSHeap {
   VSIDSHeap(Solver<T> &solver)
       : handlerToken(solver.ClauseAdded.subscribe_handled(
             [this](const auto &arg) { this->updateActivity(arg); })),
-        activity(solver.getOptions().vsids_decay) {
+    activity(solver.getBooleanActivity())
+    , num_activity(solver.getNumericActivity())
+    {
+//        activity(solver.getOptions().vsids_decay) {
 
     var_heap.resize(solver.boolean.size());
     std::iota(var_heap.begin(), var_heap.end(), 0);
@@ -49,6 +52,7 @@ struct VSIDSHeap {
     }
 
     activity.resize(solver.boolean.size(), impl::ActivityMap::baseIncrement);
+        num_activity.resize(solver.numeric.size(), impl::ActivityMap::baseIncrement);
   }
 
   VSIDSHeap(const VSIDSHeap &) = delete;
@@ -104,22 +108,39 @@ struct VSIDSHeap {
 
   template <concepts::scalar T> void updateActivity(const Solver<T> &solver) {
 
-    var_buffer.clear();
+    bool_buffer.clear();
+      num_buffer.clear();
     for (auto l : solver.lastLearnt()) {
-      if (not l.isNumeric()) {
-        var_buffer.push_back(l.variable());
+      if (l.isNumeric()) {
+        num_buffer.push_back(l.variable());
+      } else {
+          bool_buffer.push_back(l.variable());
       }
     }
 
     for (auto i : solver.cut.cached_) {
       auto l{solver.getLiteral(i)};
-      if (not l.isNumeric())
-        var_buffer.push_back(l.variable());
+        if (l.isNumeric()) {
+            num_buffer.push_back(l.variable());
+        } else {
+            bool_buffer.push_back(l.variable());
+        }
     }
 
-    activity.update(var_buffer);
+    activity.update(bool_buffer);
+      num_activity.update(num_buffer);
+      
+//      std::cout << "update bools:";
+//      for(auto x : bool_buffer)
+//          std::cout << " " << activity[x];
+//      std::cout << std::endl;
+//      std::cout << "update nums:";
+//      for(auto x : num_buffer)
+//          std::cout << " " << num_activity[x];
+//      std::cout << std::endl;
+      
 
-    for (auto x : var_buffer) {
+    for (auto x : bool_buffer) {
       if (index[x] < trail.back()) {
         heap::percolate_up(var_heap.begin(), index[x], index,
                            [&](const var_t x, const var_t y) {
@@ -192,9 +213,11 @@ struct VSIDSHeap {
 
   SubscriberHandle handlerToken;
 
-  std::vector<var_t> var_buffer;
+  std::vector<var_t> bool_buffer;
+    std::vector<var_t> num_buffer;
 
-  impl::ActivityMap activity;
+  impl::ActivityMap& activity;
+    impl::ActivityMap& num_activity;
 };
 }
 

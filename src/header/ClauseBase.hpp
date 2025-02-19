@@ -32,6 +32,7 @@
 #include "util/Options.hpp"
 #include "util/SparseSet.hpp"
 #include "util/SubscribableEvent.hpp"
+#include "heuristics/impl/ActivityMap.hpp"
 
 //#define DBG_WATCHERS
 
@@ -80,7 +81,7 @@ public:
     // create and add a clause from a list of literals (and returns it) 'learnt'
     // flag distinguished constraints from cuts
     template <typename iter>
-    Clause<T> *add(const iter first, const iter last, const bool learnt = false);
+    Clause<T> *add(const iter first, const iter last, const bool learnt = false, const int glue_score=1);
 //    template <typename Iterable>
     Clause<T> *add(const std::vector<Literal<T>>& lits) {
         return add(lits.begin(), lits.end());
@@ -217,6 +218,7 @@ private:
     std::vector<Clause<T> *> base;
     // a score vector [same indexing as 'base']
     std::vector<double> score;
+    std::vector<int> glue;
     // free indices in the vector base (so that we can remove clauses)
     // - contain the indices in 'base' that are available (no current clause has
     // this id)
@@ -1782,9 +1784,10 @@ template <typename T> void ClauseBase<T>::forget_worst() {
 
 template <typename T>
 double ClauseBase<T>::activity(const Literal<T> l) {
-    return (solver.getActivityMap() != nullptr
-            ? solver.getActivityMap()->get(l, solver)
-            : 1);
+//    return (solver.getActivityMap() != nullptr
+//            ? solver.getActivityMap()->get(l, solver)
+//            : 1);
+    return solver.getActivity(l);
 }
 
 template <typename T>
@@ -1795,7 +1798,7 @@ double ClauseBase<T>::loosenessOverActivity(const Literal<T> l) {
 
 template <typename T>
 double ClauseBase<T>::inverseActivity(const Literal<T> l) {
-    return 1.0 / activity(l); // solver.getActivityMap()->get(l, solver);
+    return heuristics::impl::ActivityMap::baseIncrement / activity(l); // solver.getActivityMap()->get(l, solver);
 }
 
 template <typename T> double ClauseBase<T>::looseness(const Literal<T> l) {
@@ -1820,9 +1823,19 @@ template <typename T> void ClauseBase<T>::forget() {
     //    std::cout << "option: " << solver.getOptions().forget_strategy <<
     //    std::endl;
     
-    if (solver.getOptions().forget_strategy == Options::LiteralScore::Looseness or
-        (solver.getActivityMap() == NULL and
-         solver.getOptions().forget_strategy != Options::LiteralScore::Size)) {
+    
+    
+    
+    if (solver.getOptions().forget_strategy == Options::LiteralScore::GlueTimesActivity) {
+        for (auto idx{free_cl_indices.bbegin()}; idx != free_cl_indices.bend();
+             ++idx) {
+            score[*idx] = 0;
+            for (auto l : *base[*idx]) {
+                score[*idx] += inverseActivity(l);
+            }
+            score[*idx] *= glue[*idx];
+        }
+    } else if (solver.getOptions().forget_strategy == Options::LiteralScore::Looseness) {
         for (auto idx{free_cl_indices.bbegin()}; idx != free_cl_indices.bend();
              ++idx) {
             score[*idx] = 0;
@@ -1870,6 +1883,11 @@ template <typename T> void ClauseBase<T>::forget() {
                   [&](const int i, const int j) {
             return (base[i]->size() > base[j]->size());
         });
+    } else if (solver.getOptions().forget_strategy == Options::LiteralScore::Glue) {
+        std::sort(free_cl_indices.bbegin(), free_cl_indices.bend(),
+                  [&](const int i, const int j) {
+            return (glue[base[i]->id] > glue[base[j]->id] || (glue[base[i]->id] == glue[base[j]->id] and base[i]->size() > base[j]->size()));
+        });
     } else {
         std::sort(free_cl_indices.bbegin(), free_cl_indices.bend(),
                   [&](const int i, const int j) {
@@ -1879,12 +1897,12 @@ template <typename T> void ClauseBase<T>::forget() {
     
     free_cl_indices.re_index(free_cl_indices.bbegin(), free_cl_indices.bend());
     
-    //
-    //    std::cout << "ordering, from worst to best:\n";
-    //    for(auto i{free_cl_indices.bbegin()}; i!=free_cl_indices.bend(); ++i) {
-    //        std::cout << *base[*i] << std::endl;
-    //    }
-    //
+    
+        std::cout << "ordering, from worst to best:\n";
+        for(auto i{free_cl_indices.bbegin()}; i!=free_cl_indices.bend(); ++i) {
+            std::cout << std::setw(4) << glue[*i] << " " << std::setw(8) << std::setprecision(3) << score[*i] << " " << *base[*i] << std::endl;
+        }
+    
     auto target_size =
     static_cast<size_t>(static_cast<double>(numLearnt()) *
                         (1.0 - solver.getOptions().forgetfulness));
@@ -1892,11 +1910,11 @@ template <typename T> void ClauseBase<T>::forget() {
     while (numLearnt() > target_size) {
         forget_worst();
     }
-    //
-    //    std::cout << "\n===>\n";
-    //    for(auto i{free_cl_indices.bbegin()}; i!=free_cl_indices.bend(); ++i) {
-    //        std::cout << *base[*i] << std::endl;
-    //    }
+    
+        std::cout << "\n===>\n";
+        for(auto i{free_cl_indices.bbegin()}; i!=free_cl_indices.bend(); ++i) {
+            std::cout << std::setw(4) << glue[*i] << " " << std::setw(8) << std::setprecision(3) << score[*i] << " " << *base[*i] << std::endl;
+        }
     
 #ifdef DBG_WATCHERS
     verifyWatchers("after forget");
@@ -1906,7 +1924,7 @@ template <typename T> void ClauseBase<T>::forget() {
 template <typename T>
 template <typename iter>
 Clause<T> *ClauseBase<T>::add(const iter first, const iter last,
-                              const bool learnt) {
+                              const bool learnt, const int glue_score) {
     
 #ifdef DBG_WATCHERS
     verifyWatchers("before add");
@@ -1935,12 +1953,14 @@ Clause<T> *ClauseBase<T>::add(const iter first, const iter last,
             else
                 free_cl_indices.remove_front(id);
             c = base[id];
+            glue[id] = glue_score;
             assert(c->empty());
         } else {
             int id{static_cast<int>(base.size())};
             c = new Clause<T>(id);
             base.push_back(c);
             score.push_back(0);
+            glue.push_back(glue_score);
             free_cl_indices.reserve(base.size());
             
             //    std::cout << free_cl_indices << std::endl;

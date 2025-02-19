@@ -19,22 +19,7 @@ public:
     /**
      * CTor. Initializes activity of all literals with baseIncrement.
      */
-    ActivityMap(const double d) : decay(d) {}
-    
-    
-    
-    //        void resize(const size_t n) {
-    //            activity.resize(solver.numeric.size(), baseIncrement);
-    //        }
-    
-    //        constexpr double operator[](const int x) const {
-    //            return activity[x];
-    //        }
-    //
-    //        constexpr double operator[](const var_t x) const {
-    //            return activity[x];
-    //        }
-    
+    ActivityMap(const double d=.999) : decay(d) {}
     
     bool incrementActivity(const var_t x) noexcept {
         bool need_rescaling{false};
@@ -42,7 +27,6 @@ public:
         need_rescaling = this->operator[](x) > maxActivity;
         return need_rescaling;
     }
-    
     
     template<typename Iterable>
     void update(const Iterable& vars) noexcept {
@@ -75,18 +59,12 @@ public:
         }
     }
     
-    //        void setDecay(const double d) { decay = d; }
-    
-    
     constexpr static const double baseIncrement{1e-6};
     constexpr static const double maxActivity{1e12};
     constexpr static const double baseGap{1 - baseIncrement};
     
 protected:
-    
-    //        std::vector<double> activity{};
-    
-    
+
     const double decay{};
     double increment{baseIncrement};
 };
