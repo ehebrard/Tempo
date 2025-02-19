@@ -1,7 +1,7 @@
 /**
 * @author Tim Luchterhand
 * @date 06.01.25
-* @file RelaxationEvaluator.hpp
+* @file relaxation_evaluators.hpp
 * @brief Relaxation policy evaluation wrapper
 */
 
@@ -213,7 +213,7 @@ namespace tempo::lns {
         std::vector<std::future<RegionResult<T>>> localOptima{};
         unsigned timeout;
         ExecutionPolicy policy;
-        MinimizationObjective<T> objective;
+        NumericVar<T> objectiveVar;
     public:
         /**
          * Ctor
@@ -222,15 +222,15 @@ namespace tempo::lns {
          * @param timeout timout for local search in ms (if 0, no local search is performed)
          * @param executionPolicy execution policy for running local search
          * @param numThreads number of threads to use for local searches (if 0, local search is performed at end of search)
-         * @param objective search objective
+         * @param objectiveVar search objective variable
          * @param args arguments for base policy ctor
          */
         template<typename... Args>
-        RelaxationRegionEvaluator(Options options, MinimizationObjective<T> objective, unsigned timeout,
+        RelaxationRegionEvaluator(Options options, const NumericVar<T> &objectiveVar, unsigned timeout,
                                   ExecutionPolicy executionPolicy, unsigned numThreads, Args &&... args)
             : basePolicy(std::forward<Args>(args)...), options(std::move(options)),
               tp(executionPolicy != ExecutionPolicy::MultiThreaded ? 0 : numThreads),
-              timeout(timeout), policy(executionPolicy), objective(objective) {}
+              timeout(timeout), policy(executionPolicy), objectiveVar(objectiveVar) {}
 
         /**
          * Gets the underlying relaxation policy
@@ -257,7 +257,7 @@ namespace tempo::lns {
 
             AssumptionCollector<T, AI> ac(proxy);
             basePolicy.relax(ac);
-            auto job = [this, state = ac.getState(), ub = proxy.getSolver().numeric.lower(objective.X),
+            auto job = [this, state = ac.getState(), ub = proxy.getSolver().numeric.lower(objectiveVar),
                         assumptions = std::move(ac.getAssumptions())]() -> RegionResult<T> {
                 if (state == AssumptionState::Fail) {
                     return {ub, 0, Unsat};
