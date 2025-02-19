@@ -56,10 +56,10 @@ public:
     ~ClauseBase();
     
     // notify that the solver has Boolean variable x
-    void newBooleanVar(const var_t x);
+    void newBooleanVar();
     
     // notify that the solver has numeric variable x
-    void newNumericVar(const var_t x);
+    void newNumericVar();
     //@}
     
     /**
@@ -312,6 +312,7 @@ ClauseBase<T>::~ClauseBase() {
 
 template <typename T>
 void ClauseBase<T>::post(const int idx) {
+    
     Constraint<T>::cons_id = idx;
     if (solver.getOptions().full_up) {
         //    for(var_t x{0}; x<solver.boolean.size(); ++x) {
@@ -320,12 +321,19 @@ void ClauseBase<T>::post(const int idx) {
         //        solver.wake_me_on(solver.boolean.getLiteral(false, x),
         //        Constraint<T>::cons_id);
         //    }
-        for (var_t x{0}; x < solver.numeric.size(); ++x) {
+        for (var_t x{static_cast<var_t>(solver.getNumericScope(idx).size())}; x < solver.numeric.size(); ++x) {
+            
+//            std::cout << "wake me on " << x << std::endl;
+            
             solver.wake_me_on(lb<T>(x), Constraint<T>::cons_id);
             solver.wake_me_on(ub<T>(x), Constraint<T>::cons_id);
         }
         triggered_bounds.reserve(2 * solver.numeric.size());
     }
+//    
+//    
+//    
+//    std::cout << " #vars=" << solver.getNumericScope(idx).size();
 }
 
 // propagate the constraint
@@ -387,11 +395,11 @@ size_t ClauseBase<T>::numLearnt() const {
 
 template <typename T> size_t ClauseBase<T>::size() const {
     
-    if ((base.size() - free_cl_indices.size()) !=
-        (free_cl_indices.backsize() + free_cl_indices.frontsize())) {
-        std::cout << "what ?\n";
-        exit(1);
-    }
+//    if ((base.size() - free_cl_indices.size()) !=
+//        (free_cl_indices.backsize() + free_cl_indices.frontsize())) {
+//        std::cout << "what ?\n";
+//        exit(1);
+//    }
     
     return free_cl_indices.backsize() + free_cl_indices.frontsize();
 }
@@ -416,28 +424,41 @@ template <typename T> Clause<T> *ClauseBase<T>::back() {
     return base[*(free_cl_indices.bbegin())];
 }
 
-template <typename T> void ClauseBase<T>::newBooleanVar(const var_t x) {
+template <typename T> void ClauseBase<T>::newBooleanVar() {
 #ifdef NEW_WATCHERS
-    auto p{static_cast<size_t>(Literal<T>::index(true, x))};
-    auto n{static_cast<size_t>(Literal<T>::index(false, x))};
-    auto m{std::max(p,n)};
-    boolean_watch.resize(m+1);
-    boolean_watch[n] = watchers.size();
-    boolean_watch[p] = watchers.size()+1;
+//    auto p{static_cast<size_t>(Literal<T>::index(true, x))};
+//    auto n{static_cast<size_t>(Literal<T>::index(false, x))};
+//    auto m{std::max(p,n)};
+//    boolean_watch.resize(m+1);
+//    boolean_watch[n] = watchers.size();
+//    boolean_watch[p] = watchers.size()+1;
+//    watchers.resize(watchers.size()+2);
+    boolean_watch.resize(2*solver.boolean.size());
+    *boolean_watch.rbegin() = watchers.size()+1;
+    *(boolean_watch.rbegin()+1) = watchers.size();
     watchers.resize(watchers.size()+2);
 #else
     //  watch[BOOLEAN].resize(static_cast<size_t>(2 * x + 2));
-    watch[BOOLEAN].resize(static_cast<size_t>(Literal<T>::index(true, x) + 1));
+//    watch[BOOLEAN].resize(static_cast<size_t>(Literal<T>::index(true, x) + 1));
+    watch[BOOLEAN].resize(2*solver.boolean.size());
 #endif
 }
 
-template <typename T> void ClauseBase<T>::newNumericVar(const var_t x) {
+template <typename T> void ClauseBase<T>::newNumericVar() {
 #ifdef NEW_WATCHERS
     //    std::vector<Clause<T>*> empty_watchlist;
     //    std::pair<T,std::vector<Clause<T>*>>
     //    empty_watchlists(Constant::Infinity<T>,empty_watchlist);
+    
+    
+//    if(static_cast<size_t>(Literal<T>::index(true, x) + 1) != 2*solver.numeric.size()) {
+//        std::cout << static_cast<size_t>(Literal<T>::index(true, x) + 1) << " != " << 2*solver.numeric.size() << std::endl;
+//        exit(1);
+//    }
+    
+    
     auto sz{numeric_watch.size()};
-    numeric_watch.resize(static_cast<size_t>(Literal<T>::index(true, x) + 1));
+    numeric_watch.resize(2*solver.numeric.size());
     while (sz < numeric_watch.size()) {
         numeric_watch[sz].insert(numeric_watch[sz].end(),
                                  {Constant::Infinity<T>, 0});
@@ -449,10 +470,27 @@ template <typename T> void ClauseBase<T>::newNumericVar(const var_t x) {
     }
 #else
     //    watch[NUMERIC].resize(static_cast<size_t>(2 * x + 2));
-    watch[NUMERIC].resize(static_cast<size_t>(Literal<T>::index(true, x) + 1));
+    watch[NUMERIC].resize(2*solver.numeric.size());
 #endif
     //    numeric_watch.resize(static_cast<size_t>(Literal<T>::index(x,true)+1));
     //    count.resize(static_cast<size_t>(2 * x + 2), 0);
+    
+    
+//    if (solver.getOptions().full_up) {
+//        for (var_t x{static_cast<var_t>(solver.getNumericScope(Constraint<T>::cons_id).size())}; x < solver.numeric.size(); ++x) {
+//            
+//            std::cout << "*wake me on " << x << std::endl;
+//            
+//            solver.wake_me_on(lb<T>(x), Constraint<T>::cons_id);
+//            solver.wake_me_on(ub<T>(x), Constraint<T>::cons_id);
+//        }
+//        triggered_bounds.reserve(2 * solver.numeric.size());
+//    }
+    
+    
+    
+//    std::cout << " #vars=" << solver.getNumericScope(idx).size();
+    
 }
 
 template <typename T>

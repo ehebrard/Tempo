@@ -919,6 +919,14 @@ private:
     util::StopWatch stopWatch;
     
 public:
+    
+    const std::vector<int>& getNumericScope(const int cons_idx) const {
+        return numeric_constraints.backward()[cons_idx];
+    }
+    const std::vector<int>& getBooleanScope(const int cons_idx) const {
+        return boolean_constraints.backward()[cons_idx];
+    }
+    
     std::vector<Literal<T>>::iterator begin_learnt() {
         return learnt_clause.begin();
     }
@@ -2148,8 +2156,8 @@ template <typename T> void Solver<T>::saveSolution() {
 
 template <typename T> BooleanVar<T> Solver<T>::newBoolean() {
     auto x{boolean.newVar()};
-    clauses.newBooleanVar(x.id());
     boolean_constraints.resize(std::max(numConstraint(), 2 * boolean.size()));
+    clauses.newBooleanVar();
     ++boolean_size;
     return x;
 }
@@ -2158,9 +2166,8 @@ template <typename T>
 BooleanVar<T> Solver<T>::newDisjunct(const DistanceConstraint<T> &d1,
                                      const DistanceConstraint<T> &d2) {
     auto x{boolean.newDisjunct(d1, d2)};
-    clauses.newBooleanVar(x.id());
     boolean_constraints.resize(std::max(numConstraint(), 2 * boolean.size()));
-    
+    clauses.newBooleanVar();
     if (d1 != Constant::NoEdge<T>)
         post(new EdgeConstraint<T>(*this, boolean.getLiteral(true, x.id())));
     
@@ -2184,9 +2191,10 @@ NumericVar<T> Solver<T>::_newNumeric_(const T lb, const T ub) {
     auto x{numeric.newVar(Constant::Infinity<T>)};
     
     changed.reserve(numeric.size());
-    clauses.newNumericVar(x.id());
     numeric_constraints.resize(std::max(numConstraint(), 2 * numeric.size()));
     core.newVertex(x.id());
+    
+    clauses.newNumericVar();
     
     set(geq<T>(x.id(), lb));
     set(leq<T>(x.id(), ub));
@@ -3654,6 +3662,9 @@ template <typename T> void Solver<T>::initializeSearch() {
 //        post(&clauses);
         
 //        std::cout << "here: " << numConstraint() << " / " << constraint_size << std::endl;
+        
+        
+        clauses.post(clauses.id());
         
         restartPolicy.initialize();
         if (not heuristic.isValid()) {
