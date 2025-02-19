@@ -856,8 +856,8 @@ private:
     Options options;
     
     // decision stack
-    std::vector<Literal<T>> decisions;
-    ReversibleVector<Literal<T>> rdecisions;
+//    std::vector<Literal<T>> decisions;
+    ReversibleVector<Literal<T>> decisions;
     
     // the stack of Literals reprensenting all the changes so far
     std::vector<TrailItem<T>> trail;
@@ -2103,7 +2103,7 @@ numeric_size(0, &env),
 constraint_size(0, &env),
 boolean(*this), numeric(*this), clauses(*this),
 core(&env), boolean_search_vars(0, &env), numeric_search_vars(0, &env),
-options(std::move(opt)), rdecisions(&env), propag_pointer(1, &env),
+options(std::move(opt)), decisions(&env), propag_pointer(1, &env),
 propagation_queue(constraints), boolean_constraints(&env),
 numeric_constraints(&env), restartPolicy(*this), graph_exp(*this),
 bound_exp(*this) {
@@ -2278,7 +2278,6 @@ size_t Solver<T>::numLiteral() const {
 
 template <typename T>
 size_t Solver<T>::numDecision() const {
-    assert(rdecisions.size() == decisions.size());
     return decisions.size();
 }
 
@@ -2461,9 +2460,9 @@ template <typename T> void Solver<T>::restart(const bool on_solution) {
     
     ++num_restarts;
     env.restore(init_level);
-    decisions.clear();
+//    decisions.clear();
     
-    assert(rdecisions.empty());
+    assert(decisions.empty());
     
     if (on_solution) {
         restartPolicy.initialize();
@@ -3561,9 +3560,6 @@ template <typename T> void Solver<T>::learnConflict(Explanation<T> &e) {
         throw SearchExhausted();
     }
     
-    assert(decisions.size() == rdecisions.size());
-    
-//    auto bt_level{cut.size() == 1 ? init_level : cut.backtrackLevel(*this)};
     auto bt_level{std::max(init_level,cut.backtrackLevel(*this))};
     
 #ifdef DBG_TRACE
@@ -3589,11 +3585,8 @@ template <typename T> void Solver<T>::learnConflict(Explanation<T> &e) {
     }
     ClauseAdded.trigger(lit_buffer);
     
-    decisions.resize(decisions.size() + bt_level - env.level());
     restoreState(bt_level);
-    
-    assert(decisions.size() == rdecisions.size());
-    
+        
 #ifdef DBG_TRACE
     if (DBG_BOUND and (DBG_TRACE & SEARCH)) {
         std::cout << " @lvl " << level() << std::endl;
@@ -3950,9 +3943,7 @@ void Solver<T>::largeNeighborhoodSearch(S &objective, P &&relaxationPolicy) {
             saveSolution();
             std::forward<P>(relaxationPolicy).notifySuccess(num_fails);
             restoreState(0);
-            decisions.clear();
-            
-            assert(decisions.size() == rdecisions.size());
+            assert(decisions.empty());
             
             try {
                 objective.setPrimal(best, *this);
@@ -3969,9 +3960,7 @@ void Solver<T>::largeNeighborhoodSearch(S &objective, P &&relaxationPolicy) {
             } else {
                 std::forward<P>(relaxationPolicy).notifyFailure(num_fails);
                 restoreState(0);
-                decisions.clear();
-                
-                assert(decisions.size() == rdecisions.size());
+                assert(decisions.empty());
             }
         }
     }
@@ -4062,7 +4051,6 @@ template <typename T> boolean_state Solver<T>::search() {
                 
                 Literal<T> d = heuristic.branch(*this);
                 decisions.push_back(d);
-                rdecisions.push_back(d);
                 ChoicePoint.trigger(d);
                 
 #ifdef DBG_TRACE
