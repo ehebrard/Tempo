@@ -83,11 +83,11 @@ struct VSIDSHeap {
       ++n;
     }
 
-      while(static_cast<int>(trail.size()) < solver.level())
-          trail.push_back(trail.back());
+    while (static_cast<int>(trail.size()) < solver.level())
+      trail.push_back(trail.back());
 
-      assert(checkVars(solver));
-      assert(checkHeap(0));
+    assert(checkVars(solver));
+    assert(checkHeap(0));
 
     auto last{trail.back()};
     var_t x;
@@ -95,7 +95,7 @@ struct VSIDSHeap {
       x = pickBest(last);
     } while (not variables.has(x));
 
-        trail.push_back(last);
+    trail.push_back(last);
 
     assert(checkHeap(0));
 
@@ -131,23 +131,23 @@ struct VSIDSHeap {
     assert(checkHeap(0));
   }
 
-    template <concepts::scalar T>
-    bool checkVars(const Solver<T> &solver) {
-        auto last{trail.back()};
-        for(auto x : solver.getBranch()) {
-            bool notin{true};
-            for(auto v{var_heap.begin()}; notin and v != (var_heap.begin() + last); ++v) {
-                if(*v == x) {
-                    notin = false;
-                }
-            }
-            if(notin) {
-                std::cout << x << " is not in the heap!\n";
-                return false;
-            }
+  template <concepts::scalar T> bool checkVars(const Solver<T> &solver) {
+    auto last{trail.back()};
+    for (auto x : solver.getBranch()) {
+      bool notin{true};
+      for (auto v{var_heap.begin()}; notin and v != (var_heap.begin() + last);
+           ++v) {
+        if (*v == x) {
+          notin = false;
         }
-        return true;
+      }
+      if (notin) {
+        std::cout << x << " is not in the heap!\n";
+        return false;
+      }
     }
+    return true;
+  }
 
   bool checkHeap(const int i) {
     auto lc{heap::left(i)};
