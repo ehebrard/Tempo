@@ -955,24 +955,32 @@ private:
 #ifdef DBG_TRACE
     void printTrace() const;
 #endif
-    
+
+#ifdef OLDVSIDS
     heuristics::impl::EventActivityMap *activityMap{nullptr};
-    
+#endif
     heuristics::impl::ActivityMap numericActivityMap{options.vsids_decay};
     heuristics::impl::ActivityMap booleanActivityMap{options.vsids_decay};
-    
-public:
-    
-    heuristics::impl::ActivityMap& getNumericActivity() {return numericActivityMap; }
-    heuristics::impl::ActivityMap& getBooleanActivity() {return booleanActivityMap; }
-    
+//#endif
+
+  public:
+#ifdef OLDVSIDS
     void setActivityMap(heuristics::impl::EventActivityMap *map) {
         activityMap = map;
     }
-    heuristics::impl::EventActivityMap *getActivityMap() {
-        return activityMap;
+    //    heuristics::impl::EventActivityMap *getActivityMap() {
+    //        return activityMap;
+    //    }
+    double getLiteralActivity(const Literal<T> l) const {
+      return activityMap->get(l, *this);
     }
-    
+#endif
+    heuristics::impl::ActivityMap &getNumericActivity() {
+      return numericActivityMap;
+    }
+    heuristics::impl::ActivityMap &getBooleanActivity() {
+      return booleanActivityMap;
+    }
     double getActivity(const Literal<T> l) const {
         auto x{l.variable()};
         if(l.isNumeric()) {
@@ -984,7 +992,8 @@ public:
         }
         return heuristics::impl::ActivityMap::baseIncrement;
     }
-    
+
+
     /**
      * @name statistics
      */
@@ -3874,10 +3883,9 @@ template <typename S>
 void Solver<T>::optimize(S &objective) {
     objective.X.extract(*this);
     objective_var = objective.X.id();
-    
-    
-    T lower_bound;
-    
+
+    T lower_bound{0};
+
     try {
         initializeSearch();
         

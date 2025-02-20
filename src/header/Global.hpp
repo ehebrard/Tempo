@@ -48,6 +48,7 @@ using hint = int;
 
 //#define NEW_WATCHERS
 
+//#define OLDVSIDS
 
 #define SEARCH 1
 #define DOMAINS 2

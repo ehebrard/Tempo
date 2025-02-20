@@ -1787,7 +1787,11 @@ double ClauseBase<T>::activity(const Literal<T> l) {
 //    return (solver.getActivityMap() != nullptr
 //            ? solver.getActivityMap()->get(l, solver)
 //            : 1);
+#ifdef OLDVSIDS
+    return solver.getLiteralActivity(l);
+#else
     return solver.getActivity(l);
+#endif
 }
 
 template <typename T>
