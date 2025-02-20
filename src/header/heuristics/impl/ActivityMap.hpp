@@ -30,35 +30,39 @@ public:
     
     template<typename Iterable>
     void update(const Iterable& vars) noexcept {
-        
-        bool normalize = false;
-        for (const auto x : vars) {
-            normalize |= incrementActivity(x);
-        }
-        
+      bool should_normalize = false;
+      for (const auto x : vars) {
+        should_normalize |= incrementActivity(x);
+      }
         // protect against overflow
-        if (normalize) {
-            // do not consider constants for normalization
-            auto [lp, up] = std::ranges::minmax_element(this->begin() + 1,
-                                                        this->end());
-            double l{std::numeric_limits<double>::max()};
-            if (lp != this->end())
-                l = *lp;
-            
-            double u{-std::numeric_limits<double>::max()};
-            if (up != this->end())
-                u = *up;
-            
-            auto factor{baseGap / (u - l)};
-            for (auto a{this->begin() + 1}; a != this->end(); ++a) {
-                *a = baseIncrement + (*a - l) * factor;
-            }
-            increment = baseIncrement;
+        if (should_normalize) {
+          normalize();
         } else {
-            increment /= decay;
+          applyDecay();
         }
     }
-    
+    void applyDecay() { increment /= decay; }
+
+    void normalize() {
+
+      // do not consider constants for normalization
+      auto [lp, up] =
+          std::ranges::minmax_element(this->begin() + 1, this->end());
+      double l{std::numeric_limits<double>::max()};
+      if (lp != this->end())
+        l = *lp;
+
+      double u{-std::numeric_limits<double>::max()};
+      if (up != this->end())
+        u = *up;
+
+      auto factor{baseGap / (u - l)};
+      for (auto a{this->begin() + 1}; a != this->end(); ++a) {
+        *a = baseIncrement + (*a - l) * factor;
+      }
+      increment = baseIncrement;
+    }
+
     constexpr static const double baseIncrement{1e-6};
     constexpr static const double maxActivity{1e12};
     constexpr static const double baseGap{1 - baseIncrement};

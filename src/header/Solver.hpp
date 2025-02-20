@@ -1248,8 +1248,15 @@ void ConflictSet<T>::get(std::vector<Literal<T>> &clause) {
 }
 
 template <typename T> int ConflictSet<T>::glueScore(Solver<T> &solver) {
-    if (this->size() < 2) {
-        return 1;
+
+  //    std::cout << "compute glue score of";
+  //    for(auto p : *this) {
+  //        std::cout << " <" << p.first << "|" << p.second << ">";
+  //    }
+  //    std::cout << std::endl;
+
+  if (this->size() < 2) {
+    return 1;
     } else {
         sort();
     }
@@ -1257,10 +1264,14 @@ template <typename T> int ConflictSet<T>::glueScore(Solver<T> &solver) {
     int pl{-1};
     for(auto p : *this) {
         if(p.first != 0) {
-            auto l{solver.getLevel(p.first)};
-            if(l != pl) {
-                ++g;
-                pl=l;
+
+          //            std::cout << " <" << p.first << "|" << p.second <<
+          //            ">\n";
+
+          auto l{solver.getLevel(p.first)};
+          if (l != pl) {
+            ++g;
+            pl = l;
             }
         }
     }
@@ -2340,7 +2351,9 @@ Explanation<T> Solver<T>::getReason(const index_t i) const {
 }
 
 template <typename T> int Solver<T>::getLevel(const index_t i) const {
-    return trail[i].level();
+  if (i >= trail.size())
+    return level() + 1;
+  return trail[i].level();
 }
 
 template <typename T>

@@ -35,29 +35,29 @@ std::string prettyJob(const Interval<T> &task, const Solver<T> &S,
   std::stringstream ss;
     
     if(S.boolean.value(task.exist)) {
-        
-        auto est{S.numeric.lower(task.start)};
-        auto lst{S.numeric.upper(task.start)};
-        auto ect{S.numeric.lower(task.end)};
-        auto lct{S.numeric.upper(task.end)};
-        
-        ss << "[";
-        
-        if (est == lst)
-            ss << est;
-        else
-            ss << est << "-" << lst;
-        ss << "..";
-        if (ect == lct)
-            ss << ect;
-        else
-            ss << ect << "-" << lct;
-        ss << "]";
-        
-        if (dur_flag) {
-            auto pmin{S.numeric.lower(task.duration)};
-            auto pmax{S.numeric.upper(task.duration)};
-            ss << " (" << pmin << "-" << pmax << ")";
+
+      auto est{S.numeric.solutionLower(task.start)};
+      auto lst{S.numeric.solutionUpper(task.start)};
+      auto ect{S.numeric.solutionLower(task.end)};
+      auto lct{S.numeric.solutionUpper(task.end)};
+
+      ss << "[";
+
+      if (est == lst)
+        ss << est;
+      else
+        ss << est << "-" << lst;
+      ss << "..";
+      if (ect == lct)
+        ss << ect;
+      else
+        ss << ect << "-" << lct;
+      ss << "]";
+
+      if (dur_flag) {
+        auto pmin{S.numeric.solutionLower(task.duration)};
+        auto pmax{S.numeric.solutionUpper(task.duration)};
+        ss << " (" << pmin << "-" << pmax << ")";
         }
     } else {
         ss << "not present (" << task.exist << "=false)";
@@ -83,17 +83,18 @@ int main(int argc, char *argv[]) {
   Solver<> S(opt);
 
   // an interval standing for the makespan of schedule
-  auto schedule{S.newInterval(0, Constant::Infinity<int>, 0, 0, 0,
-                              Constant::Infinity<int>)};
+  //  auto schedule{S.newInterval(0, Constant::Infinity<int>, 0, 0, 0,
+  //                              Constant::Infinity<int>)};
 
-    
-    
-    std::vector<std::vector<int>> resource_alloc;
-    std::vector<std::vector<int>> duration_mode;
-    std::vector<int> job_size;
-    
+  auto makespan{S.newNumeric(0, Constant::Infinity<int>)};
+  auto origin{S.newConstant(0)};
+  auto schedule{S.between(origin, makespan)};
 
-    int num_machine;
+  std::vector<std::vector<int>> resource_alloc;
+  std::vector<std::vector<int>> duration_mode;
+  std::vector<int> job_size;
+
+  int num_machine;
     
   fjssp::parse(opt.instance_file, num_machine, job_size, resource_alloc, duration_mode);
     

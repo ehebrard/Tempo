@@ -109,38 +109,49 @@ struct VSIDSHeap {
   template <concepts::scalar T> void updateActivity(const Solver<T> &solver) {
 
     bool_buffer.clear();
-      num_buffer.clear();
+    num_buffer.clear();
     for (auto l : solver.lastLearnt()) {
       if (l.isNumeric()) {
         num_buffer.push_back(l.variable());
       } else {
-          bool_buffer.push_back(l.variable());
+        bool_buffer.push_back(l.variable());
       }
     }
 
     for (auto i : solver.cut.cached_) {
       auto l{solver.getLiteral(i)};
-        if (l.isNumeric()) {
-            num_buffer.push_back(l.variable());
-        } else {
-            bool_buffer.push_back(l.variable());
-        }
+      if (l.isNumeric()) {
+        num_buffer.push_back(l.variable());
+      } else {
+        bool_buffer.push_back(l.variable());
+      }
     }
 
-    activity.update(bool_buffer);
-      num_activity.update(num_buffer);
-      
-//      std::cout << "update bools:";
-//      for(auto x : bool_buffer)
-//          std::cout << " " << activity[x];
-//      std::cout << std::endl;
-//      std::cout << "update nums:";
-//      for(auto x : num_buffer)
-//          std::cout << " " << num_activity[x];
-//      std::cout << std::endl;
-      
+          assert(checkHeap(0));
+    //
+    //      size_t k = 0;
+    //      for(auto v : var_heap)
+    //      {
+    //          std::cout << std::setw(3) << k << " | " << std::setw(3) << v <<
+    //          ": " << activity[v] << std::endl; if(++k == trail.back())
+    //              break;
+    //      }
 
+    //    activity.update(bool_buffer);
+    num_activity.update(num_buffer);
+
+    //      std::cout << "update bools:";
+    //      for(auto x : bool_buffer)
+    //          std::cout << " " << activity[x];
+    //      std::cout << std::endl;
+    //      std::cout << "update nums:";
+    //      for(auto x : num_buffer)
+    //          std::cout << " " << num_activity[x];
+    //      std::cout << std::endl;
+
+    bool normalize = false;
     for (auto x : bool_buffer) {
+      normalize |= activity.incrementActivity(x);
       if (index[x] < trail.back()) {
         heap::percolate_up(var_heap.begin(), index[x], index,
                            [&](const var_t x, const var_t y) {
@@ -148,6 +159,21 @@ struct VSIDSHeap {
                            });
       }
     }
+    if (normalize) {
+      activity.normalize();
+    } else {
+      activity.applyDecay();
+    }
+
+    //      std::cout << "========\n";
+    //
+    //      k = 0;
+    //      for(auto v : var_heap)
+    //      {
+    //          std::cout << std::setw(3) << k << " | " << std::setw(3) << v <<
+    //          ": " << activity[v] << std::endl; if(++k == trail.back())
+    //              break;
+    //      }
 
     assert(checkHeap(0));
   }
@@ -180,10 +206,23 @@ struct VSIDSHeap {
         ((lc >= n) or
          ((activity[var_heap[i]] >= activity[var_heap[lc]]) and checkHeap(lc)));
 
+    if (not ok_left) {
+      std::cout << lc << "|" << var_heap[lc] << ":(" << activity[var_heap[lc]]
+                << ") is the left child of " << i << "|" << var_heap[i] << ":("
+                << activity[var_heap[i]] << ")\n";
+    }
+
     if (ok_left) {
       auto ok_right =
           ((rc >= n) or ((activity[var_heap[i]] >= activity[var_heap[rc]]) and
                          checkHeap(rc)));
+
+      if (not ok_right) {
+        std::cout << rc << "|" << var_heap[rc] << ":(" << activity[var_heap[rc]]
+                  << ") is the right child of " << i << "|" << var_heap[i]
+                  << ":(" << activity[var_heap[i]] << ")\n";
+      }
+
       return ok_right;
     }
 
