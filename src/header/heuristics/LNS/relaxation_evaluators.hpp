@@ -451,7 +451,7 @@ namespace tempo::lns {
                 }
             }
 
-            regions.emplace_back(std::move(constraints), proxy.getSolver().numeric.lower(objectiveVar), true);
+            regions.emplace_back(std::move(constraints), proxy.getSolver().numeric.lower(objectiveVar) - 1, true);
         }
 
         void notifySuccess(unsigned numFails) {
