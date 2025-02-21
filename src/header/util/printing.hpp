@@ -45,10 +45,10 @@ namespace std {
 }
 
 template<std::ranges::range R> requires(tempo::concepts::printable<std::ranges::range_value_t<R>>)
-auto printRange(const R &range, std::ostream &os) -> std::ostream& {
+auto printRange(R &&range, std::ostream &os) -> std::ostream& {
     os << "[";
     bool first = true;
-    for (const auto &elem : range) {
+    for (const auto &elem : std::forward<R>(range)) {
         if (first) {
             first = false;
         } else {
