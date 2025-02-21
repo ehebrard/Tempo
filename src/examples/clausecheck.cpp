@@ -50,7 +50,7 @@ int main(int argc, char *argv[]) {
     
     opt.dbg_file = "";
 //    opt.learning = false;
-    opt.verbosity = 0;
+    opt.verbosity = 3;
 //    opt.restart_policy = "no";
     
     
@@ -115,7 +115,7 @@ int main(int argc, char *argv[]) {
         D.clear();
         auto init = S.saveState();
         
-//        std::cout << "after save: " << S.numConstraint() << std::endl;
+        std::cout << "after save: " << S.clauses.size() << std::endl;
         
         cl_file >> t;
         cl_file >> n;
@@ -131,6 +131,9 @@ int main(int argc, char *argv[]) {
             D.push_back(d);
             try {
                 DistanceConstraint<int> c{x, y, d};
+                
+                std::cout << "post " << c << std::endl;
+                
                 S.post(c);
             } catch (Failure<int> &f) {
                 trivially_unsat = true;
@@ -144,6 +147,9 @@ int main(int argc, char *argv[]) {
                 need_search = false;
             }
             if (need_search) {
+                
+                std::cout << "search\n";
+                
                 auto nf{S.num_fails};
                 if (S.satisfiable()) {
                     std::cout << "cl " << line << " ("
@@ -176,7 +182,13 @@ int main(int argc, char *argv[]) {
         
 //        std::cout << "before restore: " << S.numConstraint() << std::endl;
         
+        std::cout << "restore\n";
+        
         S.restoreState(init);
+        
+        std::cout << "clear clauses";
+        
+        S.clauses.clear();
         std::cout << line << ": " << num_trivial << " trivial, "
         << (line - num_trivial - num_search) << " easy, " << num_search
         << " hard (" << num_fails / num_search << ")" << std::endl;

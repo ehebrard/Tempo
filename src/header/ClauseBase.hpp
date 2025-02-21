@@ -82,7 +82,7 @@ public:
     // flag distinguished constraints from cuts
     template <typename iter>
     Clause<T> *add(const iter first, const iter last, const bool learnt = false, const int glue_score=1);
-//    template <typename Iterable>
+    //    template <typename Iterable>
     Clause<T> *add(const std::vector<Literal<T>>& lits) {
         return add(lits.begin(), lits.end());
     }
@@ -187,6 +187,8 @@ public:
     void forget();
     // forgets all learnt clauses
     void forgetAll();
+    // remove all clauses
+    void clear();
     // literal activity score
     double activity(const Literal<T> l);
     // literal score based on its semantic
@@ -1769,16 +1771,6 @@ template <typename T> void ClauseBase<T>::forget(Clause<T> *cl) {
 /// | |  1 2  6 5 3 4
 
 template <typename T> void ClauseBase<T>::forget_worst() {
-    
-    //    std::cout << free_cl_indices << std::endl;
-    //
-    //    std::cout << (*(free_cl_indices.bbegin())) << std::endl;
-    //
-    //    std::cout << base.size() << std::endl;
-    //
-    //    std::cout << *(base[*(free_cl_indices.bbegin())]) << std::endl;
-    ////    exit(1);
-    
     forget(base[*(free_cl_indices.bbegin())]);
 }
 
@@ -1809,8 +1801,21 @@ template <typename T> double ClauseBase<T>::looseness(const Literal<T> l) {
 }
 
 template <typename T> void ClauseBase<T>::forgetAll() {
+    
+//    std::cout << "clauses: " << free_cl_indices << std::endl;
+    
     while (free_cl_indices.backsize() > 0) {
         forget_worst();
+//        std::cout << "clauses: " << free_cl_indices << std::endl;
+    }
+}
+
+template <typename T> void ClauseBase<T>::clear() {
+    while (free_cl_indices.backsize() > 0) {
+        forget_worst();
+    }
+    while (free_cl_indices.frontsize() > 0) {
+        forget(base[*(free_cl_indices.frbegin())]);
     }
 }
 
@@ -1932,6 +1937,10 @@ Clause<T> *ClauseBase<T>::add(const iter first, const iter last,
 #ifdef DBG_WATCHERS
     verifyWatchers("before add");
 #endif
+    
+    if(learnt == false) {
+        std::cout << "ADD TRUE CLAUSE!\n";
+    }
     
     //  std::cout << "add clause (" << (learnt ? "learnt" : "base" ) << ")";
     //  for (auto l{first}; l != last; ++l) {

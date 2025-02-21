@@ -64,11 +64,11 @@ using hint = int;
 #define SHRINKING 2048
 
 /////// UNCOMMENT TO DEBUG
-//#define DBG_TRACE (SEARCH + PROPAGATION + UNITPROPAGATION)
-//#define DBG_BOUND (debug_flag > 0)
-//#define DBG_CBOUND (solver.debug_flag > 0)
-//#define DBG_CLBOUND (solver.debug_flag > 0)
-//#define DBG_BBOUND (solver.debug_flag > 0)
+//#define DBG_TRACE (SEARCH + PROPAGATION + LEARNING)
+//#define DBG_BOUND true //(debug_flag > 0)
+//#define DBG_CBOUND true //(solver.debug_flag > 0)
+//#define DBG_CLBOUND true //(solver.debug_flag > 0)
+//#define DBG_BBOUND true //(solver.debug_flag > 0)
 ////////////
 
 // #define DBG_MINIMIZATION
@@ -80,8 +80,8 @@ using hint = int;
 //  #define DBG_BELLMAN_EXPL (sched.num_choicepoints >= 4172)
 //  #define DEBUG_HEURISTICS
 //  #define DBG_UP
-// #define DBG_CL 10000000
-//  #define DBG_CLPLUS true
+// #define DBG_CL 100000000
+// #define DBG_CLPLUS true
 //  #define DBG_TRANSITIVITY true //(m_schedule.num_choicepoints >= 4064)
 //  #define DBG_EXPL_TRANS true
 //  #define DBG_SOL

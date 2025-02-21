@@ -2406,21 +2406,15 @@ void Solver<T>::setNumeric(Literal<T> l, const Explanation<T> &e,
     if (not numeric.satisfied(l)) {
         
 #ifdef DBG_TRACE
-        if (DBG_BOUND and (DBG_TRACE & PROPAGATION)) {
-            std::cout << "set " << pretty(l) << " @" << numLiteral() << " b/c "
-            << e << std::endl;
-        }
-#endif
-        trail.emplace_back(l, level(), e);
-        numeric.set(l);
-        
-#ifdef DBG_TRACE
         auto stamp{numLiteral()};
         if (DBG_BOUND and (DBG_TRACE & PROPAGATION)) {
             std::cout << "set " << pretty(l) << " @" << stamp << " b/c "
-            << e  << (do_update ? "*" : "") << std::endl;
+            << e  << (do_update ? "" : "*") << std::endl;
         }
 #endif
+        
+        trail.emplace_back(l, level(), e);
+        numeric.set(l);
         
         if (numeric.falsified(l)) {
             
@@ -3195,25 +3189,19 @@ void Solver<T>::analyze(Explanation<T> &e, const bool only_boolean) {
             exp.explain(l, lit_buffer);
             
             
-//#ifdef DBG_CLPLUS
-//            writeConflict(1, lit_buffer, l);
-////            if (cl_file != NULL) {
-////                *cl_file << "1 " << (lit_buffer.size() + (options.ground_update) + (l != Contradiction<T>));
-////                if(options.ground_update)
-////                    *cl_file << " 0 1 " << numeric.upper(1);
-////                for (auto p : lit_buffer) {
-////                    writeLiteral(p);
-////                }
-////                if (l != Contradiction<T>)
-////                    writeLiteral(~l);
-////                *cl_file << std::endl;
-////            }
-////            if (++num_clauses > DBG_CL) {
-////                std::cout << "exit because of dbg clause limit (#fails = " << num_fails
-////                << ", #cpts = " << num_choicepoints << ")\n";
-////                exit(1);
-////            }
-//#endif
+#ifdef DBG_CLPLUS
+//            if (cl_file != NULL) {
+//                *cl_file << "1 " << (lit_buffer.size() + (l != Contradiction<T>));
+//                for (auto p : lit_buffer) {
+//                    writeLiteral(p);
+//                }
+//                if (l != Contradiction<T>)
+//                    writeLiteral(~l);
+//                *cl_file << std::endl;
+//            }
+            writeExplanation(l);
+            checkClauseLimit();
+#endif
             
             for (auto p : lit_buffer) {
                 
@@ -3317,22 +3305,24 @@ void Solver<T>::analyze(Explanation<T> &e, const bool only_boolean) {
 #endif
     
 #ifdef DBG_CL
+#ifdef DBG_TRACE
+    if (DBG_BOUND and (DBG_TRACE & LEARNING)) {
+        std::vector<Literal<T>> buffer;
+        for(auto p : cut) {
+            if(p.first != 0) {
+                buffer.push_back(~p.second);
+            }
+        }
+        std::cout << "\nlearn clause of size " << buffer.size() << std::endl;
+        for (auto p : buffer) {
+            std::cout << std::setw(4) << decisionLevel(~p) << " " << pretty(p)
+            << std::endl;
+        }
+        std::cout << std::endl;
+    }
+#endif
     writeConflict();
     checkClauseLimit();
-//
-//    
-//    if ((options.minimization > 0 or options.shrinking) and cl_file != NULL) {
-//        *cl_file << "2 " << (cut.size() + 1) << " 0 1 " << numeric.upper(1);
-//        for (auto p : cut) {
-//            writeLiteral(p.second);
-//        }
-//        *cl_file << std::endl;
-//    }
-//    if (++num_clauses > DBG_CL) {
-//        std::cout << "exit because of dbg clause limit (#fails = " << num_fails
-//        << ", #cpts = " << num_choicepoints << ")\n";
-//        exit(1);
-//    }
 #endif
     
     if (options.shrinking) {
@@ -3363,19 +3353,6 @@ void Solver<T>::analyze(Explanation<T> &e, const bool only_boolean) {
 #ifdef DBG_CL
     writeClause();
     checkClauseLimit();
-//    
-//    if (cl_file != NULL) {
-//        *cl_file << "0 " << (learnt_clause.size() + 1) << " 0 1 " << numeric.upper(1);
-//        for (auto p : learnt_clause) {
-//            writeLiteral(~p);
-//        }
-//        *cl_file << std::endl;
-//    }
-//    if (++num_clauses > DBG_CL) {
-//        std::cout << "exit because of dbg clause limit (#fails = " << num_fails
-//        << ", #cpts = " << num_choicepoints << ")\n";
-//        exit(1);
-//    }
 #endif
     
     assert(static_cast<int>(decisionLevel(~(learnt_clause[0]))) == level());
@@ -3419,21 +3396,6 @@ template <typename T> void Solver<T>::analyzeDecisions(Explanation<T> &e) {
 #ifdef DBG_CLPLUS
             writeExplanation(l);
             checkClauseLimit();
-//            if (cl_file != NULL) {
-//                *cl_file << "1 " << (lit_buffer.size() + 1 + (l != Contradiction<T>))
-//                << " 0 1 " << numeric.upper(1);
-//                for (auto p : lit_buffer) {
-//                    writeLiteral(p);
-//                }
-//                if (l != Contradiction<T>)
-//                    writeLiteral(~l);
-//                *cl_file << std::endl;
-//            }
-//            if (++num_clauses > DBG_CL) {
-//                std::cout << "exit because of dbg clause limit (#fails = " << num_fails
-//                << ", #cpts = " << num_choicepoints << ")\n";
-//                exit(1);
-//            }
 #endif
             
             for (auto p : lit_buffer) {
@@ -3679,28 +3641,8 @@ template <typename T> void Solver<T>::learnConflict(Explanation<T> &e) {
     
     assert(isAssertive(learnt_clause));
 
-    
-    auto cl{clauses.add(learnt_clause.begin(), learnt_clause.end(), true, cut.glueScore(*this))};
-    
-    
-    if(cl->id == 485) {
-        
-        std::cout << "HELLO " << std::endl;
-        
-        std::ofstream clfile("cl485.txt", std::ofstream::out);
-        auto saved{cl_file};
-        cl_file = &clfile;
-        writeClause();
-        cl_file = saved;
-    }
-    
-    
-#ifdef DBG_CL
-    if (++num_clauses > DBG_CL) {
-        std::cout << "exit because of dbg clause limit (#fails = " << num_fails << ", #cpts = " << num_choicepoints << ")\n";
-        exit(1);
-    }
-#endif
+    clauses.add(learnt_clause.begin(), learnt_clause.end(), true, cut.glueScore(*this));
+
 }
 
 template <typename T> void Solver<T>::branchRight() {
@@ -3937,10 +3879,10 @@ void Solver<T>::optimize(S &objective) {
             
 //            std::cout << "apply best\n";
             
-            if(best == 1328) {
-//                std::cout << *this << std::endl;
-                debug_flag = true;
-            }
+//            if(best == 1328) {
+////                std::cout << *this << std::endl;
+//                debug_flag = true;
+//            }
             
             objective.apply(best, *this);
             saveSolution();
@@ -3967,7 +3909,7 @@ void Solver<T>::optimize(S &objective) {
         
         if (satisfiability == FalseState) {
             
-            std::cout << "set dual to primals\n";
+//            std::cout << "set dual to primals\n";
             
             objective.setDual(objective.primalBound());
             
@@ -4931,11 +4873,16 @@ template <typename T> void Solver<T>::writeLiteral(const Literal<T> l) const {
 template <typename T> void Solver<T>::writeConflict() const {
     if (cl_file != NULL) {
         auto pb{options.ground_update and numeric.upper(1) != Constant::Infinity<T>};
-        *cl_file << 2 << " " << (cut.size() + pb);
+        std::vector<Literal<T>> buffer;
+        for (auto p : cut) {
+            if(p.first != 0)
+                buffer.push_back(p.second);
+        }
+        *cl_file << 2 << " " << (buffer.size() + pb);
         if(pb)
             *cl_file << " 0 1 " << numeric.upper(1);
-        for (auto p : cut) {
-            writeLiteral(p.second);
+        for (auto p : buffer) {
+            writeLiteral(p);
         }
         *cl_file << std::endl;
     }
@@ -4976,6 +4923,8 @@ template <typename T> void Solver<T>::checkClauseLimit() {
         << ", #cpts = " << num_choicepoints << ")\n";
         exit(1);
     }
+    
+//    std::cout << "learn clause #" <<num_clauses << std::endl;
 }
 
 

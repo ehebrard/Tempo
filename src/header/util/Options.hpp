@@ -121,7 +121,7 @@ public:
   bool order_bound_watch{false};
     
     bool full_transitivity{false};
-    bool primal_boost{false};
+    bool primal_boost{true};
     bool ground_update{false};
 
     enum class ChoicePointHeuristics {

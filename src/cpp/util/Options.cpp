@@ -107,8 +107,8 @@ auto tempo::getBaseParser() -> Parser {
     cmd.add<SwitchArg>(opt.full_transitivity, "", "full-transitivity",
                        "use full-transitivity", false);
 
-    cmd.add<SwitchArg>(opt.primal_boost, "", "no-primal-boost",
-                       "do not use primal boost", true);
+    cmd.add<SwitchArg>(opt.primal_boost, "", "primal-boost",
+                       "use primal boost [BUGGY EXPLANATIONS, DO NOT USE!]", false);
     
     cmd.add<SwitchArg>(opt.ground_update, "", "no-ground-update",
                        "do not consider new upper bounds as ground fact", true);
@@ -153,7 +153,7 @@ auto tempo::getBaseParser() -> Parser {
             false, 10, "int");
 
     cmd.add<SwitchArg>(opt.shrinking, "", "clause-shrinking",
-                       "use clause-shrinking", false);
+                       "use clause-shrinking [BUGGY WHEN USED WITH CLAUSE-MINIMIZATION!!]", false);
 
     cmd.add<ValueArg<int>>(
             opt.greedy_runs, "", "greedy-runs",
