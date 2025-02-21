@@ -5,6 +5,7 @@
 #include <iostream>
 #include <sstream>
 #include <vector>
+#include <optional>
 
 #include "DistanceConstraint.hpp"
 #include "util/traits.hpp"
@@ -18,6 +19,7 @@ template <typename M, typename J, typename R,
 void parse(const std::string &fn, M &solver, J &schedule,
            std::vector<J> &intervals, std::vector<R> &resources, std::vector<D> *precedences = nullptr) {
   using std::cerr;
+  using T = decltype(schedule.minDuration(solver));
   try {
       
 //      std::cout << "hello\n";
@@ -30,7 +32,8 @@ void parse(const std::string &fn, M &solver, J &schedule,
 
     std::string lt;
     int ln{1};
-    size_t nj{0}, nm{0};
+    size_t nj{0}, nm{0}, np{0};
+    std::optional<T> ub = 0;
     int dur;
     int mach;
 
@@ -38,22 +41,25 @@ void parse(const std::string &fn, M &solver, J &schedule,
     solver.set(schedule.start.before(0));
 
     for (std::string line; getline(ifs, line); ++ln) {
-      if (line[0] == '#')
+      if (line.empty() or line[0] == '#') {
         continue;
+      }
 
       std::istringstream iss(line);
-
       if (!gotheader) {
         iss >> nj;
         iss >> nm;
-
         if (!iss) {
           cerr << "ERROR: could not parse header at line " << ln << "\n";
           exit(1);
         }
 
-        resources.resize(nm);
+        if (not (iss >> np >> *ub)) {
+          np = 0;
+          ub.reset();
+        }
 
+        resources.resize(nm);
         gotheader = true;
       } else if (intervals.size() < nj * nm) {
           
@@ -100,7 +106,23 @@ void parse(const std::string &fn, M &solver, J &schedule,
           intervals.push_back(j);
 //          resources[mach].push_back(j);
         }
+      } else if (np > 0) {
+        unsigned first, second, _;
+        if (not (iss >> _ >> first >> _ >> second)) {
+          std::cerr << "ERROR: malformed precedence at line " << ln << std::endl;
+          std::exit(1);
+        }
+
+        auto d = intervals.at(first).end.before(intervals.at(second).start);
+        solver.set(d);
+        if (nullptr != precedences) {
+          precedences->emplace_back(d);
+        }
       }
+    }
+
+    if (ub.has_value()) {
+      solver.set(schedule.end.before(*ub));
     }
   } catch (std::exception &e) {
     std::cout.flush();
