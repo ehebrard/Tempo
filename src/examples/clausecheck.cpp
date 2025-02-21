@@ -131,7 +131,6 @@ int main(int argc, char *argv[]) {
             D.push_back(d);
             try {
                 DistanceConstraint<int> c{x, y, d};
-//                std::cout << "post " << c << std::endl;
                 S.post(c);
             } catch (Failure<int> &f) {
                 trivially_unsat = true;

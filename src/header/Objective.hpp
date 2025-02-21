@@ -77,7 +77,12 @@ public:
 //private:
   void apply(const T target, Solver<T> &solver) {
     //    solver.set(Objective<T>::X < target);
-    solver.post(dualConstraint(target));
+      
+      auto c{dualConstraint(target)};
+      
+//      std::cout << "apply constraint " << c << std::endl;
+      
+    solver.post(c);
     //      solver.makeAssumption(Objective<T>::X.before(target));
   }
 

@@ -951,10 +951,6 @@ private:
     // specialisation to Boolean literals
     void setBoolean(Literal<T> l,
                     const Explanation<T> &e = Constant::NoReason<T>);
-    
-#ifdef DBG_TRACE
-    void printTrace() const;
-#endif
 
 #ifdef OLDVSIDS
     heuristics::impl::EventActivityMap *activityMap{nullptr};
@@ -1018,13 +1014,18 @@ private:
     double avg_fail_level{0};
     //@}
     
-private:
+//public:
     /**
      * @name debug
      */
     //@{
     bool isAssertive(std::vector<Literal<T>> &conf) const;
     //    bool isAssertive();
+    
+#ifdef DBG_TRACE
+    int debug_flag{0};
+    void printTrace() const;
+#endif
     
 #ifdef DBG_CL
     std::ofstream *cl_file{NULL};
@@ -3622,6 +3623,8 @@ template <typename T> void Solver<T>::learnConflict(Explanation<T> &e) {
         analyze(e, options.cut_type == Options::Cut::Booleans);
     }
     
+    assert(decisions.size() == static_cast<size_t>(level() - init_level));
+    
     if (decisions.empty()) {
         throw SearchExhausted();
     }
@@ -3675,8 +3678,22 @@ template <typename T> void Solver<T>::learnConflict(Explanation<T> &e) {
 //    }
     
     assert(isAssertive(learnt_clause));
+
     
-    clauses.add(learnt_clause.begin(), learnt_clause.end(), true, cut.glueScore(*this));
+    auto cl{clauses.add(learnt_clause.begin(), learnt_clause.end(), true, cut.glueScore(*this))};
+    
+    
+    if(cl->id == 485) {
+        
+        std::cout << "HELLO " << std::endl;
+        
+        std::ofstream clfile("cl485.txt", std::ofstream::out);
+        auto saved{cl_file};
+        cl_file = &clfile;
+        writeClause();
+        cl_file = saved;
+    }
+    
     
 #ifdef DBG_CL
     if (++num_clauses > DBG_CL) {
@@ -3688,14 +3705,20 @@ template <typename T> void Solver<T>::learnConflict(Explanation<T> &e) {
 
 template <typename T> void Solver<T>::branchRight() {
     
+//    std::cout << "branch right @" << level() << " (" << init_level << ")\n";
+    
+    assert(decisions.size() == static_cast<size_t>(level() - init_level));
+    
     if (env.level() <= init_level)
         throw SearchExhausted();
+    
+    assert(not decisions.empty());
     
     auto deduction{~decisions.back()};
     DeductionMade.trigger(deduction);
     
     restoreState(env.level() - 1);
-    decisions.pop_back();
+//    decisions.pop_back();
     
 #ifdef DBG_TRACE
     if (DBG_BOUND and (DBG_TRACE & SEARCH)) {
@@ -3903,14 +3926,27 @@ void Solver<T>::optimize(S &objective) {
            not(num_fails >= options.search_limit)) {
         auto satisfiability = search();
         if (satisfiability == TrueState) {
+            
+            
+            
             auto best{objective.value(*this)};
             if (options.verbosity >= Options::NORMAL) {
                 std::cout << std::setw(10) << best;
                 displayProgress(std::cout);
             }
             
+//            std::cout << "apply best\n";
+            
+            if(best == 1328) {
+//                std::cout << *this << std::endl;
+                debug_flag = true;
+            }
+            
             objective.apply(best, *this);
             saveSolution();
+            
+//            std::cout << "restart\n";
+            
             restart(true);
             //            assumption_stamp = numLiteral();
             try {
@@ -3925,9 +3961,14 @@ void Solver<T>::optimize(S &objective) {
             } catch (Failure<T> &f) {
                 satisfiability = FalseState;
             }
+            
+//            std::cout << "ok\n";
         }
         
         if (satisfiability == FalseState) {
+            
+            std::cout << "set dual to primals\n";
+            
             objective.setDual(objective.primalBound());
             
             if (options.verbosity >= Options::NORMAL) {
@@ -3937,6 +3978,7 @@ void Solver<T>::optimize(S &objective) {
         }
     }
     
+//    std::cout << "finished\n";
     
     //    std::cout << "hi " << objective.getDual(*this) << "\n";
     
@@ -4888,7 +4930,7 @@ template <typename T> void Solver<T>::writeLiteral(const Literal<T> l) const {
 
 template <typename T> void Solver<T>::writeConflict() const {
     if (cl_file != NULL) {
-        auto pb{options.ground_update};
+        auto pb{options.ground_update and numeric.upper(1) != Constant::Infinity<T>};
         *cl_file << 2 << " " << (cut.size() + pb);
         if(pb)
             *cl_file << " 0 1 " << numeric.upper(1);
@@ -4901,7 +4943,10 @@ template <typename T> void Solver<T>::writeConflict() const {
 
 template <typename T> void Solver<T>::writeClause() const {
     if (cl_file != NULL) {
-        auto pb{options.ground_update};
+        
+//        std::cout << "write clause " << learnt_clause.size() << " dec=" << decisions.size() << std::endl;
+        
+        auto pb{options.ground_update and numeric.upper(1) != Constant::Infinity<T>};
         *cl_file << 2 << " " << (learnt_clause.size() + pb);
         if(pb)
             *cl_file << " 0 1 " << numeric.upper(1);
