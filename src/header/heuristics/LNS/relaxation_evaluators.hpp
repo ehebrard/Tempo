@@ -465,6 +465,10 @@ namespace tempo::lns {
                 regions.back().SAT = false;
             }
 
+            if (KillHandler::instance().signalReceived() and not regions.empty()) {
+                regions.pop_back();
+            }
+
             policy.notifyFailure(numFails);
         }
 
