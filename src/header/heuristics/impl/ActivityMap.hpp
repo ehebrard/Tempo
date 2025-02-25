@@ -44,6 +44,8 @@ public:
     void applyDecay() { increment /= decay; }
 
     void normalize() {
+        
+        
 
       // do not consider constants for normalization
       auto [lp, up] =
@@ -55,17 +57,44 @@ public:
       double u{-std::numeric_limits<double>::max()};
       if (up != this->end())
         u = *up;
+        
+        
+//        std::cout << "normalize weights [" << l << "," << u << "]\n";
 
       auto factor{baseGap / (u - l)};
       for (auto a{this->begin() + 1}; a != this->end(); ++a) {
+          
+//          std::cout << *a << " -> ";
         *a = baseIncrement + (*a - l) * factor;
+//          std::cout << *a << "\n";
       }
       increment = baseIncrement;
+        
+        
+//        auto [lpa, upa] =
+//            std::ranges::minmax_element(this->begin() + 1, this->end());
+//        l = std::numeric_limits<double>::max();
+//        if (lpa != this->end())
+//          l = *lpa;
+//
+//        u = -std::numeric_limits<double>::max();
+//        if (upa != this->end())
+//          u = *upa;
+//        
+//        std::cout << " ===> [" << l << "," << u << "]\n";
+        
+//        int i{1};
+//        for (auto a{this->begin() + 1}; a != this->end(); ++a) {
+//            if(*a <= 1e-10)
+//                std::cout << " " << i ;
+//            ++i;
+//        }
+//        std::cout << std::endl;
     }
 
-    constexpr static const double baseIncrement{1e-6};
-    constexpr static const double maxActivity{1e12};
-    constexpr static const double baseGap{1 - baseIncrement};
+    constexpr static const double baseIncrement{1e-12};
+    constexpr static const double maxActivity{1e24};
+    constexpr static const double baseGap{baseIncrement};
     
 protected:
 
