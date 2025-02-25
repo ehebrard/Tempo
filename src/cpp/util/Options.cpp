@@ -136,10 +136,10 @@ auto tempo::getBaseParser() -> Parser {
             opt.vsids_decay, "", "vsids-decay",
             "decay value for the vsids heuristic, only effective if VSIDS is used "
             "as choice point heuristic",
-            false, 0.999, "double");
+            false, 0.99, "double");
 
     cmd.add<ValueArg<double>>(opt.forgetfulness, "", "forgetfulness",
-                              "clause base reduction factor (0.3)", false, 0.3,
+                              "clause base reduction factor (0.7)", false, 0.7,
                               "double");
     
     cmd.add<ValueArg<int>>(
@@ -173,7 +173,7 @@ auto tempo::getBaseParser() -> Parser {
 
     cmd.add<ValueArg<std::string>>(opt.restart_policy, "", "restart",
                                    "choice of restart policy (no, luby, geom)",
-                                   false, "luby", "string");
+                                   false, "geom", "string");
 
     cmd.add<ValueArg<int>>(
             opt.restart_base, "", "restart-base",
@@ -181,8 +181,8 @@ auto tempo::getBaseParser() -> Parser {
             128, "int");
 
     cmd.add<ValueArg<double>>(opt.restart_factor, "", "restart-factor",
-                              "factor of the geometric sequence (default=1.2)",
-                              false, 1.1, "double");
+                              "factor of the geometric sequence (default=1.05)",
+                              false, 1.05, "double");
 
     cmd.add<ValueArg<double>>(opt.vsids_epsilon, "", "vsids-epsilon",
                               "epsilon value for the epsilon greedy vsids "
