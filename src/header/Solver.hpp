@@ -2751,18 +2751,18 @@ index_t Solver<T>::getRelevantBoundRec(const index_t l_stamp,
             }
 #endif
             
-            if (relevant_stamp == 0) {
-                
-#ifdef DBG_TRACE
-                if (DBG_BOUND and (DBG_TRACE & MINIMIZATION)) {
-                    for (auto d{0}; d < (options.minimization - depth); ++d)
-                        std::cout << "  ";
-                    std::cout << "add " << p << " to redundant cache\n";
-                }
-#endif
-                
-                cut.cache(p_stamp);
-            }
+//            if (relevant_stamp == 0 and not p.isNumeric()) {
+//                
+//#ifdef DBG_TRACE
+//                if (DBG_BOUND and (DBG_TRACE & MINIMIZATION)) {
+//                    for (auto d{0}; d < (options.minimization - depth); ++d)
+//                        std::cout << "  ";
+//                    std::cout << "add " << p << " to redundant cache\n";
+//                }
+//#endif
+//                
+//                cut.cache(p_stamp);
+//            }
             
         }
 #ifdef DBG_TRACE

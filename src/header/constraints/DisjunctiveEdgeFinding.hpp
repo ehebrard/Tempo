@@ -62,8 +62,11 @@ private:
 //  std::vector<std::pair<Literal<T>, hint>> pruning;
     std::vector<index_t> the_explanation_other;
   std::vector<std::vector<Interval<T> *>> the_explanation_tasks;
+    std::vector<std::vector<index_t>> the_explanation_indices;
   std::vector<T> explanation_lb;
   std::vector<T> explanation_ub;
+    
+    std::map<var_t,index_t> var2task;
 
   Reversible<size_t> num_explanations;
 
@@ -145,8 +148,11 @@ bool DisjunctiveEdgeFinding<T>::checkpruning(const Literal<T> l, const hint h) {
     
     T total_duration{0};
     
-    for (auto ti : the_explanation_tasks[h]) {
-        total_duration += ti->minDuration(m_solver);
+//    for (auto ti : the_explanation_tasks[h]) {
+//        total_duration += ti->minDuration(m_solver);
+//    }
+    for (auto ti : the_explanation_indices[h]) {
+        total_duration += the_tasks[ti].minDuration(m_solver);
     }
     
     return total_duration > (explanation_ub[h] - explanation_lb[h]);
@@ -173,8 +179,11 @@ template <typename T>
 bool DisjunctiveEdgeFinding<T>::checkoverload(const T lb, const hint h) {
     auto ect{explanation_lb[h]};
     
-    for (auto ti : the_explanation_tasks[h]) {
-        ect += ti->minDuration(m_solver);
+//    for (auto ti : the_explanation_tasks[h]) {
+//        ect += ti->minDuration(m_solver);
+//    }
+    for (auto ti : the_explanation_indices[h]) {
+        ect += the_tasks[ti].minDuration(m_solver);
     }
     
     return ect >= lb;
@@ -188,12 +197,16 @@ template <typename Iter>
 hint DisjunctiveEdgeFinding<T>::boundExplanation(Iter b, Iter e,
                                                       const T lb) {
   auto e_idx{num_explanations};
+    
+    
   if (the_explanation_tasks.size() <= e_idx) {
     the_explanation_tasks.resize(e_idx + 1);
+      the_explanation_indices.resize(e_idx + 1);
     explanation_lb.resize(e_idx + 1);
     explanation_ub.resize(e_idx + 1);
-      the_explanation_other.resize(e_idx + 1);
+//      the_explanation_other.resize(e_idx + 1);
   } else {
+      the_explanation_indices[e_idx].clear();
     the_explanation_tasks[e_idx].clear();
   }
     
@@ -214,7 +227,8 @@ hint DisjunctiveEdgeFinding<T>::boundExplanation(Iter b, Iter e,
 
 //      explanation_tasks[e_idx].push_back(i);
 the_explanation_tasks[e_idx].push_back(&the_tasks[*x]);
-        the_explanation_other[e_idx] = Constant::NoIndex;
+        the_explanation_indices[e_idx].push_back(*x);
+//        the_explanation_other[e_idx] = Constant::NoIndex;
 
 ub = std::max(ub, lct_buffer[*x]);
     }
@@ -304,6 +318,11 @@ template <typename T> void DisjunctiveEdgeFinding<T>::post(const int idx) {
   for (unsigned i{0}; i < the_tasks.size(); ++i) {
     m_solver.wake_me_on(lb<T>(the_tasks[i].getStart()), this->id());
     m_solver.wake_me_on(ub<T>(the_tasks[i].getEnd()), this->id());
+      
+      var2task[the_tasks[i].getStart()] = i;
+      if(the_tasks[i].getEnd() != the_tasks[i].getStart()) {
+          var2task[the_tasks[i].getEnd()] = i;
+      }
   }
 }
 
@@ -454,8 +473,11 @@ template <typename T> void DisjunctiveEdgeFinding<T>::propagateForward() {
 #ifdef DBG_EDGEFINDING
         if (DBG_EDGEFINDING) {
             std::cout << " makespan pruning: " << m_solver.pretty(schedule.end.after(TT.getBound())) << " b/c" ;
-            for(auto t : the_explanation_tasks[h]) {
-                std::cout << " t" << t->id();
+//            for(auto t : the_explanation_tasks[h]) {
+//                std::cout << " t" << t->id();
+//            }
+            for(auto t : the_explanation_indices[h]) {
+                std::cout << " t" << the_tasks[t].id();
             }
             std::cout << " in [" << explanation_lb[h] << ".." << explanation_ub[h] << "]\n"; // << std::endl;
         }
@@ -548,6 +570,11 @@ template <typename T> void DisjunctiveEdgeFinding<T>::applyPruning() {
         ph = Constant::NoHint;
         for (auto j{ai}; j != lct_order.rend(); ++j) {
             auto prec{(backward_flag ? disjunct(*j, r) : disjunct(r, *j))};
+            
+//            if(prec.id() == 48) {
+//                std::cout << "HELLO " << m_solver.num_cons_propagations << std::endl;
+//            }
+            
 #ifdef DBG_EDGEFINDING
             if (DBG_EDGEFINDING) {
                 std::cout << "add precedences " << m_solver.pretty(prec) << "?" << std::endl;
@@ -558,15 +585,22 @@ template <typename T> void DisjunctiveEdgeFinding<T>::applyPruning() {
                 if (not m_solver.boolean.falsified(prec)) {
                     if (ph == Constant::NoHint) {
                         ph = boundExplanation(ai, lct_order.rend(), s);
-                        the_explanation_other[ph] = *j;
+//                        the_explanation_other[ph] = *j;
                         the_explanation_tasks[ph].push_back(&tl);
+                        the_explanation_indices[ph].push_back(r);
                     }
                     
 #ifdef DBG_EDGEFINDING
                     if (DBG_EDGEFINDING) {
                         std::cout << " edge: " << m_solver.pretty(prec) << " b/c" ;
-                        for(auto t : the_explanation_tasks[ph]) if(t->id() != tl.id()) {
-                            std::cout << " t" << t->id();
+//                        for(auto t : the_explanation_tasks[ph]) if(t->id() != tl.id()) {
+//                            std::cout << " t" << t->id();
+//                        }
+                        for(auto t : the_explanation_indices[ph]) {
+                            auto tid{the_tasks[t].id()};
+                            if(tid != tl.id()) {
+                                std::cout << " t" << tid;
+                            }
                         }
                         std::cout << " in [" << explanation_lb[ph] << ".." << explanation_ub[ph] << "] and t" << tl.id();
                         if(backward_flag)
@@ -597,14 +631,21 @@ template <typename T> void DisjunctiveEdgeFinding<T>::applyPruning() {
 
             if (ph == Constant::NoHint) {
               ph = boundExplanation(ai, lct_order.rend(), s);
-              the_explanation_tasks[ph].push_back(&tl);
+//              the_explanation_tasks[ph].push_back(&tl);
+                the_explanation_indices[ph].push_back(r);
             }
 
 #ifdef DBG_EDGEFINDING
             if (DBG_EDGEFINDING) {
                 std::cout << " adjustment: " << m_solver.pretty(bc) << " b/c" ;
-                for(auto t : the_explanation_tasks[ph]) if(t->id() != tl.id()) {
-                    std::cout << " t" << t->id();
+//                for(auto t : the_explanation_tasks[ph]) if(t->id() != tl.id()) {
+//                    std::cout << " t" << t->id();
+//                }
+                for(auto t : the_explanation_indices[ph]) {
+                    auto tid{the_tasks[t].id()};
+                    if(tid != tl.id()) {
+                        std::cout << " t" << tid;
+                    }
                 }
                 std::cout << " in [" << explanation_lb[ph] << ".." << explanation_ub[ph] << "] and t" << tl.id() ;
                 if(backward_flag)
@@ -639,19 +680,32 @@ void DisjunctiveEdgeFinding<T>::xplain(const Literal<T> l, const hint h,
 #endif
 
     // failure case, everything is in "tasks"
-    assert(static_cast<std::size_t>(h) < the_explanation_tasks.size());
-    for (auto ti : the_explanation_tasks[h]) {
+//    assert(static_cast<std::size_t>(h) < the_explanation_tasks.size());
+//    for (auto ti : the_explanation_tasks[h]) {
+//
+//      Cl.push_back(ti->start.after(explanation_lb[h]));
+//      Cl.push_back(ti->end.before(explanation_ub[h]));
+//
+//#ifdef DBG_EXPLEF
+//      duration += ti->minDuration(m_solver);
+//      std::cout << ti->start.after(explanation_lb[h]) << " & "
+//                << ti->end.before(explanation_ub[h]) << " ("
+//                << ti->minDuration(m_solver) << ")\n";
+//#endif
+//    }
+      assert(static_cast<std::size_t>(h) < the_explanation_indices.size());
+      for (auto ti : the_explanation_indices[h]) {
 
-      Cl.push_back(ti->start.after(explanation_lb[h]));
-      Cl.push_back(ti->end.before(explanation_ub[h]));
+        Cl.push_back(the_tasks[ti].start.after(explanation_lb[h]));
+        Cl.push_back(the_tasks[ti].end.before(explanation_ub[h]));
 
-#ifdef DBG_EXPLEF
-      duration += ti->minDuration(m_solver);
-      std::cout << ti->start.after(explanation_lb[h]) << " & "
-                << ti->end.before(explanation_ub[h]) << " ("
-                << ti->minDuration(m_solver) << ")\n";
-#endif
-    }
+  #ifdef DBG_EXPLEF
+        duration += the_tasks[ti].minDuration(m_solver);
+        std::cout << the_tasks[ti].start.after(explanation_lb[h]) << " & "
+                  << the_tasks[ti].end.before(explanation_ub[h]) << " ("
+                  << the_tasks[ti].minDuration(m_solver) << ")\n";
+  #endif
+      }
 
 #ifdef DBG_EXPLEF
     assert(duration > (explanation_ub[h] - explanation_lb[h]));
@@ -716,9 +770,93 @@ void DisjunctiveEdgeFinding<T>::xplain(const Literal<T> l, const hint h,
               << ".." << explanation_ub[h] << "])\n";
     T duration{0};
 #endif
+//      
+//      // the last task is the one at the tip of the edges
+//      auto t{the_explanation_tasks[h].back()};
+//      
+////      auto other_task{nullptr};
+//      auto endpoint{Constant::NoVar};
+//      bool isfrom{false};
+//      bool inexpl{false};
+//      if(not l.isNumeric()) {
+//          auto lc{m_solver.boolean.getEdge(l)};
+//          isfrom = (t->getStart() == lc.from or t->getEnd() == lc.from);
+//          endpoint = (isfrom ? lc.to : lc.from);
+//      }
+//      
+//
+//    // edge case, "tasks" give the Omega
+//    auto n{the_explanation_tasks[h].size() - 1};
+//    for (size_t i{0}; i < n; ++i) {
+//      auto ti{the_explanation_tasks[h][i]};
+//        
+//        if(ti->getStart() == endpoint or ti->getEnd() == endpoint)
+//            inexpl = true;
+//
+//      Cl.push_back(ti->start.after(explanation_lb[h]));
+//      Cl.push_back(ti->end.before(explanation_ub[h]));
+//
+//#ifdef DBG_EXPLEF
+//      //          duration += m_schedule.minDuration(t);
+//      duration += ti->minDuration(m_solver);
+//      std::cout << ti->start.after(explanation_lb[h]) << " & "
+//                << ti->end.before(explanation_ub[h]) << " ("
+//                << ti->minDuration(m_solver)
+//                << ")\n";
+//#endif
+//    }
+//
+//   
+//
+//    if (l.isNumeric()) {
+//      // explain the bound change
+//      if (l.sign() == bound::lower) {
+//        Cl.push_back(t->start.after(explanation_lb[h]));
+//      } else {
+//        Cl.push_back(t->end.before(explanation_ub[h]));
+//      }
+//    } else {
+//      // explain the edges
+////      auto lc{m_solver.boolean.getEdge(l)};
+////      if (t->getStart() == lc.from or t->getEnd() == lc.from) {
+//     if(isfrom) {
+//        Cl.push_back(t->start.after(explanation_lb[h]));
+//         
+//         if(not inexpl) {
+//////
+//////             std::cout << "HELLO " << leq<T>(endpoint, explanation_ub[h]) << std::endl;
+////             std::cout << the_tasks[the_explanation_other[h]] << std::endl;
+////             
+////             
+////             std::cout << "HELLO " << the_tasks[the_explanation_other[h]].end.before(explanation_ub[h]) << std::endl;
+////             
+//             
+//             Cl.push_back(the_tasks[the_explanation_other[h]].end.before(explanation_ub[h]));
+//         }
+//         
+//      } else {
+//        Cl.push_back(t->end.before(explanation_ub[h]));
+//          
+//          if(not inexpl) {
+//// //             Cl.push_back();
+//////              std::cout << "HELLO " << geq<T>(endpoint, explanation_lb[h]) << std::endl;
+////              
+////              std::cout << the_tasks[the_explanation_other[h]] << std::endl;
+////              std::cout << "HELLO " << the_tasks[the_explanation_other[h]].start.after(explanation_lb[h]) << std::endl;
+//              
+//              Cl.push_back(the_tasks[the_explanation_other[h]].start.after(explanation_lb[h]));
+//          }
+//          
+//      }
+//        
+////        if(not inexpl) {
+////            std::cout << "HELLO " << endpoint << std::endl;
+////        }
+      ///
+      
       
       // the last task is the one at the tip of the edges
-      auto t{the_explanation_tasks[h].back()};
+      auto t{the_explanation_indices[h].back()};
       
 //      auto other_task{nullptr};
       auto endpoint{Constant::NoVar};
@@ -726,28 +864,28 @@ void DisjunctiveEdgeFinding<T>::xplain(const Literal<T> l, const hint h,
       bool inexpl{false};
       if(not l.isNumeric()) {
           auto lc{m_solver.boolean.getEdge(l)};
-          isfrom = (t->getStart() == lc.from or t->getEnd() == lc.from);
+          isfrom = (the_tasks[t].getStart() == lc.from or the_tasks[t].getEnd() == lc.from);
           endpoint = (isfrom ? lc.to : lc.from);
       }
       
 
     // edge case, "tasks" give the Omega
-    auto n{the_explanation_tasks[h].size() - 1};
+    auto n{the_explanation_indices[h].size() - 1};
     for (size_t i{0}; i < n; ++i) {
-      auto ti{the_explanation_tasks[h][i]};
+      auto ti{the_explanation_indices[h][i]};
         
-        if(ti->getStart() == endpoint or ti->getEnd() == endpoint)
+        if(the_tasks[ti].getStart() == endpoint or the_tasks[ti].getEnd() == endpoint)
             inexpl = true;
 
-      Cl.push_back(ti->start.after(explanation_lb[h]));
-      Cl.push_back(ti->end.before(explanation_ub[h]));
+      Cl.push_back(the_tasks[ti].start.after(explanation_lb[h]));
+      Cl.push_back(the_tasks[ti].end.before(explanation_ub[h]));
 
 #ifdef DBG_EXPLEF
       //          duration += m_schedule.minDuration(t);
-      duration += ti->minDuration(m_solver);
-      std::cout << ti->start.after(explanation_lb[h]) << " & "
-                << ti->end.before(explanation_ub[h]) << " ("
-                << ti->minDuration(m_solver)
+      duration += the_tasks[ti].minDuration(m_solver);
+      std::cout << the_tasks[ti].>start.after(explanation_lb[h]) << " & "
+                << the_tasks[ti].end.before(explanation_ub[h]) << " ("
+                << the_tasks[ti].minDuration(m_solver)
                 << ")\n";
 #endif
     }
@@ -757,40 +895,45 @@ void DisjunctiveEdgeFinding<T>::xplain(const Literal<T> l, const hint h,
     if (l.isNumeric()) {
       // explain the bound change
       if (l.sign() == bound::lower) {
-        Cl.push_back(t->start.after(explanation_lb[h]));
+        Cl.push_back(the_tasks[t].start.after(explanation_lb[h]));
       } else {
-        Cl.push_back(t->end.before(explanation_ub[h]));
+        Cl.push_back(the_tasks[t].end.before(explanation_ub[h]));
       }
     } else {
       // explain the edges
 //      auto lc{m_solver.boolean.getEdge(l)};
 //      if (t->getStart() == lc.from or t->getEnd() == lc.from) {
      if(isfrom) {
-        Cl.push_back(t->start.after(explanation_lb[h]));
+        Cl.push_back(the_tasks[t].start.after(explanation_lb[h]));
          
          if(not inexpl) {
 ////
 ////             std::cout << "HELLO " << leq<T>(endpoint, explanation_ub[h]) << std::endl;
 //             std::cout << the_tasks[the_explanation_other[h]] << std::endl;
-//             
-//             
-//             std::cout << "HELLO " << the_tasks[the_explanation_other[h]].end.before(explanation_ub[h]) << std::endl;
-//             
+//
+//
              
-             Cl.push_back(the_tasks[the_explanation_other[h]].end.before(explanation_ub[h]));
+             auto i{var2task[endpoint]};
+//             std::cout << "HELLO " << m_solver.pretty(l) << ": " << the_tasks[i].end.before(explanation_ub[h]) << std::endl;
+//
+             
+             Cl.push_back(the_tasks[i].end.before(explanation_ub[h]));
          }
          
       } else {
-        Cl.push_back(t->end.before(explanation_ub[h]));
+        Cl.push_back(the_tasks[t].end.before(explanation_ub[h]));
           
           if(not inexpl) {
 // //             Cl.push_back();
 ////              std::cout << "HELLO " << geq<T>(endpoint, explanation_lb[h]) << std::endl;
-//              
+//
 //              std::cout << the_tasks[the_explanation_other[h]] << std::endl;
 //              std::cout << "HELLO " << the_tasks[the_explanation_other[h]].start.after(explanation_lb[h]) << std::endl;
               
-              Cl.push_back(the_tasks[the_explanation_other[h]].start.after(explanation_lb[h]));
+              auto i{var2task[endpoint]};
+//              std::cout << "HELLO " << m_solver.pretty(l) << ": " << the_tasks[i].start.after(explanation_lb[h]) << std::endl;
+              
+              Cl.push_back(the_tasks[i].start.after(explanation_lb[h]));
           }
           
       }

@@ -65,22 +65,23 @@ using hint = int;
 
 /////// UNCOMMENT TO DEBUG
 //#define DBG_TRACE (SEARCH + LEARNING + MINIMIZATION)
-//#define DBG_BOUND (num_fails >= 0)
-//#define DBG_CBOUND (solver.num_fails >= 0)
-//#define DBG_CLBOUND (solver.num_fails >= 0)
-//#define DBG_BBOUND (solver.num_fails >= 0)
+//#define DBG_BOUND (num_choicepoints >= 11617)
+//#define DBG_CBOUND (solver.num_choicepoints >= 11617)
+//#define DBG_CLBOUND (solver.num_choicepoints >= 11617)
+//#define DBG_BBOUND (solver.num_choicepoints >= 11617)
 ////////////
 
 // #define DBG_MINIMIZATION
 //  #define DBG_EDGECONS true
-//#define DBG_EDGEFINDING (m_solver.num_cons_propagations == 165622)
+//#define DBG_EDGEFINDING (m_solver.num_cons_propagations >= 203954)
 //  #define DBG_EXPLEF true  // (m_solver.num_cons_propagations >= 165622)
 //  #define DBG_THETA (m_schedule.num_fails >= 481)
 //  #define DBG_BELLMAN true //(sched.num_choicepoints >= 1045)
 //  #define DBG_BELLMAN_EXPL (sched.num_choicepoints >= 4172)
 //  #define DEBUG_HEURISTICS
 //  #define DBG_UP
-// #define DBG_CL 1000000000
+//#define DBG_CL 10000000
+// #define DBG_CL 559
 // #define DBG_CLPLUS true
 //  #define DBG_TRANSITIVITY true //(m_schedule.num_choicepoints >= 4064)
 //  #define DBG_EXPL_TRANS true

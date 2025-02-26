@@ -147,8 +147,10 @@ int main(int argc, char *argv[]) {
         current_clause.clear();
         cl_file >> t;
         cl_file >> n;
-        if (not cl_file.good())
+        if (not cl_file.good()) {
+            std::cout << "end of file\n";
             break;
+        }
         
         for (auto i{0}; i < n; ++i) {
             cl_file >> x;
@@ -200,9 +202,6 @@ int main(int argc, char *argv[]) {
                 for(auto c : current_clause) {
                     lit_map[{c.from,c.to}] = c.distance;
                 }
-                
-                
-                
                 std::vector<DistanceConstraint<int>> clause;
                 for(auto c : previous_clause) {
                     auto minimized{false};
@@ -215,13 +214,11 @@ int main(int argc, char *argv[]) {
                         clause.push_back(d);
                         minimized = true;
                     }
-                    
                     if(minimized) {
                         for(auto d : previous_clause) {
                             if(d != c)
                                 clause.push_back(d);
                         }
-                        
                         std::cout << "check:";
                         for(auto d : clause) {
                             std::cout << " " << d;
@@ -232,7 +229,7 @@ int main(int argc, char *argv[]) {
                         
                         if(res == SAT) {
                             std::cout << "bug here!\n";
-                            exit(1);
+                            break;
                         }
                         
                         std::cout << "\n";
@@ -241,48 +238,9 @@ int main(int argc, char *argv[]) {
                     clause.clear();
                 }
                 
-                
-                
-                
-                
-//                std::vector<DistanceConstraint<int>> removed_lits;
-//                std::vector<DistanceConstraint<int>> clause;
-//                for(auto d : previous_clause) {
-//                    auto removed{true};
-//                    for(auto c : current_clause) {
-//                        if(c == d) {
-//                            removed = false;
-//                            break;
-//                        }
-//                    }
-//                    if(removed) {
-//                        removed_lits.push_back(d);
-//                    }
-//                }
-//                
-//                for(auto c : removed_lits) {
-//                    for(auto d : previous_clause) {
-//                        if(d != c) {
-//                            clause.push_back(d);
-//                        }
-//                    }
-//                    
-//                    
-//                    std::cout << "\ncheck:";
-//                    for(auto c : clause) {
-//                        std::cout << " " << c;
-//                    }
-//                    std::cout << "\n";
-//                    
-//                    
-//                    
-//                    
-//                    
-//                    clause.clear();
-//                    
-//                }
             }
             
+            std::cout << "error?\n";
             exit(1);
         }
     
