@@ -37,6 +37,39 @@ along with minicsp.  If not, see <http://www.gnu.org/licenses/>.
 using namespace tempo;
 
 
+enum outcome { TRIVIALLY_UNSAT = 0, PROPAG_UNSAT, SEARCH_UNSAT, SAT };
+
+
+outcome check_clause(std::vector<DistanceConstraint<int>>& clause, Solver<int>& S) {
+    auto init = S.saveState();
+    auto result{outcome::SAT};
+    for(auto c : clause) {
+        try {
+            S.post(c);
+        } catch (Failure<int> &f) {
+            result = outcome::TRIVIALLY_UNSAT;
+        }
+    }
+    if (result != outcome::TRIVIALLY_UNSAT) {
+        try {
+            S.propagate();
+        } catch (Failure<int> &f) {
+            result = outcome::PROPAG_UNSAT;
+        }
+        if (result != outcome::PROPAG_UNSAT) {
+            if (not S.satisfiable()) {
+                result = outcome::SEARCH_UNSAT;
+            }
+        }
+    }
+    S.restoreState(init);
+    S.clauses.clear();
+    
+    return result;
+}
+
+
+
 int main(int argc, char *argv[]) {
     Options opt = tempo::parse(argc, argv);
     
@@ -104,91 +137,160 @@ int main(int argc, char *argv[]) {
     var_t x, y;
     int t, n, d;
     
-    std::vector<var_t> X;
-    std::vector<var_t> Y;
-    std::vector<int> D;
+    std::vector<DistanceConstraint<int>> previous_clause;
+    std::vector<DistanceConstraint<int>> current_clause;
+    
+    std::map<std::pair<int,int>,int> lit_map;
     
     int line{0};
     do {
-        X.clear();
-        Y.clear();
-        D.clear();
-        auto init = S.saveState();
-        
-        std::cout << "after save: " << S.clauses.size() << std::endl;
-        
+        current_clause.clear();
         cl_file >> t;
         cl_file >> n;
         if (not cl_file.good())
             break;
-        bool trivially_unsat{false};
+        
         for (auto i{0}; i < n; ++i) {
             cl_file >> x;
             cl_file >> y;
             cl_file >> d;
-            X.push_back(x);
-            Y.push_back(y);
-            D.push_back(d);
-            try {
-                DistanceConstraint<int> c{x, y, d};
-                
-                std::cout << "post " << c << std::endl;
-                
-                S.post(c);
-            } catch (Failure<int> &f) {
-                trivially_unsat = true;
-            }
+            current_clause.emplace_back(x,y,d);
         }
-        if (not trivially_unsat) {
-            bool need_search{true};
-            try {
-                S.propagate();
-            } catch (Failure<int> &f) {
-                need_search = false;
-            }
-            if (need_search) {
-                
-                std::cout << "search\n";
-                
-                auto nf{S.num_fails};
-                if (S.satisfiable()) {
-                    std::cout << "cl " << line << " ("
-                    << (t == 0 ? "minimized" : (t == 1 ? "reason" : "uip"))
-                    << "): ";
-                    std::cout << "bug!\n";
-                    
-                    for (size_t i{0}; i < X.size(); ++i) {
-                        std::cout << "> " << DistanceConstraint<int>(X[i], Y[i], D[i]) << std::endl;
-                    }
-                    
-                    if (opt.print_sol) {
-                        for (auto i : intervals) {
-                            std::cout << "x" << i.start.id() << ": "
-                            << S.numeric.solutionLower(i.start) << ".."
-                            << S.numeric.solutionLower(i.end) << " ("
-                            << S.numeric.solutionLower(i.duration) << ")\n";
-                        }
-                    }
-                    
-                    exit(1);
-                }
-                ++num_search;
-                num_fails += (S.num_fails - nf);
-            }
-        } else {
+        
+        auto nf{S.num_fails};
+        
+        auto res = check_clause(current_clause, S);
+        
+        if(res == TRIVIALLY_UNSAT) {
             ++num_trivial;
+        } else if(res == SEARCH_UNSAT) {
+            num_fails += (S.num_fails - nf);
+            ++num_search;
+        } else if(res == SAT) {
+            std::cout << "cl " << line << " ("
+            << (t == 1 ? "minimized" : (t == 2 ? "reason" : "uip"))
+            << "): ";
+            std::cout << "bug!\n";
+            for(auto c : current_clause) {
+                std::cout << "> " << c << std::endl;
+            }
+            
+            if (opt.print_sol) {
+                for (auto i : intervals) {
+                    std::cout << "x" << i.start.id() << ": "
+                    << S.numeric.solutionLower(i.start) << ".."
+                    << S.numeric.solutionLower(i.end) << " ("
+                    << S.numeric.solutionLower(i.duration) << ")\n";
+                }
+            }
+            
+            if(t == 1) {
+                std::cout << "minimized clause, check literals:\n current:";
+                for(auto c : current_clause) {
+                    std::cout << " " << c;
+                }
+                std::cout << "\nprevious:";
+                for(auto c : previous_clause) {
+                    std::cout << " " << c;
+                }
+                std::cout << "\n";
+                
+                
+                lit_map.clear();
+                for(auto c : current_clause) {
+                    lit_map[{c.from,c.to}] = c.distance;
+                }
+                
+                
+                
+                std::vector<DistanceConstraint<int>> clause;
+                for(auto c : previous_clause) {
+                    auto minimized{false};
+                    if(not lit_map.contains({c.from,c.to})) {
+                        std::cout << c << " has been removed\n";
+                        minimized = true;
+                    } else if(lit_map[{c.from,c.to}] > c.distance) {
+                        auto d{DistanceConstraint(c.from, c.to, lit_map[{c.from,c.to}])};
+                        std::cout << c << " has been changed to " << d << "\n";
+                        clause.push_back(d);
+                        minimized = true;
+                    }
+                    
+                    if(minimized) {
+                        for(auto d : previous_clause) {
+                            if(d != c)
+                                clause.push_back(d);
+                        }
+                        
+                        std::cout << "check:";
+                        for(auto d : clause) {
+                            std::cout << " " << d;
+                        }
+                        std::cout << "\n";
+                        
+                        auto res = check_clause(clause, S);
+                        
+                        if(res == SAT) {
+                            std::cout << "bug here!\n";
+                            exit(1);
+                        }
+                        
+                        std::cout << "\n";
+                        
+                    }
+                    clause.clear();
+                }
+                
+                
+                
+                
+                
+//                std::vector<DistanceConstraint<int>> removed_lits;
+//                std::vector<DistanceConstraint<int>> clause;
+//                for(auto d : previous_clause) {
+//                    auto removed{true};
+//                    for(auto c : current_clause) {
+//                        if(c == d) {
+//                            removed = false;
+//                            break;
+//                        }
+//                    }
+//                    if(removed) {
+//                        removed_lits.push_back(d);
+//                    }
+//                }
+//                
+//                for(auto c : removed_lits) {
+//                    for(auto d : previous_clause) {
+//                        if(d != c) {
+//                            clause.push_back(d);
+//                        }
+//                    }
+//                    
+//                    
+//                    std::cout << "\ncheck:";
+//                    for(auto c : clause) {
+//                        std::cout << " " << c;
+//                    }
+//                    std::cout << "\n";
+//                    
+//                    
+//                    
+//                    
+//                    
+//                    clause.clear();
+//                    
+//                }
+            }
+            
+            exit(1);
         }
+    
+        
+        std::swap(current_clause, previous_clause);
+    
         ++line;
         
-//        std::cout << "before restore: " << S.numConstraint() << std::endl;
-        
-        std::cout << "restore\n";
-        
-        S.restoreState(init);
-        
-        std::cout << "clear clauses";
-        
-        S.clauses.clear();
         std::cout << line << ": " << num_trivial << " trivial, "
         << (line - num_trivial - num_search) << " easy, " << num_search
         << " hard (" << num_fails / num_search << ")" << std::endl;

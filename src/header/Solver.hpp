@@ -2596,36 +2596,46 @@ template <typename T>
 template <typename Iter>
 void Solver<T>::minimizeSlice(Iter beg, Iter stop) {
     
-    for (auto lit{beg}; lit != stop; ++lit) {
-        
+//    std::cout << std::endl;
+    //    for (bool r{true}; r; r=(not r)) {
+    for (int r{0}; r<2; ++r) {
+        for (auto lit{beg}; lit != stop; ++lit) {
+            
+            if(lit->second.isNumeric() != r) {
+                
+                
+//                std::cout << (lit->second.isNumeric() ? "numeric" : "boolean") << std::endl;
+                
 #ifdef DBG_TRACE
-        if (DBG_BOUND and (DBG_TRACE & MINIMIZATION)) {
-            std::cout << "* Try to minimize " << lit->second << " away\n";
-        }
+                if (DBG_BOUND and (DBG_TRACE & MINIMIZATION)) {
+                    std::cout << "* Try to minimize " << lit->second << " away\n";
+                }
 #endif
-        
-        index_t rstamp{getRelevance(*lit)};
-        
+                
+                index_t rstamp{getRelevance(*lit)};
+                
 #ifdef DBG_TRACE
-        if (DBG_BOUND and (DBG_TRACE & MINIMIZATION)) {
-            std::cout << "* relevant stamp = " << rstamp;
-            if (rstamp < ground_stamp) {
-                std::cout << " (remove)";
-            } else if (rstamp < lit->first) {
-                std::cout << " (change " << lit->second << " to " << getLiteral(rstamp)
-                << ")";
-            } else {
-                std::cout << " (keep)";
+                if (DBG_BOUND and (DBG_TRACE & MINIMIZATION)) {
+                    std::cout << "* relevant stamp = " << rstamp;
+                    if (rstamp < ground_stamp) {
+                        std::cout << " (remove)";
+                    } else if (rstamp < lit->first) {
+                        std::cout << " (change " << lit->second << " to " << getLiteral(rstamp)
+                        << ")";
+                    } else {
+                        std::cout << " (keep)";
+                    }
+                    std::cout << "\n";
+                }
+#endif
+                
+                if (rstamp < ground_stamp) {
+                    cut.remove(lit);
+                } else if (rstamp < lit->first) {
+                    assert(lit->second.isNumeric());
+                    cut.change(getLiteral(rstamp), rstamp);
+                }
             }
-            std::cout << "\n";
-        }
-#endif
-        
-        if (rstamp < ground_stamp) {
-            cut.remove(lit);
-        } else if (rstamp < lit->first) {
-            assert(lit->second.isNumeric());
-            cut.change(getLiteral(rstamp), rstamp);
         }
     }
 }
@@ -4878,7 +4888,7 @@ template <typename T> void Solver<T>::writeConflict() const {
             if(p.first != 0)
                 buffer.push_back(p.second);
         }
-        *cl_file << 2 << " " << (buffer.size() + pb);
+        *cl_file << 0 << " " << (buffer.size() + pb);
         if(pb)
             *cl_file << " 0 1 " << numeric.upper(1);
         for (auto p : buffer) {
@@ -4894,7 +4904,7 @@ template <typename T> void Solver<T>::writeClause() const {
 //        std::cout << "write clause " << learnt_clause.size() << " dec=" << decisions.size() << std::endl;
         
         auto pb{options.ground_update and numeric.upper(1) != Constant::Infinity<T>};
-        *cl_file << 2 << " " << (learnt_clause.size() + pb);
+        *cl_file << 1 << " " << (learnt_clause.size() + pb);
         if(pb)
             *cl_file << " 0 1 " << numeric.upper(1);
         for (auto p : learnt_clause) {
@@ -4906,7 +4916,7 @@ template <typename T> void Solver<T>::writeClause() const {
 
 template <typename T> void Solver<T>::writeExplanation(const Literal<T> l) const {
     if (cl_file != NULL) {
-        *cl_file << "1 " << (lit_buffer.size() + (l != Contradiction<T>));
+        *cl_file << "2 " << (lit_buffer.size() + (l != Contradiction<T>));
         for (auto p : lit_buffer) {
             writeLiteral(p);
         }
