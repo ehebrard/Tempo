@@ -1557,43 +1557,14 @@ template <typename T> void CumulativeEdgeFinding<T>::adjustment() {
         
         
         auto next{profile.at(t1)};
-        
-        
-        
-        
-        //      if(next.index == profile.end().index) {
-        //          std::cout << "EMPTY!\n";
-        //          exit(1);
-        //      }
-        //
-        //#ifdef DBG_SEF
-        //      if (DBG_SEF and debug_flag > 3) {
-        //          std::cout << next.index << " -> " << profile.end().index << std::endl;
-        //      }
-        //#endif
-        
-        
         while (next != profile.end()) {
             auto t{next};
             ++next;
-            //
-            //#ifdef DBG_SEF
-            //      if (DBG_SEF and debug_flag > 3) {
-            //          std::cout << "next.index = " << next.index << std::endl;
-            //      }
-            //#endif
-            
+   
             auto overlap{data[next.index].overlap - data[t.index].overlap};
             if (maxoverflow > overlap) {
                 maxoverflow -= overlap;
             } else {
-                
-                //
-                //#ifdef DBG_SEF
-                //      if (DBG_SEF and debug_flag > 3) {
-                //          std::cout << "adj = min(" << next->time << ", " << t->time << "+" << maxoverflow << "/(" << data[t.index].consumption << "-" << capacity.max(solver) << "+" << mindemand(i) << ")" << std::endl;
-                //      }
-                //#endif
                 
                 adjustment = std::min(
                                       next->time,
@@ -1604,11 +1575,12 @@ template <typename T> void CumulativeEdgeFinding<T>::adjustment() {
         }
         
         
+        auto t{std::max(adjustment, minEct)};
         
         auto actual_pruning{false};
         if(sign == bound::lower) {
             
-            auto t{std::max(adjustment, minEct)};
+            
             
             //          assert(t >= task[i].getEarliestStart(solver));
             
@@ -1620,9 +1592,17 @@ template <typename T> void CumulativeEdgeFinding<T>::adjustment() {
         }
         else {
             
-            auto t{std::max(adjustment, -minEct)};
+//            std::cout << "max(" << adjustment << "," << -minEct << ")\n";
+            
+//            auto t{std::max(adjustment, -minEct)};
             
             //          assert(-t <= task[i].getLatestEnd(solver));
+            
+//            
+//            if(t > 0) {
+//                std::cout << "pobably a bug\n";
+//                exit(1);
+//            }
             
             if(-t < task[i].getLatestEnd(solver)) {
                 pruning.push_back(task[i].end.before(-t));

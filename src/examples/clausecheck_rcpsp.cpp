@@ -28,6 +28,7 @@ along with minicsp.  If not, see <http://www.gnu.org/licenses/>.
 #include "Solver.hpp"
 #include "heuristics/Greedy.hpp"
 #include "util/parsing/psplib.hpp"
+#include "util/parsing/rcpsp.hpp"
 
 
 using namespace tempo;
@@ -40,7 +41,7 @@ int main(int argc, char *argv[]) {
     size_t num_trivial{0};
     size_t num_search{0};
 
-  seed(opt.seed);
+
     
     std::ifstream cl_file(opt.dbg_file, std::ifstream::in);
 
@@ -53,6 +54,7 @@ int main(int argc, char *argv[]) {
     
     
     Solver<int> S(opt);
+    seed(opt.seed);
     
     // an interval standing for the makespan of schedule
     auto makespan{S.newNumeric(0,Constant::Infinity<int>)};
@@ -71,9 +73,13 @@ int main(int argc, char *argv[]) {
     std::vector<std::pair<int, int>> precedences;
     std::vector<std::vector<int>> graph;
 
-    psplib::parse(opt.instance_file, S, schedule, intervals, tasks_requirements,
-                 task_demands, resource_capacities, precedences, graph);
-
+    if (opt.input_format == "rcp") {
+        rcpsp::parse(opt.instance_file, S, schedule, intervals, tasks_requirements,
+                     task_demands, resource_capacities, precedences, graph);
+    } else {
+        psplib::parse(opt.instance_file, S, schedule, intervals, tasks_requirements,
+                      task_demands, resource_capacities, precedences, graph);
+    }
     std::vector<std::vector<Interval<int>>> resource_tasks(
         resource_capacities.size());
     std::vector<std::vector<NumericVar<int>>> resource_demands(

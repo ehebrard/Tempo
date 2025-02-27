@@ -65,10 +65,10 @@ using hint = int;
 
 /////// UNCOMMENT TO DEBUG
 //#define DBG_TRACE (SEARCH + LEARNING + MINIMIZATION)
-//#define DBG_BOUND (num_fails >= 7521)
-//#define DBG_CBOUND (solver.num_fails >= 7521)
-//#define DBG_CLBOUND (solver.num_fails >= 7521)
-//#define DBG_BBOUND (solver.num_fails >= 7521)
+//#define DBG_BOUND (num_fails >= 12)
+//#define DBG_CBOUND (solver.num_fails >= 12)
+//#define DBG_CLBOUND (solver.num_fails >= 12)
+//#define DBG_BBOUND (solver.num_fails >= 12)
 ////////////
 
 // #define DBG_MINIMIZATION
@@ -80,7 +80,7 @@ using hint = int;
 //  #define DBG_BELLMAN_EXPL (sched.num_choicepoints >= 4172)
 //  #define DEBUG_HEURISTICS
 //  #define DBG_UP
-#define DBG_CL 10000000
+//#define DBG_CL 22
 // #define DBG_CL 559
 // #define DBG_CLPLUS true
 //  #define DBG_TRANSITIVITY true //(m_schedule.num_choicepoints >= 4064)
@@ -92,7 +92,7 @@ using hint = int;
 //  #define DBG_FTRANS true //m_solver.num_choicepoints >= 900
 //  #define DBG_BELLMAN_FT true
 //  #define DBG_EXPL_FTRANS true
-//  #define DBG_SEF solver.num_cons_propagations >= 516115
+//  #define DBG_SEF true //solver.num_cons_propagations >= 516115
 //  #define DBG_COF solver.num_cons_propagations >= 0
 //  #define DBG_EXTRACT true
 //  #define DBG_SPANNING true

@@ -4,7 +4,7 @@
 * @brief
 */
 
-#include <iostream>
+//#include <iostream>
 #include <algorithm>
 #include <cassert>
 #include <numeric>
@@ -33,7 +33,7 @@ namespace tempo {
         y = z;
         z = t ^ x ^ y;
         
-        std::cout << z << std::endl;
+//        std::cout << z << std::endl;
 
         return z;
     }
