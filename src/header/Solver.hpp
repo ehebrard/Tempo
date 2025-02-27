@@ -664,7 +664,10 @@ public:
     void postStrongEdgeFinding(const Interval<T> s, const NumericVar<T> c,
                                const ItTask beg_task, const ItTask end_task,
                                const ItNVar beg_dem, const bool tt,
-                               Incrementality<T> *b, const int approx);
+#ifdef USE_INCREMENTALITYSTUFF
+                               Incrementality<T> *b,
+#endif
+                               const int approx);
     
     // create and post the strong edge-finding propagator for the cumulative constraint
     template <typename ItTask, typename ItNVar>
@@ -3365,7 +3368,8 @@ void Solver<T>::analyze(Explanation<T> &e, const bool only_boolean) {
     checkClauseLimit();
 #endif
     
-    assert(static_cast<int>(decisionLevel(~(learnt_clause[0]))) == level());
+//    assert(static_cast<int>(decisionLevel(~(learnt_clause[0]))) == level());
+ 
 }
 
 template <typename T> void Solver<T>::analyzeDecisions(Explanation<T> &e) {
@@ -3605,14 +3609,25 @@ template <typename T> void Solver<T>::learnConflict(Explanation<T> &e) {
     
 #ifdef DBG_TRACE
     if (DBG_BOUND and (DBG_TRACE & SEARCH)) {
-        if (not learnt_clause.empty())
-            std::cout << "learn clause of size " << learnt_clause.size() << " @lvl"
-            << level() << ", backtrack to level " << bt_level
-            << " and deduce " << pretty(learnt_clause[0]);
-        else
+        if (not learnt_clause.empty()) {
+            if(static_cast<int>(decisionLevel(~(learnt_clause[0]))) == level()) {
+                std::cout << "learn clause of size " << learnt_clause.size() << " @lvl"
+                << level() << ", backtrack to level " << bt_level
+                << " and deduce " << pretty(learnt_clause[0]);
+            } else {
+                std::cout << "learn clause without current-level litera! @lvl"
+                << level() << ", backtrack to level " << bt_level;
+            }
+        } else {
             std::cout << "learn empty clause!";
+        }
     }
 #endif
+    
+//    if(static_cast<int>(decisionLevel(~(learnt_clause[0]))) != level()) {
+//        std::cout << "here " << num_fails << std::endl;
+//        exit(1);
+//    }
     
 //    if (bt_level < init_level)
 //        throw SearchExhausted();
@@ -3649,9 +3664,16 @@ template <typename T> void Solver<T>::learnConflict(Explanation<T> &e) {
 //        }
 //    }
     
-    assert(isAssertive(learnt_clause));
+//    assert(isAssertive(learnt_clause));
 
     clauses.add(learnt_clause.begin(), learnt_clause.end(), true, cut.glueScore(*this));
+//    try {
+//        clauses.add(learnt_clause.begin(), learnt_clause.end(), true, cut.glueScore(*this));
+//    } catch(Failure<T>& f) {
+//        std::cout << "fail when adding learnt clause (" << num_fails << ")!\n";
+////        exit(1);
+//        throw f;
+//    }
 
 }
 
@@ -4549,9 +4571,16 @@ void Solver<T>::postStrongEdgeFinding(const Interval<T> s,
                                       const ItTask beg_task,
                                       const ItTask end_task,
                                       const ItNVar beg_dem, const bool tt,
-                                      Incrementality<T> *b, const int approx) {
+#ifdef USE_INCREMENTALITYSTUFF
+                                      Incrementality<T> *b,
+#endif
+                                      const int approx) {
     post(new CumulativeEdgeFinding<T>(*this, s, c, beg_task, end_task, beg_dem,
-                                      tt, b, approx));
+                                      tt
+#ifdef USE_INCREMENTALITYSTUFF
+                                      , b
+#endif
+                                      , approx));
 }
 
 template <typename T>

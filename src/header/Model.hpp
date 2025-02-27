@@ -33,7 +33,9 @@
 
 #include "Literal.hpp"
 #include "constraints/Cardinality.hpp"
+#ifdef USE_INCREMENTALITYSTUFF
 #include "constraints/Incrementality.hpp"
+#endif
 #include "constraints/PseudoBoolean.hpp"
 #include "constraints/SumConstraint.hpp"
 #include "util/Matrix.hpp"
@@ -2235,15 +2237,22 @@ public:
 
       // #ifdef DBG_SEF
       if (solver.getOptions().edge_finding) {
+#ifdef USE_INCREMENTALITYSTUFF
         auto incr = std::make_unique<Incrementality<T>>(solver, *this,
                                                         disjunctiveLiterals);
-
+#endif
+          
         solver.postStrongEdgeFinding(
             schedule, capacity, this->begin(), this->end(), this->begDemand(),
-            solver.getOptions().tt_edge_finding, incr.get(),
-            solver.getOptions().incomplete_edge_finding);
+            solver.getOptions().tt_edge_finding
+#ifdef USE_INCREMENTALITYSTUFF
+                                     , incr.get()
+#endif
+                                    , solver.getOptions().incomplete_edge_finding);
 
+#ifdef USE_INCREMENTALITYSTUFF
         solver.post(incr.release());
+#endif
       }
       // #endif
 

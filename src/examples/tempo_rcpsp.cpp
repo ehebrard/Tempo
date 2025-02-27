@@ -212,12 +212,13 @@ int main(int argc, char *argv[]) {
   std::vector<std::pair<int, int>> precedences;
     std::vector<std::vector<int>> graph;
 
-  if (opt.input_format == "rcp")
-    rcpsp::parse(opt.instance_file, S, schedule, intervals, tasks_requirements,
-                 task_demands, resource_capacities, precedences, graph);
-  else
-    psplib::parse(opt.instance_file, S, schedule, intervals, tasks_requirements,
-                  task_demands, resource_capacities, precedences, graph);
+    if (opt.input_format == "rcp") {
+        rcpsp::parse(opt.instance_file, S, schedule, intervals, tasks_requirements,
+                     task_demands, resource_capacities, precedences, graph);
+    } else {
+        psplib::parse(opt.instance_file, S, schedule, intervals, tasks_requirements,
+                      task_demands, resource_capacities, precedences, graph);
+    }
     
     for(auto &neighbors : graph) {
         std::sort(neighbors.begin(), neighbors.end());
