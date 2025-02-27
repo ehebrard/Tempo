@@ -1938,9 +1938,9 @@ Clause<T> *ClauseBase<T>::add(const iter first, const iter last,
     verifyWatchers("before add");
 #endif
     
-    if(learnt == false) {
-        std::cout << "ADD TRUE CLAUSE!\n";
-    }
+//    if(learnt == false) {
+//        std::cout << "ADD TRUE CLAUSE!\n";
+//    }
     
     //  std::cout << "add clause (" << (learnt ? "learnt" : "base" ) << ")";
     //  for (auto l{first}; l != last; ++l) {
