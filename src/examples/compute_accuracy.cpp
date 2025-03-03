@@ -574,7 +574,7 @@ int solve(Options& gopt, std::string& record_file) {
               assert(not S.getDecisions()[i].isNumeric());
               
             buffer << " " << S.getDecisions()[i].sign() << " "
-              << S.getDecisions()[i].variable()
+              << S.getDecisions()[i].variable();
           }
             if(right_branches.size() > S.numDecision()) {
                 buffer << " " << right_branches.back().size();
