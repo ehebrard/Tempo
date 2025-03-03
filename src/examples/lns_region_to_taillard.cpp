@@ -107,7 +107,13 @@ int main(int argc, char **argv) {
     const auto [header, rest] = splitInstance(opt.instance_file);
     const auto t2m = getTaskResourceMap(instance);
     for (auto [idx, taskPrecs, region] : iterators::zip_enumerate(taskPrecedences, filteredRegions)) {
-        const auto name = instanceName + "_" + std::to_string(idx) + "_" + (region.SAT ? "sat" : "unsat");
+        auto dotIdx = instanceName.find_last_of(".");
+        std::string baseFileName = instanceName;
+        if (dotIdx != std::string::npos) {
+            baseFileName = instanceName.substr(0, dotIdx);
+        }
+
+        const auto name = baseFileName + "__sub__" + std::to_string(idx) + "_" + (region.SAT ? "sat" : "unsat");
         const auto file = fs::path(destination) / name;
         std::ofstream ofs(file);
         if (not ofs.is_open()) {
