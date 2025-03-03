@@ -38,7 +38,9 @@
 #include "Global.hpp"
 #include "Model.hpp"
 #include "constraints/Constraint.hpp"
+#ifdef USE_INCREMENTALITYSTUFF
 #include "constraints/Incrementality.hpp"
+#endif
 #include "util/List.hpp"
 #include "util/random.hpp"
 
@@ -147,7 +149,10 @@ private:
   std::vector<NumericVar<T>> demand;
   bool sign{bound::lower};
 
+#ifdef USE_INCREMENTALITYSTUFF
   Incrementality<T> *bounds{nullptr};
+#endif
+    
   bool timetable_reasoning{true};
     int approximation{-Constant::Infinity<int>};
 
@@ -242,7 +247,11 @@ public:
   CumulativeEdgeFinding(Solver<T> &solver, const Interval<T> sched,
                         const NumericVar<T> capacity, const ItTask beg_task,
                         const ItTask end_task, const ItNVar beg_dem,
-                        const bool tt, Incrementality<T> *b, const int approx);
+                        const bool tt
+#ifdef USE_INCREMENTALITYSTUFF
+                        , Incrementality<T> *b
+#endif
+                        , const int approx);
   virtual ~CumulativeEdgeFinding();
 
   // helpers
@@ -459,8 +468,16 @@ template <typename ItTask, typename ItNVar>
 CumulativeEdgeFinding<T>::CumulativeEdgeFinding(
     Solver<T> &solver, const Interval<T> sched, const NumericVar<T> cap,
     const ItTask beg_task, const ItTask end_task, const ItNVar beg_dem,
-    const bool tt, Incrementality<T> *b, const int approx)
-    : solver(solver), bounds(b), timetable_reasoning(tt), approximation(approx),
+    const bool tt
+#ifdef USE_INCREMENTALITYSTUFF
+                                                , Incrementality<T> *b
+#endif
+                                                , const int approx)
+    : solver(solver)
+#ifdef USE_INCREMENTALITYSTUFF
+, bounds(b)
+#endif
+, timetable_reasoning(tt), approximation(approx),
       num_explanations(0, &(solver.getEnv())) {
   schedule = sched, capacity = cap;
 
@@ -508,6 +525,9 @@ CumulativeEdgeFinding<T>::CumulativeEdgeFinding(
   data.resize(profile.size() + 1);
 
   lct_order.resize(task.size());
+          
+//          std::cout << "lct_order.size() = " << lct_order.size() << " = " << task.size() << std::endl;
+          
   std::iota(lct_order.begin(), lct_order.end(), 0);
   event_ordering.resize(profile.size());
   std::iota(event_ordering.begin(), event_ordering.end(), 1);
@@ -585,7 +605,9 @@ template <typename T> void CumulativeEdgeFinding<T>::initialiseProfile() {
     //    for (auto i : lct_order) {
     for (auto i{0}; i < n; ++i) {
         
+#ifdef USE_INCREMENTALITYSTUFF
         if (task[i].getEarliestEnd(solver) > bounds->lb) {
+#endif
             
             lct_order.push_back(i);
             
@@ -611,13 +633,16 @@ template <typename T> void CumulativeEdgeFinding<T>::initialiseProfile() {
                 profile[lst_[i]].increment = profile[lst_[i]].incrementMax = 0;
                 event_ordering.push_back(lst_[i]);
             }
+            
+#ifdef USE_INCREMENTALITYSTUFF
         }
 #ifdef DBG_SEF
-        else {
+        else if(DBG_SEF) {
             std::cout << "task " << task[i].id()
             << " ignored (ect=" << task[i].getEarliestEnd(solver)
             << ", bound=" << bounds->lb << ")\n";
         }
+#endif
 #endif
     }
     
@@ -702,7 +727,6 @@ template <typename T> void CumulativeEdgeFinding<T>::checkLoad() {
             return i.first < j.first;
         });
     
-//    exit(1);
 }
 
 template <typename T> void CumulativeEdgeFinding<T>::printHProfile() {
@@ -872,8 +896,10 @@ template <typename T> void CumulativeEdgeFinding<T>::propagate() {
   }
 #endif
 
+#ifdef USE_INCREMENTALITYSTUFF
     if(bounds->lb > bounds->ub)
         return;
+#endif
     
 
   size_t l = static_cast<size_t>(solver.level());
@@ -961,12 +987,6 @@ template <typename T> void CumulativeEdgeFinding<T>::propagate() {
              total_pruning) {
         median_pruning -= num_pruning[median_pruning_level--];
 
-        //                if(median_pruning > total_pruning) {
-        //                    std::cout << "bug on " << this->id() << std::endl;
-        //                    exit(1);
-        //                }
-
-        //                update = true;
       }
     } else if (l > median_pruning_level) {
       while (2 * median_pruning <= total_pruning) {
@@ -1412,182 +1432,190 @@ template <typename T> void CumulativeEdgeFinding<T>::doPruning() {
 }
 
 template <typename T> void CumulativeEdgeFinding<T>::adjustment() {
-
+    
 #ifdef DBG_SEF
-  if (DBG_SEF and debug_flag > 0) {
-    std::cout << "\nstep adjustment";
-    if (in_conflict.empty())
-      std::cout << " (none)";
-
-    std::cout << "\n";
-  }
-#endif
-
-  while (not in_conflict.empty()) {
-    auto i{in_conflict.back()};
-
-    auto j{prec[i]};
-    auto minEct{Constant::Infinity<T>};
-    auto minEnergy{Constant::Infinity<T>};
-    auto time{profile[contact[i]].time};
-      
-      
-#ifdef DBG_SEF
-  if (DBG_SEF and debug_flag > 0) {
-    std::cout << "capacity = " << capacity.max(solver) << ". adjust t" << task[i].id() << " contact = " << time << " prec = t" << task[j].id() << "\n";
-      bool afterprec{false};
-      for(auto x : lct_order) {
-          if(lct(x) == lct(i))
-              break;
-          std::cout << "t" << std::left << std::setw(3) << task[x].id() << ": "
-                    << asciiArt(x) << (afterprec ? " ****" : "") << std::endl;
-          if(x == j) {
-              afterprec=true;
-          }
-      }
-      std::cout << "\nt" << std::left << std::setw(3) << task[i].id() << ": "
-      << asciiArt(i) << std::endl;
-  }
-#endif
-      
-      if(solver.num_cons_propagations == 283301) {
-          std::cout << "j=" << j << " time = " << time << std::endl;
-      }
-      
-      
-    for (auto k : lct_order) {
+    if (DBG_SEF and debug_flag > 0) {
+        std::cout << "\nstep adjustment";
+        if (in_conflict.empty())
+            std::cout << " (none)";
         
-        if(solver.num_cons_propagations == 283301) {
-            std::cout << k << ": " << ect(k) << " > " << time << " and " << lct(k) << " <= " << lct(j) ; //<< std::endl;
+        std::cout << "\n";
+    }
+#endif
+    
+    while (not in_conflict.empty()) {
+        auto i{in_conflict.back()};
+        
+        auto j{prec[i]};
+        auto minEct{Constant::Infinity<T>};
+        auto minEnergy{Constant::Infinity<T>};
+        auto time{profile[contact[i]].time};
+        
+        
+#ifdef DBG_SEF
+        if (DBG_SEF and debug_flag > 0) {
+            std::cout << "capacity = " << capacity.max(solver) << ". adjust t" << task[i].id() << " contact = " << time << " prec = t" << task[j].id() << "\n";
+            bool afterprec{false};
+            for(auto x : lct_order) {
+                if(lct(x) == lct(i))
+                    break;
+                std::cout << "t" << std::left << std::setw(3) << task[x].id() << ": "
+                << asciiArt(x) << (afterprec ? " ****" : "") << std::endl;
+                if(x == j) {
+                    afterprec=true;
+                }
+            }
+            std::cout << "\nt" << std::left << std::setw(3) << task[i].id() << ": "
+            << asciiArt(i) << std::endl;
+        }
+#endif
+        
+        //      if(solver.num_cons_propagations == 283301) {
+        //          std::cout << "j=" << j << " time = " << time << std::endl;
+        //      }
+        
+        
+        for (auto k : lct_order) {
+            
+            //        if(solver.num_cons_propagations == 283301) {
+            //            std::cout << k << ": " << ect(k) << " > " << time << " and " << lct(k) << " <= " << lct(j) ; //<< std::endl;
+            //        }
+            
+            if (ect(k) > time and lct(k) <= lct(j)) {
+                
+                minEct = std::min(minEct, ect(k));
+                minEnergy = std::min(minEnergy, minenergy(k));
+            }
+            
+            //        if(solver.num_cons_propagations == 283301) {
+            //            std::cout << " --> " << minEct << std::endl;
+            //        }
         }
         
-      if (ect(k) > time and lct(k) <= lct(j)) {
-          
-        minEct = std::min(minEct, ect(k));
-        minEnergy = std::min(minEnergy, minenergy(k));
-      }
-        
-        if(solver.num_cons_propagations == 283301) {
-            std::cout << " --> " << minEct << std::endl;
+        // compute the profile without i, but to record the overlap and
+        // slackUnder
+        setLeftCutToTime(lct(j) + Gap<T>::epsilon());
+        if (timetable_reasoning) {
+            addExternalFixedPart(i, j);
         }
-    }
-
-    // compute the profile without i, but to record the overlap and
-    // slackUnder
-    setLeftCutToTime(lct(j) + Gap<T>::epsilon());
-    if (timetable_reasoning) {
-      addExternalFixedPart(i, j);
-    }
-    scheduleOmega(i, lct(j), true);
-    if (timetable_reasoning) {
-      rmExternalFixedPart(i, j);
-    }
-
-    // t1 is the latest time points between est(i) and contact[i]
-    // auto t1{profile[contact[i]].time < est(i) ? est_shared[i] : contact[i]};
-    auto t1{contact[i]};
-
-    // available
-    // auto available{data[lct_shared[j]].available - data[t1].available};
-    // auto t2{ect_shared[i]};
-    auto t3{lct_shared[j]};
-
+        scheduleOmega(i, lct(j), true);
+        if (timetable_reasoning) {
+            rmExternalFixedPart(i, j);
+        }
+        
+        // t1 is the latest time points between est(i) and contact[i]
+        // auto t1{profile[contact[i]].time < est(i) ? est_shared[i] : contact[i]};
+        auto t1{contact[i]};
+        
+        // available
+        // auto available{data[lct_shared[j]].available - data[t1].available};
+        // auto t2{ect_shared[i]};
+        auto t3{lct_shared[j]};
+        
 #ifdef DBG_SEF
-    if (DBG_SEF and debug_flag > 3) {
-      std::cout << prettyTask(i) << "\n"
-                << prettyTask(j) << "\n"
-                << "t1 = " << profile[t1].time << ", ov=" << data[t1].overlap
-                << ", su=" << data[t1].slackUnder << "\n"
-                << "t3 = " << profile[t3].time << ", ov=" << data[t3].overlap
-                << ", su=" << data[t3].slackUnder << "\n";
-    }
+        if (DBG_SEF and debug_flag > 3) {
+            std::cout << prettyTask(i) << "\n"
+            << prettyTask(j) << "\n"
+            << "t1 = " << profile[t1].time << ", ov=" << data[t1].overlap
+            << ", su=" << data[t1].slackUnder << "\n"
+            << "t3 = " << profile[t3].time << ", ov=" << data[t3].overlap
+            << ", su=" << data[t3].slackUnder << "\n";
+        }
 #endif
-
-    T maxoverflow;
-    /*if (ect(i) < lct(j)) {
-
-     if (available < minenergy(i)) {
-     maxoverflow = data[t3].overlap - data[t3].slackUnder - data[t1].overlap +
-     data[t1].slackUnder;
-
-     } else {
-     maxoverflow = data[t2].overlap - data[t3].slackUnder - data[t1].overlap +
-     data[t1].slackUnder;
-     }
-     } else {
-     maxoverflow = data[t3].overlap - data[t3].slackUnder - data[t1].overlap +
-     data[t1].slackUnder;
-     }*/
-    // std::cout<< "t3 " << t3 << " t1 " << t1 << std::endl;
-    maxoverflow = data[t3].overlap - data[t3].slackUnder - data[t1].overlap +
-                  data[t1].slackUnder;
-    if (isFeasible[i] and minEnergy > data[t3].slackUnder - data[t1].slackUnder)
-      maxoverflow = data[t3].overlap - data[t1].overlap;
-
+        
+        T maxoverflow;
+        /*if (ect(i) < lct(j)) {
+         
+         if (available < minenergy(i)) {
+         maxoverflow = data[t3].overlap - data[t3].slackUnder - data[t1].overlap +
+         data[t1].slackUnder;
+         
+         } else {
+         maxoverflow = data[t2].overlap - data[t3].slackUnder - data[t1].overlap +
+         data[t1].slackUnder;
+         }
+         } else {
+         maxoverflow = data[t3].overlap - data[t3].slackUnder - data[t1].overlap +
+         data[t1].slackUnder;
+         }*/
+        // std::cout<< "t3 " << t3 << " t1 " << t1 << std::endl;
+        maxoverflow = data[t3].overlap - data[t3].slackUnder - data[t1].overlap +
+        data[t1].slackUnder;
+        if (isFeasible[i] and minEnergy > data[t3].slackUnder - data[t1].slackUnder)
+            maxoverflow = data[t3].overlap - data[t1].overlap;
+        
 #ifdef DBG_SEF
-    if (DBG_SEF and debug_flag > 3) {
-      std::cout << "maxoverflow = " << maxoverflow << "\n";
-    }
+        if (DBG_SEF and debug_flag > 3) {
+            std::cout << "maxoverflow = " << maxoverflow << "\n";
+            //        std::cout << solver.num_cons_propagations << std::endl;
+        }
 #endif
-
-    T adjustment{-Constant::Infinity<T>};
-
-    assert(maxoverflow > 0);
-
-    auto next{profile.at(t1)};
-    while (next != profile.end()) {
-      auto t{next};
-      ++next;
-      auto overlap{data[next.index].overlap - data[t.index].overlap};
-      if (maxoverflow > overlap) {
-        maxoverflow -= overlap;
-      } else {
-        adjustment = std::min(
-            next->time,
-            t->time + maxoverflow / (data[t.index].consumption -
-                                     capacity.max(solver) + mindemand(i)));
-        break;
-      }
+        
+        T adjustment{-Constant::Infinity<T>};
+        
+        assert(maxoverflow > 0);
+        
+        
+        auto next{profile.at(t1)};
+        while (next != profile.end()) {
+            auto t{next};
+            ++next;
+   
+            auto overlap{data[next.index].overlap - data[t.index].overlap};
+            if (maxoverflow > overlap) {
+                maxoverflow -= overlap;
+            } else {
+                
+                adjustment = std::min(
+                                      next->time,
+                                      t->time + maxoverflow / (data[t.index].consumption -
+                                                               capacity.max(solver) + mindemand(i)));
+                break;
+            }
+        }
+        
+        
+        auto t{std::max(adjustment, minEct)};
+        
+        auto actual_pruning{false};
+        if(sign == bound::lower) {
+            
+            
+            
+            //          assert(t >= task[i].getEarliestStart(solver));
+            
+            if(t > task[i].getEarliestStart(solver)) {
+                pruning.push_back(task[i].start.after(t));
+                actual_pruning = true;
+            }
+            
+        }
+        else {
+            
+//            std::cout << "max(" << adjustment << "," << -minEct << ")\n";
+            
+//            auto t{std::max(adjustment, -minEct)};
+            
+            //          assert(-t <= task[i].getLatestEnd(solver));
+            
+//            
+//            if(t > 0) {
+//                std::cout << "pobably a bug\n";
+//                exit(1);
+//            }
+            
+            if(-t < task[i].getLatestEnd(solver)) {
+                pruning.push_back(task[i].end.before(-t));
+                actual_pruning = true;
+            }
+        }
+        
+        if(actual_pruning) {
+            computeExplanation(i, timetable_reasoning);
+        }
+        in_conflict.pop_back();
+        prec[i] = -1;
     }
-
-      
-      
-      auto t{std::max(adjustment, minEct)};
-      
-//      if(sign == bound::upper) {
-//          std::cout << task[i].start.after(t) << std::endl;
-//          exit(1);
-//      }
-      if(sign == bound::lower) {
-//          if(task[i].getEarliestStart(solver) > t) {
-//              std::cout << "weird: " << t << " < " << task[i].getEarliestStart(solver) << "\n";
-//              exit(1);
-//          }
-          
-//          std::cout << "forward pruning\n";
-          
-          assert(t > task[i].getEarliestStart(solver));
-          
-          pruning.push_back(task[i].start.after(t));
-      }
-      else {
-//          if(task[i].getLatestEnd(solver) < -t) {
-//              std::cout << solver.num_cons_propagations << " weird: " << -t << " > " << task[i].getLatestEnd(solver) << "\n";
-//              std::cout << adjustment << " / " << minEct << std::endl;
-////              exit(1);
-//          }
-          
-//          std::cout << "backward pruning\n";
-          
-          assert(-t > task[i].getLatestEnd(solver));
-          
-          pruning.push_back(task[i].end.before(-t));
-      }
-    computeExplanation(i, timetable_reasoning);
-
-    in_conflict.pop_back();
-    prec[i] = -1;
-  }
 }
 
 template <typename T> void CumulativeEdgeFinding<T>::detection() {
@@ -1800,7 +1828,13 @@ template <typename T> void CumulativeEdgeFinding<T>::detection() {
 
 template <typename T>
 void CumulativeEdgeFinding<T>::computeExplanation(const int i, const bool fixedPart) {
-  auto n{static_cast<int>(task.size())};
+  auto n{static_cast<int>(lct_order.size())};
+    auto m{static_cast<int>(task.size())};
+    
+    if(i > m) {
+        std::cout << solver.num_cons_propagations << std::endl;
+        exit(1);
+    }
 
   auto h{num_explanations};
   if (explanation.size() <= h) {
@@ -1812,22 +1846,16 @@ void CumulativeEdgeFinding<T>::computeExplanation(const int i, const bool fixedP
   auto k{leftcut_pointer - 1};
   auto j{lct_order[k]};
 
-  //  if (i != n and lct(j) != lct(prec[i])) {
-  //    std::cout << "bug prec[" << task[i].id() << "] = " << task[prec[i]].id()
-  //              << " lct(Omega) = " << lct(j) << " / lct(prec) = " <<
-  //              lct(prec[i])
-  //              << " @" << solver.num_cons_propagations << "\n";
-  //    exit(1);
-  //  }
+  
 
-  assert(i == n or lct(j) == lct(prec[i]));
+  assert(i == m or lct(j) == lct(prec[i]));
 
   auto t{profile[contact[i]].time};
 
 #ifdef DBG_SEF
   if (DBG_SEF and debug_flag >= 0) {
     if (prec[i] != i) {
-      if (i == n) {
+      if (i == m) {
         std::cout << "*** lower bound adjustment " << pruning.back();
       } else {
         std::cout << "*** adjustment " << pruning.back() << " ("
@@ -1843,9 +1871,12 @@ void CumulativeEdgeFinding<T>::computeExplanation(const int i, const bool fixedP
 
   if (fixedPart) {
     for (auto l{k + 1}; l < n; ++l) {
+        
+//        std::cout << l << " / " << lct_order.size() << " / " << task.size() << std::endl;
+        
       auto p{lct_order[l]};
       if (p != i and lct(p) > lct(j) and lst(p) < ect(p) and lst(p) < lct(j) and
-          ect(p) > t and i != n) {
+          ect(p) > t and i != m) {
         auto saved_sign{sign};
         sign = bound::lower;
         explanation[h].push_back(task[p].start.before(lst(p)));
@@ -1872,7 +1903,7 @@ void CumulativeEdgeFinding<T>::computeExplanation(const int i, const bool fixedP
 #endif
     }
   } while (k > 0 and lct(j = lct_order[--k]) > t);
-  if (prec[i] != i and i != n) {
+  if (prec[i] != i and i != m) {
     if (sign == bound::lower)
       explanation[h].push_back(task[i].start.after(est(i)));
     else

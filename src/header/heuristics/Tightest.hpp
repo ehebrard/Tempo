@@ -48,7 +48,7 @@ namespace tempo::heuristics {
          * @todo currently only selects boolean variables
          */
         template<concepts::scalar T>
-        [[nodiscard]] auto nextVariable(const Solver<T> &solver) const -> VariableSelection {
+        [[nodiscard]] auto nextVariable(const Solver<T> &solver) -> VariableSelection {
             return {this->bestVariable(solver.getBranch(), solver), VariableType::Boolean};
         }
 

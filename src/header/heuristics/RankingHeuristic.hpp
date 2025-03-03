@@ -46,7 +46,7 @@ class RankingHeuristic : public crtp<Impl, RankingHeuristic> {
 public:
 
     template<concepts::typed_range<var_t> Variables, typename S> requires(PartialOrder<Impl, S>)
-    auto bestVariable(const Variables &variables, const S &solver) const {
+    auto bestVariable(const Variables &variables, const S &solver) {
         assert(not std::ranges::empty(variables));
         auto best_var = *std::begin(variables);
         for (auto x: variables | std::views::drop(1)) {

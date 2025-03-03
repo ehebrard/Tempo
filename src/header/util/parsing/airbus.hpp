@@ -7,6 +7,8 @@
 #include <vector>
 #include <nlohmann/json.hpp>
 
+#include "Model.hpp"
+
 namespace airbus {
 
 
@@ -24,59 +26,98 @@ void parse(const std::string &fn, M &model) {
         }
 
         auto json{nlohmann::json::parse(file)};
+        auto makespan{model.newNumeric(0, tempo::Constant::Infinity<int>)};
+        auto origin{model.newConstant(0)};
+        auto schedule{model.between(origin, makespan)};
         
-//        std::cout << json["teams"].size() << std::endl;
+    
+        std::vector<tempo::NoOverlapExpression<int>> R;
+        for(auto t : json["teams"]) {
+            auto r{NoOverlap(schedule)};
+            R.push_back(r);
+        }
         
+        std::map<std::string, size_t> interval_map;
+        std::vector<tempo::Interval<int>> intervals; // the actual intervals, affectations are copies
+        std::map<std::string, tempo::BooleanVar<int>> affectation_map;
         
-        std::map<std::string, int> task_map;
-        auto t{0};
-        for(auto task_key : json["tasks"]) {
-            task_map[task_key] = t++;
+        std::vector<std::vector<tempo::BooleanVar<int>>> alternatives(json["tasks"].size());
+        
+//        std::cout << "init: " << model.boolean.size() << " Boolean vars and " << model.numeric.size() << " numeric vars\n";
+
+        for(auto& task_key : json["tasks"]) {
+            
+            auto
+            lb_s{static_cast<int>(json["start_window"][task_key][0])};
+            auto
+            ub_s{static_cast<int>(json["start_window"][task_key][1])};
+            auto
+            lb_e{static_cast<int>(json["end_window"][task_key][0])};
+            auto
+            ub_e{static_cast<int>(json["end_window"][task_key][1])};
+            auto
+            dur{static_cast<int>(json["tasks_data"][task_key]["duration"])};
+            auto s{model.newNumeric(std::max(lb_s,lb_e-dur),std::min(ub_s, ub_e-dur))};
+            auto j{model.between(s, s+dur)};
+            interval_map[task_key] = intervals.size();
+                            
+            for(auto& team_key : json["teams"]) {
+                auto r{static_cast<int>(json["teams_to_index"][team_key])};
+                auto oj{model.maybe_between(s, s+dur)};
+                oj.require(R[r]);
+                alternatives[intervals.size()].push_back(oj.exist);
+            }
+                                                                    
+            model.post(Cardinality(alternatives[intervals.size()],1,1));
+            intervals.push_back(j);
+            
+            
+//            std::cout << "task " << task_key << ": " << model.boolean.size() << " Boolean vars and " << model.numeric.size() << " numeric vars\n";
+            
+        }
+ 
+//        auto k{0};
+        for(auto &r : R) {
+            model.post(r);
+            
+//            std::cout << "resource " << k++ << ": " << model.boolean.size() << " Boolean vars and " << model.numeric.size() << " numeric vars\n";
         }
         
         
-        for(auto& task_key : json["tasks"]) {
-            std::cout << "task " << task_map[task_key] << ": dur=" << json["tasks_data"][task_key]["duration"] << " start window = " << static_cast<int>(json["start_window"][task_key][0]) << ".."
-            << static_cast<int>(json["start_window"][task_key][1]) << std::endl;
-            
-            auto lb{static_cast<int>(json["start_window"][task_key][0])};
-            auto ub{static_cast<int>(json["start_window"][task_key][1])};
-            auto dur{static_cast<int>(json["tasks_data"][task_key]["duration"])};
-            auto s{model.addNumeric(lb,ub)};
-            auto j{model.addFixedDurationOptionalIntervalFrom(s,dur)};
-            
-            std::cout << s << " " << j << " " << task_map[task_key] << std::endl;
-        }
         
         for(auto& task_key : json["tasks"]) {
-            auto dur{static_cast<int>(json["tasks_data"][task_key]["duration"])};
+            model.post(intervals[interval_map[task_key]].end <= makespan);
             for(auto& successor_key : json["successors"][task_key]) {
-                std::cout << "prec " << task_map[task_key] << " << " << task_map[successor_key] << std::endl;
-                
-                model.addPrecedence(model.getStart(task_map[task_key]), model.getStart(task_map[successor_key]), dur);
+                model.post(intervals[interval_map[task_key]].end <= intervals[interval_map[successor_key]].start);
             }
         }
         
-        model.declareDisjunctiveResources(json["teams"].size());
+        for(auto& tasks : json["same_allocation"]) {
+            for(auto ti{tasks.begin()}; ti!=tasks.end(); ++ti) {
+                auto i{interval_map[*ti]};
+                for(auto tj{ti+1}; tj!=tasks.end(); ++tj) {
+                    auto j{interval_map[*tj]};
+                    for(size_t k{0}; k<json["teams"].size(); ++k) {
+                        model.post(alternatives[i][k] == alternatives[j][k]);
+                    }
+                }
+            }
+        }
+        
         for(auto& team_key : json["teams"]) {
             auto r{static_cast<int>(json["teams_to_index"][team_key])};
-            for(auto& task_key : json["tasks"]) {
-                model.addDisjunctiveResourceUsage(task_map[task_key], r);
+            auto& windows{json["calendar"][team_key]};
+            for(size_t i{0}; i<intervals.size(); ++i) {
+                auto affectation_ir{alternatives[i][r]};
+                model.post(affectation_ir.implies(intervals[i].end >= static_cast<int>(windows[0][0])));
+                for(size_t k{1}; k<windows.size(); ++k) {
+                    int end_prev{windows[k-1][1]};
+                    int beg_next{windows[k][0]};
+                    model.post(affectation_ir.implies((intervals[i].end <= end_prev) || (intervals[i].start >= beg_next)));
+                }
+                model.post(affectation_ir.implies((intervals[i].end <= static_cast<int>(windows.back()[1]))));
             }
         }
-        
-        
-//        for
-        
-        
-//        auto zero{model.addNumeric(0,0)};
-//        model.declareDisjunctiveResources(json["teams"].size());
-//        
-//        for(auto task_key : json["tasks"]) {
-//            auto s{model.addNumeric()};
-//            auto j{model.addFixedDurationIntervalFrom(s, json["tasks_data"][task_key]["duration"])};
-//        }
-        
         
     } catch (std::exception &e) {
         std::cout.flush();

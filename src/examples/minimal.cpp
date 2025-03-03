@@ -29,7 +29,10 @@ int main() {
 
   Solver<> S;
 
-  auto schedule = S.newInterval(0, 50, 0, 0, 0, 50);
+    auto makespan{S.newNumeric(0, 50)};
+    auto origin{S.newConstant(0)};
+    auto schedule{S.between(origin, makespan)};
+//  auto schedule = S.newInterval(0, 50, 0, 0, 0, 50);
 
   auto s1{S.newNumeric()};
   auto t1{S.between(s1, s1 + 20)}; // x 5 = 100

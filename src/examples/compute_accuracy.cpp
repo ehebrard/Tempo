@@ -284,7 +284,10 @@ boolean_state test_branch(Options &opt, const int makespan,
 
   Solver<> S(opt);
 
-  auto schedule{S.newInterval(0, makespan, 0, 0, 0, makespan)};
+//    auto makespan{S.newNumeric(0,Constant::Infinity<int>)};
+    auto origin{S.newConstant(0)};
+    auto schedule{S.between(origin, makespan)};
+//  auto schedule{S.newInterval(0, makespan, 0, 0, 0, makespan)};
 
   build_model(S, schedule);
 
@@ -336,8 +339,11 @@ int solve(Options& gopt, std::string& record_file) {
 
   Solver<> S(opt);
 
-  auto schedule{S.newInterval(0, Constant::Infinity<int>, 0, 0, 0,
-                              Constant::Infinity<int>)};
+    auto makespan{S.newNumeric(0,Constant::Infinity<int>)};
+    auto origin{S.newConstant(0)};
+    auto schedule{S.between(origin, makespan)};
+//  auto schedule{S.newInterval(0, Constant::Infinity<int>, 0, 0, 0,
+//                              Constant::Infinity<int>)};
 
   SubscriberHandle solutionHandler(
       S.SolutionFound.subscribe_handled([&](const auto &) {
@@ -346,7 +352,7 @@ int solve(Options& gopt, std::string& record_file) {
         for (auto &branches : right_branches)
           num_wrong += branches.size();
         num_wrong_decisions += num_wrong;
-        buffer << S.numeric.lower(schedule.duration) << " "
+        buffer << S.numeric.solutionLower(schedule.duration) << " "
                << S.num_choicepoints - cp_in_wasted_restarts << " "
                << (right_branches.size() > S.numDecision()) << " "
           << S.numDecision() << " "
@@ -404,7 +410,7 @@ int solve(Options& gopt, std::string& record_file) {
 
   S.minimize(schedule.duration);
 
-  auto obj{S.numeric.lower(schedule.duration)};
+  auto obj{S.numeric.solutionLower(schedule.duration)};
 
   outfile << obj << std::endl << buffer.str();
 

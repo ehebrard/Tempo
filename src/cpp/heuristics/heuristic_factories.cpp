@@ -24,6 +24,8 @@ namespace tempo::heuristics::detail {
                 RETURN_NAME(RandomVariableSelection);
             case Options::ChoicePointHeuristics::LRB:
                 RETURN_NAME(LRB);
+            case Options::ChoicePointHeuristics::VSIDSHeap:
+              RETURN_NAME(VSIDSHeap);
             default:
                 throw std::runtime_error("unknown variable heuristic");
         }

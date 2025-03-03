@@ -64,7 +64,7 @@ namespace tempo::lns {
         template<assumption_interface AI>
         void relax(AI &proxy) {
             using namespace std::views;
-            if (proxy.getSolver().numeric.hasSolution() and proxy.getSolver().numeric.lower(schedule) == solution.
+            if (proxy.getSolver().numeric.hasSolution() and proxy.getSolver().numeric.solutionLower(schedule) == solution.
                 numeric.lower(schedule)) {
                 if (proxy.getSolver().getOptions().verbosity >= Options::YACKING) {
                     std::cout << "-- oracle: optimum reached" << std::endl;

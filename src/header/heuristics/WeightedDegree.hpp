@@ -29,14 +29,45 @@ namespace tempo::heuristics {
          * @tparam T timing type
          * @param solver target solver
          */
-        template<concepts::scalar T>
-        explicit WeightedDegree(Solver<T> &solver):
-                  GapOverActivity(solver, solver.ConflictEncountered.subscribe_handled(
-                          [this, &solver, clause=std::vector<Literal<T>>{}](auto &expl) mutable {
-                              clause.clear();
-                              expl.explain(Contradiction<T>, clause);
-                              this->activity.update(clause, solver);
-                          })) {}
+      template <concepts::scalar T>
+      explicit WeightedDegree(Solver<T> &solver)
+          : GapOverActivity(
+                solver,
+                solver.ConflictEncountered.subscribe_handled(
+                    [this
+#ifdef OLDVSIDS
+                     ,
+                     &solver
+#endif
+                     ,
+                     clause = std::vector<Literal<T>>{}](auto &expl) mutable {
+                      clause.clear();
+                      expl.explain(Contradiction<T>, clause);
+#ifdef OLDVSIDS
+                      this->activity.update(clause, solver);
+#else
+                      auto num_normalize{false};
+                      auto bool_normalize{false};
+                      for (auto l : clause) {
+                        if (l.isNumeric()) {
+                          num_normalize |=
+                              this->numeric_activity.incrementActivity(
+                                  l.variable());
+                        } else {
+                          bool_normalize |=
+                              this->boolean_activity.incrementActivity(
+                                  l.variable());
+                        }
+                      }
+                      if (num_normalize) {
+                        this->numeric_activity.normalize();
+                      }
+                      if (bool_normalize) {
+                        this->boolean_activity.normalize();
+                      }
+#endif
+                    })) {
+      }
     };
 }
 

@@ -32,9 +32,15 @@ namespace tempo::heuristics::impl {
 //        : sched(scheduler)
         {
 //            numNodes = scheduler.numEvent();
+            resize(solver);
+            solver.setActivityMap(this);
+        }
+        
+        
+        template<concepts::scalar T>
+        void resize(const Solver<T> &solver) {
             numeric_activity.resize(solver.numeric.size(), 1);
             boolean_activity.resize(solver.boolean.size(), 1);
-            solver.setActivityMap(this);
         }
 
         

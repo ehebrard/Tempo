@@ -56,6 +56,10 @@ namespace tempo::heuristics {
             auto posLit = b.getLiteral(true, x);
             auto negLit = b.getLiteral(false, x);
             const auto &sol = b.bestSolution();
+            
+            if(sol.size() <= posLit)
+                return h.valueDecision({x, VariableType::Boolean}, solver);
+            
             assert(sol[posLit] != sol[negLit]);
             return sol[posLit] ? posLit : negLit;
         }

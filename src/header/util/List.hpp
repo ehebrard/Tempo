@@ -26,7 +26,7 @@
 #define _TEMPO_LIST_HPP
 
 #include <vector>
-
+#include <iomanip>
 
 
 namespace tempo {

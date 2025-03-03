@@ -121,9 +121,17 @@ public:
   bool order_bound_watch{false};
     
     bool full_transitivity{false};
-    bool primal_boost{false};
+    bool primal_boost{true};
+    bool ground_update{false};
 
-    enum class ChoicePointHeuristics { Tightest = 0, WeightedDegree, VSIDS, Random, LRB };
+    enum class ChoicePointHeuristics {
+      Tightest = 0,
+      WeightedDegree,
+      VSIDS,
+      Random,
+      LRB,
+      VSIDSHeap
+    };
     ChoicePointHeuristics choice_point_heuristics{ChoicePointHeuristics::VSIDS};
 
     enum class PolarityHeuristic { Tightest, TSG, Random };
@@ -151,7 +159,9 @@ public:
       Size = 0,
       Looseness,
       Activity,
-      LoosenessOverActivity
+      LoosenessOverActivity,
+        Glue,
+        GlueTimesActivity
     };
 
     LiteralScore forget_strategy{3};

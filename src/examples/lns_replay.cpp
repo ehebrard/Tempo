@@ -24,7 +24,7 @@ int main(int argc, char **argv) {
     MinimizationObjective objective(problem.schedule().duration);
     solver->largeNeighborhoodSearch(objective, policy);
     if (solver->numeric.hasSolution()) {
-        auto makespan = solver->numeric.lower(problem.schedule().duration);
+        auto makespan = solver->numeric.solutionLower(problem.schedule().duration);
         std::cout << "-- makespan " << makespan << std::endl;
         if (optSol.has_value() and makespan > *optSol) {
             std::cout << "-- suboptimal solution! Optimum is " << *optSol << std::endl;

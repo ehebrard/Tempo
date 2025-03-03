@@ -279,7 +279,7 @@ namespace tempo::lns {
 
             AssumptionCollector<T, AI> ac(proxy);
             basePolicy.relax(ac);
-            auto job = [this, state = ac.getState(), ub = proxy.getSolver().numeric.lower(objectiveVar),
+            auto job = [this, state = ac.getState(), ub = proxy.getSolver().numeric.solutionLower(objectiveVar),
                         assumptions = std::move(ac.getAssumptions())]() -> RegionResult<T> {
                 if (state == AssumptionState::Fail) {
                     return {ub, 0, Unsat};
@@ -305,7 +305,7 @@ namespace tempo::lns {
                 p.solver->minimize(p.instance.schedule().duration);
                 cancelled |= KillHandler::instance().signalReceived();
                 if (p.solver->numeric.hasSolution()) {
-                    auto makespan = p.solver->numeric.lower(p.instance.schedule().duration);
+                    auto makespan = p.solver->numeric.solutionLower(p.instance.schedule().duration);
                     return {ub, makespan, cancelled ? Cancelled : Optimal};
                 }
 

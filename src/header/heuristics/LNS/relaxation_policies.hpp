@@ -208,8 +208,8 @@ namespace detail {
                             }) | elements<1>;
             std::vector<BooleanVar<T>> vars;
             std::ranges::copy(varsView, std::back_inserter(vars));
-            std::ranges::sort(vars);
-            auto res = std::ranges::unique(vars);
+            std::ranges::sort(vars, [](const auto& var1, const auto& var2) {return var1.id() < var2.id();});
+            auto res = std::ranges::unique(vars, [](const auto& var1, const auto& var2) {return var1.id() == var2.id();});
             vars.erase(res.begin(), res.end());
             return vars;
         }

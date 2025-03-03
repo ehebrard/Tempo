@@ -107,13 +107,17 @@ auto tempo::getBaseParser() -> Parser {
     cmd.add<SwitchArg>(opt.full_transitivity, "", "full-transitivity",
                        "use full-transitivity", false);
 
-    cmd.add<SwitchArg>(opt.primal_boost, "", "no-primal-boost",
-                       "do not use primal boost", true);
+    cmd.add<SwitchArg>(opt.primal_boost, "", "primal-boost",
+                       "use primal boost [BUGGY EXPLANATIONS, DO NOT USE!]", false);
+    
+    cmd.add<SwitchArg>(opt.ground_update, "", "no-ground-update",
+                       "do not consider new upper bounds as ground fact", true);
 
     cmd.add<ValueArg<int>>(opt.choice_point_heuristics, "", "cp-heuristic",
                            "type of heuristic used for choice point selection "
-                           "(0: Tightest, 1: WDEG, 2: VSIDS (default), 3: Random, 4: LRB)",
-                           false, 2, "int");
+                           "(0: Tightest, 1: WDEG, 2: VSIDS (default), 3: "
+                           "Random, 4: LRB, 5: HEAP)",
+                           false, 5, "int");
     cmd.add<ValueArg<int>>(
             opt.polarity_heuristic, "", "polarity-heuristic",
             "type "
@@ -132,10 +136,10 @@ auto tempo::getBaseParser() -> Parser {
             opt.vsids_decay, "", "vsids-decay",
             "decay value for the vsids heuristic, only effective if VSIDS is used "
             "as choice point heuristic",
-            false, 0.999, "double");
+            false, 0.99, "double");
 
     cmd.add<ValueArg<double>>(opt.forgetfulness, "", "forgetfulness",
-                              "clause base reduction factor (0.3)", false, 0.3,
+                              "clause base reduction factor (0.7)", false, 0.7,
                               "double");
     
     cmd.add<ValueArg<int>>(
@@ -145,11 +149,11 @@ auto tempo::getBaseParser() -> Parser {
 
     cmd.add<ValueArg<int>>(
             opt.minimization, "", "clause-minimization",
-            "depth for clause minimization (default 3)",
-            false, 3, "int");
+            "depth for clause minimization (default 10)",
+            false, 10, "int");
 
     cmd.add<SwitchArg>(opt.shrinking, "", "clause-shrinking",
-                       "use clause-shrinking", false);
+                       "use clause-shrinking [BUGGY WHEN USED WITH CLAUSE-MINIMIZATION!!]", false);
 
     cmd.add<ValueArg<int>>(
             opt.greedy_runs, "", "greedy-runs",
@@ -164,12 +168,12 @@ auto tempo::getBaseParser() -> Parser {
     cmd.add<ValueArg<int>>(opt.forget_strategy, "", "forget-strategy",
                            "strategy for clause forgetting "
                            "(0: size (default), 1: literal looseness,"
-                           "2: literal activity 3: looseness / activity",
-                           false, 3, "int");
+                           "2: literal activity 3: looseness / activity 4: glue 5: glue / activity",
+                           false, 2, "int");
 
     cmd.add<ValueArg<std::string>>(opt.restart_policy, "", "restart",
                                    "choice of restart policy (no, luby, geom)",
-                                   false, "luby", "string");
+                                   false, "geom", "string");
 
     cmd.add<ValueArg<int>>(
             opt.restart_base, "", "restart-base",
@@ -177,8 +181,8 @@ auto tempo::getBaseParser() -> Parser {
             128, "int");
 
     cmd.add<ValueArg<double>>(opt.restart_factor, "", "restart-factor",
-                              "factor of the geometric sequence (default=1.2)",
-                              false, 1.2, "double");
+                              "factor of the geometric sequence (default=1.05)",
+                              false, 1.05, "double");
 
     cmd.add<ValueArg<double>>(opt.vsids_epsilon, "", "vsids-epsilon",
                               "epsilon value for the epsilon greedy vsids "

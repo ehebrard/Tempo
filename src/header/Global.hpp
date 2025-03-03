@@ -48,6 +48,7 @@ using hint = int;
 
 //#define NEW_WATCHERS
 
+//#define OLDVSIDS
 
 #define SEARCH 1
 #define DOMAINS 2
@@ -63,24 +64,25 @@ using hint = int;
 #define SHRINKING 2048
 
 /////// UNCOMMENT TO DEBUG
-// #define DBG_TRACE (SEARCH + LEARNING + MINIMIZATION)
-// #define DBG_BOUND (num_fails >= 0)
-// #define DBG_CBOUND (solver.num_fails < 0)
-// #define DBG_CLBOUND (solver.num_fails >= 0)
-// #define DBG_BBOUND (solver.num_fails >= 0)
+//#define DBG_TRACE (SEARCH + LEARNING + MINIMIZATION)
+//#define DBG_BOUND (num_fails >= 12)
+//#define DBG_CBOUND (solver.num_fails >= 12)
+//#define DBG_CLBOUND (solver.num_fails >= 12)
+//#define DBG_BBOUND (solver.num_fails >= 12)
 ////////////
 
 // #define DBG_MINIMIZATION
 //  #define DBG_EDGECONS true
-//  #define DBG_EDGEFINDING (m_solver.num_cons_propagations >= 0)
-//  #define DBG_EXPLEF true      //(m_schedule.num_fails > 236)
+//#define DBG_EDGEFINDING (m_solver.num_cons_propagations >= 203954)
+//  #define DBG_EXPLEF true  // (m_solver.num_cons_propagations >= 165622)
 //  #define DBG_THETA (m_schedule.num_fails >= 481)
 //  #define DBG_BELLMAN true //(sched.num_choicepoints >= 1045)
 //  #define DBG_BELLMAN_EXPL (sched.num_choicepoints >= 4172)
 //  #define DEBUG_HEURISTICS
 //  #define DBG_UP
-// #define DBG_CL 10000000
-//  #define DBG_CLPLUS true
+//#define DBG_CL 22
+// #define DBG_CL 559
+// #define DBG_CLPLUS true
 //  #define DBG_TRANSITIVITY true //(m_schedule.num_choicepoints >= 4064)
 //  #define DBG_EXPL_TRANS true
 //  #define DBG_SOL
@@ -90,7 +92,7 @@ using hint = int;
 //  #define DBG_FTRANS true //m_solver.num_choicepoints >= 900
 //  #define DBG_BELLMAN_FT true
 //  #define DBG_EXPL_FTRANS true
-//  #define DBG_SEF solver.num_cons_propagations >= 0
+//  #define DBG_SEF true //solver.num_cons_propagations >= 516115
 //  #define DBG_COF solver.num_cons_propagations >= 0
 //  #define DBG_EXTRACT true
 //  #define DBG_SPANNING true

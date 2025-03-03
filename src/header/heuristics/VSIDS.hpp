@@ -26,11 +26,58 @@ namespace tempo::heuristics {
          * @tparam T timing type
          * @param solver target solver
          */
-        template<concepts::scalar T>
-        explicit VSIDS(Solver<T> &solver) :
-                GapOverActivity(solver, solver.ClauseAdded.subscribe_handled(
-                        [this, &solver](const auto &arg) { this->activity.update(arg, solver); })) {}
+      template <concepts::scalar T>
+      explicit VSIDS(Solver<T> &solver)
+          : GapOverActivity(solver, solver.ClauseAdded.subscribe_handled(
+                                        [this](const auto &arg) {
+                                          this->updateActivity(arg);
+                                        })) {}
 
+      template <concepts::scalar T>
+      void updateActivity(const Solver<T> &solver) {
+#ifdef OLDVSIDS
+        GapOverActivity::activity.update(solver);
+#else
+        bool_buffer.clear();
+        num_buffer.clear();
+          
+//          std::vector<Literal<T>> lit_buffer;
+          
+        for (auto l : solver.lastLearnt()) {
+          if (l.isNumeric()) {
+            num_buffer.push_back(l.variable());
+          } else {
+            bool_buffer.push_back(l.variable());
+          }
+//            auto exp{solver.getReason(l)};
+//            exp.explain(l, lit_buffer);
+        }
+          
+//          if(solver.getOptions())
+//          for (auto l : lit_buffer) {
+//              if (l.isNumeric()) {
+//                num_buffer.push_back(l.variable());
+//              } else {
+//                bool_buffer.push_back(l.variable());
+//              }
+//          }
+
+        for (auto i : solver.cut.cached_) {
+          auto l{solver.getLiteral(i)};
+          if (l.isNumeric()) {
+            num_buffer.push_back(l.variable());
+          } else {
+            bool_buffer.push_back(l.variable());
+          }
+        }
+
+        GapOverActivity::numeric_activity.update(num_buffer);
+        GapOverActivity::boolean_activity.update(bool_buffer);
+#endif
+      }
+
+      std::vector<var_t> bool_buffer;
+      std::vector<var_t> num_buffer;
     };
 }
 

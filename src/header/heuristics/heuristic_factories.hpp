@@ -11,15 +11,16 @@
 #include <string>
 #include <iostream>
 
-#include "heuristic_interface.hpp"
-#include "Tightest.hpp"
-#include "VSIDS.hpp"
 #include "LRB.hpp"
-#include "RandomVariableSelection.hpp"
-#include "WeightedDegree.hpp"
 #include "RandomBinaryValue.hpp"
-#include "TightestValue.hpp"
+#include "RandomVariableSelection.hpp"
 #include "SolutionGuided.hpp"
+#include "Tightest.hpp"
+#include "TightestValue.hpp"
+#include "VSIDS.hpp"
+#include "VSIDSHeap.hpp"
+#include "WeightedDegree.hpp"
+#include "heuristic_interface.hpp"
 
 #include "util/factory_pattern.hpp"
 #include "util/Options.hpp"
@@ -35,32 +36,37 @@ namespace tempo::heuristics {
     // --- Variable Heuristics ---
 
     namespace detail {
-        using VSIDS_M = MovableHeuristic<VSIDS>;
-        using WeightedDegree_M = MovableHeuristic<WeightedDegree>;
+    using VSIDSHeap_M = MovableHeuristic<VSIDSHeap>;
+    using VSIDS_M = MovableHeuristic<VSIDS>;
+    using WeightedDegree_M = MovableHeuristic<WeightedDegree>;
 
-        auto getVarHName(Options::ChoicePointHeuristics heuristic) -> std::string;
-        auto getValHName(Options::PolarityHeuristic heuristic) -> std::string;
+    auto getVarHName(Options::ChoicePointHeuristics heuristic) -> std::string;
+    auto getValHName(Options::PolarityHeuristic heuristic) -> std::string;
 
-        template<typename ...Heuristics>
-        struct VariantHeuristicWrapper : std::variant<Heuristics...> {
-            using std::variant<Heuristics...>::variant;
-            using std::variant<Heuristics...>::emplace;
+    template <typename... Heuristics>
+    struct VariantHeuristicWrapper : std::variant<Heuristics...> {
+      using std::variant<Heuristics...>::variant;
+      using std::variant<Heuristics...>::emplace;
 
-            template<concepts::scalar T> requires(variable_heuristic<Heuristics, T> && ...)
-            DYNAMIC_DISPATCH(nextVariable, const Solver<T> &solver, &, solver, EMPTY)
+      template <concepts::scalar T>
+        requires(variable_heuristic<Heuristics, T> && ...)
+      DYNAMIC_DISPATCH(nextVariable, const Solver<T> &solver, &, solver, EMPTY)
 
-            template<concepts::scalar T> requires(value_heuristic<Heuristics, Solver<T>> && ...)
-            DYNAMIC_DISPATCH(valueDecision, ESCAPE(VariableSelection x, const Solver<T> &solver), &, ESCAPE(x, solver), EMPTY)
+      template <concepts::scalar T>
+        requires(value_heuristic<Heuristics, Solver<T>> && ...)
+      DYNAMIC_DISPATCH(valueDecision,
+                       ESCAPE(VariableSelection x, const Solver<T> &solver), &,
+                       ESCAPE(x, solver), EMPTY)
 
-            template<concepts::scalar T> requires(heuristic<Heuristics, T> && ...)
-            DYNAMIC_DISPATCH(branch, const Solver<T> &solver, &, solver, EMPTY)
-        };
-
-
+      template <concepts::scalar T>
+        requires(heuristic<Heuristics, T> && ...)
+      DYNAMIC_DISPATCH(branch, const Solver<T> &solver, &, solver, EMPTY)
+    };
     }
 
-    using VariableHeuristic = detail::VariantHeuristicWrapper<Tightest, detail::VSIDS_M, detail::WeightedDegree_M,
-                                                              RandomVariableSelection, LRB>;
+    using VariableHeuristic = detail::VariantHeuristicWrapper<
+        Tightest, detail::VSIDS_M, detail::WeightedDegree_M,
+        RandomVariableSelection, detail::VSIDSHeap_M>;
 
     // Define heuristic factory types here
 
@@ -69,10 +75,11 @@ namespace tempo::heuristics {
         }
     };
 
-MAKE_TEMPLATE_FACTORY(LRB, concepts::scalar T, const Solver<T> &) {
-        return LRB{};
+    MAKE_TEMPLATE_FACTORY(LRB, concepts::scalar T, const Solver<T> &) {
+      return LRB{};
     }
-};
+    }
+    ;
 
     MAKE_TEMPLATE_P_FACTORY(VSIDS, VariableHeuristic, concepts::scalar T, Solver<T> &solver) {
             if(solver.getOptions().learning) {
@@ -93,8 +100,14 @@ MAKE_TEMPLATE_FACTORY(LRB, concepts::scalar T, const Solver<T> &) {
         }
     };
 
-    MAKE_FACTORY_PATTERN(VariableHeuristic, Tightest, VSIDS, WeightedDegree, RandomVariableSelection, LRB)
+    MAKE_TEMPLATE_FACTORY(VSIDSHeap, concepts::scalar T, Solver<T> &solver) {
+      return detail::VSIDSHeap_M(solver);
+    }
+    }
+    ;
 
+    MAKE_FACTORY_PATTERN(VariableHeuristic, Tightest, VSIDS, WeightedDegree,
+                         RandomVariableSelection, VSIDSHeap)
 
     // --- Value Heuristics ---
 

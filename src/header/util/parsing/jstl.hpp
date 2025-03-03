@@ -80,7 +80,17 @@ void parse(const std::string &fn, M &solver, J &schedule,
             exit(1);
           }
 
-          auto j{solver.newInterval(dur, dur)};
+//          std::cout << Intervals.size() << " mach=" << mach << " dur=" << dur
+//                    << std::endl;
+
+          auto s{solver.newNumeric()};
+
+//          std::cout << s << std::endl;
+
+//                      auto d{solver.newConstant(dur)};
+//                      auto j{solver.continuefor(s,d)};
+          auto j{solver.between(s, s + dur)};
+          //          auto j{solver.newInterval(dur, dur)};
 
           //                    std::cout << j << std::endl;
 
@@ -137,9 +147,17 @@ void parse(const std::string &fn, M &solver, J &schedule,
             }
           }
           if (m < (nm - 1)) {
+
+//            std::cout << "hello " << k + 1 << " " << Intervals.size()
+//                      << std::endl;
+
+//            std::cout << Intervals[k] << std::endl;
+//            std::cout << Intervals[k + 1] << std::endl;
+//            std::cout << max_tl << std::endl;
+
             auto l{Intervals[k + 1].start.before(Intervals[k].end, -max_tl)};
-//                                    std::cout << l << std::endl;
-            solver.set(l);
+//            std::cout << l << std::endl;
+            solver.post(l);
             if (nullptr != precedences) {
                 precedences->emplace_back(l);
             }

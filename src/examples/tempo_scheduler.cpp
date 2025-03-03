@@ -45,10 +45,10 @@ std::string prettyJob(const Interval<T> &task, const Solver<T> &S,
                       const bool dur_flag) {
   std::stringstream ss;
 
-  auto est{S.numeric.lower(task.start)};
-  auto lst{S.numeric.upper(task.start)};
-  auto ect{S.numeric.lower(task.end)};
-  auto lct{S.numeric.upper(task.end)};
+  auto est{S.numeric.solutionLower(task.start)};
+  auto lst{S.numeric.solutionUpper(task.start)};
+  auto ect{S.numeric.solutionLower(task.end)};
+  auto lct{S.numeric.solutionUpper(task.end)};
 
   ss << "[";
 
@@ -64,8 +64,8 @@ std::string prettyJob(const Interval<T> &task, const Solver<T> &S,
   ss << "]";
 
   if (dur_flag) {
-    auto pmin{S.numeric.lower(task.duration)};
-    auto pmax{S.numeric.upper(task.duration)};
+    auto pmin{S.numeric.solutionLower(task.duration)};
+    auto pmax{S.numeric.solutionUpper(task.duration)};
     ss << " (" << pmin << "-" << pmax << ")";
   }
 
@@ -98,8 +98,8 @@ void printResources(const Solver<T>& S, const std::vector<Interval<T>>& interval
 
       std::sort(order.begin(), order.end(),
                 [&](const index_t a, const index_t b) {
-                  return S.numeric.lower(intervals[a].start) <
-                         S.numeric.lower(intervals[b].start);
+                  return S.numeric.solutionLower(intervals[a].start) <
+                         S.numeric.solutionLower(intervals[b].start);
                 });
 
       std::cout << "resource " << i << ":";
@@ -134,13 +134,19 @@ int main(int argc, char *argv[]) {
   Solver<> S(opt);
 
   // an interval standing for the makespan of schedule
-  auto schedule{S.newInterval(0, Constant::Infinity<int>, 0, 0, 0,
-                              Constant::Infinity<int>)};
+//  auto schedule{S.newInterval(0, Constant::Infinity<int>, 0, 0, 0,
+//                              Constant::Infinity<int>)};
+    auto makespan{S.newNumeric(0,Constant::Infinity<int>)};
+    auto origin{S.newConstant(0)};
+    auto schedule{S.between(origin, makespan)};
 
   // depending on the option "input-format", parse a disjunctive scheduling
   // instance, and collect resources and interval objects
   std::vector<NoOverlapExpression<>> resources;
-  std::vector<std::vector<size_t>> resource_tasks;
+  
+    std::vector<std::vector<size_t>> resource_tasks;
+    
+    
   std::vector<Interval<>> intervals;
   std::vector<int> weights;
   std::vector<std::vector<std::vector<int>>> resource_transitions;
@@ -167,6 +173,16 @@ int main(int argc, char *argv[]) {
   //        std::cout << i.id() << ": " << i << std::endl;
   //    }
   //    exit(1);
+    
+    
+//    std::vector<size_t> task2machine(intervals.size());
+//    
+//    size_t i{0};
+//    for(size_t r{0}; r<resource_tasks.size(); ++r) {
+//        for(size_t k{0}; k<resource_tasks[r].size(); ++k) {
+//            task2machine[i++] = r;
+//        }
+//    }
     
     
 //    std::cout << S << std::endl;
@@ -291,7 +307,7 @@ int main(int argc, char *argv[]) {
   }
 
   if (S.numeric.hasSolution()) {
-      std::cout << "-- makespan " << S.numeric.lower(schedule.duration) << std::endl;
+      std::cout << "-- makespan " << S.numeric.solutionLower(schedule.duration) << std::endl;
   }
 
   if (opt.print_sol) {

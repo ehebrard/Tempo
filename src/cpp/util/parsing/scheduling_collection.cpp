@@ -126,7 +126,10 @@ namespace tempo {
         using namespace tempo;
         using namespace std::views;
         auto solver = std::make_unique<Solver<Time>>(options);
-        const auto schedule{solver->newInterval(0, Constant::Infinity<Time>, 0, 0, 0, Constant::Infinity<Time>)};
+            auto makespan{solver->newNumeric(0,Constant::Infinity<Time>)};
+            auto origin{solver->newConstant(0)};
+            auto schedule{solver->between(origin, makespan)};
+//        const auto schedule{solver->newInterval(0, Constant::Infinity<Time>, 0, 0, 0, Constant::Infinity<Time>)};
         auto res = parseDisjunctive(options, *solver, schedule);
         std::vector<ResourceConstraint> constraints;
         if (res.has_value()) {

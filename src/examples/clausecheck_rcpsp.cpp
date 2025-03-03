@@ -28,6 +28,7 @@ along with minicsp.  If not, see <http://www.gnu.org/licenses/>.
 #include "Solver.hpp"
 #include "heuristics/Greedy.hpp"
 #include "util/parsing/psplib.hpp"
+#include "util/parsing/rcpsp.hpp"
 
 
 using namespace tempo;
@@ -40,21 +41,27 @@ int main(int argc, char *argv[]) {
     size_t num_trivial{0};
     size_t num_search{0};
 
-  seed(opt.seed);
+
     
     std::ifstream cl_file(opt.dbg_file, std::ifstream::in);
 
     opt.dbg_file = "";
-    opt.learning = false;
-    
+//    opt.learning = false;
+    opt.overlap_finding = false;
+    opt.tt_edge_finding = false;
+    opt.edge_finding = false;
     
     
     
     Solver<int> S(opt);
+    seed(opt.seed);
     
     // an interval standing for the makespan of schedule
-    auto schedule{S.newInterval(0, Constant::Infinity<int>, 0, 0, 0,
-                                Constant::Infinity<int>)};
+    auto makespan{S.newNumeric(0,Constant::Infinity<int>)};
+    auto origin{S.newConstant(0)};
+    auto schedule{S.between(origin, makespan)};
+//    auto schedule{S.newInterval(0, Constant::Infinity<int>, 0, 0, 0,
+//                                Constant::Infinity<int>)};
 
     // depending on the option "input-format", parse a disjunctive scheduling
     // instance, and collect resources and interval objects
@@ -64,10 +71,15 @@ int main(int argc, char *argv[]) {
       std::vector<int> resource_capacities;
     std::vector<Interval<>> intervals;
     std::vector<std::pair<int, int>> precedences;
+    std::vector<std::vector<int>> graph;
 
-    psplib::parse(opt.instance_file, S, schedule, intervals, tasks_requirements,
-                 task_demands, resource_capacities, precedences);
-
+    if (opt.input_format == "rcp") {
+        rcpsp::parse(opt.instance_file, S, schedule, intervals, tasks_requirements,
+                     task_demands, resource_capacities, precedences, graph);
+    } else {
+        psplib::parse(opt.instance_file, S, schedule, intervals, tasks_requirements,
+                      task_demands, resource_capacities, precedences, graph);
+    }
     std::vector<std::vector<Interval<int>>> resource_tasks(
         resource_capacities.size());
     std::vector<std::vector<NumericVar<int>>> resource_demands(
@@ -88,30 +100,7 @@ int main(int argc, char *argv[]) {
           S.post(resources.back());
       }
     
-    
-//    
-//    Solver<> S(opt);
-//
-//      auto schedule{S.newJob()};
-//      std::vector<DisjunctiveResource<>> resources;
-//      std::vector<Job<>> jobs;
-//      
-//      osp::parse(opt.instance_file, S, schedule, jobs, resources);
-//      
-//      std::vector<BooleanVar<>> vars;
-//      for(auto &R : resources) {
-//          R.createOrderVariables(S, vars);
-//      }
-//          
-//      for (auto x : vars)
-//        S.addToSearch(x);
-//    
-//    S.initializeSearch();
-//    
-//    
-//    S.propagate();
-//    
-////    std::cout << S << std::endl;
+  
  
     var_t x, y;
   int t, n, d;
@@ -127,10 +116,6 @@ int main(int argc, char *argv[]) {
     Y.clear();
     D.clear();
 
-//      std::cout << "save:\n" << S << std::endl;
-      
-//      std::cout << "\n\nclause " << (line+1) << std::endl;
-      
     S.saveState();
 
     cl_file >> t;
@@ -149,9 +134,7 @@ int main(int argc, char *argv[]) {
       Y.push_back(y);
       D.push_back(d);
 
-      //            std::cout << "add " << prettyEvent(y) << " - " <<
-      //            prettyEvent(x) << " <= " << d << std::endl;
-
+   
       try {
           DistanceConstraint<int> c{x, y, d};
         S.post(c);
@@ -159,19 +142,9 @@ int main(int argc, char *argv[]) {
         trivially_unsat = true;
       }
     }
-      
-//      std::cout << S << std::endl;
-//      exit(1);
-
-    //        std::cout << "\nsolve:\n" << S << std::endl;
-
+ 
     if (not trivially_unsat) {
-      //            std::cout << "ok (trivial)\n";
-      //        } else {
-
-      //            std::cout << S << std::endl;
-      //            exit(1);
-
+  
       bool need_search{true};
       try {
         S.propagate();
@@ -180,14 +153,12 @@ int main(int argc, char *argv[]) {
       }
 
       if (need_search) {
-
-//                  std::cout << S << std::endl;
-
         auto nf{S.num_fails};
-//        S.search();
-
         if (S.satisfiable()) {
-          std::cout << "cl " << line << " (" << (t ? "expl" : "cut") << "): ";
+          std::cout << "cl " << line << " ("
+            << (t == 1 ? "minimized" : (t == 2 ? "reason" : "uip"))
+//            << (t ? "expl" : "cut")
+            << "): ";
           std::cout << "bug!\n";
 
           for (size_t i{0}; i < X.size(); ++i) {
@@ -210,8 +181,6 @@ int main(int argc, char *argv[]) {
       ++num_trivial;
     }
     ++line;
-
-    //        std::cout << S.env.level() << " --> 0"
 
     S.restoreState(0);
 //      S.undo();

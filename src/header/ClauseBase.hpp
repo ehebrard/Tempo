@@ -32,6 +32,7 @@
 #include "util/Options.hpp"
 #include "util/SparseSet.hpp"
 #include "util/SubscribableEvent.hpp"
+#include "heuristics/impl/ActivityMap.hpp"
 
 //#define DBG_WATCHERS
 
@@ -56,10 +57,10 @@ public:
     ~ClauseBase();
     
     // notify that the solver has Boolean variable x
-    void newBooleanVar(const var_t x);
+    void newBooleanVar();
     
     // notify that the solver has numeric variable x
-    void newNumericVar(const var_t x);
+    void newNumericVar();
     //@}
     
     /**
@@ -80,7 +81,11 @@ public:
     // create and add a clause from a list of literals (and returns it) 'learnt'
     // flag distinguished constraints from cuts
     template <typename iter>
-    Clause<T> *add(const iter first, const iter last, const bool learnt = false);
+    Clause<T> *add(const iter first, const iter last, const bool learnt = false, const int glue_score=1);
+    //    template <typename Iterable>
+    Clause<T> *add(const std::vector<Literal<T>>& lits) {
+        return add(lits.begin(), lits.end());
+    }
     // helpers to handle any type of literal
     bool satisfied(const Literal<T>) const;
     bool falsified(const Literal<T>) const;
@@ -182,6 +187,8 @@ public:
     void forget();
     // forgets all learnt clauses
     void forgetAll();
+    // remove all clauses
+    void clear();
     // literal activity score
     double activity(const Literal<T> l);
     // literal score based on its semantic
@@ -213,6 +220,7 @@ private:
     std::vector<Clause<T> *> base;
     // a score vector [same indexing as 'base']
     std::vector<double> score;
+    std::vector<int> glue;
     // free indices in the vector base (so that we can remove clauses)
     // - contain the indices in 'base' that are available (no current clause has
     // this id)
@@ -308,6 +316,7 @@ ClauseBase<T>::~ClauseBase() {
 
 template <typename T>
 void ClauseBase<T>::post(const int idx) {
+    
     Constraint<T>::cons_id = idx;
     if (solver.getOptions().full_up) {
         //    for(var_t x{0}; x<solver.boolean.size(); ++x) {
@@ -316,12 +325,19 @@ void ClauseBase<T>::post(const int idx) {
         //        solver.wake_me_on(solver.boolean.getLiteral(false, x),
         //        Constraint<T>::cons_id);
         //    }
-        for (var_t x{0}; x < solver.numeric.size(); ++x) {
+        for (var_t x{static_cast<var_t>(solver.getNumericScope(idx).size())}; x < solver.numeric.size(); ++x) {
+            
+//            std::cout << "wake me on " << x << std::endl;
+            
             solver.wake_me_on(lb<T>(x), Constraint<T>::cons_id);
             solver.wake_me_on(ub<T>(x), Constraint<T>::cons_id);
         }
         triggered_bounds.reserve(2 * solver.numeric.size());
     }
+//    
+//    
+//    
+//    std::cout << " #vars=" << solver.getNumericScope(idx).size();
 }
 
 // propagate the constraint
@@ -383,11 +399,11 @@ size_t ClauseBase<T>::numLearnt() const {
 
 template <typename T> size_t ClauseBase<T>::size() const {
     
-    if ((base.size() - free_cl_indices.size()) !=
-        (free_cl_indices.backsize() + free_cl_indices.frontsize())) {
-        std::cout << "what ?\n";
-        exit(1);
-    }
+//    if ((base.size() - free_cl_indices.size()) !=
+//        (free_cl_indices.backsize() + free_cl_indices.frontsize())) {
+//        std::cout << "what ?\n";
+//        exit(1);
+//    }
     
     return free_cl_indices.backsize() + free_cl_indices.frontsize();
 }
@@ -412,28 +428,41 @@ template <typename T> Clause<T> *ClauseBase<T>::back() {
     return base[*(free_cl_indices.bbegin())];
 }
 
-template <typename T> void ClauseBase<T>::newBooleanVar(const var_t x) {
+template <typename T> void ClauseBase<T>::newBooleanVar() {
 #ifdef NEW_WATCHERS
-    auto p{static_cast<size_t>(Literal<T>::index(true, x))};
-    auto n{static_cast<size_t>(Literal<T>::index(false, x))};
-    auto m{std::max(p,n)};
-    boolean_watch.resize(m+1);
-    boolean_watch[n] = watchers.size();
-    boolean_watch[p] = watchers.size()+1;
+//    auto p{static_cast<size_t>(Literal<T>::index(true, x))};
+//    auto n{static_cast<size_t>(Literal<T>::index(false, x))};
+//    auto m{std::max(p,n)};
+//    boolean_watch.resize(m+1);
+//    boolean_watch[n] = watchers.size();
+//    boolean_watch[p] = watchers.size()+1;
+//    watchers.resize(watchers.size()+2);
+    boolean_watch.resize(2*solver.boolean.size());
+    *boolean_watch.rbegin() = watchers.size()+1;
+    *(boolean_watch.rbegin()+1) = watchers.size();
     watchers.resize(watchers.size()+2);
 #else
     //  watch[BOOLEAN].resize(static_cast<size_t>(2 * x + 2));
-    watch[BOOLEAN].resize(static_cast<size_t>(Literal<T>::index(true, x) + 1));
+//    watch[BOOLEAN].resize(static_cast<size_t>(Literal<T>::index(true, x) + 1));
+    watch[BOOLEAN].resize(2*solver.boolean.size());
 #endif
 }
 
-template <typename T> void ClauseBase<T>::newNumericVar(const var_t x) {
+template <typename T> void ClauseBase<T>::newNumericVar() {
 #ifdef NEW_WATCHERS
     //    std::vector<Clause<T>*> empty_watchlist;
     //    std::pair<T,std::vector<Clause<T>*>>
     //    empty_watchlists(Constant::Infinity<T>,empty_watchlist);
+    
+    
+//    if(static_cast<size_t>(Literal<T>::index(true, x) + 1) != 2*solver.numeric.size()) {
+//        std::cout << static_cast<size_t>(Literal<T>::index(true, x) + 1) << " != " << 2*solver.numeric.size() << std::endl;
+//        exit(1);
+//    }
+    
+    
     auto sz{numeric_watch.size()};
-    numeric_watch.resize(static_cast<size_t>(Literal<T>::index(true, x) + 1));
+    numeric_watch.resize(2*solver.numeric.size());
     while (sz < numeric_watch.size()) {
         numeric_watch[sz].insert(numeric_watch[sz].end(),
                                  {Constant::Infinity<T>, 0});
@@ -445,10 +474,27 @@ template <typename T> void ClauseBase<T>::newNumericVar(const var_t x) {
     }
 #else
     //    watch[NUMERIC].resize(static_cast<size_t>(2 * x + 2));
-    watch[NUMERIC].resize(static_cast<size_t>(Literal<T>::index(true, x) + 1));
+    watch[NUMERIC].resize(2*solver.numeric.size());
 #endif
     //    numeric_watch.resize(static_cast<size_t>(Literal<T>::index(x,true)+1));
     //    count.resize(static_cast<size_t>(2 * x + 2), 0);
+    
+    
+//    if (solver.getOptions().full_up) {
+//        for (var_t x{static_cast<var_t>(solver.getNumericScope(Constraint<T>::cons_id).size())}; x < solver.numeric.size(); ++x) {
+//            
+//            std::cout << "*wake me on " << x << std::endl;
+//            
+//            solver.wake_me_on(lb<T>(x), Constraint<T>::cons_id);
+//            solver.wake_me_on(ub<T>(x), Constraint<T>::cons_id);
+//        }
+//        triggered_bounds.reserve(2 * solver.numeric.size());
+//    }
+    
+    
+    
+//    std::cout << " #vars=" << solver.getNumericScope(idx).size();
+    
 }
 
 template <typename T>
@@ -1725,35 +1771,29 @@ template <typename T> void ClauseBase<T>::forget(Clause<T> *cl) {
 /// | |  1 2  6 5 3 4
 
 template <typename T> void ClauseBase<T>::forget_worst() {
-    
-    //    std::cout << free_cl_indices << std::endl;
-    //
-    //    std::cout << (*(free_cl_indices.bbegin())) << std::endl;
-    //
-    //    std::cout << base.size() << std::endl;
-    //
-    //    std::cout << *(base[*(free_cl_indices.bbegin())]) << std::endl;
-    ////    exit(1);
-    
     forget(base[*(free_cl_indices.bbegin())]);
 }
 
 template <typename T>
 double ClauseBase<T>::activity(const Literal<T> l) {
-    return (solver.getActivityMap() != nullptr
-            ? solver.getActivityMap()->get(l, solver)
-            : 1);
+//    return (solver.getActivityMap() != nullptr
+//            ? solver.getActivityMap()->get(l, solver)
+//            : 1);
+#ifdef OLDVSIDS
+    return solver.getLiteralActivity(l);
+#else
+    return solver.getActivity(l);
+#endif
 }
 
 template <typename T>
 double ClauseBase<T>::loosenessOverActivity(const Literal<T> l) {
-    
-    return solver.looseness(l) / activity(l);
+    return solver.looseness(l) * inverseActivity(l);
 }
 
 template <typename T>
 double ClauseBase<T>::inverseActivity(const Literal<T> l) {
-    return 1.0 / activity(l); // solver.getActivityMap()->get(l, solver);
+    return heuristics::impl::ActivityMap::baseIncrement / activity(l); // solver.getActivityMap()->get(l, solver);
 }
 
 template <typename T> double ClauseBase<T>::looseness(const Literal<T> l) {
@@ -1761,8 +1801,21 @@ template <typename T> double ClauseBase<T>::looseness(const Literal<T> l) {
 }
 
 template <typename T> void ClauseBase<T>::forgetAll() {
+    
+//    std::cout << "clauses: " << free_cl_indices << std::endl;
+    
     while (free_cl_indices.backsize() > 0) {
         forget_worst();
+//        std::cout << "clauses: " << free_cl_indices << std::endl;
+    }
+}
+
+template <typename T> void ClauseBase<T>::clear() {
+    while (free_cl_indices.backsize() > 0) {
+        forget_worst();
+    }
+    while (free_cl_indices.frontsize() > 0) {
+        forget(base[*(free_cl_indices.frbegin())]);
     }
 }
 
@@ -1778,9 +1831,19 @@ template <typename T> void ClauseBase<T>::forget() {
     //    std::cout << "option: " << solver.getOptions().forget_strategy <<
     //    std::endl;
     
-    if (solver.getOptions().forget_strategy == Options::LiteralScore::Looseness or
-        (solver.getActivityMap() == NULL and
-         solver.getOptions().forget_strategy != Options::LiteralScore::Size)) {
+    
+    
+    
+    if (solver.getOptions().forget_strategy == Options::LiteralScore::GlueTimesActivity) {
+        for (auto idx{free_cl_indices.bbegin()}; idx != free_cl_indices.bend();
+             ++idx) {
+            score[*idx] = 0;
+            for (auto l : *base[*idx]) {
+                score[*idx] += inverseActivity(l);
+            }
+            score[*idx] *= glue[*idx];
+        }
+    } else if (solver.getOptions().forget_strategy == Options::LiteralScore::Looseness) {
         for (auto idx{free_cl_indices.bbegin()}; idx != free_cl_indices.bend();
              ++idx) {
             score[*idx] = 0;
@@ -1828,6 +1891,11 @@ template <typename T> void ClauseBase<T>::forget() {
                   [&](const int i, const int j) {
             return (base[i]->size() > base[j]->size());
         });
+    } else if (solver.getOptions().forget_strategy == Options::LiteralScore::Glue) {
+        std::sort(free_cl_indices.bbegin(), free_cl_indices.bend(),
+                  [&](const int i, const int j) {
+            return (glue[base[i]->id] > glue[base[j]->id] || (glue[base[i]->id] == glue[base[j]->id] and base[i]->size() > base[j]->size()));
+        });
     } else {
         std::sort(free_cl_indices.bbegin(), free_cl_indices.bend(),
                   [&](const int i, const int j) {
@@ -1837,12 +1905,12 @@ template <typename T> void ClauseBase<T>::forget() {
     
     free_cl_indices.re_index(free_cl_indices.bbegin(), free_cl_indices.bend());
     
-    //
-    //    std::cout << "ordering, from worst to best:\n";
-    //    for(auto i{free_cl_indices.bbegin()}; i!=free_cl_indices.bend(); ++i) {
-    //        std::cout << *base[*i] << std::endl;
-    //    }
-    //
+    
+//        std::cout << "ordering, from worst to best:\n";
+//        for(auto i{free_cl_indices.bbegin()}; i!=free_cl_indices.bend(); ++i) {
+//            std::cout << std::setw(4) << glue[*i] << " " << std::setw(8) << std::setprecision(3) << score[*i] << " " << *base[*i] << std::endl;
+//        }
+    
     auto target_size =
     static_cast<size_t>(static_cast<double>(numLearnt()) *
                         (1.0 - solver.getOptions().forgetfulness));
@@ -1850,11 +1918,11 @@ template <typename T> void ClauseBase<T>::forget() {
     while (numLearnt() > target_size) {
         forget_worst();
     }
-    //
-    //    std::cout << "\n===>\n";
-    //    for(auto i{free_cl_indices.bbegin()}; i!=free_cl_indices.bend(); ++i) {
-    //        std::cout << *base[*i] << std::endl;
-    //    }
+    
+//        std::cout << "\n===>\n";
+//        for(auto i{free_cl_indices.bbegin()}; i!=free_cl_indices.bend(); ++i) {
+//            std::cout << std::setw(4) << glue[*i] << " " << std::setw(8) << std::setprecision(3) << score[*i] << " " << *base[*i] << std::endl;
+//        }
     
 #ifdef DBG_WATCHERS
     verifyWatchers("after forget");
@@ -1864,11 +1932,15 @@ template <typename T> void ClauseBase<T>::forget() {
 template <typename T>
 template <typename iter>
 Clause<T> *ClauseBase<T>::add(const iter first, const iter last,
-                              const bool learnt) {
+                              const bool learnt, const int glue_score) {
     
 #ifdef DBG_WATCHERS
     verifyWatchers("before add");
 #endif
+    
+//    if(learnt == false) {
+//        std::cout << "ADD TRUE CLAUSE!\n";
+//    }
     
     //  std::cout << "add clause (" << (learnt ? "learnt" : "base" ) << ")";
     //  for (auto l{first}; l != last; ++l) {
@@ -1893,12 +1965,14 @@ Clause<T> *ClauseBase<T>::add(const iter first, const iter last,
             else
                 free_cl_indices.remove_front(id);
             c = base[id];
+            glue[id] = glue_score;
             assert(c->empty());
         } else {
             int id{static_cast<int>(base.size())};
             c = new Clause<T>(id);
             base.push_back(c);
             score.push_back(0);
+            glue.push_back(glue_score);
             free_cl_indices.reserve(base.size());
             
             //    std::cout << free_cl_indices << std::endl;
