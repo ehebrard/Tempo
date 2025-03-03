@@ -20,6 +20,8 @@
 
 #include <iostream>
 #include <vector>
+#include <regex>
+#include <filesystem>
 
 #include "Solver.hpp"
 #include "heuristics/Greedy.hpp"
@@ -996,27 +998,41 @@ void crunch_numbers(Options& opt, std::string& analyse_file) {
 
 // implementation of a scheduling solver
 int main(int argc, char *argv[]) {
-  auto parser = tempo::getBaseParser();
-    
-    std::string record_file{""};
-    std::string analyse_file{""};
-    
-    parser.getCmdLine().add<TCLAP::ValueArg<std::string>>(record_file, "", "record",
-                                   "record search tree to file", false, "",
-                                   "string");
-    
-    parser.getCmdLine().add<TCLAP::ValueArg<std::string>>(analyse_file, "", "analyse",
-                                   "analyse search tree in file", false, "",
-                                   "string");
+  std::string record_file;
+  std::string analyse_file;
+  std::string instanceDir;
+  std::string instanceRegex;
+  auto opt = cli::parseOptions(argc, argv,
+                               cli::ArgSpec("record", "record search tree to file", false, record_file, ""),
+                               cli::ArgSpec("analyze", "analyze search tree in file", false, analyse_file, ""),
+                               cli::ArgSpec("instances", "directory with problem instances", false, instanceDir, ""),
+                               cli::ArgSpec("regex", "regex to determine instance name", false, instanceRegex, ""));
 
-  parser.parse(argc, argv);
-  Options opt = parser.getOptions();
+  if (not instanceDir.empty()) {
+    namespace fs = std::filesystem;
+    if (instanceRegex.empty()) {
+      std::cerr << "please specify an instance regex" << std::endl;
+      return 1;
+    }
+
+    const std::regex regex(instanceRegex);
+    std::smatch match;
+    if (not std::regex_search(analyse_file, match, regex) or match.empty()) {
+      std::cerr << "could not deduce instance name from file name. No regex match";
+      return 2;
+    }
+
+    const auto instanceName = match[0].str();
+    opt.instance_file = fs::path(instanceDir) / instanceName;
+  }
+
 
   seed(opt.seed);
+  if (record_file != "") {
+    solve(opt, record_file);
+  }
 
-    if(record_file != "")
-        solve(opt, record_file);
-
-    if(analyse_file != "")
-        crunch_numbers(opt, analyse_file);
+  if (analyse_file != "") {
+    crunch_numbers(opt, analyse_file);
+  }
 }
