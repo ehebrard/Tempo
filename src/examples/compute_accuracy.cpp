@@ -482,7 +482,13 @@ void crunch_numbers(Options& opt, std::string& analyse_file) {
             << "  rel.(c)"
             << "   #U(c)"
             << "  size(c)"
-            << "   acc.(c)\n";
+            << "   acc.(c)"
+            << "  acc(b.avg)"
+            << "   avg_fail_level";
+            for (int i = 1; i < num_steps + 1; i++) {
+              std::cout << "   r#vars_" << i << "_fails";
+            }
+            std::cout << "\n";
 
   //    int branch_i{0};
   while (true) {
@@ -627,14 +633,14 @@ void crunch_numbers(Options& opt, std::string& analyse_file) {
     if ((biased_avg_correct + biased_avg_wrong) == 0) {
       std::cout << "       n/a";
     } else {
-      std::cout << std::setw(10) << std::setprecision(7)
+      std::cout << std::setw(14) << std::setprecision(7)
                 << static_cast<double>(biased_avg_correct) /
                        static_cast<double>(biased_avg_correct + biased_avg_wrong);
     }
 
-    std::cout << " " << std::setw(5) << avg_dec_level;
+    std::cout << "          " << std::setw(5) << avg_dec_level;
     for (int t{0}; t < num_steps; ++t) {
-      std::cout << " " << std::setw(7) << std::setprecision(4) << var_ratio[t];
+      std::cout << "        " << std::setw(9) << std::setprecision(4) << var_ratio[t];
     }
 
 
