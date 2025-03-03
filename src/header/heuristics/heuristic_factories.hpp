@@ -114,23 +114,35 @@ namespace tempo::heuristics {
     // Add further heuristic types here
 
     using TightestSolutionGuided = SolutionGuided<TightestValue>;
-    using ValueHeuristic = detail::VariantHeuristicWrapper<TightestValue, RandomBinaryValue, TightestSolutionGuided>;
+    using RandomSolutionGuided = SolutionGuided<RandomBinaryValue>;
+    using ValueHeuristic = detail::VariantHeuristicWrapper<TightestValue, RandomBinaryValue, TightestSolutionGuided, RandomSolutionGuided>;
 
     // Define heuristic factory types here
 
-    MAKE_FACTORY(TightestValue, const Options &options) {
-            return TightestValue(options.polarity_epsilon);
+    MAKE_TEMPLATE_FACTORY(TightestValue, concepts::scalar T, Solver<T> &solver) {
+            return TightestValue(solver);
         }
     };
 
-    MAKE_DEFAULT_FACTORY(RandomBinaryValue, const Options&)
+//MAKE_FACTORY(TightestValue, const Options &options) {
+//        return TightestValue(options.polarity_epsilon);
+//    }
+//};
 
-    MAKE_FACTORY(TightestSolutionGuided, const Options &options) {
-            return TightestSolutionGuided(options.polarity_epsilon, 0);
+    MAKE_DEFAULT_TEMPLATE_FACTORY(RandomBinaryValue, concepts::scalar T, Solver<T> &solver)
+
+MAKE_TEMPLATE_FACTORY(TightestSolutionGuided, concepts::scalar T, Solver<T> &solver) {
+            return TightestSolutionGuided(solver);
         }
     };
 
-    MAKE_FACTORY_PATTERN(ValueHeuristic, TightestValue, RandomBinaryValue, TightestSolutionGuided)
+MAKE_TEMPLATE_FACTORY(RandomSolutionGuided, concepts::scalar T, Solver<T> &solver) {
+            return RandomSolutionGuided(solver);
+        }
+    };
+
+    
+    MAKE_FACTORY_PATTERN(ValueHeuristic, TightestValue, RandomBinaryValue, TightestSolutionGuided, RandomSolutionGuided)
 
 
     // --- Use these factory methods ---
@@ -166,7 +178,7 @@ namespace tempo::heuristics {
             std::cout << "-- using value selection strategy '" << name << "'" << std::endl;
         }
 
-        return ValueHeuristicFactory::getInstance().create(name, options);
+        return ValueHeuristicFactory::getInstance().create(name, solver);
     }
 
     /**

@@ -122,7 +122,7 @@ auto tempo::getBaseParser() -> Parser {
             opt.polarity_heuristic, "", "polarity-heuristic",
             "type "
             "of heuristic used for choice point polarity selection "
-            "(0: tightest, 1: solution guided (default), 2: random)",
+            "(0: tightest, 1: tightest then solution guided (default), 2: random, 1: random then solution guided)",
             false, 1, "int");
 
     cmd.add<ValueArg<double>>(
@@ -137,6 +137,11 @@ auto tempo::getBaseParser() -> Parser {
             "decay value for the vsids heuristic, only effective if VSIDS is used "
             "as choice point heuristic",
             false, 0.99, "double");
+    
+    cmd.add<ValueArg<double>>(
+            opt.sgd_ratio, "", "sgd-ratio",
+            "ratio of discrepancies above which default polarity is prefered to solution-guided's",
+            false, 0.01, "double");
 
     cmd.add<ValueArg<double>>(opt.forgetfulness, "", "forgetfulness",
                               "clause base reduction factor (0.7)", false, 0.7,

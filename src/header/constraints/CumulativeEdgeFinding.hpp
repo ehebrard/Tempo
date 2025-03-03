@@ -321,6 +321,7 @@ public:
 
   std::string prettyTask(const int i) const;
   std::string asciiArt(const int i) const;
+    std::string domain(const int i) const;
     
     void checkLoad();
     void printHProfile();
@@ -335,52 +336,60 @@ public:
 template <typename T>
 std::string CumulativeEdgeFinding<T>::prettyTask(const int i) const {
   std::stringstream ss;
-  ss << "t" << std::left << std::setw(3) << task[i].id() << ": [" << est(i)
-     << ".." << lct(i) << "] (" << mindemand(i) << "x" << minduration(i) << ")";
+  ss << "t" << std::left << std::setw(3) << task[i].id() << ": [" << domain(i) << ") (" << mindemand(i) << "x" << minduration(i) << ")";
   return ss.str();
 }
 
 template <typename T>
 std::string CumulativeEdgeFinding<T>::asciiArt(const int i) const {
-    std::stringstream ss;
-    ss << std::setw(3) << std::right << mindemand(i) << "x" << std::setw(3)
-    << std::left << minduration(i) << " " << std::right;
-    auto k{0};
-    if(sign == bound::lower){
-        if(schedule.start.min(solver) > -Constant::Infinity<T>) {
-            k = schedule.start.min(solver);
-        }
-    } else {
-        if(schedule.end.max(solver) < Constant::Infinity<T>) {
-            k = -schedule.end.max(solver);
-        }
-    }
-    for (; k < est(i); ++k) {
-        ss << " ";
-    }
-    auto est_i{est(i)};
-    auto ect_i{ect(i)};
+    return prettyTask(i);
     
-    if (est_i == -Constant::Infinity<T>) {
-      ss << "...";
-      est_i = -1;
-      ect_i = minduration(i);
-    } else {
-        ss << "[";
-    }
-    for (auto k{est_i + 1}; k < ect(i); ++k) {
-        ss << "=";
-    }
-    if (ect_i < lct(i))
-        ss << "|";
-    if (lct(i) == Constant::Infinity<T>) {
-        ss << "... " << est(i) << "...";
-    } else {
-        for (auto k{ect_i + 1}; k < lct(i); ++k) {
-            ss << ".";
-        }
-        ss << "] " << est(i) << ";" << ect(i) << ".." << lct(i);
-    }
+//    std::stringstream ss;
+//    ss << std::setw(3) << std::right << mindemand(i) << "x" << std::setw(3)
+//    << std::left << minduration(i) << " " << std::right;
+//    auto k{0};
+//    if(sign == bound::lower){
+//        if(schedule.start.min(solver) > -Constant::Infinity<T>) {
+//            k = schedule.start.min(solver);
+//        }
+//    } else {
+//        if(schedule.end.max(solver) < Constant::Infinity<T>) {
+//            k = -schedule.end.max(solver);
+//        }
+//    }
+//    for (; k < est(i); ++k) {
+//        ss << " ";
+//    }
+//    auto est_i{est(i)};
+//    auto ect_i{ect(i)};
+//    
+//    if (est_i == -Constant::Infinity<T>) {
+//      ss << "...";
+//      est_i = -1;
+//      ect_i = minduration(i);
+//    } else {
+//        ss << "[";
+//    }
+//    for (auto k{est_i + 1}; k < ect(i); ++k) {
+//        ss << "=";
+//    }
+//    if (ect_i < lct(i))
+//        ss << "|";
+//    if (lct(i) == Constant::Infinity<T>) {
+//        ss << "... " << est(i) << "...";
+//    } else {
+//        for (auto k{ect_i + 1}; k < lct(i); ++k) {
+//            ss << ".";
+//        }
+//        ss << "] " << domain(i);
+//    }
+//    return ss.str();
+}
+
+template <typename T>
+std::string CumulativeEdgeFinding<T>::domain(const int i) const {
+    std::stringstream ss;
+    ss << est(i) << ";" << ect(i) << ".." << lct(i);
     return ss.str();
 }
 
@@ -1163,8 +1172,6 @@ void CumulativeEdgeFinding<T>::computeBound(const int i
       break;
     E += minenergy(j);
       
-      
-      
 #ifdef DBG_SEF
     if (DBG_SEF and debug_flag > 3) {
         std::cout << " t" << std::left << std::setw(3) << task[j].id() << ": " << asciiArt(j) << " E = " << minenergy(j)
@@ -1179,8 +1186,6 @@ void CumulativeEdgeFinding<T>::computeBound(const int i
             + fixedPartEnergy(i, j)
 #endif
         };
-        
-        
         
       if (slack < minSlack[0] and data[lct_shared[j]].overflow > 0) {
         minSlack[0] = slack;
@@ -1452,45 +1457,43 @@ template <typename T> void CumulativeEdgeFinding<T>::adjustment() {
         auto time{profile[contact[i]].time};
         
         
-#ifdef DBG_SEF
-        if (DBG_SEF and debug_flag > 0) {
-            std::cout << "capacity = " << capacity.max(solver) << ". adjust t" << task[i].id() << " contact = " << time << " prec = t" << task[j].id() << "\n";
-            bool afterprec{false};
-            for(auto x : lct_order) {
-                if(lct(x) == lct(i))
-                    break;
-                std::cout << "t" << std::left << std::setw(3) << task[x].id() << ": "
-                << asciiArt(x) << (afterprec ? " ****" : "") << std::endl;
-                if(x == j) {
-                    afterprec=true;
-                }
-            }
-            std::cout << "\nt" << std::left << std::setw(3) << task[i].id() << ": "
-            << asciiArt(i) << std::endl;
-        }
-#endif
+//#ifdef DBG_SEF
+//        if (DBG_SEF and debug_flag > 0) {
+//            std::cout << "capacity = " << capacity.max(solver) << ". adjust t" << task[i].id() << " contact = " << time << " prec = t" << task[j].id() << "\n";
+//            bool afterprec{false};
+//            for(auto x : lct_order) {
+//                if(lct(x) == lct(i))
+//                    break;
+//                std::cout << "t" << std::left << std::setw(3) << task[x].id() << ": "
+//                << asciiArt(x) << (afterprec ? " ****" : "") << std::endl;
+//                if(x == j) {
+//                    afterprec=true;
+//                }
+//            }
+//            std::cout << "\nt" << std::left << std::setw(3) << task[i].id() << ": "
+//            << asciiArt(i) << std::endl;
+//        }
+//#endif
         
-        //      if(solver.num_cons_propagations == 283301) {
-        //          std::cout << "j=" << j << " time = " << time << std::endl;
-        //      }
-        
-        
+//        std::cout << "\n" << time << " " << lct(j) << std::endl;
         for (auto k : lct_order) {
             
-            //        if(solver.num_cons_propagations == 283301) {
-            //            std::cout << k << ": " << ect(k) << " > " << time << " and " << lct(k) << " <= " << lct(j) ; //<< std::endl;
-            //        }
+//            std::cout << prettyTask(k) << " " << domain(k) << std::endl;
             
             if (ect(k) > time and lct(k) <= lct(j)) {
                 
                 minEct = std::min(minEct, ect(k));
                 minEnergy = std::min(minEnergy, minenergy(k));
             }
-            
-            //        if(solver.num_cons_propagations == 283301) {
-            //            std::cout << " --> " << minEct << std::endl;
-            //        }
         }
+        
+        
+        if(minEct == Constant::Infinity<T>) {
+            std::cout << "bug?\n";
+            std::cout << solver.num_cons_propagations << std::endl;
+            exit(1);
+        }
+        
         
         // compute the profile without i, but to record the overlap and
         // slackUnder
@@ -1581,10 +1584,15 @@ template <typename T> void CumulativeEdgeFinding<T>::adjustment() {
         if(sign == bound::lower) {
             
             
-            
-            //          assert(t >= task[i].getEarliestStart(solver));
+            if(t == Constant::Infinity<T>) {
+                std::cout << "bug lower bound?\n";
+                exit(1);
+            }
             
             if(t > task[i].getEarliestStart(solver)) {
+                
+                std::cout << task[i].start.after(t) << std::endl;
+                
                 pruning.push_back(task[i].start.after(t));
                 actual_pruning = true;
             }
@@ -1592,19 +1600,16 @@ template <typename T> void CumulativeEdgeFinding<T>::adjustment() {
         }
         else {
             
-//            std::cout << "max(" << adjustment << "," << -minEct << ")\n";
             
-//            auto t{std::max(adjustment, -minEct)};
-            
-            //          assert(-t <= task[i].getLatestEnd(solver));
-            
-//            
-//            if(t > 0) {
-//                std::cout << "pobably a bug\n";
-//                exit(1);
-//            }
+            if(t == Constant::Infinity<T>) {
+                std::cout << "bug upper bound?\n";
+                exit(1);
+            }
             
             if(-t < task[i].getLatestEnd(solver)) {
+                
+                std::cout << task[i].end.before(-t) << std::endl;
+                
                 pruning.push_back(task[i].end.before(-t));
                 actual_pruning = true;
             }

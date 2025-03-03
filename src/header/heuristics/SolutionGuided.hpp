@@ -30,6 +30,10 @@ namespace tempo::heuristics {
     template<class BaseHeuristic>
     class SolutionGuided : public BaseBooleanHeuristic<SolutionGuided<BaseHeuristic>> {
         BaseHeuristic h;
+        Reversible<size_t> var_ptr;
+        Reversible<size_t> discrepancies;
+        
+        size_t max_discrepancies{2};
     public:
         /**
          * Ctor.
@@ -40,6 +44,56 @@ namespace tempo::heuristics {
         template<class... Args>
         explicit SolutionGuided(double epsilon, Args &&...args): BaseBooleanHeuristic<SolutionGuided>(epsilon),
                                                                  h(std::forward<Args>(args)...) {}
+        
+        template <concepts::scalar T>
+        explicit SolutionGuided(Solver<T> &solver) :
+        BaseBooleanHeuristic<SolutionGuided>(solver.getOptions().polarity_epsilon), h(solver)
+        , var_ptr(0, &(solver.getEnv()))
+        , discrepancies(0, &(solver.getEnv()))
+        {
+            max_discrepancies = static_cast<size_t>(static_cast<double>(solver.boolean.size()) * solver.getOptions().sgd_ratio);
+        }
+        
+        
+        template <concepts::scalar T>
+        bool checkDiscrepancies(const Solver<T> &solver) const {
+            const auto &b = solver.boolean;
+            if (not b.hasSolution()) {
+                return true;
+            }
+            
+            const auto &sol = b.bestSolution();
+            size_t num_discrepancies{0};
+            auto n{static_cast<var_t>(solver.boolean.size())};
+            for(var_t v{1}; v<n; ++v) {
+                if(not solver.getBranch().has(v)) {
+                    if(b.value(v) != sol[b.getLiteral(true, v)]) {
+                        ++num_discrepancies;
+                    }
+                }
+            }
+            
+            if(num_discrepancies != discrepancies) {
+                std::cout << num_discrepancies << std::endl;
+                for(var_t v{1}; v<n; ++v) {
+                    std::cout << sol[b.getLiteral(true, v)] << " " ;
+                    if(not solver.getBranch().has(v)) {
+                        std::cout << b.value(v) ;
+                        if(b.value(v) != sol[b.getLiteral(true, v)]) {
+                            std::cout << " (" << v << ")" ;
+                        }
+                        std::cout << std::endl;
+                    } else {
+                        std::cout << "?\n";
+                    }
+                }
+            }
+            
+            
+            return num_discrepancies == discrepancies;
+        }
+        
+        
 
         /**
          * heuristic interface
@@ -53,12 +107,52 @@ namespace tempo::heuristics {
                 return h.valueDecision({x, VariableType::Boolean}, solver);
             }
 
-            auto posLit = b.getLiteral(true, x);
-            auto negLit = b.getLiteral(false, x);
+            auto& vars{solver.getBranch()};
+            size_t cur_ptr{vars.start_idx()};
+            
+#ifdef DBG_DISCREPANCIES
+            std::cout << std::endl << var_ptr << "/" << cur_ptr << " @" << solver.level() << std::endl;
+#endif
             const auto &sol = b.bestSolution();
             
-            if(sol.size() <= posLit)
+            auto vptr{static_cast<size_t>(var_ptr)};
+            while(vptr < cur_ptr) {
+                auto v{vars[vptr]};
+                if(b.value(v) != sol[b.getLiteral(true, v)]) {
+                    ++discrepancies;
+#ifdef DBG_DISCREPANCIES
+                    std::cout << " +" << v;
+#endif
+                }
+#ifdef DBG_DISCREPANCIES
+                else {
+                    std::cout << " [" << v << "]";
+                }
+#endif
+                ++vptr;
+            }
+            
+//            std::cout << "\ndiscrepancies = " << discrepancies << std::endl;
+            
+            var_ptr = vptr; // the next decision is necessarily "correct"
+            
+            
+#ifdef DBG_DISCREPANCIES
+            if(not checkDiscrepancies(solver)) {
+                std::cout << "bug!\n";
+                exit(1);
+            }
+#endif
+            
+            assert(checkDiscrepancies(solver));
+            
+            auto posLit = b.getLiteral(true, x);
+            auto negLit = b.getLiteral(false, x);
+            
+            
+            if(sol.size() <= posLit or discrepancies > max_discrepancies) {
                 return h.valueDecision({x, VariableType::Boolean}, solver);
+            }
             
             assert(sol[posLit] != sol[negLit]);
             return sol[posLit] ? posLit : negLit;

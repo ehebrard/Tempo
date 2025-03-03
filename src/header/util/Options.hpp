@@ -134,11 +134,13 @@ public:
     };
     ChoicePointHeuristics choice_point_heuristics{ChoicePointHeuristics::VSIDS};
 
-    enum class PolarityHeuristic { Tightest, TSG, Random };
+    enum class PolarityHeuristic { Tightest, TSG, Random, RSG };
 
     double polarity_epsilon{0};
 
     PolarityHeuristic polarity_heuristic{PolarityHeuristic::TSG};
+    
+    double sgd_ratio{.01};
 
     double vsids_decay{0.999};
     double vsids_epsilon{0.05};

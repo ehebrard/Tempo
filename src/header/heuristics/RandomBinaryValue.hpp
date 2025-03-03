@@ -36,6 +36,13 @@ namespace tempo::heuristics {
  */
     class RandomBinaryValue {
     public:
+        
+        explicit RandomBinaryValue() {}
+        explicit RandomBinaryValue(double) {}
+        
+        template <concepts::scalar T>
+        explicit RandomBinaryValue(Solver<T> &) {}
+        
         /**
          * heuristic interface
          * @tparam Sched class that provides additional information for the actual

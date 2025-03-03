@@ -381,9 +381,9 @@ int solve(Options& gopt, std::string& record_file) {
       }));
 
   SubscriberHandle failCLHandler(
-      S.ClauseAdded.subscribe_handled([&](const auto &learnt_clause) {
+      S.ClauseAdded.subscribe_handled([&](const auto &solver) {
         right_branches.resize(S.numDecision() + 1);
-        right_branches.back().push_back(learnt_clause[0]);
+        right_branches.back().push_back(solver.lastLearnt()[0]);
       }));
 
   SubscriberHandle failNOCLHandler(

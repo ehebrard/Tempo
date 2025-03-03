@@ -34,6 +34,10 @@ public:
    */
   explicit TightestValue(double epsilon)
       : BaseBooleanHeuristic<TightestValue>(epsilon) {}
+    
+    template <concepts::scalar T>
+    explicit TightestValue(Solver<T> &solver)
+        : BaseBooleanHeuristic<TightestValue>(solver.getOptions().polarity_epsilon) {}
 
   /**
    * heuristic interface

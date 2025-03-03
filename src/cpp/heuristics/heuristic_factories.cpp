@@ -39,6 +39,8 @@ namespace tempo::heuristics::detail {
                 RETURN_NAME(TightestSolutionGuided);
             case Options::PolarityHeuristic::Random:
                 RETURN_NAME(RandomBinaryValue);
+            case Options::PolarityHeuristic::RSG:
+                RETURN_NAME(RandomSolutionGuided);
             default:
                 throw std::runtime_error("unknown value heuristic type");
         }
