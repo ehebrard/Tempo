@@ -482,7 +482,13 @@ void crunch_numbers(Options& opt, std::string& analyse_file) {
             << "  rel.(c)"
             << "   #U(c)"
             << "  size(c)"
-            << "   acc.(c)\n";
+            << "   acc.(c)"
+            << "  acc(b.avg)"
+            << "   avg_fail_level";
+            for (int i = 1; i < num_steps + 1; i++) {
+              std::cout << "   r#vars_" << i << "_fails";
+            }
+            std::cout << "\n";
 
   //    int branch_i{0};
   while (true) {
@@ -558,8 +564,9 @@ void crunch_numbers(Options& opt, std::string& analyse_file) {
     for (auto t{0}; t < num_steps; ++t) {
       unsigned nvars{0};
       for (auto n : num_mistakes) {
-        if (n > t)
+        if (n > t) {
           ++nvars;
+        }
       }
 
       var_ratio[t] =
@@ -592,45 +599,50 @@ void crunch_numbers(Options& opt, std::string& analyse_file) {
                   static_cast<double>(obj))
               << "  " << std::setw(9) << num_cp << std::setw(6)
               << (num_correct + num_wrong) << std::setw(5) << num_wrong;
-    if (num_wrong == 0)
+    if (num_wrong == 0) {
       std::cout << "   n/a";
-    else
+    } else {
       std::cout << std::setw(6) << ((num_cp - branch_length) / num_wrong);
+    }
 
-    if ((num_correct + num_wrong) == 0)
+    if ((num_correct + num_wrong) == 0) {
       std::cout << "    n/a";
-    else
+    }
+    else {
       std::cout << std::setw(7) << std::setprecision(4)
                 << static_cast<double>(num_correct) /
                        static_cast<double>(num_correct + num_wrong);
+    }
 
     std::cout << "  " << std::setw(12) << total_cp << std::setw(9)
               << total_correct + total_wrong << std::setw(8) << total_wrong;
 
-    if (total_wrong == 0)
+    if (total_wrong == 0) {
       std::cout << "      n/a";
-    else
+    } else {
       std::cout << std::setw(9) << ((total_cp - total_branches) / total_wrong);
-    if ((total_correct + total_wrong) == 0)
+    }
+    if ((total_correct + total_wrong) == 0) {
       std::cout << "       n/a";
-    else
+    } else {
       std::cout << std::setw(10) << std::setprecision(7)
-                << static_cast<double>(total_correct) /
-                       static_cast<double>(total_correct + total_wrong);
-      
-      
+          << static_cast<double>(total_correct) /
+          static_cast<double>(total_correct + total_wrong);
+    }
 
-      if ((biased_avg_correct + biased_avg_wrong) == 0)
-        std::cout << "       n/a";
-      else
-        std::cout << std::setw(10) << std::setprecision(7)
-                  << static_cast<double>(biased_avg_correct) /
-                         static_cast<double>(biased_avg_correct + biased_avg_wrong);
+    if ((biased_avg_correct + biased_avg_wrong) == 0) {
+      std::cout << "       n/a";
+    } else {
+      std::cout << std::setw(14) << std::setprecision(7)
+                << static_cast<double>(biased_avg_correct) /
+                       static_cast<double>(biased_avg_correct + biased_avg_wrong);
+    }
 
-      std::cout << " " << std::setw(5) << avg_dec_level;
-      for(int t{0}; t<num_steps; ++t)
-          std::cout << " " << std::setw(7) << std::setprecision(4) << var_ratio[t];
-    
+    std::cout << "          " << std::setw(5) << avg_dec_level;
+    for (int t{0}; t < num_steps; ++t) {
+      std::cout << "        " << std::setw(9) << std::setprecision(4) << var_ratio[t];
+    }
+
 
     std::cout << std::endl;
   }

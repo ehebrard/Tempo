@@ -129,8 +129,8 @@ int main(int argc, char *argv[]) {
   double oracleEpsilon = 0;
   double sporadicIncrement = 0;
   StatsConfig statsConfig{
-    .displayStats = false, .regionTimeout = 0, .nRegionThreads = 0, .solPath = {},
-    .regionExecutionPolicy = lns::ExecutionPolicy::Lazy
+    .displayStats = false, .regionTimeout = 0, .nRegionThreads = 0, .nRegionSaverFails = 0,
+    .solPath = {}, .regionRecordPath = {}, .regionExecutionPolicy = lns::ExecutionPolicy::Lazy
   };
   cli::detail::configureParser(parser, cli::SwitchSpec("heuristic-profiling", "activate heuristic profiling",
                                                        profileHeuristic, false),
@@ -169,7 +169,13 @@ int main(int argc, char *argv[]) {
                                             statsConfig.nRegionThreads),
                                cli::ArgSpec("local-optimum-exec",
                                             "execution policy for local optimum search (stats only)", false,
-                                            statsConfig.regionExecutionPolicy));
+                                            statsConfig.regionExecutionPolicy),
+                               cli::ArgSpec("save-regions", "destination file where lns regions are saved to", false,
+                                            statsConfig.regionRecordPath),
+                               cli::ArgSpec("region-save-fails",
+                                            "minimum number of fails before regions are recorded", false,
+                                            statsConfig.nRegionSaverFails)
+  );
 
   parser.parse(argc, argv);
   Options opt = parser.getOptions();

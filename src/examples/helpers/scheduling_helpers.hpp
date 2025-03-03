@@ -50,7 +50,9 @@ struct StatsConfig {
     bool displayStats; ///< whether to display policy stats
     unsigned regionTimeout; ///< timout in ms for local optimum search (if 0, no local optimum stats)
     unsigned nRegionThreads; ///< number of threads for local optimum search (if 0, no local optimum stats)
+    unsigned nRegionSaverFails; ///< minimum number of fails before a region is recorded
     std::string solPath; ///< path to optimal solution (ignored if empty)
+    std::string regionRecordPath; ///< path to file where relaxation regions are recorded to
     tempo::lns::ExecutionPolicy regionExecutionPolicy; ///< execution policy for local search
 };
 
@@ -70,7 +72,13 @@ auto runLNS(Policy &&policy, tempo::Solver<T> &solver, tempo::MinimizationObject
     using namespace tempo;
     util::StopWatch sw;
     if (not stats.displayStats) {
-        solver.largeNeighborhoodSearch(objective, std::forward<Policy>(policy));
+        if (stats.regionRecordPath.empty()) {
+            solver.largeNeighborhoodSearch(objective, std::forward<Policy>(policy));
+        } else {
+            auto saver = lns::make_region_saver<T>(std::forward<Policy>(policy), stats.regionRecordPath,
+                                                   stats.nRegionSaverFails, objective.X);
+            solver.largeNeighborhoodSearch(objective, saver);
+        }
         return sw.elapsed<std::chrono::milliseconds>();
     }
 
@@ -82,9 +90,15 @@ auto runLNS(Policy &&policy, tempo::Solver<T> &solver, tempo::MinimizationObject
 
     auto evalPolicy = lns::make_region_evaluator<T>(
         lns::make_evaluator(std::forward<Policy>(policy), std::move(solution)), solver.getOptions(),
-        objective, stats.regionTimeout, stats.regionExecutionPolicy, stats.nRegionThreads);
+        objective.X, stats.regionTimeout, stats.regionExecutionPolicy, stats.nRegionThreads);
     sw.start();
-    solver.largeNeighborhoodSearch(objective, evalPolicy);
+    if (stats.regionRecordPath.empty()) {
+        solver.largeNeighborhoodSearch(objective, evalPolicy);
+    } else {
+        auto saver = lns::make_region_saver<T>(evalPolicy, stats.regionRecordPath, stats.nRegionSaverFails,
+                                               objective.X);
+        solver.largeNeighborhoodSearch(objective, saver);
+    }
     std::vector<lns::RegionResult<T>> localOptima;
     localOptima.reserve(evalPolicy.getResults().size());
     std::cout << "-- waiting for local optima...\n";

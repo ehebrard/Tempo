@@ -1,7 +1,7 @@
 /**
 * @author Tim Luchterhand
 * @date 06.01.25
-* @file RelaxationEvaluator.hpp
+* @file relaxation_evaluators.hpp
 * @brief Relaxation policy evaluation wrapper
 */
 
@@ -13,6 +13,8 @@
 #include <ranges>
 #include <tuple>
 #include <Iterators.hpp>
+#include <filesystem>
+#include <fstream>
 
 #include "util/traits.hpp"
 #include "util/Profiler.hpp"
@@ -20,11 +22,31 @@
 #include "util/Options.hpp"
 #include "util/ThreadPool.hpp"
 #include "util/enum.hpp"
+#include "util/serialization.hpp"
 #include "util/KillHandler.hpp"
 #include "relaxation_interface.hpp"
 #include "Solution.hpp"
 #include "Model.hpp"
 #include "Objective.hpp"
+#include "DistanceConstraint.hpp"
+
+namespace nlohmann {
+
+    template<typename T>
+    struct adl_serializer<tempo::DistanceConstraint<T>> {
+        static void to_json(json &j, const tempo::DistanceConstraint<T> &dc) {
+            j["from"] = dc.from;
+            j["to"] = dc.to;
+            j["distance"] = dc.distance;
+        }
+
+        static void from_json(const json &j, tempo::DistanceConstraint<T> &dc) {
+            j.at("from").get_to(dc.from);
+            j.at("to").get_to(dc.to);
+            j.at("distance").get_to(dc.distance);
+        }
+    };
+}
 
 namespace tempo::lns {
     /**
@@ -213,7 +235,7 @@ namespace tempo::lns {
         std::vector<std::future<RegionResult<T>>> localOptima{};
         unsigned timeout;
         ExecutionPolicy policy;
-        MinimizationObjective<T> objective;
+        NumericVar<T> objectiveVar;
     public:
         /**
          * Ctor
@@ -222,15 +244,15 @@ namespace tempo::lns {
          * @param timeout timout for local search in ms (if 0, no local search is performed)
          * @param executionPolicy execution policy for running local search
          * @param numThreads number of threads to use for local searches (if 0, local search is performed at end of search)
-         * @param objective search objective
+         * @param objectiveVar search objective variable
          * @param args arguments for base policy ctor
          */
         template<typename... Args>
-        RelaxationRegionEvaluator(Options options, MinimizationObjective<T> objective, unsigned timeout,
+        RelaxationRegionEvaluator(Options options, const NumericVar<T> &objectiveVar, unsigned timeout,
                                   ExecutionPolicy executionPolicy, unsigned numThreads, Args &&... args)
             : basePolicy(std::forward<Args>(args)...), options(std::move(options)),
               tp(executionPolicy != ExecutionPolicy::MultiThreaded ? 0 : numThreads),
-              timeout(timeout), policy(executionPolicy), objective(objective) {}
+              timeout(timeout), policy(executionPolicy), objectiveVar(objectiveVar) {}
 
         /**
          * Gets the underlying relaxation policy
@@ -257,7 +279,7 @@ namespace tempo::lns {
 
             AssumptionCollector<T, AI> ac(proxy);
             basePolicy.relax(ac);
-            auto job = [this, state = ac.getState(), ub = proxy.getSolver().numeric.solutionLower(objective.X),
+            auto job = [this, state = ac.getState(), ub = proxy.getSolver().numeric.solutionLower(objectiveVar),
                         assumptions = std::move(ac.getAssumptions())]() -> RegionResult<T> {
                 if (state == AssumptionState::Fail) {
                     return {ub, 0, Unsat};
@@ -336,16 +358,143 @@ namespace tempo::lns {
      * @tparam Policy base policy type
      * @param policy base relaxation policy
      * @param options solver options
+     * @param objVar objective variable
      * @param timeout timout for local search
      * @param execPolicy local search execution policy
      * @param numThreads number of threads to use for local search
      * @return
      */
     template<concepts::scalar T, relaxation_policy Policy>
-    auto make_region_evaluator(Policy &&policy, Options options, MinimizationObjective<T> obj, unsigned timeout,
+    auto make_region_evaluator(Policy &&policy, Options options, const NumericVar<T> &objVar, unsigned timeout,
                                ExecutionPolicy execPolicy, unsigned numThreads) {
-        return RelaxationRegionEvaluator<T, Policy>(std::move(options), obj, timeout, execPolicy, numThreads,
+        return RelaxationRegionEvaluator<T, Policy>(std::move(options), objVar, timeout, execPolicy, numThreads,
                                                     std::forward<Policy>(policy));
+    }
+
+    /**
+     * @brief LNS region produced by an LNS relaxation policy
+     * @tparam T timing type
+     */
+    template<concepts::scalar T>
+    struct Region {
+        std::vector<DistanceConstraint<T>> assumptions; ///< assumptions
+        T ub; ///< current upper bound
+        bool SAT; ///< whether the region contains an improving solution
+
+        NLOHMANN_DEFINE_TYPE_INTRUSIVE(Region, assumptions, ub, SAT)
+    };
+
+    /**
+     * @brief Relaxation policy wrapper that records all assumptions made by the base policy and
+     * writes them to a json file
+     * @tparam T timing type
+     * @tparam Policy base policy type
+     */
+    template<concepts::scalar T, relaxation_policy Policy>
+    class RegionSaver {
+        Policy policy;
+        std::vector<Region<T>> regions{};
+        std::filesystem::path destination;
+        NumericVar<T> objectiveVar;
+        unsigned minNumFails;
+        unsigned numFails = 0;
+
+    public:
+        RegionSaver(const RegionSaver &) = default;
+        RegionSaver(RegionSaver &&) noexcept = default;
+        RegionSaver &operator=(const RegionSaver &) = default;
+        RegionSaver &operator=(RegionSaver &&) noexcept = default;
+
+        /**
+         * Dtor. Flushes all assumptions to the destination file
+         */
+        ~RegionSaver() {
+            flush();
+        }
+
+        /**
+         * Ctor
+         * @tparam Args argument types to base policy ctor
+         * @param destination destination file
+         * @param minNumFails minimum number of fails before assumptions are recorded
+         * @param objectiveVar objective variable
+         * @param args arguments to base policy ctor
+         */
+        template<typename... Args>
+        explicit RegionSaver(std::filesystem::path destination, unsigned minNumFails, const NumericVar<T> &objectiveVar,
+                             Args &&... args)
+            : policy(std::forward<Args>(args)...), destination(std::move(destination)), objectiveVar(objectiveVar),
+              minNumFails(minNumFails) {
+            std::ofstream f(this->destination);
+            using namespace std::string_literals;
+            if (not f.is_open()) {
+                throw std::runtime_error("cannot create file "s + this->destination.string());
+            }
+        }
+
+        template<assumption_interface AI>
+        void relax(AI &proxy) {
+            AssumptionCollector<T, AI> ac(proxy);
+            policy.relax(ac);
+            if (numFails < minNumFails or ac.getState() == AssumptionState::Empty or
+                ac.getState() == AssumptionState::Fail) {
+                return;
+            }
+
+            std::vector<DistanceConstraint<T>> constraints;
+            constraints.reserve(ac.getAssumptions().size());
+            const auto &boolean = proxy.getSolver().boolean;
+            for (auto l : ac.getAssumptions()) {
+                auto dc = boolean.getEdge(l);
+                if (dc != Constant::NoEdge<T>) {
+                    constraints.emplace_back(dc);
+                }
+            }
+
+            regions.emplace_back(std::move(constraints), proxy.getSolver().numeric.solutionLower(objectiveVar) - 1,
+                                 true);
+        }
+
+        void notifySuccess(unsigned numFails) {
+            this->numFails = numFails;
+            policy.notifySuccess(numFails);
+        }
+
+        void notifyFailure(unsigned numFails) {
+            this->numFails = numFails;
+            if (not regions.empty()) {
+                regions.back().SAT = false;
+            }
+
+            if (KillHandler::instance().signalReceived() and not regions.empty()) {
+                regions.pop_back();
+            }
+
+            policy.notifyFailure(numFails);
+        }
+
+        /**
+         * Flushes all assumptions to the destination file
+         */
+        void flush() const {
+            serialization::serializeToFile(regions, destination);
+        }
+    };
+
+    /**
+     * Helper function for creating a region saving relaxation heuristic from an arbitrary relaxation policy
+     * @tparam T timing type
+     * @tparam Policy base policy type
+     * @param destination destination file
+     * @param minNumFails minimum number of fails before assumptions are recorded
+     * @param objectiveVar objective variable
+     * @param policy base policy
+     * @return
+     */
+    template<concepts::scalar T, relaxation_policy Policy>
+    auto make_region_saver(Policy &&policy, std::filesystem::path destination, unsigned minNumFails,
+                           const NumericVar<T> &objectiveVar) {
+        return RegionSaver<T, Policy>(std::move(destination), minNumFails, objectiveVar, std::forward<Policy>(policy));
     }
 }
 
