@@ -129,7 +129,7 @@ namespace tempo::heuristics {
 //    }
 //};
 
-    MAKE_DEFAULT_TEMPLATE_FACTORY(RandomBinaryValue, concepts::scalar T, Solver<T> &solver)
+    MAKE_DEFAULT_TEMPLATE_FACTORY(RandomBinaryValue, concepts::scalar T, Solver<T> &)
 
 MAKE_TEMPLATE_FACTORY(TightestSolutionGuided, concepts::scalar T, Solver<T> &solver) {
             return TightestSolutionGuided(solver);

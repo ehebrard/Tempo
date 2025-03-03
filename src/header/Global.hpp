@@ -64,7 +64,7 @@ using hint = int;
 #define SHRINKING 2048
 
 ///////// UNCOMMENT TO DEBUG
-//#define DBG_TRACE (SEARCH)
+//#define DBG_TRACE (SEARCH)// + LEARNING + MINIMIZATION + SHRINKING)
 //#define DBG_BOUND (num_fails >= 0)
 //#define DBG_CBOUND (solver.num_fails >= 0)
 //#define DBG_CLBOUND (solver.num_fails >= 0)
@@ -83,7 +83,7 @@ using hint = int;
 //  #define DBG_BELLMAN_EXPL (sched.num_choicepoints >= 4172)
 //  #define DEBUG_HEURISTICS
 //  #define DBG_UP
-//#define DBG_CL 4
+#define DBG_CL 10000000
 // #define DBG_CL 559
 // #define DBG_CLPLUS true
 //  #define DBG_TRANSITIVITY true //(m_schedule.num_choicepoints >= 4064)

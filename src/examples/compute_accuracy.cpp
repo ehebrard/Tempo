@@ -34,6 +34,7 @@
 #include "util/IntFinity.hpp"
 
 //#define VERBOSE true
+//#define OLD
 
 using namespace tempo;
 
@@ -83,7 +84,8 @@ void build_model(Solver<> &S, Interval<> &schedule) {
 //    std::cout << "resources ok\n";
 }
 
-void read_branch(std::istream &in, 
+#ifdef OLD
+void read_branch(std::istream &in,
                  unsigned& branch_length,
                  unsigned& num_wrong,
                  std::vector<bool> &dsigns,
@@ -155,6 +157,78 @@ void read_branch(std::istream &in,
     exit(1);
   }
 }
+#else
+void read_branch(std::istream &in,
+                 unsigned& branch_length,
+                 unsigned& num_wrong,
+                 std::vector<Literal<int>> &decisions,
+                 std::vector<std::vector<Literal<int>>> &deductions) {
+
+  decisions.clear();
+  deductions.clear();
+
+    bool end_on_righ_flag;
+
+    in >> end_on_righ_flag;
+  in >> branch_length;
+  unsigned wrongcount;
+  in >> wrongcount;
+    
+    num_wrong = wrongcount;
+
+//    std::cout << "end_on_righ_flag = " << end_on_righ_flag << std::endl;
+//  std::cout << "branch_length = " << branch_length << std::endl;
+//    std::cout << "wrongcount = " << wrongcount << std::endl;
+
+    int t;
+  int s;
+  int v;
+    int b;
+
+  for (unsigned i{0}; i < branch_length + end_on_righ_flag; ++i) {
+    deductions.resize(deductions.size() + 1);
+      
+    int nwrong;
+    in >> nwrong;
+      
+
+      wrongcount -= nwrong;
+    for (auto j{0}; j < nwrong; ++j) {
+        in >> t;
+      in >> s;
+      in >> v;
+        in >> b;
+        if(t == 0) {
+            deductions.back().push_back(makeBooleanLiteral<int>(s,v,b));
+        } else {
+            deductions.back().push_back(makeNumericLiteral(s,v,b));
+        }
+    }
+
+      if(i<branch_length) {
+          in >> t;
+          in >> s;
+          in >> v;
+          in >> b;
+          if(t == 0) {
+              decisions.push_back(makeBooleanLiteral<int>(s,v,b));
+          } else {
+              decisions.push_back(makeNumericLiteral(s,v,b));
+          }
+      }
+  }
+
+  unsigned total{0};
+  for (auto &r : deductions) {
+    total += r.size();
+  }
+
+  if (wrongcount != 0 or total != num_wrong) {
+    std::cout << "bug read branch (" << total << "/" << num_wrong << ")\n";
+    exit(1);
+  }
+}
+#endif
 
 //#define VERBOSE true
 
@@ -178,6 +252,7 @@ bool satisfiable(Solver<>& S, Literal<int> constraint) {
     return (S.satisfiable() == TrueState);
 }
 
+#ifdef OLD
 int test_branches(Options &opt, const int makespan, std::vector<bool> &dsigns,
                   std::vector<var_t> &dvars,
                   std::vector<std::vector<bool>> &rsigns,
@@ -192,9 +267,7 @@ int test_branches(Options &opt, const int makespan, std::vector<bool> &dsigns,
     exit(1);
     }
 
-#ifdef VERBOSE
-  std::cout << "\ntest branch\n";
-#endif
+
 
   for (size_t i{0}; i < rsigns.size(); ++i) {
     Solver<> S(opt);
@@ -202,8 +275,13 @@ int test_branches(Options &opt, const int makespan, std::vector<bool> &dsigns,
     auto end_sched{S.newNumeric(0, makespan)};
     auto schedule{S.between(S.zero(), end_sched)};
 
-    build_model(S, schedule);
-
+      try{
+          build_model(S, schedule);
+      } catch(Failure<int>& f) {
+          std::cout << "catch failure here\n";
+          exit(1);
+      }
+      
     if (num_mistakes.size() < S.boolean.size())
       num_mistakes.resize(S.boolean.size(), 0);
 
@@ -231,7 +309,12 @@ int test_branches(Options &opt, const int makespan, std::vector<bool> &dsigns,
       std::cout << " - branch " << constraint << std::endl;
 #endif
         
-      S.set(constraint);
+        try{
+            S.set(constraint);
+        } catch(Failure<int>& f) {
+            std::cout << " fail on - branch " << constraint << std::endl;
+            exit(1);
+        }
     }
 
       auto n{rsigns[i].size()};
@@ -246,7 +329,13 @@ int test_branches(Options &opt, const int makespan, std::vector<bool> &dsigns,
         std::cout << " - deduction " << constraint << std::endl;
 #endif
           
+          try {
         S.set(constraint);
+          } catch(Failure<int>& f) {
+              std::cout << " fail on - deduction " << constraint << std::endl;
+              exit(1);
+          }
+              
       }
       
       Literal<int> constraint;
@@ -278,6 +367,112 @@ int test_branches(Options &opt, const int makespan, std::vector<bool> &dsigns,
 
   return num_irrelevant;
 }
+#else
+int test_branches(Options &opt, const int makespan, std::vector<Literal<int>> &decisions,
+                  std::vector<std::vector<Literal<int>>> &deductions,
+                  std::vector<int> &dec_level, std::vector<int> &num_mistakes,
+                  const bool side) {
+
+  int num_irrelevant{0};
+
+  if (deductions.size() < decisions.size()) {
+    std::cout << "BUG!!\n";
+    exit(1);
+    }
+
+
+
+  for (size_t i{0}; i < deductions.size(); ++i) {
+    Solver<> S(opt);
+
+    auto end_sched{S.newNumeric(0, makespan)};
+    auto schedule{S.between(S.zero(), end_sched)};
+
+      try{
+          build_model(S, schedule);
+      } catch(Failure<int>& f) {
+          std::cout << "catch failure here\n";
+          exit(1);
+      }
+      
+    if (num_mistakes.size() < S.boolean.size())
+      num_mistakes.resize(S.boolean.size(), 0);
+
+#ifdef VERBOSE
+    std::cout << "up to level " << (i + 1) << std::endl;
+#endif
+      
+    for (size_t j{0}; j < i; ++j) {
+      // add the right branches
+        
+      for (size_t k{0}; k < deductions[j].size(); ++k) {
+//        auto constraint{S.boolean.getLiteral(rsigns[j][k], rvars[j][k])};
+          auto constraint{deductions[j][k]};
+#ifdef VERBOSE
+        std::cout << " - deduction " << constraint << std::endl;
+#endif
+          
+        S.set(constraint);
+      }
+
+      // add the left branch
+//      auto constraint{S.boolean.getLiteral(dsigns[j], dvars[j])};
+        auto constraint{decisions[j]};
+
+#ifdef VERBOSE
+      std::cout << " - branch " << constraint << std::endl;
+#endif
+        
+            S.set(constraint);
+
+    }
+
+      auto n{deductions[i].size()};
+      if(i == deductions.size())
+          --n;
+      
+      // add the right branches
+      for (size_t k{0}; k < n; ++k) {
+        auto constraint{deductions[i][k]};
+
+#ifdef VERBOSE
+        std::cout << " - deduction " << constraint << std::endl;
+#endif
+
+        S.set(constraint);
+              
+      }
+      
+      Literal<int> constraint;
+      
+      if(i == decisions.size())
+          constraint = deductions[i].back();
+      else
+          constraint = decisions[i];
+
+      if(side == true) {
+          if(not satisfiable(S, constraint)) {
+              std::cout << "bug branch!!\n";
+              exit(1);
+          }
+#ifdef VERBOSE
+          else {
+              std::cout << "OK\n";
+          }
+#endif
+      } else {
+        if (satisfiable(S, ~constraint)) {
+          ++num_irrelevant;
+        } else {
+          ++dec_level[i];
+        }
+      }
+      
+  }
+
+  return num_irrelevant;
+}
+#endif
 
 boolean_state test_branch(Options &opt, const int makespan,
                           std::vector<bool> &signs, std::vector<var_t> &vars) {
@@ -323,7 +518,7 @@ int solve(Options& gopt, std::string& record_file) {
   opt.restart_policy = "no";
   opt.primal_boost = false;
   opt.greedy_runs = 0;
-  opt.learning = 0;
+  // opt.learning = true;
   //    opt.instance_file = ifilename;
 
   long unsigned int num_correct_decisions{0};
@@ -338,6 +533,9 @@ int solve(Options& gopt, std::string& record_file) {
   std::ofstream outfile(record_file);
 
   Solver<> S(opt);
+    
+    
+    auto solution_count{0};
 
     auto makespan{S.newNumeric(0,Constant::Infinity<int>)};
     auto origin{S.newConstant(0)};
@@ -345,8 +543,49 @@ int solve(Options& gopt, std::string& record_file) {
 //  auto schedule{S.newInterval(0, Constant::Infinity<int>, 0, 0, 0,
 //                              Constant::Infinity<int>)};
 
+#ifdef OLD
+    SubscriberHandle solutionHandler(
+        S.SolutionFound.subscribe_handled([&](const auto &) {
+            
+            ++solution_count;
+            
+          num_correct_decisions += S.numDecision();
+          unsigned long num_wrong{0};
+          for (auto &branches : right_branches)
+            num_wrong += branches.size();
+          num_wrong_decisions += num_wrong;
+          buffer << S.numeric.solutionLower(schedule.duration) << " "
+                 << S.num_choicepoints - cp_in_wasted_restarts << " "
+                 << (right_branches.size() > S.numDecision()) << " "
+            << S.numDecision() << " "
+            << num_wrong;
+          for (unsigned i{0}; i < S.numDecision(); ++i) {
+            if (right_branches.size() > i) {
+              buffer << " " << right_branches[i].size();
+              for (auto l : right_branches[i]) {
+                buffer << " " << l.sign() << " " << l.variable() ;
+              }
+            } else {
+              buffer << " 0";
+            }
+              
+              assert(not S.getDecisions()[i].isNumeric());
+              
+            buffer << " " << S.getDecisions()[i].sign() << " "
+              << S.getDecisions()[i].variable()
+          }
+            if(right_branches.size() > S.numDecision()) {
+                buffer << " " << right_branches.back().size();
+                for (auto l : right_branches.back()) {
+                  buffer << " " << l.sign() << " " << l.variable();
+                }
+            }
+#else
   SubscriberHandle solutionHandler(
       S.SolutionFound.subscribe_handled([&](const auto &) {
+          
+          ++solution_count;
+          
         num_correct_decisions += S.numDecision();
         unsigned long num_wrong{0};
         for (auto &branches : right_branches)
@@ -361,35 +600,92 @@ int solve(Options& gopt, std::string& record_file) {
           if (right_branches.size() > i) {
             buffer << " " << right_branches[i].size();
             for (auto l : right_branches[i]) {
-              buffer << " " << l.sign() << " " << l.variable();
+              buffer << " " << l.isNumeric() << " " << l.sign() << " " << l.variable() ;
+                if(l.isNumeric())
+                    buffer << " " << l.value();
+                else
+                    buffer << " " << l.semantic();
             }
           } else {
             buffer << " 0";
           }
-          buffer << " " << S.getDecisions()[i].sign() << " "
-                 << S.getDecisions()[i].variable();
+            
+            assert(not S.getDecisions()[i].isNumeric());
+            
+          buffer << " 0 " << S.getDecisions()[i].sign() << " "
+            << S.getDecisions()[i].variable() << " " << S.getDecisions()[i].semantic();
         }
           if(right_branches.size() > S.numDecision()) {
               buffer << " " << right_branches.back().size();
               for (auto l : right_branches.back()) {
-                buffer << " " << l.sign() << " " << l.variable();
+                buffer << " " << l.isNumeric() << " " << l.sign() << " " << l.variable();
+                  if(l.isNumeric())
+                      buffer << " " << l.value();
+                  else
+                      buffer << " " << l.semantic();
               }
           }
+#endif
           
         buffer << std::endl;
         right_branches.clear();
+          
+          
+          
+#ifdef VERBOSE
+          std::cout << "solution #" << solution_count << std::endl;
+          
+//          if(solution_count == 5) {
+//              exit(1);
+//          }
+#endif
+          
       }));
 
   SubscriberHandle failCLHandler(
       S.ClauseAdded.subscribe_handled([&](const auto &solver) {
         right_branches.resize(S.numDecision() + 1);
         right_branches.back().push_back(solver.lastLearnt()[0]);
+          
+#ifdef VERBOSE
+          std::cout << "\nfail\n";
+          for(size_t i{0}; i<S.numDecision(); ++i) {
+              std::cout << S.getDecisions()[i] ;
+              for(size_t j{0}; j<right_branches[i].size(); ++j) {
+                  std::cout << " " << right_branches[i][j];
+              }
+              std::cout << std::endl;
+          }
+          std::cout << "F";
+          for(size_t j{0}; j<right_branches.back().size(); ++j) {
+              std::cout << " " << right_branches.back()[j];
+          }
+          std::cout << std::endl;
+#endif
+          
       }));
 
   SubscriberHandle failNOCLHandler(
       S.DeductionMade.subscribe_handled([&](const auto &lit) {
         right_branches.resize(S.numDecision());
         right_branches.back().push_back(lit);
+          
+#ifdef VERBOSE
+          std::cout << "\nfail\n";
+          for(size_t i{0}; i<S.numDecision()-1; ++i) {
+              std::cout << S.getDecisions()[i] ;
+              for(size_t j{0}; j<right_branches[i].size(); ++j) {
+                  std::cout << " " << right_branches[i][j];
+              }
+              std::cout << std::endl;
+          }
+          std::cout << "F";
+          for(size_t j{0}; j<right_branches.back().size(); ++j) {
+              std::cout << " " << right_branches.back()[j];
+          }
+          std::cout << std::endl;
+#endif
+          
       }));
 
   SubscriberHandle restartHandler(
@@ -465,6 +761,10 @@ void crunch_numbers(Options& opt, std::string& analyse_file) {
   std::vector<var_t> dvars;
   std::vector<std::vector<bool>> rsigns;
   std::vector<std::vector<var_t>> rvars;
+    
+    std::vector<Literal<int>> decisions;
+    std::vector<std::vector<Literal<int>>> deductions;
+    
 
   std::vector<double> var_ratio;
   int num_steps{5};
@@ -490,7 +790,10 @@ void crunch_numbers(Options& opt, std::string& analyse_file) {
             }
             std::cout << "\n";
 
-  //    int branch_i{0};
+#ifdef VERBOSE
+      int branch_i{0};
+#endif
+    
   while (true) {
     if (KillHandler::instance().signalReceived()) {
         std::cout << "-- killed" << std::endl;
@@ -511,28 +814,54 @@ void crunch_numbers(Options& opt, std::string& analyse_file) {
     if (not infile.good())
       break;
 
+#ifdef OLD
     read_branch(infile, branch_length, num_wrong, dsigns, dvars, rsigns, rvars);
+      if (dec_level.size() < rsigns.size())
+        dec_level.resize(rsigns.size(), 0);
+#else
+      read_branch(infile, branch_length, num_wrong, decisions, deductions);
+      if (dec_level.size() < deductions.size())
+        dec_level.resize(deductions.size(), 0);
+#endif
+      
+    
+      
+      
+#ifdef VERBOSE
+  std::cout << "\ntest branch #" << ++branch_i << "\n";
+#endif
 
-    if (dec_level.size() < rsigns.size())
-      dec_level.resize(rsigns.size(), 0);
-
+#ifdef OLD
     irrelevant_correct = test_branches(
         opt, (prev_makespan - 1).get(), dsigns, dvars, rsigns, rvars, dec_level, num_mistakes, false);
+      //      unsigned ttotal{0};
+      for (size_t l{0}; l < rvars.size(); ++l) {
+        if (not rvars[l].empty()) {
+          for (auto x : rvars[l]) {
 
-    //      unsigned ttotal{0};
-    for (size_t l{0}; l < rvars.size(); ++l) {
-      if (not rvars[l].empty()) {
-        for (auto x : rvars[l]) {
+            //                  std::cout << "hello " << x << "/" <<
+            //                  num_mistakes.size() << "\n";
 
-          //                  std::cout << "hello " << x << "/" <<
-          //                  num_mistakes.size() << "\n";
-
-          ++num_mistakes[x];
-          ++dec_level[l];
+            ++num_mistakes[x];
+            ++dec_level[l];
+          }
+        }
+        //          ttotal += rvars[l].size();
+      }
+#else
+      irrelevant_correct = test_branches(
+          opt, (prev_makespan - 1).get(), decisions, deductions, dec_level, num_mistakes, false);
+      for (size_t l{0}; l < deductions.size(); ++l) {
+        if (not deductions[l].empty()) {
+          for (auto p : deductions[l]) {
+            ++num_mistakes[p.variable()];
+            ++dec_level[l];
+          }
         }
       }
-      //          ttotal += rvars[l].size();
-    }
+#endif
+      
+ 
       
       
       auto prev_total{static_cast<double>(total_correct + total_wrong)};

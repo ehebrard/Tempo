@@ -3623,23 +3623,6 @@ template <typename T> void Solver<T>::learnConflict(Explanation<T> &e) {
         }
     }
 #endif
-    
-//    if(static_cast<int>(decisionLevel(~(learnt_clause[0]))) != level()) {
-//        std::cout << "here " << num_fails << std::endl;
-//        exit(1);
-//    }
-    
-//    if (bt_level < init_level)
-//        throw SearchExhausted();
-
-    //    lit_buffer.clear();
-    //    for (auto l : learnt_clause) {
-    //        lit_buffer.push_back(~l);
-    //    }
-    //    for (auto i : cut.cached_) {
-    //        lit_buffer.push_back(getLiteral(i));
-    //    }
-    ClauseAdded.trigger(*this);
 
     restoreState(bt_level);
         
@@ -3674,6 +3657,8 @@ template <typename T> void Solver<T>::learnConflict(Explanation<T> &e) {
 ////        exit(1);
 //        throw f;
 //    }
+    
+    ClauseAdded.trigger(*this);
 
 }
 
