@@ -502,6 +502,8 @@ public:
     //    ClauseAdded; ///< triggered when a new clause is learned
     mutable SubscribableEvent<const Solver<T> &>
         ClauseAdded; ///< triggered when a new clause is learned
+    mutable SubscribableEvent<const Solver<T> &>
+    ConflictExtracted; ///< triggered when a new clause is learned
     mutable SubscribableEvent<Literal<T>>
     DeductionMade; ///< triggered when branching right
     mutable SubscribableEvent<Explanation<T> &>
@@ -1167,7 +1169,7 @@ template <typename T>
 void ConflictSet<T>::change(const Literal<T> l, const index_t s) {
     
     auto i{getConflictIndex(l)};
-    assert(this->operator[](i).first > s);
+//    assert(this->operator[](i).first > s);
     
     this->operator[](i) = {s, l};
     
@@ -2808,7 +2810,7 @@ void Solver<T>::shrinkClause() {
         
         for (auto p : cut) {
             auto l{p.second};
-            std::cout << std::setw(4) << decisionLevel(l) << " " << pretty(l)
+            std::cout << std::setw(4) << decisionLevel(l) << " " << pretty(l) << " // " << getLiteral(p.first)
             << std::endl;
         }
         std::cout << std::endl;
@@ -2953,6 +2955,12 @@ bool Solver<T>::shrinkSlice(Iter beg, Iter stop) {
     
     while (num_lit > 1) {
         
+//#ifdef DBG_TRACE
+//        if (DBG_BOUND and (DBG_TRACE & SHRINKING)) {
+//            std::cout << "TO EXPLORE" ;
+//        }
+//#endif
+        
         auto l{getLiteral(lit_pointer)};
         auto exp{getReason(lit_pointer)};
         
@@ -3031,7 +3039,13 @@ bool Solver<T>::shrinkSlice(Iter beg, Iter stop) {
                 
 #ifdef DBG_TRACE
                 if (DBG_BOUND and (DBG_TRACE & SHRINKING)) {
-                    std::cout << " => already in 'to-explore'\n";
+                    std::cout << " => already in 'to-explore':";
+                    for (auto ii{lit_pointer}; --ii > 0;) {
+                        if (cut.cached(ii)) {
+                            std::cout << " [" << getLiteral(ii) << "]";
+                        }
+                    }
+                    std::cout << std::endl;
                 }
 #endif
                 
@@ -3082,6 +3096,16 @@ bool Solver<T>::shrinkSlice(Iter beg, Iter stop) {
             
             cut.remove(it);
         } else {
+//            std::cout << "HERE" << std::endl;
+//            
+//            std::cout << lit_pointer << std::endl;
+//            
+//            std::cout << it->second  << " / " << getLiteral(lit_pointer) << std::endl;
+//            
+            if(it->second.isNumeric())
+                cut.change(getLiteral(lit_pointer), lit_pointer);
+            
+//            std::cout << "THERE\n";
             novel = false;
         }
     }
@@ -3598,6 +3622,9 @@ template <typename T> void Solver<T>::learnConflict(Explanation<T> &e) {
     } else {
         analyze(e, options.cut_type == Options::Cut::Booleans);
     }
+    
+    
+    ConflictExtracted.trigger(*this);
     
     assert(decisions.size() == static_cast<size_t>(level() - init_level));
     

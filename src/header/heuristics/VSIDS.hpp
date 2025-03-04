@@ -28,7 +28,7 @@ namespace tempo::heuristics {
          */
       template <concepts::scalar T>
       explicit VSIDS(Solver<T> &solver)
-          : GapOverActivity(solver, solver.ClauseAdded.subscribe_handled(
+          : GapOverActivity(solver, solver.ConflictExtracted.subscribe_handled(
                                         [this](const auto &arg) {
                                           this->updateActivity(arg);
                                         })) {}

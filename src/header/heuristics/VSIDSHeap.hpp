@@ -33,7 +33,7 @@ struct VSIDSHeap {
 
   template <concepts::scalar T>
   VSIDSHeap(Solver<T> &solver)
-      : handlerToken(solver.ClauseAdded.subscribe_handled(
+      : handlerToken(solver.ConflictExtracted.subscribe_handled(
             [this](const auto &arg) { this->updateActivity(arg); })),
     activity(solver.getBooleanActivity())
     , num_activity(solver.getNumericActivity())

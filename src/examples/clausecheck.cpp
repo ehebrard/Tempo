@@ -41,10 +41,14 @@ enum outcome { TRIVIALLY_UNSAT = 0, PROPAG_UNSAT, SEARCH_UNSAT, SAT };
 
 
 outcome check_clause(std::vector<DistanceConstraint<int>>& clause, Solver<int>& S) {
+    
+//    std::cout << std::endl;
     auto init = S.saveState();
     auto result{outcome::SAT};
     for(auto c : clause) {
         try {
+            
+//            std::cout << "post " << c << std::endl;
             S.post(c);
         } catch (Failure<int> &f) {
             result = outcome::TRIVIALLY_UNSAT;
@@ -57,6 +61,12 @@ outcome check_clause(std::vector<DistanceConstraint<int>>& clause, Solver<int>& 
             result = outcome::PROPAG_UNSAT;
         }
         if (result != outcome::PROPAG_UNSAT) {
+            
+////            std::cout << S << std::endl;
+//            S.displayDomains(std::cout);
+//            S.displayBranches(std::cout);
+////            std::cout << std::endl;
+            
             if (not S.satisfiable()) {
                 result = outcome::SEARCH_UNSAT;
             }
@@ -161,6 +171,10 @@ int main(int argc, char *argv[]) {
         
         auto nf{S.num_fails};
         
+//        if(line == 47) {
+//            S.debug_flag = 1;
+//        }
+        
         auto res = check_clause(current_clause, S);
         
         if(res == TRIVIALLY_UNSAT) {
@@ -179,12 +193,14 @@ int main(int argc, char *argv[]) {
             
             if (opt.print_sol) {
                 for (auto i : intervals) {
-                    std::cout << "x" << i.start.id() << ": "
+                    std::cout << "t" << i.start.id() << ": "
                     << S.numeric.solutionLower(i.start) << ".."
                     << S.numeric.solutionLower(i.end) << " ("
                     << S.numeric.solutionLower(i.duration) << ")\n";
                 }
             }
+            
+            exit(1);
             
             if(t == 1) {
                 std::cout << "minimized clause, check literals:\n current:";
