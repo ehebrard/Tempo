@@ -574,7 +574,7 @@ int solve(Options& gopt, std::string& record_file) {
               assert(not S.getDecisions()[i].isNumeric());
               
             buffer << " " << S.getDecisions()[i].sign() << " "
-              << S.getDecisions()[i].variable()
+              << S.getDecisions()[i].variable();
           }
             if(right_branches.size() > S.numDecision()) {
                 buffer << " " << right_branches.back().size();
@@ -1024,6 +1024,7 @@ int main(int argc, char *argv[]) {
 
     const auto instanceName = match[0].str();
     opt.instance_file = fs::path(instanceDir) / instanceName;
+    std::cout << "-- deduced instance file " << opt.instance_file << std::endl;
   }
 
 
