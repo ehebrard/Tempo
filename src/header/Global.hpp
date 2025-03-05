@@ -62,13 +62,14 @@ using hint = int;
 #define TRAIL 512
 #define MINIMIZATION 1024
 #define SHRINKING 2048
+#define LNS 4096
 
 ///////// UNCOMMENT TO DEBUG
-//#define DBG_TRACE (SEARCH + LEARNING + MINIMIZATION + SHRINKING)
-//#define DBG_BOUND (debug_flag >= 0)
-//#define DBG_CBOUND (solver.debug_flag >= 0)
-//#define DBG_CLBOUND (solver.debug_flag >= 0)
-//#define DBG_BBOUND (solver.debug_flag >= 0)
+//#define DBG_TRACE LNS //(SEARCH + LEARNING + MINIMIZATION + SHRINKING)
+//#define DBG_BOUND (num_fails >= 0)
+//#define DBG_CBOUND (solver.num_fails >= 0)
+//#define DBG_CLBOUND (solver.num_fails >= 0)
+//#define DBG_BBOUND (solver.num_fails >= 0)
 //////////////
 
 
@@ -83,7 +84,7 @@ using hint = int;
 //  #define DBG_BELLMAN_EXPL (sched.num_choicepoints >= 4172)
 //  #define DEBUG_HEURISTICS
 //  #define DBG_UP
-//#define DBG_CL 100000000
+//#define DBG_CL 895
 // #define DBG_CL 559
 // #define DBG_CLPLUS true
 //  #define DBG_TRANSITIVITY true //(m_schedule.num_choicepoints >= 4064)

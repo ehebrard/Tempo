@@ -3008,6 +3008,10 @@ bool Solver<T>::shrinkSlice(Iter beg, Iter stop) {
                         std::cout << " => entailed by cut\n";
                     }
 #endif
+                    
+                    if(p.isNumeric())
+                        std::cout << p << " => entailed by cut " << cut << "\n";
+                    
                     continue;
                 } else {
                     
@@ -3271,6 +3275,7 @@ void Solver<T>::analyze(Explanation<T> &e, const bool only_boolean) {
                             std::cout << " => entailed by cut\n";
                         }
 #endif
+                        
                         continue;
                     } else {
                         
@@ -3990,6 +3995,13 @@ void Solver<T>::largeNeighborhoodSearch(S &objective, P &&relaxationPolicy) {
     objective_var = objective.X.id();
     initializeSearch();
     
+    
+#ifdef DBG_TRACE
+    if (DBG_BOUND and (DBG_TRACE & LNS)) {
+        std::cout << "\nfind an initial solution\n";
+    }
+#endif
+    
     if (not boolean.hasSolution()) {
         auto satisfiability{search()};
         if (satisfiability == TrueState) {
@@ -4014,6 +4026,14 @@ void Solver<T>::largeNeighborhoodSearch(S &objective, P &&relaxationPolicy) {
     
     
     while (objective.gap() and not KillHandler::instance().signalReceived() and not searchCancelled) {
+        
+        
+#ifdef DBG_TRACE
+    if (DBG_BOUND and (DBG_TRACE & LNS)) {
+        std::cout << "\nrelax current solution @lvl " << level() << "\n";
+    }
+#endif
+        
         lns::AssumptionProxy surrogate = *this;
         std::forward<P>(relaxationPolicy).relax(surrogate);
         
@@ -4027,6 +4047,12 @@ void Solver<T>::largeNeighborhoodSearch(S &objective, P &&relaxationPolicy) {
             
             //            std::cout << "FIXED " << (assumption_stamp -
             //            ground_stamp) << " LITERALS\n";
+            
+#ifdef DBG_TRACE
+    if (DBG_BOUND and (DBG_TRACE & LNS)) {
+        std::cout << "\ncomplete relaxed solution @lvl " << level() << "\n";
+    }
+#endif
             
             satisfiability = search();
         }
@@ -4049,6 +4075,12 @@ void Solver<T>::largeNeighborhoodSearch(S &objective, P &&relaxationPolicy) {
                 objective.setDual(objective.primalBound());
             }
         } else {
+            
+#ifdef DBG_TRACE
+    if (DBG_BOUND and (DBG_TRACE & LNS)) {
+        std::cout << "\nfailed completion @lvl " << level() << "\n";
+    }
+#endif
             
             // no assumptions made and still failure => no improving solution exists
             if (surrogate.getState() == lns::AssumptionState::Empty and
@@ -4075,6 +4107,9 @@ void Solver<T>::makeAssumptions(const L &literals) {
     saveState();
     
     for (auto lit : literals) {
+        
+//        std::cout << "assumption " << lit << std::endl;
+        
         set(lit);
     }
     
@@ -4088,6 +4123,8 @@ void Solver<T>::makeAssumptions(const L &literals) {
 }
 
 template <typename T> void Solver<T>::makeAssumption(const Literal<T> lit) {
+    
+//    std::cout << "assumption " << lit << std::endl;
     
     initializeSearch();
     saveState();
