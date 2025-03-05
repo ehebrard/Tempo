@@ -575,6 +575,8 @@ public:
     //@{
     // get the Literal corresponding to the i-th propagation event
     Literal<T> getLiteral(const index_t i) const;
+    const std::vector<Literal<T>> getExplanation(const Literal<T> l) const;
+    const std::vector<Literal<T>> getExplanation(const Literal<T> l, const index_t i) const;
     Explanation<T> getReason(const index_t i) const;
     int getLevel(const index_t i) const;
     
@@ -2349,6 +2351,18 @@ size_t Solver<T>::numLiteral() const {
 template <typename T>
 size_t Solver<T>::numDecision() const {
     return decisions.size();
+}
+
+template <typename T>
+const std::vector<Literal<T>> Solver<T>::getExplanation(const Literal<T> l) const {
+    return getExplanation(l, propagationStamp(l));
+}
+
+template <typename T>
+const std::vector<Literal<T>> Solver<T>::getExplanation(const Literal<T> l, const index_t i) const {
+    std::vector<Literal<T>> expl;
+    getReason(i).explain(l, expl);
+    return expl;
 }
 
 template <typename T>

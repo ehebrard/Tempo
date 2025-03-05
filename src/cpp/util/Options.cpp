@@ -143,6 +143,10 @@ auto tempo::getBaseParser() -> Parser {
             "ratio of discrepancies above which default polarity is prefered to solution-guided's",
             false, 0.01, "double");
 
+    
+    cmd.add<SwitchArg>(opt.vsids_reasons, "", "vsids-reasons",
+                       "update the activity of reasons as well", false);
+    
     cmd.add<ValueArg<double>>(opt.forgetfulness, "", "forgetfulness",
                               "clause base reduction factor (0.7)", false, 0.7,
                               "double");

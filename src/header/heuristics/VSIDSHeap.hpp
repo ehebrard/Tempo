@@ -48,6 +48,7 @@ public:
         std::iota(var_heap.begin(), var_heap.end(), 0);
         index.resize(solver.boolean.size(), 0);
         trail.push_back(var_heap.size());
+        weight_reasons = solver.getOptions().vsids_reasons;
         
         //@TODO: better initialisation
         for (size_t i{0}; i < var_heap.size(); ++i) {
@@ -182,6 +183,17 @@ protected:
                 num_buffer.push_back(l.variable());
             } else {
                 bool_buffer.push_back(l.variable());
+            }
+            if (weight_reasons) {
+//                solver.getReason(~l).explain(lit_buffer);
+                for(auto p : solver.getExplanation(~l)) {
+                    if (p.isNumeric()) {
+                        num_buffer.push_back(p.variable());
+                    } else {
+                        bool_buffer.push_back(p.variable());
+                    }
+                }
+//                lit_buffer.clear();
             }
         }
         
@@ -332,6 +344,9 @@ protected:
     
     impl::ActivityMap& activity;
     impl::ActivityMap& num_activity;
+    
+    bool weight_reasons{true};
+//    std::vector<Literal<T>> lit_buffer;
 };
 }
 

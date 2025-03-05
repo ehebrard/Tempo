@@ -144,6 +144,7 @@ public:
 
     double vsids_decay{0.999};
     double vsids_epsilon{0.05};
+    bool vsids_reasons{false};
 
     double forgetfulness{0.3};
 
