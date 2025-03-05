@@ -48,7 +48,7 @@
 #include "constraints/Transitivity.hpp"
 #include "heuristics/LNS/relaxation_interface.hpp"
 #include "heuristics/heuristic_factories.hpp"
-#include "heuristics/impl/DecayingEventActivityMap.hpp"
+//#include "heuristics/impl/DecayingEventActivityMap.hpp"
 #include "heuristics/impl/ActivityMap.hpp"
 #include "util/KillHandler.hpp"
 #include "util/Options.hpp"
@@ -959,25 +959,12 @@ private:
     void setBoolean(Literal<T> l,
                     const Explanation<T> &e = Constant::NoReason<T>);
 
-#ifdef OLDVSIDS
-    heuristics::impl::EventActivityMap *activityMap{nullptr};
-#endif
     heuristics::impl::ActivityMap numericActivityMap{options.vsids_decay};
     heuristics::impl::ActivityMap booleanActivityMap{options.vsids_decay};
 //#endif
 
   public:
-#ifdef OLDVSIDS
-    void setActivityMap(heuristics::impl::EventActivityMap *map) {
-        activityMap = map;
-    }
-    //    heuristics::impl::EventActivityMap *getActivityMap() {
-    //        return activityMap;
-    //    }
-    double getLiteralActivity(const Literal<T> l) const {
-      return activityMap->get(l, *this);
-    }
-#endif
+
     heuristics::impl::ActivityMap &getNumericActivity() {
       return numericActivityMap;
     }
