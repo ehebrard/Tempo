@@ -20,19 +20,18 @@ namespace tempo::heuristics {
      * @brief The perfect value heuristic. Follows the path to a given (possibly optimal) solution.
      * @details @copybrief
      */
-    class PerfectValueHeuristic: public BaseBooleanHeuristic<PerfectValueHeuristic> {
+    template<concepts::scalar T>
+    class PerfectValueHeuristic: public BaseBooleanHeuristic<PerfectValueHeuristic<T>, T> {
         std::vector<bool> polarities;
         static constexpr auto EpsScale = 10000ul;
     public:
         /**
          * Ctor
-         * @tparam T timing type
          * @param epsilon error chance
          * @param solution solution to follow
          */
-        template<concepts::scalar T>
         PerfectValueHeuristic(double epsilon, const serialization::Solution<T> &solution)
-                : BaseBooleanHeuristic<PerfectValueHeuristic>(0), polarities(
+                : BaseBooleanHeuristic<PerfectValueHeuristic, T>(0), polarities(
                 std::ranges::max(solution.decisions | std::views::elements<0>) + 1) {
             if (epsilon < 0 or epsilon > 1) {
                 throw std::runtime_error("epsilon must be between 0 and one");

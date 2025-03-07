@@ -300,7 +300,7 @@ int main(int argc, char *argv[]) {
       using namespace tempo::heuristics;
       using T = decltype(S)::Time;
       util::ProfiledHeuristic<VariableHeuristic<T>> varBranching(profiler, make_variable_heuristic(S));
-      util::ProfiledHeuristic<ValueHeuristic> valBranching(profiler, make_value_heuristic(S));
+      util::ProfiledHeuristic<ValueHeuristic<T>> valBranching(profiler, make_value_heuristic(S));
       S.setBranchingHeuristic(make_compound_heuristic(std::move(varBranching), std::move(valBranching)));
   }
 

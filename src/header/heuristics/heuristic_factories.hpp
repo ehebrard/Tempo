@@ -11,20 +11,9 @@
 #include <string>
 #include <iostream>
 
-#include "LRB.hpp"
-#include "RandomBinaryValue.hpp"
-#include "SolutionGuided.hpp"
-#include "TightestValue.hpp"
 #include "heuristic_interface.hpp"
-
-#include "util/factory_pattern.hpp"
 #include "util/Options.hpp"
 #include "util/traits.hpp"
-
-namespace tempo {
-    template<typename T>
-    class Solver;
-}
 
 namespace tempo::heuristics {
 
@@ -33,65 +22,9 @@ namespace tempo::heuristics {
     auto getVarHName(Options::ChoicePointHeuristics heuristic) -> std::string;
     auto getValHName(Options::PolarityHeuristic heuristic) -> std::string;
 
-    template <typename... Heuristics>
-    struct VariantHeuristicWrapper : std::variant<Heuristics...> {
-      using std::variant<Heuristics...>::variant;
-      using std::variant<Heuristics...>::emplace;
-
-      template <concepts::scalar T>
-        requires(variable_heuristic<Heuristics, T> && ...)
-      DYNAMIC_DISPATCH(nextVariable, const Solver<T> &solver, &, solver, EMPTY)
-
-      template <concepts::scalar T>
-        requires(value_heuristic<Heuristics, Solver<T>> && ...)
-      DYNAMIC_DISPATCH(valueDecision,
-                       ESCAPE(VariableSelection x, const Solver<T> &solver), &,
-                       ESCAPE(x, solver), EMPTY)
-
-      template <concepts::scalar T>
-        requires(heuristic<Heuristics, T> && ...)
-      DYNAMIC_DISPATCH(branch, const Solver<T> &solver, &, solver, EMPTY)
-    };
     }
 
 
-    // --- Value Heuristics ---
-
-    // Add further heuristic types here
-
-    using TightestSolutionGuided = SolutionGuided<TightestValue>;
-    using RandomSolutionGuided = SolutionGuided<RandomBinaryValue>;
-    using ValueHeuristic = detail::VariantHeuristicWrapper<TightestValue, RandomBinaryValue, TightestSolutionGuided, RandomSolutionGuided>;
-
-    // Define heuristic factory types here
-
-    MAKE_TEMPLATE_FACTORY(TightestValue, concepts::scalar T, Solver<T> &solver) {
-            return TightestValue(solver);
-        }
-    };
-
-//MAKE_FACTORY(TightestValue, const Options &options) {
-//        return TightestValue(options.polarity_epsilon);
-//    }
-//};
-
-    MAKE_DEFAULT_TEMPLATE_FACTORY(RandomBinaryValue, concepts::scalar T, Solver<T> &)
-
-MAKE_TEMPLATE_FACTORY(TightestSolutionGuided, concepts::scalar T, Solver<T> &solver) {
-            return TightestSolutionGuided(solver);
-        }
-    };
-
-MAKE_TEMPLATE_FACTORY(RandomSolutionGuided, concepts::scalar T, Solver<T> &solver) {
-            return RandomSolutionGuided(solver);
-        }
-    };
-
-    
-    MAKE_FACTORY_PATTERN(ValueHeuristic, TightestValue, RandomBinaryValue, TightestSolutionGuided, RandomSolutionGuided)
-
-
-    // --- Use these factory methods ---
 
     /**
      * Infers variable selection heuristic from solver options
@@ -126,14 +59,14 @@ MAKE_TEMPLATE_FACTORY(RandomSolutionGuided, concepts::scalar T, Solver<T> &solve
      * @return value selection heuristic inferred from solver options
      */
     template<concepts::scalar T>
-    auto make_value_heuristic(Solver<T> &solver) {
+    auto make_value_heuristic(Solver<T> &solver) -> ValueHeuristic<T> {
         const auto &options = solver.getOptions();
         const auto name = detail::getValHName(options.polarity_heuristic);
         if (options.verbosity >= Options::QUIET) {
             std::cout << "-- using value selection strategy '" << name << "'" << std::endl;
         }
 
-        return ValueHeuristicFactory::getInstance().create(name, solver);
+        return ValueHeuristicFactory::get().build(solver, options.polarity_heuristic);
     }
 
     /**

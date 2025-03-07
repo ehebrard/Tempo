@@ -8,10 +8,7 @@
 #define TEMPO_TIGHTESTVALUE_HPP
 
 #include "BaseBooleanHeuristic.hpp"
-#include "Constant.hpp"
-#include "DistanceConstraint.hpp"
 #include "Global.hpp"
-#include "Literal.hpp"
 #include "util/traits.hpp"
 #include "util/edge_distance.hpp"
 
@@ -26,18 +23,18 @@ namespace detail {
  * @details @copybrief
  * Chooses the polarity that would leave the most slack in the timing network
  */
-class TightestValue : public BaseBooleanHeuristic<TightestValue> {
+template<concepts::scalar T>
+class TightestValue : public BaseBooleanHeuristic<TightestValue<T>, T> {
 public:
   /**
    * Ctor
    * @param epsilon see tempo::heuristics::BaseValueHeuristic
    */
   explicit TightestValue(double epsilon)
-      : BaseBooleanHeuristic<TightestValue>(epsilon) {}
+      : BaseBooleanHeuristic<TightestValue, T>(epsilon) {}
     
-    template <concepts::scalar T>
-    explicit TightestValue(Solver<T> &solver)
-        : BaseBooleanHeuristic<TightestValue>(solver.getOptions().polarity_epsilon) {}
+    explicit TightestValue(const Solver<T> &solver)
+        : BaseBooleanHeuristic<TightestValue, T>(solver.getOptions().polarity_epsilon) {}
 
   /**
    * heuristic interface
@@ -74,6 +71,15 @@ public:
       }
   }
 };
+
+    struct TightestValueFactory : MakeValueHeuristicFactory<TightestValueFactory> {
+        TightestValueFactory();
+
+        template<concepts::scalar T>
+        [[nodiscard]] auto build_impl(const Solver<T> &solver) const -> ValueHeuristic<T> {
+            return std::make_unique<TightestValue<T>>(solver);
+        }
+    };
 }
 
 #endif // TEMPO_TIGHTESTVALUE_HPP

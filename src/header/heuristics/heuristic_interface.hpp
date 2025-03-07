@@ -149,6 +149,41 @@ namespace tempo::heuristics {
         RefTag<Solver>>;
 
 
+    /**
+     * @brief abstract value selection heuristic
+     * @details @copybrief
+     * @tparam T timing type
+     * @note You don't have to use this base class when implementing new value selection heuristics. They only have
+     * to model the concepts further above. Use this base class when you want to create your heuristic using a factory
+     */
+    template<concepts::scalar T>
+    class BaseValueHeuristic {
+    public:
+        BaseValueHeuristic() = default;
+        BaseValueHeuristic(const BaseValueHeuristic &) = default;
+        BaseValueHeuristic(BaseValueHeuristic &&) = default;
+        BaseValueHeuristic &operator=(const BaseValueHeuristic &) = default;
+        BaseValueHeuristic &operator=(BaseValueHeuristic &&) = default;
+        virtual ~BaseValueHeuristic() = default;
+
+        /**
+         * value selection interface
+         * @param x selected variable
+         * @param solver solver for which to select the variable value
+         * @return branching literal
+         */
+        virtual auto valueDecision(const VariableSelection &x, const Solver<T> &solver) -> Literal<T> = 0;
+    };
+
+    template<concepts::scalar T>
+    using ValueHeuristic = MovableHeuristic<BaseValueHeuristic<T>>;
+
+    template<typename Impl>
+    using MakeValueHeuristicFactory = MakeFactory<Impl, ValueHeuristic, ScalarTypes, RefTag<Solver>>;
+
+    using ValueHeuristicFactory = PolyFactory<ValueHeuristic, ScalarTypes, Options::PolarityHeuristic, RefTag<Solver>>;
+
+
     namespace detail {
         template<concepts::scalar T>
         struct PolyHeuristicCallableBase {
