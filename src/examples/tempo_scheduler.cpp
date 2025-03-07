@@ -254,8 +254,9 @@ int main(int argc, char *argv[]) {
   util::Profiler profiler;
   if (profileHeuristic) {
       using namespace tempo::heuristics;
-      util::ProfiledHeuristic<VariableHeuristic> varBranching(profiler, make_variable_heuristic(S));
-      util::ProfiledHeuristic<ValueHeuristic> valBranching(profiler, make_value_heuristic(S));
+      using T = decltype(S)::Time;
+      util::ProfiledHeuristic<VariableHeuristic<T>> varBranching(profiler, make_variable_heuristic(S));
+      util::ProfiledHeuristic<ValueHeuristic<T>> valBranching(profiler, make_value_heuristic(S));
       S.setBranchingHeuristic(make_compound_heuristic(std::move(varBranching), std::move(valBranching)));
   }
 
