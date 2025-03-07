@@ -138,13 +138,29 @@ namespace tempo::heuristics {
         virtual auto nextVariable(const Solver<T> &solver) -> VariableSelection = 0;
     };
 
+    /**
+     * @brief Polymorphic variable selection heuristic type returned from factories
+     * @tparam T timing type
+     */
     template<concepts::scalar T>
     using VariableHeuristic = MovableHeuristic<BaseVariableHeuristic<T>>;
 
+    /**
+     * @brief These are all the scalar types supported by the heuristic factories.
+     * If you need more, just extend the list.
+     */
     using ScalarTypes = types_t<int, unsigned, long, unsigned long, float, double>;
+
+    /**
+     * @brief Helper CRTP type for creating variable selection heuristic factories (have your factory derive from this)
+     * @tparam Impl Class implementing the CRTP
+     */
     template<typename Impl>
     using MakeVariableHeuristicFactory = MakeFactory<Impl, VariableHeuristic, ScalarTypes, RefTag<Solver>>;
 
+    /**
+     * @brief Singleton variable selection heuristic factory type. Use this type to register your factories
+     */
     using VariableHeuristicFactory = PolyFactory<VariableHeuristic, ScalarTypes, Options::ChoicePointHeuristics,
         RefTag<Solver>>;
 
@@ -175,12 +191,23 @@ namespace tempo::heuristics {
         virtual auto valueDecision(const VariableSelection &x, const Solver<T> &solver) -> Literal<T> = 0;
     };
 
+    /**
+     * @brief Polymorphic value selection heuristic type returned from factories
+     * @tparam T timing type
+     */
     template<concepts::scalar T>
     using ValueHeuristic = MovableHeuristic<BaseValueHeuristic<T>>;
 
+    /**
+     * @brief Helper CRTP type for creating value selection heuristic factories (have your factory derive from this)
+     * @tparam Impl Class implementing the CRTP
+     */
     template<typename Impl>
     using MakeValueHeuristicFactory = MakeFactory<Impl, ValueHeuristic, ScalarTypes, RefTag<Solver>>;
 
+    /**
+     * @brief Singleton value selection heuristic factory type. Use this type to register your factories
+     */
     using ValueHeuristicFactory = PolyFactory<ValueHeuristic, ScalarTypes, Options::PolarityHeuristic, RefTag<Solver>>;
 
 
@@ -255,8 +282,8 @@ namespace tempo::heuristics {
     /**
      * @brief General branching heuristic wrapper that holds a separate variable and value selection heuristic
      * @details @copybrief
-     * @tparam VarH type of variable selection heuristic
-     * @tparam ValH type of value selection heuristic
+     * @tparam VariableHeuristic type of variable selection heuristic
+     * @tparam ValueHeuristic type of value selection heuristic
      */
     template<typename VariableHeuristic, typename ValueHeuristic>
     class CompoundHeuristic {
