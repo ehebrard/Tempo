@@ -7,8 +7,6 @@
 #ifndef TEMPO_HEURISTIC_FACTORIES_HPP
 #define TEMPO_HEURISTIC_FACTORIES_HPP
 
-#include <nlohmann/json.hpp>
-#include <string>
 #include <iostream>
 
 #include "heuristic_interface.hpp"
@@ -16,15 +14,6 @@
 #include "util/traits.hpp"
 
 namespace tempo::heuristics {
-
-    namespace detail {
-
-    auto getVarHName(Options::ChoicePointHeuristics heuristic) -> std::string;
-    auto getValHName(Options::PolarityHeuristic heuristic) -> std::string;
-
-    }
-
-
 
     /**
      * Infers variable selection heuristic from solver options
@@ -39,14 +28,13 @@ namespace tempo::heuristics {
         if ((hType == Options::ChoicePointHeuristics::VSIDS or
              hType == Options::ChoicePointHeuristics::VSIDSHeap) and not options.learning) {
             if (options.verbosity >= Options::QUIET) {
-                std::cout << "-- no learning, cannot use " << detail::getVarHName(hType) << std::endl;
+                std::cout << "-- no learning, cannot use " << hType << std::endl;
             }
 
             hType = Options::ChoicePointHeuristics::WeightedDegree;
         }
         if (options.verbosity >= Options::QUIET) {
-            const auto name = detail::getVarHName(hType);
-            std::cout << "-- using variable selection strategy '" << name << "'" << std::endl;
+            std::cout << "-- using variable selection strategy '" << hType << "'" << std::endl;
         }
 
         return VariableHeuristicFactory::get().build(solver, hType);
@@ -61,9 +49,8 @@ namespace tempo::heuristics {
     template<concepts::scalar T>
     auto make_value_heuristic(Solver<T> &solver) -> ValueHeuristic<T> {
         const auto &options = solver.getOptions();
-        const auto name = detail::getValHName(options.polarity_heuristic);
         if (options.verbosity >= Options::QUIET) {
-            std::cout << "-- using value selection strategy '" << name << "'" << std::endl;
+            std::cout << "-- using value selection strategy '" << options.polarity_heuristic << "'" << std::endl;
         }
 
         return ValueHeuristicFactory::get().build(solver, options.polarity_heuristic);

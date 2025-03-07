@@ -26,6 +26,8 @@
 #include <limits>
 #include <memory>
 
+#include "enum.hpp"
+
 
 struct argbase {
     virtual ~argbase() {}
@@ -80,6 +82,11 @@ struct cmdline {
 
 
 namespace tempo {
+    namespace detail {
+        PENUM(CPH, Tightest, WeightedDegree, VSIDS, Random, LRB, VSIDSHeap)
+
+        PENUM(PH, Tightest, TSG, Random, RSG)
+    }
 
 class Options {
 
@@ -124,17 +131,10 @@ public:
     bool primal_boost{true};
     bool ground_update{false};
 
-    enum class ChoicePointHeuristics {
-      Tightest = 0,
-      WeightedDegree,
-      VSIDS,
-      Random,
-      LRB,
-      VSIDSHeap
-    };
+    using ChoicePointHeuristics = detail::CPH;
     ChoicePointHeuristics choice_point_heuristics{ChoicePointHeuristics::VSIDS};
 
-    enum class PolarityHeuristic { Tightest, TSG, Random, RSG };
+    using PolarityHeuristic = detail::PH;
 
     double polarity_epsilon{0};
 
