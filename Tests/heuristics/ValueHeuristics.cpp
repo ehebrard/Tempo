@@ -11,22 +11,21 @@
 #include "heuristics/TightestValue.hpp"
 #include "heuristics/PerfectValueOracle.hpp"
 #include "util/serialization.hpp"
-#include "util/traits.hpp"
 #include "Solver.hpp"
 #include "testing.hpp"
 
-struct TestValueHeuristic
-        : public tempo::heuristics::BaseBooleanHeuristic<TestValueHeuristic> {
+struct TestValueHeuristic : tempo::heuristics::BaseBooleanHeuristic<TestValueHeuristic, int> {
     bool called = false;
 
-    explicit TestValueHeuristic(double epsilon)
-            : tempo::heuristics::BaseBooleanHeuristic<TestValueHeuristic>(epsilon) {}
+    explicit TestValueHeuristic(double epsilon): BaseBooleanHeuristic(epsilon) {}
 
     template<typename Sched>
     auto choose(tempo::var_t, const Sched &) {
         called = true;
         return tempo::makeBooleanLiteral<int>(true, 0, 0);
     }
+
+    using BaseBooleanHeuristic::valueDecisionImpl;
 };
 
 struct TestBaseHeuristic {
@@ -49,10 +48,10 @@ TEST(value_heuristics, base_value_heuristic) {
     TestValueHeuristic h(0);
     auto lit = makeBooleanLiteral<int>(true, 0, 0);
     LitProvider provider(lit);
-    EXPECT_EQ(h.valueDecision({0, Boolean}, provider), lit);
+    EXPECT_EQ(h.valueDecisionImpl({0, Boolean}, provider), lit);
     EXPECT_TRUE(h.called);
     h = TestValueHeuristic(1);
-    h.valueDecision({0, Boolean}, provider);
+    h.valueDecisionImpl({0, Boolean}, provider);
     EXPECT_FALSE(h.called);
     EXPECT_THROW(TestValueHeuristic(2), std::runtime_error);
 }
@@ -61,12 +60,12 @@ TEST(value_heuristics, TightestValue) {
     using namespace tempo;
     using namespace tempo::heuristics;
     using tempo::testing::heuristics::LitProvider;
-    EXPECT_TRUE((value_heuristic<TightestValue, Solver<int>>));
+    EXPECT_TRUE((value_heuristic<TightestValue<int>, Solver<int>>));
     auto lit = makeBooleanLiteral<int>(true, 0, 1);
     LitProvider provider(lit, {7, 5}, {3, 4});
-    EXPECT_EQ(TightestValue::choose(0, provider), lit);
+    EXPECT_EQ(TightestValue<int>::choose(0, provider), lit);
     provider = LitProvider(lit, {7, 8}, {3, 4});
-    EXPECT_EQ(TightestValue::choose(0, provider), ~lit);
+    EXPECT_EQ(TightestValue<int>::choose(0, provider), ~lit);
 }
 
 //TODO fix test

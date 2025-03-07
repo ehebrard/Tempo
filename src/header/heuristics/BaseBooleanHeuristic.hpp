@@ -52,7 +52,20 @@ template <typename Impl, concepts::scalar T>
 class BaseBooleanHeuristic : public crtp<Impl, BaseBooleanHeuristic, T>, public BaseValueHeuristic<T> {
     static constexpr auto EpsScale = 10000ul;
     unsigned long epsilon;
+protected:
 
+    template<boolean_info_provider S>
+    auto valueDecisionImpl(const VariableSelection &selection, const S &solver) {
+        assert(selection.second == VariableType::Boolean);
+        auto rval = tempo::random();
+        if ((rval % EpsScale) < epsilon) {
+            auto lit = solver.boolean.getLiteral((rval % 2) == 0, selection.first);
+            assert(lit.isBoolean());
+            return lit;
+        }
+
+        return this->getImpl().choose(selection.first, solver);
+    }
 public:
     /**
      * Ctor
@@ -74,15 +87,7 @@ public:
      * @return
      */
     auto valueDecision(const VariableSelection &selection, const Solver<T> &solver) -> Literal<T> override {
-      assert(selection.second == VariableType::Boolean);
-      auto rval = tempo::random();
-      if ((rval % EpsScale) < epsilon) {
-        auto lit = solver.boolean.getLiteral((rval % 2) == 0, selection.first);
-        assert(lit.isBoolean());
-        return lit;
-      }
-
-      return this->getImpl().choose(selection.first, solver);
+        return valueDecisionImpl(selection, solver);
     }
 };
 } // namespace tempo::heuristics
