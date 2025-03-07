@@ -80,7 +80,7 @@ TEST(util, SchedulingProblemHelper_basic) {
     EXPECT_FALSE(schedulingProb.hasVariable(120));
 
     EXPECT_EQ(schedulingProb.getTask(tasks.back().end.id()), tasks.back());
-    EXPECT_EQ(schedulingProb.getTask(tasks.front().id()), tasks.front());
+    EXPECT_EQ(schedulingProb.getTask(tasks.front().start.id()), tasks.front());
 }
 
 TEST(util, SchedulingProblemView_task_distances) {

@@ -47,11 +47,20 @@ TEST(relaxation_policies, TaskVarMap_mapping) {
     using B = BooleanVar<int>;
     using namespace std::views;
     auto [map, tasks] = makeTestTaskMap();
-    EXPECT_TRUE(tempo::testing::equalRanges(map(tasks[0]) | elements<1>, std::vector{B(4)}));
-    EXPECT_TRUE(tempo::testing::equalRanges(map(tasks[1]) | elements<1>, (std::vector{B(4), B(9), B(18)})));
-    EXPECT_TRUE(tempo::testing::equalRanges(map(tasks[2]) | elements<1>, (std::vector{B(8), B(17)})));
-    EXPECT_TRUE(tempo::testing::equalRanges(map(tasks[3]) | elements<1>, std::vector{B(9)}));
-    EXPECT_TRUE(tempo::testing::equalRanges(map(tasks[4]) | elements<1>, (std::vector{B(16), B(21)})));
+    auto id = [](const auto &v) { return v.id(); };
+    EXPECT_TRUE(
+        tempo::testing::equalRanges(map(tasks[0]) | elements<1> | transform(id), std::vector{B(4)} | transform(id)));
+    EXPECT_TRUE(
+        tempo::testing::equalRanges(map(tasks[1]) | elements<1> | transform(id), (std::vector{B(4), B(9), B(18)} |
+            transform(id))));
+    EXPECT_TRUE(
+        tempo::testing::equalRanges(map(tasks[2]) | elements<1> | transform(id), (std::vector{B(8), B(17)} | transform(
+            id))));
+    EXPECT_TRUE(
+        tempo::testing::equalRanges(map(tasks[3]) | elements<1> | transform(id), std::vector{B(9)} | transform(id)));
+    EXPECT_TRUE(
+        tempo::testing::equalRanges(map(tasks[4]) | elements<1> | transform(id), (std::vector{B(16), B(21)} | transform(
+            id))));
 }
 
 TEST(relaxation_policies, TaskVarMap_getTaskLiterals) {
