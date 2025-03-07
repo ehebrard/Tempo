@@ -31,7 +31,7 @@ TEST(variable_heuristics, tightest) {
     using namespace tempo;
     using namespace heuristics;
     using tempo::testing::heuristics::LitProvider;
-    Tightest tightest;
+    Tightest<int> tightest;
     LitProvider provider(makeBooleanLiteral<int>(true, 0, 2), {10, 8, 11, 6}, {5, 8, 9, 2});
     EXPECT_EQ(tightest.getCost(0, provider), 6);
     provider.boolean.lit = makeBooleanLiteral<int>(true, 3, 2);
@@ -44,7 +44,7 @@ TEST(variable_heuristics, tightest_ranking) {
     using namespace tempo;
     using namespace heuristics;
     using tempo::testing::heuristics::LitProvider;
-    Tightest tightest;
+    Tightest<int> tightest;
     std::vector<var_t> variables{0, 1, 2, 3, 4};
     LitProvider provider(makeBooleanLiteral<int>(true, 0, 2), {10, 5, 7, 6, 6}, {5, 5, 4, 3, 1});
     EXPECT_EQ(tightest.bestVariable(variables, provider), 1);
