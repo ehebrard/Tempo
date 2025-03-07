@@ -7,8 +7,10 @@
 
 #include <vector>
 
+#include "heuristic_interface.hpp"
 #include "Literal.hpp"
 #include "GapOverActivity.hpp"
+#include "Solver.hpp"
 
 namespace tempo::heuristics {
     /**
@@ -21,7 +23,8 @@ namespace tempo::heuristics {
      * how often it is involved in a conflict and not how often it is contained in a
      * learned clause
      */
-    class WeightedDegree : public GapOverActivity {
+    template<concepts::scalar T>
+    class WeightedDegree : public GapOverActivity<T> {
     public:
 
         /**
@@ -29,9 +32,8 @@ namespace tempo::heuristics {
          * @tparam T timing type
          * @param solver target solver
          */
-      template <concepts::scalar T>
       explicit WeightedDegree(Solver<T> &solver)
-          : GapOverActivity(
+          : GapOverActivity<T>(
                 solver,
                 solver.ConflictEncountered.subscribe_handled(
                     [this
@@ -68,6 +70,16 @@ namespace tempo::heuristics {
 #endif
                     })) {
       }
+    };
+
+
+    struct WeightedDegreeFactory : MakeVariableHeuristicFactory<WeightedDegreeFactory> {
+        WeightedDegreeFactory();
+
+        template<concepts::scalar T>
+        auto build_impl(Solver<T>& solver) const -> VariableHeuristic<T> {
+            return std::make_unique<WeightedDegree<T>>(solver);
+        }
     };
 }
 

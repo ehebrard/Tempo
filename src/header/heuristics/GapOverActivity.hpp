@@ -20,6 +20,7 @@
 #endif
 #include "util/SubscribableEvent.hpp"
 #include "util/edge_distance.hpp"
+#include "Solver.hpp"
 
 namespace tempo {
     template<typename T>
@@ -34,7 +35,8 @@ namespace tempo::heuristics {
      * @details @copybrief
      * This is the base class for heuristics like VSIDS and WeightedDegree
      */
-    class GapOverActivity : public RankingHeuristic<GapOverActivity> {
+    template<concepts::scalar T>
+    class GapOverActivity : public RankingHeuristic<GapOverActivity<T>>, public BaseVariableHeuristic<T> {
     public:
 
         /**
@@ -42,7 +44,6 @@ namespace tempo::heuristics {
          * @param solver target solver
          * @param handle subscriber handle of event handler that updates activity map
          */
-      template <concepts::scalar T>
       explicit GapOverActivity(Solver<T> &solver, SubscriberHandle handle)
           :
 #ifdef OLDVSIDS
@@ -52,14 +53,13 @@ namespace tempo::heuristics {
             numeric_activity(solver.getNumericActivity()),
 #endif
             handlerToken(std::move(handle)) {
-
 #ifndef OLDVSIDS
-        boolean_activity.resize(solver.boolean.size(),
-                                impl::ActivityMap::baseIncrement);
-        numeric_activity.resize(solver.numeric.size(),
-                                impl::ActivityMap::baseIncrement);
+          boolean_activity.resize(solver.boolean.size(),
+                                  impl::ActivityMap::baseIncrement);
+          numeric_activity.resize(solver.numeric.size(),
+                                  impl::ActivityMap::baseIncrement);
 #endif
-      }
+        }
 
       // Copy and move are disabled. Otherwise, a call to the subscribed event
       // handler will cause undefined behavior
@@ -67,9 +67,8 @@ namespace tempo::heuristics {
       GapOverActivity(GapOverActivity &&) = delete;
       GapOverActivity &operator=(const GapOverActivity &) = delete;
       GapOverActivity &operator=(GapOverActivity &&) = delete;
-      ~GapOverActivity() = default;
+      ~GapOverActivity() override = default;
 
-      template <concepts::scalar T>
       [[nodiscard]] double getCost(const var_t x, const Solver<T> &solver) {
 
 #ifdef OLDVSIDS
@@ -101,7 +100,6 @@ namespace tempo::heuristics {
       }
 
 #ifndef OLDVSIDS
-      template <concepts::scalar T>
       constexpr double getActivity(const var_t x,
                                    const Solver<T> &solver) const noexcept {
 
@@ -130,7 +128,6 @@ namespace tempo::heuristics {
        * @param solver solver that provides distance information
        * @return variable according to criteria described above
        */
-      template <concepts::scalar T>
       [[nodiscard]] var_t chooseBest(var_t x, var_t y,
                                      const Solver<T> &solver) {
         return getCost(x, solver) <= getCost(y, solver) ? x : y;
@@ -141,8 +138,7 @@ namespace tempo::heuristics {
        * @param solver
        * @todo currently only selects boolean variables
        */
-      template <concepts::scalar T>
-      auto nextVariable(const Solver<T> &solver) -> VariableSelection {
+      auto nextVariable(const Solver<T> &solver) -> VariableSelection override {
         return {this->bestVariable(solver.getBranch(), solver),
                 VariableType::Boolean};
       }

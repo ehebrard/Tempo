@@ -9,11 +9,12 @@
 
 #include <concepts>
 #include <memory>
-#include <variant>
-#include <functional>
+
 
 #include "Literal.hpp"
 #include "util/traits.hpp"
+#include "util/PolyFactory.hpp"
+#include "util/Options.hpp"
 
 namespace tempo {
     template<typename T>
@@ -29,7 +30,7 @@ namespace tempo::heuristics {
     using VariableSelection = std::pair<var_t, VariableType>;
 
     /**
-     * Interface for branching heuristics (combined variable and value selection)
+     * Interface concept for branching heuristics (combined variable and value selection)
      * @tparam H heuristic type
      * @tparam T timing type
      */
@@ -39,7 +40,7 @@ namespace tempo::heuristics {
     };
 
     /**
-     * Interface for variable selection heuristics
+     * Interface concept for variable selection heuristics
      * @tparam H heuristic type
      * @tparam T timing type
      */
@@ -49,7 +50,7 @@ namespace tempo::heuristics {
     };
 
     /**
-     * Interface for value selection heuristics
+     * Interface concept for value selection heuristics
      * @tparam H heuristic type
      * @tparam Solver information provider (usually the scheduler)
      */
@@ -65,6 +66,7 @@ namespace tempo::heuristics {
     template<typename H>
     class MovableHeuristic : public std::unique_ptr<H> {
     public:
+        using std::unique_ptr<H>::unique_ptr;
         /**
          * Ctor. Constructs the heuristic in place
          * @tparam Args argument types
@@ -109,6 +111,43 @@ namespace tempo::heuristics {
             return this->get()->branch(solver);
         }
     };
+
+
+    /**
+     * @brief Abstract variable selection heuristic
+     * @details @copybrief
+     * @tparam T timing type
+     * @note You don't have to use this base class when implementing new variable selection heuristics. They only have
+     * to model the concepts further above. Use this base class when you want to create your heuristic using a factory
+     */
+    template<concepts::scalar T>
+    class BaseVariableHeuristic {
+    public:
+        BaseVariableHeuristic() = default;
+        BaseVariableHeuristic(const BaseVariableHeuristic &) = default;
+        BaseVariableHeuristic(BaseVariableHeuristic &&) = default;
+        BaseVariableHeuristic &operator=(const BaseVariableHeuristic &) = default;
+        BaseVariableHeuristic &operator=(BaseVariableHeuristic &&) = default;
+        virtual ~BaseVariableHeuristic() = default;
+
+        /**
+         * variable selection interface
+         * @param solver solver for which to select a new variable
+         * @return variable selection
+         */
+        virtual auto nextVariable(const Solver<T> &solver) -> VariableSelection = 0;
+    };
+
+    template<concepts::scalar T>
+    using VariableHeuristic = MovableHeuristic<BaseVariableHeuristic<T>>;
+
+    using ScalarTypes = types_t<int, unsigned, long, unsigned long, float, double>;
+    template<typename Impl>
+    using MakeVariableHeuristicFactory = MakeFactory<Impl, VariableHeuristic, ScalarTypes, RefTag<Solver>>;
+
+    using VariableHeuristicFactory = PolyFactory<VariableHeuristic, ScalarTypes, Options::ChoicePointHeuristics,
+        RefTag<Solver>>;
+
 
     namespace detail {
         template<concepts::scalar T>

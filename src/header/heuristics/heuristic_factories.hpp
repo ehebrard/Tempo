@@ -13,13 +13,8 @@
 
 #include "LRB.hpp"
 #include "RandomBinaryValue.hpp"
-#include "RandomVariableSelection.hpp"
 #include "SolutionGuided.hpp"
-#include "Tightest.hpp"
 #include "TightestValue.hpp"
-#include "VSIDS.hpp"
-#include "VSIDSHeap.hpp"
-#include "WeightedDegree.hpp"
 #include "heuristic_interface.hpp"
 
 #include "util/factory_pattern.hpp"
@@ -33,12 +28,7 @@ namespace tempo {
 
 namespace tempo::heuristics {
 
-    // --- Variable Heuristics ---
-
     namespace detail {
-    using VSIDSHeap_M = MovableHeuristic<VSIDSHeap>;
-    using VSIDS_M = MovableHeuristic<VSIDS>;
-    using WeightedDegree_M = MovableHeuristic<WeightedDegree>;
 
     auto getVarHName(Options::ChoicePointHeuristics heuristic) -> std::string;
     auto getValHName(Options::PolarityHeuristic heuristic) -> std::string;
@@ -64,50 +54,6 @@ namespace tempo::heuristics {
     };
     }
 
-    using VariableHeuristic = detail::VariantHeuristicWrapper<
-        Tightest, detail::VSIDS_M, detail::WeightedDegree_M,
-        RandomVariableSelection, detail::VSIDSHeap_M>;
-
-    // Define heuristic factory types here
-
-    MAKE_TEMPLATE_FACTORY(Tightest, concepts::scalar T, const Solver<T> &) {
-            return Tightest{};
-        }
-    };
-
-    MAKE_TEMPLATE_FACTORY(LRB, concepts::scalar T, const Solver<T> &) {
-      return LRB{};
-    }
-    }
-    ;
-
-    MAKE_TEMPLATE_P_FACTORY(VSIDS, VariableHeuristic, concepts::scalar T, Solver<T> &solver) {
-            if(solver.getOptions().learning) {
-                return detail::VSIDS_M(solver);
-            } else {
-                return detail::WeightedDegree_M(solver);
-            }
-        }
-    };
-
-    MAKE_TEMPLATE_FACTORY(WeightedDegree, concepts::scalar T, Solver<T> &solver) {
-            return detail::WeightedDegree_M(solver);
-        }
-    };
-
-    MAKE_TEMPLATE_FACTORY(RandomVariableSelection, concepts::scalar T, Solver<T> &) {
-            return RandomVariableSelection{};
-        }
-    };
-
-    MAKE_TEMPLATE_FACTORY(VSIDSHeap, concepts::scalar T, Solver<T> &solver) {
-      return detail::VSIDSHeap_M(solver);
-    }
-    }
-    ;
-
-    MAKE_FACTORY_PATTERN(VariableHeuristic, Tightest, VSIDS, WeightedDegree,
-                         RandomVariableSelection, VSIDSHeap)
 
     // --- Value Heuristics ---
 
@@ -154,14 +100,23 @@ MAKE_TEMPLATE_FACTORY(RandomSolutionGuided, concepts::scalar T, Solver<T> &solve
      * @return variable selection heuristic inferred from solver options
      */
     template<concepts::scalar T>
-    auto make_variable_heuristic(Solver<T> &solver) {
+    auto make_variable_heuristic(Solver<T> &solver) -> VariableHeuristic<T> {
         const auto &options = solver.getOptions();
-        const auto name = detail::getVarHName(options.choice_point_heuristics);
+        auto hType = options.choice_point_heuristics;
+        if ((hType == Options::ChoicePointHeuristics::VSIDS or
+             hType == Options::ChoicePointHeuristics::VSIDSHeap) and not options.learning) {
+            if (options.verbosity >= Options::QUIET) {
+                std::cout << "-- no learning, cannot use " << detail::getVarHName(hType) << std::endl;
+            }
+
+            hType = Options::ChoicePointHeuristics::WeightedDegree;
+        }
         if (options.verbosity >= Options::QUIET) {
+            const auto name = detail::getVarHName(hType);
             std::cout << "-- using variable selection strategy '" << name << "'" << std::endl;
         }
 
-        return VariableHeuristicFactory::getInstance().create(name, solver);
+        return VariableHeuristicFactory::get().build(solver, hType);
     }
 
     /**

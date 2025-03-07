@@ -12,6 +12,7 @@
 #include "ReversibleObject.hpp"
 #include "BaseBooleanHeuristic.hpp"
 #include "heuristics/heuristic_interface.hpp"
+#include "ReversibleObject.hpp"
 
 namespace tempo::heuristics {
 
