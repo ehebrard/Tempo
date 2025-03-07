@@ -63,16 +63,16 @@ namespace tempo::heuristics {
      * @tparam H type of heuristic
      */
     template<typename H>
-    class MovableHeuristic {
-        std::unique_ptr<H> heuristic;
+    class MovableHeuristic : public std::unique_ptr<H> {
     public:
         /**
          * Ctor. Constructs the heuristic in place
          * @tparam Args argument types
          * @param args arguments to the Ctor of H
          */
-        template<typename ...Args>
-        explicit MovableHeuristic(Args &&...args) : heuristic(std::make_unique<H>(std::forward<Args>(args)...)) {}
+        template<typename... Args>
+        explicit MovableHeuristic(Args &&... args) : std::unique_ptr<H>(
+            std::make_unique<H>(std::forward<Args>(args)...)) {}
 
 
         /**
@@ -83,7 +83,7 @@ namespace tempo::heuristics {
          */
         template<concepts::scalar T> requires(variable_heuristic<H, T>)
         auto nextVariable(const Solver<T> &solver) const -> VariableSelection {
-            return heuristic->nextVariable(solver);
+            return this->get()->nextVariable(solver);
         }
 
         /**
@@ -95,7 +95,7 @@ namespace tempo::heuristics {
          */
         template<concepts::scalar T> requires(value_heuristic<H, Solver<T>>)
         auto valueDecision(VariableSelection x, const Solver<T> &solver) const -> Literal<T> {
-            return heuristic->valueDecision(x, solver);
+            return this->get()->valueDecision(x, solver);
         }
 
         /**
@@ -106,11 +106,7 @@ namespace tempo::heuristics {
          */
         template<concepts::scalar T> requires(tempo::heuristics::heuristic<H, T>)
         auto branch(const Solver<T> &solver) const -> Literal<T> {
-            return heuristic->branch(solver);
-        }
-
-        auto operator->() const noexcept {
-            return heuristic.operator->();
+            return this->get()->branch(solver);
         }
     };
 
