@@ -55,6 +55,8 @@ namespace tempo {
             using factory_interface<PolyType, SupportedTypes, Tag, CtorArgs...>::tagged_build...;
         };
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Woverloaded-virtual"
         template<typename CRTP_Base, typename PolyFactoryInterface, template<typename...> typename PolyType, typename T,
             typename Tag, typename... CtorArgs>
         struct factory_impl : PolyFactoryInterface {
@@ -65,6 +67,7 @@ namespace tempo {
 
             using PolyFactoryInterface::build;
         };
+#pragma GCC diagnostic pop
 
         template<template<typename...> typename PolyType, typename SupportedTypes,
             typename Tag, typename... CtorArgs>

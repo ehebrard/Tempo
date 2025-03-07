@@ -145,7 +145,7 @@ namespace tempo::heuristics {
             return {x, VariableType::Boolean};
         }
 
-        void undo() {
+        void undo() override {
             //        std::cout << "(r) backtrack\n";
 
 
