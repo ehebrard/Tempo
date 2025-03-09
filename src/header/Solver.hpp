@@ -1161,6 +1161,25 @@ struct ConflictSet : public std::vector<std::pair<index_t, Literal<T>>> {
         }
     }
     
+    bool shrink_entailed(const Literal<T> p, const index_t rank_lb, const index_t rank_ub) const {
+        if (p.isNumeric()) {
+            auto p_idx{getConflictIndex(p)};
+            if (p_idx != Constant::NoIndex) {
+                auto res{this->operator[](p_idx).second.value() <= p.value_unsafe()};
+                
+                auto stamp{this->operator[](p_idx).first};
+//                if(res and rank_lb <= stamp and rank_ub >= stamp) {
+//                    std::cout << "flagged: " << p << " is entailed by " << this->operator[](p_idx).second << " (" << this->operator[](p_idx).first << ")\n";
+//                }
+                
+                return res and (stamp < rank_lb or stamp > rank_ub);
+            }
+            return false;
+        } else {
+            return in_conflict[p.variable()];
+        }
+    }
+    
     int backtrackLevel(Solver<T> &solver);
     
     int glueScore(Solver<T> &solver);
@@ -2994,6 +3013,7 @@ template <typename T>
 template <typename Iter>
 bool Solver<T>::shrinkSlice(Iter beg, Iter stop) {
     auto lvl{getLevel(beg->first)};
+    auto rank_ub{(stop - 1)->first};
     
 #ifdef DBG_TRACE
     if (DBG_BOUND and (DBG_TRACE & SHRINKING)) {
@@ -3033,7 +3053,7 @@ bool Solver<T>::shrinkSlice(Iter beg, Iter stop) {
         
 #ifdef DBG_TRACE
         if (DBG_BOUND and (DBG_TRACE & SHRINKING)) {
-            std::cout << " - resolve " << pretty(l) << " (#lits=" << num_lit
+            std::cout << " - resolve " << pretty(l) << " @" << lit_pointer << " (#lits=" << num_lit
             << ") b/c " << exp << std::endl;
         }
 #endif
@@ -3068,7 +3088,7 @@ bool Solver<T>::shrinkSlice(Iter beg, Iter stop) {
             } else if (p_lvl < lvl) {
                 // p is not from the current decision level
                 
-                if (cut.entailed(p)) {
+                if (cut.shrink_entailed(p, lit_pointer, rank_ub)) {
                     // p is entailed by the current conflict
 #ifdef DBG_TRACE
                     if (DBG_BOUND and (DBG_TRACE & SHRINKING)) {
@@ -3076,8 +3096,8 @@ bool Solver<T>::shrinkSlice(Iter beg, Iter stop) {
                     }
 #endif
                     
-                    if(p.isNumeric())
-                        std::cout << p << " => entailed by cut " << cut << "\n";
+//                    if(p.isNumeric())
+//                        std::cout << p << " => entailed by cut " << cut << "\n";
                     
                     continue;
                 } else {
@@ -3334,7 +3354,6 @@ void Solver<T>::analyze(Explanation<T> &e, const bool only_boolean) {
                 } else if ((not(only_boolean and p.isNumeric())) and
                            p_stamp < decision_stamp) {
                     // p is not from the current decision level
-                    
                     if (cut.entailed(p)) {
                         // p is entailed by the current conflict
 #ifdef DBG_TRACE
