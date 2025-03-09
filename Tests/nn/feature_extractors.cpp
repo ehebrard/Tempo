@@ -120,7 +120,7 @@ TEST(nn_feature_extractors, TimingEdgeExtractor) {
     auto [schedule, scheduler] = createTasks({{0, 4, 0, 4}});
     Topology topology;
     EdgeVector edges{{0, 1}, {2, 1}};
-    topology.edgeIndices = util::makeIndexTensor(edges);
+    topology.edgeIndices = nn::util::makeIndexTensor(edges);
     torch::Tensor features = TimingEdgeExtractor({})(topology, makeSolverState(timings, scheduler),
                                                    ProblemInstance({}, {}, {}, schedule.front()));
     ASSERT_EQ(features.size(0), edges.size());
@@ -142,7 +142,7 @@ TEST(nn_feature_extractors, TimingEdgeExtractor_precedence_matrix) {
     auto [schedule, scheduler] = createTasks({{0, 4, 0, 4}});
     Topology topology;
     EdgeVector edges{{0, 1}, {2, 1}};
-    topology.edgeIndices = util::makeIndexTensor(edges);
+    topology.edgeIndices = nn::util::makeIndexTensor(edges);
     Matrix taskPrecedences(3, 3, false);
     taskPrecedences.at(0, 1) = true;
     taskPrecedences.at(1, 0) = true;

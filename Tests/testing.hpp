@@ -20,6 +20,7 @@
 #include "util/SchedulingProblemHelper.hpp"
 #include "Model.hpp"
 #include "Literal.hpp"
+#include "Solver.hpp"
 #include "DistanceConstraint.hpp"
 
 namespace tempo::testing {

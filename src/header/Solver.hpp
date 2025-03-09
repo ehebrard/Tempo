@@ -3792,11 +3792,11 @@ template <typename T> void Solver<T>::branchRight() {
 
 template <typename T> void Solver<T>::initializeSearch() {
     
-    start_time = cpu_time();
-    stopWatch.start();
-    
+
     if(not initialized) {
-        
+        start_time = cpu_time();
+        stopWatch.start();
+
 //        booleanActivityMap.resize(boolean.size(), heuristics::impl::ActivityMap::baseIncrement);
 //        numericActivityMap.resize(numeric.size(), heuristics::impl::ActivityMap::baseIncrement);
         

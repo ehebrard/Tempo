@@ -6,6 +6,7 @@
 
 #include <gtest/gtest.h>
 
+#include "Solver.hpp"
 #include "Literal.hpp"
 #include "Model.hpp"
 #include "util/Matrix.hpp"

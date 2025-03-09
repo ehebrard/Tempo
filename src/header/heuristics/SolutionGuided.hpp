@@ -9,6 +9,7 @@
 
 #include <vector>
 
+#include "ReversibleObject.hpp"
 #include "BaseBooleanHeuristic.hpp"
 #include "heuristics/heuristic_interface.hpp"
 
