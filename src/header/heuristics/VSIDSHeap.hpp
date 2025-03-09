@@ -81,7 +81,7 @@ public:
     auto nextVariable(const Solver<T> &solver) noexcept -> VariableSelection {
         const concepts::same_template<SparseSet> auto &variables =
         solver.getBranch();
-        
+
 #ifdef DBG_VSIDS
         std::cout << "pick var from " << variables << " @lvl " << solver.level() << " (self lvl = " << trail.size() << ")\nheap:";
         for (auto v{var_heap.begin()}; v != (var_heap.begin() + trail.back()); ++v) {
@@ -144,17 +144,13 @@ public:
         
         return {x, VariableType::Boolean};
     }
-    
+
     void undo() {
-        
-//        std::cout << "(r) backtrack\n";
-        
-        
-        auto n{trail.back()};
-        trail.pop_back();
-        
-        while (n < trail.back()) {
-            
+      auto n{trail.back()};
+      trail.pop_back();
+
+      while (n < trail.back()) {
+
 #ifdef DBG_VSIDS
             std::cout << " - restore var " << var_heap[n] << "\n";
 //            assert(variables.has(var_heap[n]));
@@ -165,14 +161,9 @@ public:
                 return activity[x] > activity[y];
             });
             ++n;
-        }
-        
-        
-        
-        
     }
-    
-    
+  }
+
 protected:
     template <concepts::scalar T> void updateActivity(const Solver<T> &solver) {
         

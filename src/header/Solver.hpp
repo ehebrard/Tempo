@@ -50,6 +50,7 @@
 #include "heuristics/heuristic_factories.hpp"
 //#include "heuristics/impl/DecayingEventActivityMap.hpp"
 #include "heuristics/impl/ActivityMap.hpp"
+#include "heuristics/impl/LearningRateMap.hpp"
 #include "util/KillHandler.hpp"
 #include "util/Options.hpp"
 #include "util/Profiler.hpp"
@@ -59,6 +60,7 @@
 // #define LEARNING_RATE_STUFF true
 //  #define DBG_SHRINK
 // #define NEW_ANALYZE
+#define NTRAIL
 
 namespace tempo {
 
@@ -219,17 +221,17 @@ public:
     bool hasSolution() const { return not best_solution.empty(); }
     auto bestSolution() const noexcept -> const std::vector<bool> & { return best_solution; }
     //@}
-    
-#ifdef LEARNING_RATE_STUFF
-    //@{
-    // learning rate stuff
-    double getLearningRate(const var_t x) const;
-    void updateLearningRate(const var_t x);
-    void updateActivity(const var_t x);
-    //@}
-#endif
-    
-protected:
+
+    // #ifdef LEARNING_RATE_STUFF
+    //     //@{
+    //     // learning rate stuff
+    //     double getLearningRate(const var_t x) const;
+    //     void updateLearningRate(const var_t x);
+    //     void updateActivity(const var_t x);
+    //     //@}
+    // #endif
+
+  protected:
     Solver<T> &solver;
     
     // [for each literal] the current polarity (x is undefined if x and ~x are
@@ -242,20 +244,20 @@ protected:
     // the rank of each literal in the trail (Constant::NoIndex if the literal
     // is not on the trail)
     std::vector<index_t> propagation_stamp;
-    
-#ifdef LEARNING_RATE_STUFF
-    // learning rate stuff
-    double alpha{.4};
-    
-    // [for each variable] the number of times it participated to a conflict
-    std::vector<long unsigned int> participated;
-    
-    // [for each variable] the number of conflicts when it was assigned
-    std::vector<long unsigned int> assigned_at;
-    
-    // [for each variable] its current learning rate
-    std::vector<double> learning_rate;
-#endif
+
+    // #ifdef LEARNING_RATE_STUFF
+    //     // learning rate stuff
+    //     double alpha{.4};
+    //
+    //     // [for each variable] the number of times it participated to a
+    //     conflict std::vector<long unsigned int> participated;
+    //
+    //     // [for each variable] the number of conflicts when it was assigned
+    //     std::vector<long unsigned int> assigned_at;
+    //
+    //     // [for each variable] its current learning rate
+    //     std::vector<double> learning_rate;
+    // #endif
 };
 
 
@@ -399,17 +401,17 @@ public:
         return best_solution[b];
     }
     //@}
-    
-#ifdef LEARNING_RATE_STUFF
-    //@{
-    // learning rate stuff
-    double getLearningRate(const var_t x) const;
-    void updateLearningRate(const var_t x);
-    void updateActivity(const var_t x);
-    //@}
-#endif
-    
-private:
+
+    // #ifdef LEARNING_RATE_STUFF
+    //     //@{
+    //     // learning rate stuff
+    //     double getLearningRate(const var_t x) const;
+    //     void updateLearningRate(const var_t x);
+    //     void updateActivity(const var_t x);
+    //     //@}
+    // #endif
+
+  private:
     Solver<T> &solver;
     
     // [for each numeric signed_var] the current bounds
@@ -421,20 +423,20 @@ private:
     // [for each numeric signed_var] the current index in the 'propagation_events'
     // stack
     std::vector<std::vector<index_t>> bound_index[2];
-    
-#ifdef LEARNING_RATE_STUFF
-    // learning rate stuff
-    double alpha{.4};
-    
-    // [for each variable] the number of times it participated to a conflict
-    std::vector<std::vector<long unsigned int>> participated;
-    
-    // [for each variable] the number of conflicts when it was assigned
-    std::vector<std::vector<long unsigned int>> assigned_at;
-    
-    // [for each variable] its current learning rate
-    std::vector<double> learning_rate;
-#endif
+
+    // #ifdef LEARNING_RATE_STUFF
+    //     // learning rate stuff
+    //     double alpha{.4};
+    //
+    //     // [for each variable] the number of times it participated to a
+    //     conflict std::vector<std::vector<long unsigned int>> participated;
+    //
+    //     // [for each variable] the number of conflicts when it was assigned
+    //     std::vector<std::vector<long unsigned int>> assigned_at;
+    //
+    //     // [for each variable] its current learning rate
+    //     std::vector<double> learning_rate;
+    // #endif
 };
 
 
@@ -508,7 +510,8 @@ public:
     DeductionMade; ///< triggered when branching right
     mutable SubscribableEvent<Explanation<T> &>
     ConflictEncountered; ///< triggered when a conflict is encountered
-    mutable SubscribableEvent<> BackTrackCompleted; ///< triggered after a successful backtrack
+    mutable SubscribableEvent<const Solver<T> &>
+        BackTrackCompleted; ///< triggered after a successful backtrack
     mutable SubscribableEvent<bool> SearchRestarted; ///< triggered on restart
     //    mutable SubscribableEvent<> FailureDetected; ///< triggered on failure
     mutable SubscribableEvent<Solver<T> &> SolutionFound; ///< triggered when a solution is found
@@ -814,15 +817,15 @@ public:
     
     std::string pretty(const Literal<T> l) const;
     //@}
-    
-#ifdef LEARNING_RATE_STUFF
-    //@{
-    // learning rate stuff
-    void updateActivity(const Literal<T> l);
-    //@}
-#endif
-    
-private:
+
+    // #ifdef LEARNING_RATE_STUFF
+    //     //@{
+    //     // learning rate stuff
+    //     void updateActivity(const Literal<T> l);
+    //     //@}
+    // #endif
+
+  private:
     // reversible strutures
     BacktrackEnvironment env;
     
@@ -871,7 +874,20 @@ private:
     
     // the stack of Literals reprensenting all the changes so far
     std::vector<TrailItem<T>> trail;
-    
+#ifdef NTRAIL
+    size_t trail_size{0};
+    TrailItem<T> &trail_back() { return trail[trail_size - 1]; }
+    void trail_pop() { --trail_size; }
+    void trail_emplace(Literal<T> lit, int lvl, Explanation<T> reason) {
+      if (trail.size() <= trail_size) {
+        trail.emplace_back(lit, lvl, reason);
+        ++trail_size;
+      } else {
+        trail[trail_size++] = {lit, lvl, reason};
+      }
+    }
+#endif
+
     // a reversible pointer to the most recent preopagation event that is not
     // yet propagated
     Reversible<index_t> propag_pointer;
@@ -961,7 +977,9 @@ private:
 
     heuristics::impl::ActivityMap numericActivityMap{options.vsids_decay};
     heuristics::impl::ActivityMap booleanActivityMap{options.vsids_decay};
-//#endif
+
+    heuristics::impl::LearningRateMap numericLearningRateMap{options.lrb_alpha};
+    heuristics::impl::LearningRateMap booleanLearningRateMap{options.lrb_alpha};
 
   public:
 
@@ -983,6 +1001,23 @@ private:
         return heuristics::impl::ActivityMap::baseIncrement;
     }
 
+    heuristics::impl::LearningRateMap &getNumericLearningRate() {
+      return numericLearningRateMap;
+    }
+    heuristics::impl::LearningRateMap &getBooleanLearningRate() {
+      return booleanLearningRateMap;
+    }
+    double getLearningRate(const Literal<T> l) const {
+      auto x{l.variable()};
+      if (l.isNumeric()) {
+        if (numericLearningRateMap.size() > static_cast<size_t>(x))
+          return numericLearningRateMap[x];
+      } else {
+        if (booleanLearningRateMap.size() > static_cast<size_t>(x))
+          return booleanLearningRateMap[x];
+      }
+      return heuristics::impl::LearningRateMap::defaultValue;
+    }
 
     /**
      * @name statistics
@@ -1594,13 +1629,13 @@ template <typename T> void BooleanStore<T>::reserveVarMemory() {
     
     polarity.push_back(false);
     polarity.push_back(false);
-    
-#ifdef LEARNING_RATE_STUFF
-    // learning rate stuff
-    participated.push_back(0);
-    assigned_at.push_back(0);
-    learning_rate.push_back(0.0);
-#endif
+
+    // #ifdef LEARNING_RATE_STUFF
+    //     // learning rate stuff
+    //     participated.push_back(0);
+    //     assigned_at.push_back(0);
+    //     learning_rate.push_back(0.0);
+    // #endif
 }
 
 template <typename T> void BooleanStore<T>::resize(const size_t n) {
@@ -1609,13 +1644,13 @@ template <typename T> void BooleanStore<T>::resize(const size_t n) {
     
     propagation_stamp.resize(n,Constant::NoIndex);
     polarity.resize(2*n,false);
-    
-#ifdef LEARNING_RATE_STUFF
-    // learning rate stuff
-    participated.resize(n,0);
-    assigned_at.resize(n,0);
-    learning_rate.resize(n,0.0);
-#endif
+
+    // #ifdef LEARNING_RATE_STUFF
+    //     // learning rate stuff
+    //     participated.resize(n,0);
+    //     assigned_at.resize(n,0);
+    //     learning_rate.resize(n,0.0);
+    // #endif
 }
 
 template <typename T> BooleanVar<T> BooleanStore<T>::newVar(const info_t s) {
@@ -1633,16 +1668,15 @@ BooleanVar<T> BooleanStore<T>::newDisjunct(const DistanceConstraint<T> &d1,
 template <typename T> void BooleanStore<T>::set(Literal<T> l) {
     propagation_stamp[l.variable()] = (solver.numLiteral() - 1);
     polarity[l] = true;
-    
-#ifdef LEARNING_RATE_STUFF
-    // learning rate stuff
-    auto x{l.variable()};
-    assigned_at[x] = solver.num_fails;
-    participated[x] = 0;
-    //
-#endif
-    
-    
+
+    // #ifdef LEARNING_RATE_STUFF
+    //     // learning rate stuff
+    //     auto x{l.variable()};
+    //     assigned_at[x] = solver.num_fails;
+    //     participated[x] = 0;
+    //     //
+    // #endif
+
     if (l.hasSemantic()) {
         assert(l.constraint() == (StaticBooleanStore<T>::edge_index[l.variable()] + l.sign()));
         auto e{StaticBooleanStore<T>::edges[l.constraint()]};
@@ -1652,35 +1686,37 @@ template <typename T> void BooleanStore<T>::set(Literal<T> l) {
     assert(l.hasSemantic() or StaticBooleanStore<T>::edge_index[l.variable()] == Constant::NoSemantic);
 }
 
-#ifdef LEARNING_RATE_STUFF
-
-template <typename T> double BooleanStore<T>::getLearningRate(const var_t x) const {
-    return learning_rate[x];
-}
-
-// learning rate stuff
-template <typename T> void BooleanStore<T>::updateLearningRate(const var_t x) {
-    if(solver.num_fails == 0)
-        return;
-    learning_rate[x] *= (1.0 - alpha);
-    learning_rate[x] +=
-    (static_cast<double>(participated[x]) /
-     static_cast<double>(solver.num_fails - assigned_at[x] + 1)) *
-    alpha;
-}
-
-template <typename T> void BooleanStore<T>::updateActivity(const var_t x) {
-    ++participated[x];
-}
-#endif
+// #ifdef LEARNING_RATE_STUFF
+//
+// template <typename T> double BooleanStore<T>::getLearningRate(const var_t x)
+// const {
+//     return learning_rate[x];
+// }
+//
+//// learning rate stuff
+// template <typename T> void BooleanStore<T>::updateLearningRate(const var_t x)
+// {
+//     if(solver.num_fails == 0)
+//         return;
+//     learning_rate[x] *= (1.0 - alpha);
+//     learning_rate[x] +=
+//     (static_cast<double>(participated[x]) /
+//      static_cast<double>(solver.num_fails - assigned_at[x] + 1)) *
+//     alpha;
+// }
+//
+// template <typename T> void BooleanStore<T>::updateActivity(const var_t x) {
+//     ++participated[x];
+// }
+// #endif
 
 template <typename T> void BooleanStore<T>::undo(Literal<T> l) {
     polarity[l] = false;
-    
-#ifdef LEARNING_RATE_STUFF
-    // learning rate stuff
-    updateLearningRate(l.variable());
-#endif
+
+    // #ifdef LEARNING_RATE_STUFF
+    //     // learning rate stuff
+    //     updateLearningRate(l.variable());
+    // #endif
 }
 
 template <typename T> bool BooleanStore<T>::value(const BooleanVar<T> x) const {
@@ -1977,13 +2013,13 @@ template <typename T> void NumericStore<T>::resize(const size_t n) {
         bound_index[bound::upper][i].push_back(Constant::InfIndex);
         ++i;
     }
-    
-#ifdef LEARNING_RATE_STUFF
-    // learning rate stuff
-    participated.resize(n);
-    assigned_at.resize(n);
-    learning_rate.resize(n,0.0);
-#endif
+
+    // #ifdef LEARNING_RATE_STUFF
+    //     // learning rate stuff
+    //     participated.resize(n);
+    //     assigned_at.resize(n);
+    //     learning_rate.resize(n,0.0);
+    // #endif
 }
 
 template <typename T> NumericVar<T> NumericStore<T>::newVar(const T b) {
@@ -1996,14 +2032,14 @@ template <typename T> void NumericStore<T>::set(Literal<T> l) {
     auto v{l.variable()};
     
     assert(StaticNumericStore<T>::bound[s][v] > l.value());
-    
-#ifdef LEARNING_RATE_STUFF
-    // learning rate stuff
-    assigned_at[v].push_back(solver.num_fails);
-    participated[v].push_back(0);
-    //
-#endif
-    
+
+    // #ifdef LEARNING_RATE_STUFF
+    //     // learning rate stuff
+    //     assigned_at[v].push_back(solver.num_fails);
+    //     participated[v].push_back(0);
+    //     //
+    // #endif
+
     StaticNumericStore<T>::bound[s][v] = l.value();
     bound_index[s][v].push_back(static_cast<index_t>(solver.numLiteral() - 1));
 }
@@ -2014,41 +2050,43 @@ template <typename T> void NumericStore<T>::undo(Literal<T> l) {
     auto v{l.variable()};
     
     bound_index[s][v].pop_back();
-    StaticNumericStore<T>::bound[s][v] = solver.getLiteral(bound_index[s][v].back()).value();
-    
-#ifdef LEARNING_RATE_STUFF
-    // learning rate stuff
-    updateLearningRate(l.variable());
-#endif
+    StaticNumericStore<T>::bound[s][v] =
+        solver.getLiteral(bound_index[s][v].back()).value();
+
+    // #ifdef LEARNING_RATE_STUFF
+    //     // learning rate stuff
+    //     updateLearningRate(l.variable());
+    // #endif
 }
 
-#ifdef LEARNING_RATE_STUFF
-
-template <typename T>
-double NumericStore<T>::getLearningRate(const var_t x) const {
-    return learning_rate[x];
-}
-
-// learning rate stuff
-template <typename T> void NumericStore<T>::updateLearningRate(const var_t x) {
-    if (solver.num_fails == 0)
-        return;
-    
-    learning_rate[x] *= (1.0 - alpha);
-    
-    learning_rate[x] +=
-    (static_cast<double>(participated[x].back()) /
-     static_cast<double>(solver.num_fails - assigned_at[x].back() + 1)) *
-    alpha;
-    
-    participated[x].pop_back();
-    assigned_at[x].pop_back();
-}
-
-template <typename T> void NumericStore<T>::updateActivity(const var_t x) {
-    ++participated[x].back();
-}
-#endif
+// #ifdef LEARNING_RATE_STUFF
+//
+// template <typename T>
+// double NumericStore<T>::getLearningRate(const var_t x) const {
+//     return learning_rate[x];
+// }
+//
+//// learning rate stuff
+// template <typename T> void NumericStore<T>::updateLearningRate(const var_t x)
+// {
+//     if (solver.num_fails == 0)
+//         return;
+//
+//     learning_rate[x] *= (1.0 - alpha);
+//
+//     learning_rate[x] +=
+//     (static_cast<double>(participated[x].back()) /
+//      static_cast<double>(solver.num_fails - assigned_at[x].back() + 1)) *
+//     alpha;
+//
+//     participated[x].pop_back();
+//     assigned_at[x].pop_back();
+// }
+//
+// template <typename T> void NumericStore<T>::updateActivity(const var_t x) {
+//     ++participated[x].back();
+// }
+// #endif
 
 template <typename T> T NumericStore<T>::solutionUpper(const NumericVar<T> x) const {
     
@@ -2131,8 +2169,12 @@ restartPolicy(*this), graph_exp(*this), bound_exp(*this) {
     
     // sentinel literal for initial bounds
     Literal<T> l{Constant::NoVar, Constant::Infinity<T>, detail::Numeric{}};
+#ifdef NTRAIL
+    trail_emplace(l, level(), Constant::NoReason<T>);
+#else
     trail.emplace_back(l, level(), Constant::NoReason<T>);
-    
+#endif
+
     // pointed-to by all constants
     _newNumeric_(0, 0);
     seed(options.seed);
@@ -2169,8 +2211,12 @@ bound_exp(*this) {
     
     // sentinel literal for initial bounds
     Literal<T> l{Constant::NoVar, Constant::Infinity<T>, detail::Numeric{}};
+#ifdef NTRAIL
+    trail_emplace(l, level(), Constant::NoReason<T>);
+#else
     trail.emplace_back(l, level(), Constant::NoReason<T>);
-    
+#endif
+
     // pointed-to by all constants
     _newNumeric_(0, 0);
     seed(options.seed);
@@ -2330,10 +2376,16 @@ size_t Solver<T>::numConstraint() const {
     return constraints.size();
 }
 
+#ifdef NTRAIL
+template <typename T> size_t Solver<T>::numLiteral() const {
+  return trail_size;
+}
+#else
 template <typename T>
 size_t Solver<T>::numLiteral() const {
     return trail.size();
 }
+#endif
 
 template <typename T>
 size_t Solver<T>::numDecision() const {
@@ -2367,7 +2419,7 @@ Explanation<T> Solver<T>::getReason(const index_t i) const {
 }
 
 template <typename T> int Solver<T>::getLevel(const index_t i) const {
-  if (i >= trail.size())
+  if (i >= numLiteral())
     return level() + 1;
   return trail[i].level();
 }
@@ -2418,8 +2470,12 @@ void Solver<T>::setNumeric(Literal<T> l, const Explanation<T> &e,
             << e  << (do_update ? "" : "*") << std::endl;
         }
 #endif
-        
-        trail.emplace_back(l, level(), e);
+
+#ifdef NTRAIL
+        trail_emplace(l, level(), e);
+#else
+      trail.emplace_back(l, level(), e);
+#endif
         numeric.set(l);
         
         if (numeric.falsified(l)) {
@@ -2486,8 +2542,12 @@ void Solver<T>::setBoolean(Literal<T> l, const Explanation<T> &e) {
         }
     }
 #endif
-    
+
+#ifdef NTRAIL
+    trail_emplace(l, level(), e);
+#else
     trail.emplace_back(l, level(), e);
+#endif
     boolean.set(l);
     
 #ifdef DBG_TRACE
@@ -2524,19 +2584,25 @@ void Solver<T>::boundClosure(const var_t x, const var_t y, const T d,
 }
 
 template <typename T> void Solver<T>::restart(const bool on_solution) {
-    
-    ++num_restarts;
-    env.restore(init_level);
-//    decisions.clear();
-    
-    assert(decisions.empty());
-    
-    if (on_solution) {
-        restartPolicy.initialize();
-    } else {
-        restartPolicy.reset();
-    }
-    
+
+  //    for(auto d : decisions) {
+  //        auto x{d.variable()};
+  //        std::cout << " " << x << ":" << getBooleanLearningRate()[x] ;
+  //    }
+  //    std::cout << std::endl;
+
+  ++num_restarts;
+  env.restore(init_level);
+  //    decisions.clear();
+
+  assert(decisions.empty());
+
+  if (on_solution) {
+    restartPolicy.initialize();
+  } else {
+    restartPolicy.reset();
+  }
+
     SearchRestarted.trigger(on_solution);
     
     if (options.verbosity > Options::NORMAL) {
@@ -4216,7 +4282,7 @@ template <typename T> boolean_state Solver<T>::search() {
             
             try {
                 backtrack(f.reason);
-                BackTrackCompleted.trigger();
+                BackTrackCompleted.trigger(*this);
                 if (restartPolicy.limit()) {
                     restart();
                 }
@@ -4372,15 +4438,23 @@ template <typename T> void Solver<T>::restoreState(const int l) {
 template <typename T> void Solver<T>::undo() {
     size_t n{propag_pointer};
     while (numLiteral() > n) {
-        Literal<T> l{trail.back()};
-        
-        if (l.isNumeric()) {
-            numeric.undo(l);
-        } else {
-            boolean.undo(l);
-        }
-        
-        trail.pop_back();
+#ifdef NTRAIL
+      Literal<T> l{trail_back()};
+#else
+      Literal<T> l{trail.back()};
+#endif
+
+      if (l.isNumeric()) {
+        numeric.undo(l);
+      } else {
+        boolean.undo(l);
+      }
+
+#ifdef NTRAIL
+      trail_pop();
+#else
+      trail.pop_back();
+#endif
     }
 }
 
@@ -4816,15 +4890,15 @@ std::ostream &Solver<T>::displayConstraints(std::ostream &os) const {
 //  return os;
 //}
 
-#ifdef LEARNING_RATE_STUFF
-template <typename T> void Solver<T>::updateActivity(const Literal<T> l) {
-    if (l.isNumeric()) {
-        numeric.updateActivity(l.variable());
-    } else {
-        boolean.updateActivity(l.variable());
-    }
-}
-#endif
+// #ifdef LEARNING_RATE_STUFF
+// template <typename T> void Solver<T>::updateActivity(const Literal<T> l) {
+//     if (l.isNumeric()) {
+//         numeric.updateActivity(l.variable());
+//     } else {
+//         boolean.updateActivity(l.variable());
+//     }
+// }
+// #endif
 
 template <typename T>
 std::string Solver<T>::pretty(const Literal<T> l) const {

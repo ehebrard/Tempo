@@ -11,7 +11,8 @@
 #include <string>
 #include <iostream>
 
-#include "LRB.hpp"
+// #include "LearningRateHeap.hpp"
+#include "LearningRateHeap.hpp"
 #include "RandomBinaryValue.hpp"
 #include "RandomVariableSelection.hpp"
 #include "SolutionGuided.hpp"
@@ -37,6 +38,7 @@ namespace tempo::heuristics {
 
     namespace detail {
     using VSIDSHeap_M = MovableHeuristic<VSIDSHeap>;
+    //    using LearningRateHeap_M = MovableHeuristic<LearningRateHeap>;
     using VSIDS_M = MovableHeuristic<VSIDS>;
     using WeightedDegree_M = MovableHeuristic<WeightedDegree>;
 
@@ -66,7 +68,8 @@ namespace tempo::heuristics {
 
     using VariableHeuristic = detail::VariantHeuristicWrapper<
         Tightest, detail::VSIDS_M, detail::WeightedDegree_M,
-        RandomVariableSelection, detail::VSIDSHeap_M>;
+        RandomVariableSelection,
+        detail::VSIDSHeap_M /*, detail::LearningRateHeap_M*/>;
 
     // Define heuristic factory types here
 
@@ -74,12 +77,6 @@ namespace tempo::heuristics {
             return Tightest{};
         }
     };
-
-    MAKE_TEMPLATE_FACTORY(LRB, concepts::scalar T, const Solver<T> &) {
-      return LRB{};
-    }
-    }
-    ;
 
     MAKE_TEMPLATE_P_FACTORY(VSIDS, VariableHeuristic, concepts::scalar T, Solver<T> &solver) {
             if(solver.getOptions().learning) {
@@ -105,6 +102,13 @@ namespace tempo::heuristics {
     }
     }
     ;
+
+    //    MAKE_TEMPLATE_FACTORY(LearningRateHeap, concepts::scalar T, Solver<T>
+    //    &solver) {
+    //      return detail::LearningRateHeap_M(solver);
+    //    }
+    //    }
+    //    ;
 
     MAKE_FACTORY_PATTERN(VariableHeuristic, Tightest, VSIDS, WeightedDegree,
                          RandomVariableSelection, VSIDSHeap)

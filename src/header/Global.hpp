@@ -65,14 +65,12 @@ using hint = int;
 #define LNS 4096
 
 ///////// UNCOMMENT TO DEBUG
-//#define DBG_TRACE LNS //(SEARCH + LEARNING + MINIMIZATION + SHRINKING)
-//#define DBG_BOUND (num_fails >= 0)
-//#define DBG_CBOUND (solver.num_fails >= 0)
-//#define DBG_CLBOUND (solver.num_fails >= 0)
-//#define DBG_BBOUND (solver.num_fails >= 0)
+// #define DBG_TRACE SEARCH //(SEARCH + LEARNING + MINIMIZATION + SHRINKING)
+// #define DBG_BOUND (num_fails >= 0)
+// #define DBG_CBOUND (solver.num_fails >= 0)
+// #define DBG_CLBOUND (solver.num_fails >= 0)
+// #define DBG_BBOUND (solver.num_fails >= 0)
 //////////////
-
-
 
 //#define FULL_TT_REASONING
 // #define DBG_MINIMIZATION

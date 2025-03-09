@@ -22,6 +22,102 @@ tempo::Options tempo::parse(int argc, char *argv[]) {
   return p.getOptions();
 }
 
+std::ostream &tempo::Options::display(std::ostream &os) const {
+    os << std::left
+    << std::setw(30) << "-- random seed: " << seed << std::endl
+    << std::setw(30) << "-- learning: " << (learning ? "on" : "off" ) ;
+    if(learning) {
+        os << " (cut type=" ;
+        switch(cut_type) {
+            case Cut::UIP: os << "UIP";
+                break;
+            case Cut::Booleans: os << "Bool";
+                break;
+            case Cut::Decisions: os << "Decisions";
+                break;
+        }
+        os << ", clause-minimization depth=" << minimization;
+        if(shrinking) {
+            os << "+shrinking";
+        }
+        os << ")";
+    }
+    os << std::endl
+    << std::setw(30) << "-- UP: " << (full_up ? "full" : "incommplete" ) << std::endl
+    << std::setw(30) << "-- edge-finding: " << (edge_finding ? "on" : "off") << std::endl
+    << std::setw(30) << "-- transitivity: " << (transitivity ? "on" : "off") << std::endl
+    << std::setw(30) << "-- #greedy runs: " << greedy_runs << std::endl
+    << std::setw(30) << "-- primal boost: " << (full_transitivity ? "on" : "off") << std::endl
+    << std::setw(30) << "-- choicepoint heuristic: " ;
+    switch(choice_point_heuristics) {
+    case ChoicePointHeuristics::Tightest: os << "tightest disjunct (eps=" << polarity_epsilon << ")";
+        break;
+    case ChoicePointHeuristics::WeightedDegree: os << "weighted degree";
+        break;
+    case ChoicePointHeuristics::VSIDS: os << "tightness / activity (decay=" << vsids_decay << ")";
+        break;
+    case ChoicePointHeuristics::VSIDSHeap: os << "activity (VSIDS) (decay=" << vsids_decay << ")";
+        break;
+    case ChoicePointHeuristics::Random: os << "random";
+        break;
+    case ChoicePointHeuristics::LRB: os << "learning rate (alpha=" << lrb_alpha << ")";
+        break;
+    default: os << "?";
+        break;
+    }
+    os << std::endl
+    << std::setw(30) << "-- polarity heuristic: " ;
+    switch(polarity_heuristic) {
+    case PolarityHeuristic::Tightest: os << "maximum slack edge";
+        break;
+    case PolarityHeuristic::Random: os << "random";
+        break;
+    case PolarityHeuristic::TSG: os << "solution guided (default=slack, tolerance=" << sgd_ratio << ")";
+        break;
+    case PolarityHeuristic::RSG: os << "solution guided (default=random, tolerance=" << sgd_ratio << ")";
+        break;
+    default: os << "?";
+        break;
+    }
+    os << std::endl
+    << std::setw(30) << "-- forget policy: " ;
+    switch(forget_strategy) {
+    case LiteralScore::Size: os << "max size";
+        break;
+    case LiteralScore::Looseness: os << "max looseness";
+        break;
+    case LiteralScore::Activity: os << "min activity";
+        break;
+    case LiteralScore::LoosenessOverActivity: os << "max looseness/activity";
+        break;
+    case LiteralScore::Glue: os << "max glue score";
+        break;
+    case LiteralScore::GlueTimeActivity: os << "max glue x activity";
+        break;
+    case LiteralScore::LearningRate: os << "min learning rate";
+        break;
+    case LiteralScore::LoosenessOverLearningRate: os << "max looseness/learning rate";
+        break;
+    case LiteralScore::GlueTimeLearningRate: os << "max glue x learning rate";
+        break;
+    default: os << "?";
+        break;
+    }
+    os << " (" << forgetfulness << ")\n"
+    << std::setw(30) << "-- restart policy: " << restart_policy ;
+    if(restart_policy != "no") {
+        os << " base=" << restart_base ;
+        if(restart_policy == "geom") {
+            os << " factor=" << restart_factor;
+        }
+    }
+    
+    
+    
+    return os;
+}
+
+
 auto tempo::getBaseParser() -> Parser {
     using namespace TCLAP;
     Parser p;
@@ -133,6 +229,12 @@ auto tempo::getBaseParser() -> Parser {
             false, 0.01, "double");
 
     cmd.add<ValueArg<double>>(
+        opt.lrb_alpha, "", "lrb-alpha",
+        "alpha value for the LRB heuristic, only effective if LRB is used "
+        "as choice point heuristic",
+        false, 0.4, "double");
+
+    cmd.add<ValueArg<double>>(
             opt.vsids_decay, "", "vsids-decay",
             "decay value for the vsids heuristic, only effective if VSIDS is used "
             "as choice point heuristic",
@@ -174,11 +276,14 @@ auto tempo::getBaseParser() -> Parser {
         "limit in number of fails (default = a lot)", false, std::numeric_limits<unsigned long>::max(),
         "unsigned long");
 
-    cmd.add<ValueArg<int>>(opt.forget_strategy, "", "forget-strategy",
-                           "strategy for clause forgetting "
-                           "(0: size (default), 1: literal looseness,"
-                           "2: literal activity 3: looseness / activity 4: glue 5: glue / activity",
-                           false, 2, "int");
+    cmd.add<ValueArg<int>>(
+        opt.forget_strategy, "", "forget-strategy",
+        "strategy for clause forgetting "
+        "(0: size (default), 1: literal looseness,"
+        "2: literal activity 3: looseness / activity 4: glue 5: glue x "
+        "activity 6: learning rate 7: looseness / learning rate 8: glue x "
+        "learning rate",
+        false, 2, "int");
 
     cmd.add<ValueArg<std::string>>(opt.restart_policy, "", "restart",
                                    "choice of restart policy (no, luby, geom)",
@@ -239,4 +344,9 @@ auto tempo::Parser::getCmdLine() const noexcept -> const cmdline & {
 
 void tempo::Parser::parse(int argc, char **argv) {
     cmdLine->parse(argc, argv);
+}
+
+
+std::ostream &tempo::operator<<(std::ostream &os, const tempo::Options &x) {
+    return x.display(os);
 }

@@ -81,6 +81,13 @@ struct cmdline {
 
 namespace tempo {
 
+template <typename Enumeration>
+auto as_integer(Enumeration const value)
+    -> typename std::underlying_type<Enumeration>::type
+{
+    return static_cast<typename std::underlying_type<Enumeration>::type>(value);
+}
+
 class Options {
 
 public:
@@ -142,15 +149,16 @@ public:
     
     double sgd_ratio{.01};
 
+    double lrb_alpha{0.4};
     double vsids_decay{0.999};
     double vsids_epsilon{0.05};
     bool vsids_reasons{false};
 
-    double forgetfulness{0.3};
+    double forgetfulness{0.7};
 
       enum class Cut { UIP = 0, Booleans, Decisions };
     Cut cut_type{Cut::UIP};
-    int minimization{3};
+    int minimization{10};
     bool shrinking{false};
 
     int greedy_runs{10};
@@ -163,8 +171,11 @@ public:
       Looseness,
       Activity,
       LoosenessOverActivity,
-        Glue,
-        GlueTimesActivity
+      Glue,
+      GlueTimeActivity,
+      LearningRate,
+      LoosenessOverLearningRate,
+      GlueTimeLearningRate
     };
 
     LiteralScore forget_strategy{3};
@@ -173,6 +184,8 @@ public:
     int restart_base{128};
     std::string restart_policy{"luby"};
     std::string input_format{"osp"};
+    
+    std::ostream &display(std::ostream &os) const;
 };
 
 Options parse(int argc, char *argv[]);
@@ -191,6 +204,8 @@ public:
 
 auto getBaseParser() -> Parser;
 
+
+std::ostream &operator<<(std::ostream &os, const Options &x);
 
 static Options no_option;
 } // namespace tempo

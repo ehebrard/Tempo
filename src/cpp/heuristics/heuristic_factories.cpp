@@ -22,8 +22,8 @@ namespace tempo::heuristics::detail {
                 RETURN_NAME(VSIDS);
             case Options::ChoicePointHeuristics::Random:
                 RETURN_NAME(RandomVariableSelection);
-            case Options::ChoicePointHeuristics::LRB:
-                RETURN_NAME(LRB);
+                //            case Options::ChoicePointHeuristics::LRB:
+                //                RETURN_NAME(LearningRateHeap);
             case Options::ChoicePointHeuristics::VSIDSHeap:
               RETURN_NAME(VSIDSHeap);
             default:
