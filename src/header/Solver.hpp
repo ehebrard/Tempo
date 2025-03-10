@@ -1048,6 +1048,7 @@ private:
      * @name debug
      */
     //@{
+    bool validReason(Literal<T> lit);
     bool isAssertive(std::vector<Literal<T>> &conf) const;
     //    bool isAssertive();
     
@@ -1100,6 +1101,7 @@ struct ConflictSet : public std::vector<std::pair<index_t, Literal<T>>> {
     // clear and resize the data structures
     void clear(Solver<T> *solver);
     void sort();
+    void verifySorted(const index_t i); // update the 'sorted' flag when value at idx i has changed
     
     void get(std::vector<Literal<T>> &clause);
     
@@ -1206,23 +1208,34 @@ void ConflictSet<T>::remove(Iter i) {
     } else {
         in_conflict[i->second.variable()] = false;
     }
+    
+    assert(verifyIntegrity());
 }
 
 template <typename T>
 void ConflictSet<T>::change(const Literal<T> l, const index_t s) {
+    
+    assert(verifyIntegrity());
     
     auto i{getConflictIndex(l)};
 //    assert(this->operator[](i).first > s);
     
     this->operator[](i) = {s, l};
     
-    sorted &= (((i == 0) or (this->operator[](i - 1).first >= s)) and
-               ((i == this->size() - 1) or (this->operator[](i + 1).first <= s)));
+    verifySorted(i);
+//    sorted &= (((i == 0) or (this->operator[](i - 1).first >= s)) and
+//               ((i == this->size() - 1) or (this->operator[](i + 1).first <= s)));
+//    
+    assert(verifyIntegrity());
 }
 
 template <typename T>
 bool ConflictSet<T>::add(const std::pair<index_t, Literal<T>> &p) {
-    return add(p.second, p.first);
+    auto  res{add(p.second, p.first)};
+    
+    assert(verifyIntegrity());
+    
+    return res;
 }
 
 template <typename T>
@@ -1242,6 +1255,9 @@ bool ConflictSet<T>::add(const Literal<T> l, const index_t s) {
             auto i{this->size()};
             this->emplace_back(s, l);
             sorted &= (((i == 0) or (this->operator[](i - 1).first >= s)));
+            
+            assert(verifyIntegrity());
+            
             return true;
         }
     } else if (not in_conflict[l.variable()]) {
@@ -1250,8 +1266,13 @@ bool ConflictSet<T>::add(const Literal<T> l, const index_t s) {
         in_conflict[l.variable()] = true;
         
         sorted &= (((i == 0) or (this->operator[](i - 1).first >= s)));
+        
+        assert(verifyIntegrity());
+        
         return true;
     }
+    
+    assert(verifyIntegrity());
     
     return false;
 }
@@ -1280,6 +1301,8 @@ template <typename T> void ConflictSet<T>::clear(Solver<T> *solver) {
         }
         this->pop_back();
     }
+    
+    assert(verifyIntegrity());
 }
 template <typename T> void ConflictSet<T>::sort() {
     if (not sorted) {
@@ -1293,11 +1316,39 @@ template <typename T> void ConflictSet<T>::sort() {
         }
         sorted = true;
     }
+    
+    assert(verifyIntegrity());
+}
+
+template <typename T> void ConflictSet<T>::verifySorted(const index_t i) {
+    auto j{i};
+    auto s{this->operator[](i).first};
+    while(sorted and j>0) {
+        auto l{this->operator[](--j)};
+        if(l.first > 0) {
+            if(l.first < s)
+                sorted = false;
+            break;
+        }
+    }
+    j = i;
+    while(sorted and ++j<this->size()) {
+        auto l{this->operator[](j)};
+        if(l.first > 0) {
+            if(l.first > s)
+                sorted = false;
+            break;
+        }
+    }
+//    return sorted;
 }
 
 template <typename T>
 void ConflictSet<T>::get(std::vector<Literal<T>> &clause) {
     sort();
+    
+    assert(verifyIntegrity());
+    
     for (auto p : *this) {
         if (p.first != 0 and has(p.second)) {
             clause.push_back(~(p.second));
@@ -1366,11 +1417,15 @@ template <typename T> int ConflictSet<T>::backtrackLevel(Solver<T> &solver) {
 }
 
 template <typename T> bool ConflictSet<T>::verifyIntegrity() {
-    size_t count_bool;
+    size_t count_bool{0};
     for (size_t i{0}; i < this->size(); ++i) {
         auto l{this->operator[](i)};
-        if (l.isNumeric()) {
-            auto lidx{getConflictIndex()};
+        
+//        if(l.first == 0)
+//            continue;
+        
+        if (l.second.isNumeric()) {
+            auto lidx{getConflictIndex(l.second)};
             if (lidx != Constant::NoIndex) {
                 if (lidx != i) {
                     std::cout << "bug mapping numeric lit\n";
@@ -1378,11 +1433,11 @@ template <typename T> bool ConflictSet<T>::verifyIntegrity() {
                 }
             }
         } else {
-            if (in_conflict[l.variable()])
+            if (in_conflict[l.second.variable()])
                 ++count_bool;
         }
     }
-    for (size_t i{0}; 0 < in_conflict.size(); ++i) {
+    for (size_t i{0}; i < in_conflict.size(); ++i) {
         if (not in_conflict[i])
             ++count_bool;
     }
@@ -1390,17 +1445,34 @@ template <typename T> bool ConflictSet<T>::verifyIntegrity() {
         std::cout << "bug counting boolean lit\n";
         return false;
     }
-    for (var_t i{0}; 0 < static_cast<var_t>(conflict_index[0].size()); ++i) {
+    for (var_t i{0}; i < static_cast<var_t>(conflict_index[0].size()); ++i) {
         for (auto s{0}; s < 2; ++s) {
+            
+//            std::cout << conflict_index[s].size() << " / " << conflict_index[1-s].size() << " / " << i << std::endl;
+            
             if (conflict_index[s][i] != Constant::NoIndex) {
                 auto l{this->operator[](conflict_index[s][i])};
-                if (l.variable() != i or l.sign() != s) {
+                if (l.second.variable() != i or l.second.sign() != s) {
                     std::cout << "bug mapping numeric lit (<-)\n";
                     return false;
                 }
             }
         }
     }
+    
+    if(sorted) {
+        index_t prev{Constant::Infinity<index_t>};
+        for (auto p : *this) {
+            if (p.first != 0 and has(p.second)) {
+                if(p.first > prev) {
+                    std::cout << "bug not sorted!\n";
+                    return false;
+                }
+                prev = p.first;
+            }
+        }
+    }
+    
     return true;
 }
 
@@ -2229,15 +2301,17 @@ numeric_constraints(&env), restartPolicy(*this), graph_exp(*this),
 bound_exp(*this) {
     
     // sentinel literal for initial bounds
-    Literal<T> l{Constant::NoVar, Constant::Infinity<T>, detail::Numeric{}};
+//    Literal<T> l{Constant::NoVar, Constant::Infinity<T>, detail::Numeric{}};
+    Literal<T> l{ub<T>(Constant::NoVar)};
 #ifdef NTRAIL
     trail_emplace(l, level(), Constant::NoReason<T>);
 #else
     trail.emplace_back(l, level(), Constant::NoReason<T>);
 #endif
-
+    
     // pointed-to by all constants
     _newNumeric_(0, 0);
+    
     seed(options.seed);
     
     post(&clauses);
@@ -2582,6 +2656,7 @@ void Solver<T>::setBoolean(Literal<T> l, const Explanation<T> &e) {
     
     if (boolean_search_vars.has(l.variable()))
         boolean_search_vars.remove_front(l.variable());
+    
 }
 
 template <typename T>
@@ -3017,7 +3092,7 @@ bool Solver<T>::shrinkSlice(Iter beg, Iter stop) {
     
 #ifdef DBG_TRACE
     if (DBG_BOUND and (DBG_TRACE & SHRINKING)) {
-        std::cout << "shrink slice [" << beg->second << " -> " << (stop - 1)->second
+        std::cout << "hello shrink slice [" << beg->second << " -> " << (stop - 1)->second
         << "] @lvl" << lvl << std::endl;
     }
 #endif
@@ -3031,6 +3106,8 @@ bool Solver<T>::shrinkSlice(Iter beg, Iter stop) {
         if (DBG_BOUND and (DBG_TRACE & SHRINKING)) {
             std::cout << std::setw(4) << getLevel(it->first) << " " << std::setw(4)
             << it->first << ": " << it->second << std::endl;
+            
+            assert(it->first == propagationStamp(it->second));
         }
 #endif
         
@@ -3061,6 +3138,9 @@ bool Solver<T>::shrinkSlice(Iter beg, Iter stop) {
         lit_buffer.clear();
         exp.explain(l, lit_buffer);
         
+        assert(validReason(l));
+        
+        
         //      std::cout << "lit_buffer.size() = " << lit_buffer.size() <<
         //      std::endl;
         
@@ -3068,14 +3148,19 @@ bool Solver<T>::shrinkSlice(Iter beg, Iter stop) {
         
         for (auto p : lit_buffer) {
             
+            auto p_stamp{propagationStamp(p)};
+            auto p_lvl{getLevel(p_stamp)};
+            
+            
 #ifdef DBG_TRACE
             if (DBG_BOUND and (DBG_TRACE & SHRINKING)) {
-                std::cout << "  ** " << pretty(p) << ":";
+                std::cout << "  ** " << pretty(p) << " (" << p_stamp << "@" << p_lvl << "):";
             }
 #endif
             
-            auto p_stamp{propagationStamp(p)};
-            auto p_lvl{getLevel(p_stamp)};
+//            std::cout << "assert " << p_stamp << " < " << lit_pointer << std::endl;
+            assert(p_stamp < lit_pointer);
+            
             
             if (p_stamp < ground_stamp) {
                 // if p is a ground fact, we ignore it
@@ -3316,6 +3401,8 @@ void Solver<T>::analyze(Explanation<T> &e, const bool only_boolean) {
             
             exp.explain(l, lit_buffer);
             
+            
+            assert(validReason(l));
             
 #ifdef DBG_CLPLUS
 //            if (cl_file != NULL) {
@@ -3624,6 +3711,36 @@ template <typename T> void Solver<T>::analyzeDecisions(Explanation<T> &e) {
 #endif
     
     assert(static_cast<int>(decisionLevel(~(learnt_clause[0]))) == level());
+}
+
+template <typename T> bool Solver<T>::validReason(Literal<T> lit) {
+    
+    if(lit == Contradiction<T>)
+        return true;
+    
+    std::cout << lit << std::endl;
+    
+    
+//
+//    if(lit.isNumeric() and (lit.variable() <= 1 or (lit.variable() >= static_cast<var_t>(numeric.size()))))
+//        return true;
+    
+//    if(reason == Constant::NoReason<T>)
+//        return true;
+    
+//    dbg_buffer.clear();
+//    reason.explain(lit, dbg_buffer);
+    auto stamp{propagationStamp(lit)};
+//    auto stamp{numLitera}
+    for(auto p : lit_buffer) {
+        auto p_stamp{propagationStamp(p)};
+        if(p_stamp >= stamp) {
+            std::cout << p <<  "(stamp=" << p_stamp << ") cannot be an explanation for " << lit << " (stamp=" << stamp << ")\n";
+            
+            return false;
+        }
+    }
+    return true;
 }
 
 template <typename T> bool Solver<T>::isAssertive(std::vector<Literal<T>> &conf) const {
