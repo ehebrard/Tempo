@@ -191,12 +191,15 @@ public:
     void clear();
     // literal activity score
     double activity(const Literal<T> l);
+    double learningRate(const Literal<T> l);
     // literal score based on its semantic
     double looseness(const Literal<T> l);
     // literal score based on its activity
     double inverseActivity(const Literal<T> l);
+    double inverseLearningRate(const Literal<T> l);
     // literal score based on both its semantic and its activity
     double loosenessOverActivity(const Literal<T> l);
+    double loosenessOverLearningRate(const Literal<T> l);
     //@}
     
     /**
@@ -1774,16 +1777,12 @@ template <typename T> void ClauseBase<T>::forget_worst() {
     forget(base[*(free_cl_indices.bbegin())]);
 }
 
-template <typename T>
-double ClauseBase<T>::activity(const Literal<T> l) {
-//    return (solver.getActivityMap() != nullptr
-//            ? solver.getActivityMap()->get(l, solver)
-//            : 1);
-#ifdef OLDVSIDS
-    return solver.getLiteralActivity(l);
-#else
-    return solver.getActivity(l);
-#endif
+template <typename T> double ClauseBase<T>::activity(const Literal<T> l) {
+  return solver.getActivity(l);
+}
+
+template <typename T> double ClauseBase<T>::learningRate(const Literal<T> l) {
+  return solver.getLearningRate(l);
 }
 
 template <typename T>
@@ -1792,8 +1791,20 @@ double ClauseBase<T>::loosenessOverActivity(const Literal<T> l) {
 }
 
 template <typename T>
+double ClauseBase<T>::loosenessOverLearningRate(const Literal<T> l) {
+  auto ilr{inverseLearningRate(l)};
+  return (ilr == Constant::Infinity<double> ? ilr : solver.looseness(l) * ilr);
+}
+
+template <typename T>
 double ClauseBase<T>::inverseActivity(const Literal<T> l) {
     return heuristics::impl::ActivityMap::baseIncrement / activity(l); // solver.getActivityMap()->get(l, solver);
+}
+
+template <typename T>
+double ClauseBase<T>::inverseLearningRate(const Literal<T> l) {
+  auto lr{learningRate(l)};
+  return (lr != 0 ? 1 / lr : Constant::Infinity<double>);
 }
 
 template <typename T> double ClauseBase<T>::looseness(const Literal<T> l) {
@@ -1830,31 +1841,40 @@ template <typename T> void ClauseBase<T>::forget() {
     
     //    std::cout << "option: " << solver.getOptions().forget_strategy <<
     //    std::endl;
-    
-    
-    
-    
-    if (solver.getOptions().forget_strategy == Options::LiteralScore::GlueTimesActivity) {
-        for (auto idx{free_cl_indices.bbegin()}; idx != free_cl_indices.bend();
-             ++idx) {
-            score[*idx] = 0;
-            for (auto l : *base[*idx]) {
-                score[*idx] += inverseActivity(l);
-            }
-            score[*idx] *= glue[*idx];
+
+    if (solver.getOptions().forget_strategy ==
+        Options::LiteralScore::GlueTimeActivity) {
+      for (auto idx{free_cl_indices.bbegin()}; idx != free_cl_indices.bend();
+           ++idx) {
+        score[*idx] = 0;
+        for (auto l : *base[*idx]) {
+          score[*idx] += inverseActivity(l);
         }
-    } else if (solver.getOptions().forget_strategy == Options::LiteralScore::Looseness) {
-        for (auto idx{free_cl_indices.bbegin()}; idx != free_cl_indices.bend();
-             ++idx) {
-            score[*idx] = 0;
-            
-            //        std::cout << "compute (1) score for " << *base[*idx] <<
-            //        std::endl;
-            
-            for (auto l : *base[*idx]) {
-                score[*idx] += looseness(l);
-            }
+        score[*idx] *= glue[*idx];
+      }
+    } else if (solver.getOptions().forget_strategy ==
+               Options::LiteralScore::GlueTimeLearningRate) {
+      for (auto idx{free_cl_indices.bbegin()}; idx != free_cl_indices.bend();
+           ++idx) {
+        score[*idx] = 0;
+        for (auto l : *base[*idx]) {
+          score[*idx] += inverseLearningRate(l);
         }
+        score[*idx] *= glue[*idx];
+      }
+    } else if (solver.getOptions().forget_strategy ==
+               Options::LiteralScore::Looseness) {
+      for (auto idx{free_cl_indices.bbegin()}; idx != free_cl_indices.bend();
+           ++idx) {
+        score[*idx] = 0;
+
+        //        std::cout << "compute (1) score for " << *base[*idx] <<
+        //        std::endl;
+
+        for (auto l : *base[*idx]) {
+          score[*idx] += looseness(l);
+        }
+      }
     } else if (solver.getOptions().forget_strategy ==
                Options::LiteralScore::LoosenessOverActivity) {
 
@@ -1872,20 +1892,49 @@ template <typename T> void ClauseBase<T>::forget() {
         }
       }
     } else if (solver.getOptions().forget_strategy ==
-               Options::LiteralScore::Activity) {
-        for (auto idx{free_cl_indices.bbegin()}; idx != free_cl_indices.bend();
-             ++idx) {
-            score[*idx] = 0;
-            
-            //        std::cout << "compute (2) score for " << *base[*idx] <<
-            //        std::endl;
-            
-            for (auto l : *base[*idx]) {
-                score[*idx] += inverseActivity(l);
-            }
+               Options::LiteralScore::LoosenessOverLearningRate) {
+
+      //  std::cout << 3124 with l/a\n";
+
+      for (auto idx{free_cl_indices.bbegin()}; idx != free_cl_indices.bend();
+           ++idx) {
+        score[*idx] = 0;
+
+        //        std::cout << "compute (2) score for " << *base[*idx] <<
+        //        std::endl;
+
+        for (auto l : *base[*idx]) {
+          score[*idx] += loosenessOverLearningRate(l);
         }
+      }
+    } else if (solver.getOptions().forget_strategy ==
+               Options::LiteralScore::Activity) {
+      for (auto idx{free_cl_indices.bbegin()}; idx != free_cl_indices.bend();
+           ++idx) {
+        score[*idx] = 0;
+
+        //        std::cout << "compute (2) score for " << *base[*idx] <<
+        //        std::endl;
+
+        for (auto l : *base[*idx]) {
+          score[*idx] += inverseActivity(l);
+        }
+      }
+    } else if (solver.getOptions().forget_strategy ==
+               Options::LiteralScore::LearningRate) {
+      for (auto idx{free_cl_indices.bbegin()}; idx != free_cl_indices.bend();
+           ++idx) {
+        score[*idx] = 0;
+
+        //        std::cout << "compute (2) score for " << *base[*idx] <<
+        //        std::endl;
+
+        for (auto l : *base[*idx]) {
+          score[*idx] += inverseLearningRate(l);
+        }
+      }
     }
-    
+
     if (solver.getOptions().forget_strategy == Options::LiteralScore::Size) {
         std::sort(free_cl_indices.bbegin(), free_cl_indices.bend(),
                   [&](const int i, const int j) {

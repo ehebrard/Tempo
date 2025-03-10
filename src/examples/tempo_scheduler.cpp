@@ -58,6 +58,10 @@ int main(int argc, char *argv[]) {
     
   parser.parse(argc, argv);
   Options opt = parser.getOptions();
+    
+  if(opt.print_par)
+    std::cout << opt << std::endl;
+    
   seed(opt.seed);
     
   Solver<> S(opt);
@@ -212,27 +216,11 @@ int main(int argc, char *argv[]) {
 
   // search
   if (not optimal) {
-      
-//      if(load_solution != "") {
-//          Solution<int> sol;
-//          std::ifstream infile(load_solution.c_str(), std::ios_base::in);
-//          infile >> sol;
-//        
-//      }
-      
-//      if(ordering_file != "") {
-//          std::vector<var_t> ordering;
-//          std::ifstream infile(ordering_file.c_str(), std::ios_base::in);
-//          int length;
-//          var_t x;
-//          infile >> length;
-//          for(int i{0}; i<length; ++i) {
-//              infile >> x;
-//              ordering.push_back(x);
-//          }
-//          S.setBranchingHeuristic(heuristics::make_compound_heuristic(heuristics::Static(S,ordering), heuristics::make_value_heuristic(S)));
-//      }
-      
+
+//    heuristics::MovableHeuristic<heuristics::LearningRateHeap<int>> h(S);
+//    S.setBranchingHeuristic(make_compound_heuristic(
+//        std::move(h), heuristics::make_value_heuristic(S)));
+
     S.minimize(schedule.duration);
   }
 

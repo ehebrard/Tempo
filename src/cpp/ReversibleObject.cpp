@@ -3,8 +3,6 @@
 
 using namespace tempo;
 
-BacktrackEnvironment* ReversibleObject::env = new BacktrackEnvironment();
-
 BacktrackEnvironment::BacktrackEnvironment() { stamps.push_back(0); }
 
 int BacktrackEnvironment::level() const {

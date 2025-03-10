@@ -65,14 +65,12 @@ using hint = int;
 #define LNS 4096
 
 ///////// UNCOMMENT TO DEBUG
-//#define DBG_TRACE LNS //(SEARCH + LEARNING + MINIMIZATION + SHRINKING)
-//#define DBG_BOUND (num_fails >= 0)
-//#define DBG_CBOUND (solver.num_fails >= 0)
-//#define DBG_CLBOUND (solver.num_fails >= 0)
-//#define DBG_BBOUND (solver.num_fails >= 0)
+// #define DBG_TRACE (SEARCH + LEARNING + MINIMIZATION + SHRINKING)
+// #define DBG_BOUND (num_fails >= 0)
+// #define DBG_CBOUND (solver.num_fails >= 0)
+// #define DBG_CLBOUND (solver.num_fails >= 0)
+// #define DBG_BBOUND (solver.num_fails >= 0)
 //////////////
-
-
 
 //#define FULL_TT_REASONING
 // #define DBG_MINIMIZATION
@@ -84,8 +82,7 @@ using hint = int;
 //  #define DBG_BELLMAN_EXPL (sched.num_choicepoints >= 4172)
 //  #define DEBUG_HEURISTICS
 //  #define DBG_UP
-//#define DBG_CL 895
-// #define DBG_CL 559
+//#define DBG_CL 10000000
 // #define DBG_CLPLUS true
 //  #define DBG_TRANSITIVITY true //(m_schedule.num_choicepoints >= 4064)
 //  #define DBG_EXPL_TRANS true
