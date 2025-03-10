@@ -8,26 +8,29 @@
 #include "RankingHeuristic.hpp"
 #include "Global.hpp"
 #include "util/edge_distance.hpp"
+#include "util/traits.hpp"
+#include "Solver.hpp"
+#include "heuristic_interface.hpp"
 
 namespace tempo::heuristics {
 
-    class Tightest : public RankingHeuristic<Tightest> {
+    template<concepts::scalar T>
+    class Tightest : public RankingHeuristic<Tightest<T>>, public BaseVariableHeuristic<T>{
     public:
         Tightest() = default;
 
         /**
          * Calculates the cost for a boolean variable which is the maximum of the distance
          * between the nodes in both directions of the associated distance constraint
-         * @tparam T timing type
          * @param x variable identifier
          * @param solver solver for which to select a variable
          * @return maximum of the Distances in both directions between the nodes
          */
         template<edge_distance_provider S>
         [[nodiscard]] auto getCost(var_t x, const S &solver) const {
-            using T = std::remove_cvref_t<decltype(*boundEstimation(true, 0, solver))>;
+            using Time = std::remove_cvref_t<decltype(*boundEstimation(true, 0, solver))>;
             assert(x != Constant::NoVar);
-            T dom{1};
+            Time dom{1};
             if (solver.boolean.hasSemantic(x)) {
                 auto gapA = boundEstimation(true, x, solver);
                 auto gapB = boundEstimation(false, x, solver);
@@ -47,11 +50,19 @@ namespace tempo::heuristics {
          * @param solver
          * @todo currently only selects boolean variables
          */
-        template<concepts::scalar T>
-        [[nodiscard]] auto nextVariable(const Solver<T> &solver) -> VariableSelection {
+        [[nodiscard]] auto nextVariable(const Solver<T> &solver) -> VariableSelection override {
             return {this->bestVariable(solver.getBranch(), solver), VariableType::Boolean};
         }
 
+    };
+
+    struct TightestFactory : MakeVariableHeuristicFactory<TightestFactory> {
+        TightestFactory();
+
+        template<concepts::scalar T>
+        [[nodiscard]] auto build_impl(const Solver<T>&) const -> VariableHeuristic<T> {
+            return std::make_unique<Tightest<T>>();
+        }
     };
 }
 

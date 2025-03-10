@@ -26,6 +26,7 @@
 #include <cassert>
 
 #include "Global.hpp"
+#include "Solver.hpp"
 #include "Literal.hpp"
 #include "util/crtp.hpp"
 #include "util/traits.hpp"
@@ -34,21 +35,8 @@
 
 namespace tempo::heuristics {
 
-/**
- * Interface for value selection heuristic implementations that derive from
- * BaseBooleanHeuristic
- * @tparam H heuristic type
- * @tparam Solver information provider (usually the Solver)
- */
-template <typename H, typename Solver>
-concept binary_heuristic_implementation = requires(H heuristic,
-                                                   const Solver &solver,
-                                                   var_t x) {
-  { heuristic.choose(x, solver) } -> concepts::same_template<Literal>;
-};
-
-template<typename Solver>
-concept boolean_info_provider = requires(const Solver s, var_t x) {
+template<typename S>
+concept boolean_info_provider = requires(const S s, var_t x) {
     { s.boolean.getLiteral(true, x) } -> concepts::same_template<Literal>;
     { s.boolean.hasSemantic(x) } -> std::convertible_to<bool>;
 };
@@ -60,11 +48,24 @@ concept boolean_info_provider = requires(const Solver s, var_t x) {
  * heuristic interface
  * @tparam Impl
  */
-template <typename Impl>
-class BaseBooleanHeuristic : public crtp<Impl, BaseBooleanHeuristic> {
+template <typename Impl, concepts::scalar T>
+class BaseBooleanHeuristic : public crtp<Impl, BaseBooleanHeuristic, T>, public BaseValueHeuristic<T> {
     static constexpr auto EpsScale = 10000ul;
     unsigned long epsilon;
+protected:
 
+    template<boolean_info_provider S>
+    auto valueDecisionImpl(const VariableSelection &selection, const S &solver) {
+        assert(selection.second == VariableType::Boolean);
+        auto rval = tempo::random();
+        if ((rval % EpsScale) < epsilon) {
+            auto lit = solver.boolean.getLiteral((rval % 2) == 0, selection.first);
+            assert(lit.isBoolean());
+            return lit;
+        }
+
+        return this->getImpl().choose(selection.first, solver);
+    }
 public:
     /**
      * Ctor
@@ -85,18 +86,8 @@ public:
      * @param solver solver instance
      * @return
      */
-    template<boolean_info_provider Solver>
-    requires(binary_heuristic_implementation <Impl, Solver>)
-    constexpr auto valueDecision(const VariableSelection &selection, const Solver &solver) {
-      assert(selection.second == VariableType::Boolean);
-      auto rval = tempo::random();
-      if ((rval % EpsScale) < epsilon) {
-        auto lit = solver.boolean.getLiteral((rval % 2) == 0, selection.first);
-        assert(lit.isBoolean());
-        return lit;
-      }
-
-      return this->getImpl().choose(selection.first, solver);
+    auto valueDecision(const VariableSelection &selection, const Solver<T> &solver) -> Literal<T> override {
+        return valueDecisionImpl(selection, solver);
     }
 };
 } // namespace tempo::heuristics

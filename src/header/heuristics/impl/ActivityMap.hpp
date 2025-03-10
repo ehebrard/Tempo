@@ -6,6 +6,7 @@
 #define SCHEDCL_ACTIVITYMAP_HPP
 
 #include <concepts>
+#include <algorithm>
 
 #include "util/traits.hpp"
 

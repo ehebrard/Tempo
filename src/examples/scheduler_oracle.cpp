@@ -31,9 +31,7 @@ int main(int argc, char **argv) {
     }
 
     auto [solver, problem, _1, _2, _3, _4] = loadSchedulingProblem(options);
-    using Oracle = util::ProfiledHeuristic<PerfectValueHeuristic>;
-    util::Profiler profiler;
-    Oracle valueOracle(profiler, options.polarity_epsilon, solution);
+    PerfectValueHeuristic valueOracle(options.polarity_epsilon, solution);
     solver->setBranchingHeuristic(make_compound_heuristic(make_variable_heuristic(*solver),
                                                           std::move(valueOracle)));
     solver->minimize(problem.schedule().duration);
@@ -41,7 +39,6 @@ int main(int argc, char **argv) {
         std::cout << "-- makespan " << solver->numeric.solutionLower(problem.schedule().duration) << std::endl;
     }
 
-    profiler.printAll<std::chrono::microseconds>(std::cout);
     std::cout << "-- date: " << shell::getTimeStamp() << std::endl;
     std::cout << "-- commit: " << GitSha << std::endl;
     return 0;

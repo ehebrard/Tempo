@@ -9,11 +9,12 @@
 
 #include <concepts>
 #include <memory>
-#include <variant>
-#include <functional>
+
 
 #include "Literal.hpp"
 #include "util/traits.hpp"
+#include "util/PolyFactory.hpp"
+#include "util/Options.hpp"
 
 namespace tempo {
     template<typename T>
@@ -29,7 +30,7 @@ namespace tempo::heuristics {
     using VariableSelection = std::pair<var_t, VariableType>;
 
     /**
-     * Interface for branching heuristics (combined variable and value selection)
+     * Interface concept for branching heuristics (combined variable and value selection)
      * @tparam H heuristic type
      * @tparam T timing type
      */
@@ -39,7 +40,7 @@ namespace tempo::heuristics {
     };
 
     /**
-     * Interface for variable selection heuristics
+     * Interface concept for variable selection heuristics
      * @tparam H heuristic type
      * @tparam T timing type
      */
@@ -49,7 +50,7 @@ namespace tempo::heuristics {
     };
 
     /**
-     * Interface for value selection heuristics
+     * Interface concept for value selection heuristics
      * @tparam H heuristic type
      * @tparam Solver information provider (usually the scheduler)
      */
@@ -63,16 +64,17 @@ namespace tempo::heuristics {
      * @tparam H type of heuristic
      */
     template<typename H>
-    class MovableHeuristic {
-        std::unique_ptr<H> heuristic;
+    class MovableHeuristic : public std::unique_ptr<H> {
     public:
+        using std::unique_ptr<H>::unique_ptr;
         /**
          * Ctor. Constructs the heuristic in place
          * @tparam Args argument types
          * @param args arguments to the Ctor of H
          */
-        template<typename ...Args>
-        explicit MovableHeuristic(Args &&...args) : heuristic(std::make_unique<H>(std::forward<Args>(args)...)) {}
+        template<typename... Args>
+        explicit MovableHeuristic(Args &&... args) : std::unique_ptr<H>(
+            std::make_unique<H>(std::forward<Args>(args)...)) {}
 
 
         /**
@@ -83,7 +85,7 @@ namespace tempo::heuristics {
          */
         template<concepts::scalar T> requires(variable_heuristic<H, T>)
         auto nextVariable(const Solver<T> &solver) const -> VariableSelection {
-            return heuristic->nextVariable(solver);
+            return this->get()->nextVariable(solver);
         }
 
         /**
@@ -95,7 +97,7 @@ namespace tempo::heuristics {
          */
         template<concepts::scalar T> requires(value_heuristic<H, Solver<T>>)
         auto valueDecision(VariableSelection x, const Solver<T> &solver) const -> Literal<T> {
-            return heuristic->valueDecision(x, solver);
+            return this->get()->valueDecision(x, solver);
         }
 
         /**
@@ -106,13 +108,108 @@ namespace tempo::heuristics {
          */
         template<concepts::scalar T> requires(tempo::heuristics::heuristic<H, T>)
         auto branch(const Solver<T> &solver) const -> Literal<T> {
-            return heuristic->branch(solver);
-        }
-
-        auto operator->() const noexcept {
-            return heuristic.operator->();
+            return this->get()->branch(solver);
         }
     };
+
+
+    /**
+     * @brief Abstract variable selection heuristic
+     * @details @copybrief
+     * @tparam T timing type
+     * @note You don't have to use this base class when implementing new variable selection heuristics. They only have
+     * to model the concepts further above. Use this base class when you want to create your heuristic using a factory
+     */
+    template<concepts::scalar T>
+    class BaseVariableHeuristic {
+    public:
+        BaseVariableHeuristic() = default;
+        BaseVariableHeuristic(const BaseVariableHeuristic &) = default;
+        BaseVariableHeuristic(BaseVariableHeuristic &&) = default;
+        BaseVariableHeuristic &operator=(const BaseVariableHeuristic &) = default;
+        BaseVariableHeuristic &operator=(BaseVariableHeuristic &&) = default;
+        virtual ~BaseVariableHeuristic() = default;
+
+        /**
+         * variable selection interface
+         * @param solver solver for which to select a new variable
+         * @return variable selection
+         */
+        virtual auto nextVariable(const Solver<T> &solver) -> VariableSelection = 0;
+    };
+
+    /**
+     * @brief Polymorphic variable selection heuristic type returned from factories
+     * @tparam T timing type
+     */
+    template<concepts::scalar T>
+    using VariableHeuristic = MovableHeuristic<BaseVariableHeuristic<T>>;
+
+    /**
+     * @brief These are all the scalar types supported by the heuristic factories.
+     * If you need more, just extend the list.
+     */
+    using ScalarTypes = types_t<int, unsigned, long, unsigned long, float, double>;
+
+    /**
+     * @brief Helper CRTP type for creating variable selection heuristic factories (have your factory derive from this)
+     * @tparam Impl Class implementing the CRTP
+     */
+    template<typename Impl>
+    using MakeVariableHeuristicFactory = MakeFactory<Impl, VariableHeuristic, ScalarTypes, RefTag<Solver>>;
+
+    /**
+     * @brief Singleton variable selection heuristic factory type. Use this type to register your factories
+     */
+    using VariableHeuristicFactory = PolyFactory<VariableHeuristic, ScalarTypes, Options::ChoicePointHeuristics,
+        RefTag<Solver>>;
+
+
+    /**
+     * @brief abstract value selection heuristic
+     * @details @copybrief
+     * @tparam T timing type
+     * @note You don't have to use this base class when implementing new value selection heuristics. They only have
+     * to model the concepts further above. Use this base class when you want to create your heuristic using a factory
+     */
+    template<concepts::scalar T>
+    class BaseValueHeuristic {
+    public:
+        BaseValueHeuristic() = default;
+        BaseValueHeuristic(const BaseValueHeuristic &) = default;
+        BaseValueHeuristic(BaseValueHeuristic &&) = default;
+        BaseValueHeuristic &operator=(const BaseValueHeuristic &) = default;
+        BaseValueHeuristic &operator=(BaseValueHeuristic &&) = default;
+        virtual ~BaseValueHeuristic() = default;
+
+        /**
+         * value selection interface
+         * @param x selected variable
+         * @param solver solver for which to select the variable value
+         * @return branching literal
+         */
+        virtual auto valueDecision(const VariableSelection &x, const Solver<T> &solver) -> Literal<T> = 0;
+    };
+
+    /**
+     * @brief Polymorphic value selection heuristic type returned from factories
+     * @tparam T timing type
+     */
+    template<concepts::scalar T>
+    using ValueHeuristic = MovableHeuristic<BaseValueHeuristic<T>>;
+
+    /**
+     * @brief Helper CRTP type for creating value selection heuristic factories (have your factory derive from this)
+     * @tparam Impl Class implementing the CRTP
+     */
+    template<typename Impl>
+    using MakeValueHeuristicFactory = MakeFactory<Impl, ValueHeuristic, ScalarTypes, RefTag<Solver>>;
+
+    /**
+     * @brief Singleton value selection heuristic factory type. Use this type to register your factories
+     */
+    using ValueHeuristicFactory = PolyFactory<ValueHeuristic, ScalarTypes, Options::PolarityHeuristic, RefTag<Solver>>;
+
 
     namespace detail {
         template<concepts::scalar T>
@@ -185,8 +282,8 @@ namespace tempo::heuristics {
     /**
      * @brief General branching heuristic wrapper that holds a separate variable and value selection heuristic
      * @details @copybrief
-     * @tparam VarH type of variable selection heuristic
-     * @tparam ValH type of value selection heuristic
+     * @tparam VariableHeuristic type of variable selection heuristic
+     * @tparam ValueHeuristic type of value selection heuristic
      */
     template<typename VariableHeuristic, typename ValueHeuristic>
     class CompoundHeuristic {

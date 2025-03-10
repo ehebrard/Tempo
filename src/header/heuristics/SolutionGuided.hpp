@@ -12,6 +12,9 @@
 #include "ReversibleObject.hpp"
 #include "BaseBooleanHeuristic.hpp"
 #include "heuristics/heuristic_interface.hpp"
+#include "heuristics/TightestValue.hpp"
+#include "heuristics/RandomBinaryValue.hpp"
+#include "ReversibleObject.hpp"
 
 namespace tempo::heuristics {
 
@@ -28,35 +31,25 @@ namespace tempo::heuristics {
      * @details @copybrief
      * Performs the first decent using some base heuristic. After that follows the most recent solution
      */
-    template<class BaseHeuristic>
-    class SolutionGuided : public BaseBooleanHeuristic<SolutionGuided<BaseHeuristic>> {
+    template<class BaseHeuristic, concepts::scalar T>
+    class SolutionGuided : public BaseBooleanHeuristic<SolutionGuided<BaseHeuristic, T>, T> {
         BaseHeuristic h;
         Reversible<size_t> var_ptr;
         Reversible<size_t> discrepancies;
         
         size_t max_discrepancies{2};
     public:
-        /**
-         * Ctor.
-         * @tparam Args
-         * @param epsilon see tempo::heuristics::BaseValueHeuristic
-         * @param args arguments to base heuristic
-         */
         template<class... Args>
-        explicit SolutionGuided(double epsilon, Args &&...args): BaseBooleanHeuristic<SolutionGuided>(epsilon),
-                                                                 h(std::forward<Args>(args)...) {}
-        
-        template <concepts::scalar T>
-        explicit SolutionGuided(Solver<T> &solver) :
-        BaseBooleanHeuristic<SolutionGuided>(solver.getOptions().polarity_epsilon), h(solver)
+        explicit SolutionGuided(Solver<T> &solver, Args &&...args) :
+        BaseBooleanHeuristic<SolutionGuided, T>(solver.getOptions().polarity_epsilon), h(std::forward<Args>(args)...)
         , var_ptr(0, &(solver.getEnv()))
         , discrepancies(0, &(solver.getEnv()))
         {
-            max_discrepancies = static_cast<size_t>(static_cast<double>(solver.boolean.size()) * solver.getOptions().sgd_ratio);
+            max_discrepancies = static_cast<size_t>(
+                static_cast<double>(solver.boolean.size()) * solver.getOptions().sgd_ratio);
         }
         
         
-        template <concepts::scalar T>
         bool checkDiscrepancies(const Solver<T> &solver) const {
             const auto &b = solver.boolean;
             if (not b.hasSolution()) {
@@ -157,6 +150,24 @@ namespace tempo::heuristics {
             
             assert(sol[posLit] != sol[negLit]);
             return sol[posLit] ? posLit : negLit;
+        }
+    };
+
+    struct TSGFactory : MakeValueHeuristicFactory<TSGFactory> {
+        TSGFactory();
+
+        template<concepts::scalar T>
+        [[nodiscard]] auto build_impl(Solver<T> &solver) const -> ValueHeuristic<T> {
+            return std::make_unique<SolutionGuided<TightestValue<T>, T>>(solver, solver);
+        }
+    };
+
+    struct RSGFactory : MakeValueHeuristicFactory<RSGFactory> {
+        RSGFactory();
+
+        template<concepts::scalar T>
+        [[nodiscard]] auto build_impl(Solver<T> &solver) const -> ValueHeuristic<T> {
+            return std::make_unique<SolutionGuided<RandomBinaryValue<T>, T>>(solver);
         }
     };
 }

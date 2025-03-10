@@ -28,7 +28,7 @@ int main(int argc, char **argv) {
         std::cout << "processing " << entry.path() << std::endl;
         auto meta = getInfo(entry);
         opt.instance_file = getInstance(entry);
-        auto [_, _1, _2, _3, nTasks] = loadSchedulingProblem(opt);
+        auto [_, _1, _2, _3, _4, nTasks] = loadSchedulingProblem(opt);
         auto [dp, status] = tempo::loadDataPoint(entry, 0, true);
         if (status != DataPointStatus::Valid) {
             std::cerr << "failed to load problem " << entry.path() << std::endl;

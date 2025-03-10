@@ -10,6 +10,7 @@
 #include "util/traits.hpp"
 #include "heuristic_interface.hpp"
 #include "util/SparseSet.hpp"
+#include "Solver.hpp"
 
 namespace tempo {
     template<typename T>
@@ -22,7 +23,8 @@ namespace tempo::heuristics {
      * @details @copybrief Randomly chooses a variable from the remenaing search variables
      * @note Right now, only binary variables are selected
      */
-    struct RandomVariableSelection {
+    template<concepts::scalar T>
+    struct RandomVariableSelection : BaseVariableHeuristic<T>{
 
         /**
          * Heuristic interface
@@ -30,11 +32,20 @@ namespace tempo::heuristics {
          * @param solver solver for which to select the variable
          * @return randomly selected variable
          */
-        template<concepts::scalar T>
-        auto nextVariable(const Solver<T> &solver) const noexcept -> VariableSelection {
+        auto nextVariable(const Solver<T> &solver) noexcept -> VariableSelection override {
             const concepts::same_template<SparseSet> auto &variables = solver.getBranch();
             assert(not variables.empty());
             return {variables.any(), VariableType::Boolean};
+        }
+    };
+
+
+    struct RandomVariableSelectionFactory : MakeVariableHeuristicFactory<RandomVariableSelectionFactory> {
+        RandomVariableSelectionFactory();
+
+        template<concepts::scalar T>
+        [[nodiscard]] auto build_impl(const Solver<T>&) const -> VariableHeuristic<T> {
+            return std::make_unique<RandomVariableSelection<T>>();
         }
     };
 }

@@ -23,9 +23,9 @@
 
 #include <cassert>
 
-#include "BaseBooleanHeuristic.hpp"
-#include "Global.hpp"
+#include "heuristic_interface.hpp"
 #include "util/random.hpp"
+#include "Solver.hpp"
 
 namespace tempo::heuristics {
 
@@ -34,27 +34,22 @@ namespace tempo::heuristics {
  * @details @copybrief
  * Chooses choice point polarity always randomly
  */
-    class RandomBinaryValue {
+    template <concepts::scalar T>
+    class RandomBinaryValue : public BaseValueHeuristic<T> {
     public:
-        
-        explicit RandomBinaryValue() {}
-        explicit RandomBinaryValue(double) {}
-        
-        template <concepts::scalar T>
-        explicit RandomBinaryValue(Solver<T> &) {}
-        
-        /**
-         * heuristic interface
-         * @tparam Sched class that provides additional information for the actual
-         * implementation
-         * @param cp choice point
-         * @param scheduler scheduler instance
-         * @return either POS(cp) or NEG(cp)
-         */
-        template<boolean_info_provider Solver>
-        static auto valueDecision(const VariableSelection &selection, const Solver &solver) noexcept {
+        auto valueDecision(const VariableSelection &selection,
+                           const Solver<T> &solver) noexcept -> Literal<T> override {
             assert(selection.second == VariableType::Boolean);
             return solver.boolean.getLiteral(tempo::random() % 2 == 0, selection.first);
+        }
+    };
+
+    struct RandomBinaryValueFactory : MakeValueHeuristicFactory<RandomBinaryValueFactory> {
+        RandomBinaryValueFactory();
+
+        template<concepts::scalar T>
+        [[nodiscard]] auto build_impl(const Solver<T> &) const -> ValueHeuristic<T> {
+            return std::make_unique<RandomBinaryValue<T>>();
         }
     };
 

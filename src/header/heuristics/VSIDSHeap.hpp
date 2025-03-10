@@ -14,27 +14,34 @@
 #include "util/Heap.hpp"
 #include "util/SparseSet.hpp"
 #include "util/traits.hpp"
-
+#include "util/SubscribableEvent.hpp"
 #include "heuristic_interface.hpp"
 #include "ReversibleObject.hpp"
+#include "Solver.hpp"
 
 //#define DBG_VSIDS true
 
 namespace tempo {
-template <typename T> class Solver;
+    template<typename T>
+    class Solver;
 }
 
 namespace tempo::heuristics {
+
 /**
- * @brief Random variable selection strategy
- * @details @copybrief Randomly chooses a variable from the remenaing search
- * variables
- * @note Right now, only binary variables are selected
+ * @brief (Variable State Independent Decaying Sum) heuristic (heap implementation)
+ * @details @copybrief
+ * Selects variables which occur in the largest number of clauses (proportionally to highest activity). Activity for
+ * a literal l is calculated the following way:
+ * \f$ A_l = \sum_{i=1}^n \gamma^{n - i} w_i \f$ where \f$ \gamma \f$ is a constant decay factor and \f$ n \f$ is
+ * the the number of activity updates
+ * The final scor
+ * @tparam T timing type
  */
-class VSIDSHeap : public ReversibleObject {
+template <concepts::scalar T>
+class VSIDSHeap : public ReversibleObject, public BaseVariableHeuristic<T> {
     
 public:
-    template <concepts::scalar T>
     VSIDSHeap(Solver<T> &solver)
     : ReversibleObject(&solver.getEnv())
     , handlerToken(solver.ConflictExtracted.subscribe_handled(
@@ -69,7 +76,7 @@ public:
     VSIDSHeap(VSIDSHeap &&) = delete;
     VSIDSHeap &operator=(const VSIDSHeap &) = delete;
     VSIDSHeap &operator=(VSIDSHeap &&) = delete;
-    ~VSIDSHeap() = default;
+    ~VSIDSHeap() override = default;
     
     /**
      * Heuristic interface
@@ -77,8 +84,7 @@ public:
      * @param solver solver for which to select the variable
      * @return randomly selected variable
      */
-    template <concepts::scalar T>
-    auto nextVariable(const Solver<T> &solver) noexcept -> VariableSelection {
+    auto nextVariable(const Solver<T> &solver) noexcept -> VariableSelection override {
         const concepts::same_template<SparseSet> auto &variables =
         solver.getBranch();
 
@@ -88,36 +94,35 @@ public:
             std::cout << " " << *v;
         }
         std::cout << std::endl;
-        
+
         if (static_cast<int>(trail.size()) > solver.level())
             std::cout << "(t) backtrack to level " << solver.level() << "\n";
 #endif
-        
-        assert(not variables.empty());
-        
-        
-        
-//        
-//        auto n{trail.back()};
-//        while (static_cast<int>(trail.size()) > solver.level()) {
-//            trail.pop_back();
-//        }
-//        
-//        while (n < trail.back()) {
-//            
-//#ifdef DBG_VSIDS
-//            std::cout << " - restore var " << var_heap[n] << "\n";
-////            assert(variables.has(var_heap[n]));
-//#endif
-//            
-//            heap::percolate_up(var_heap.begin(), n, index,
-//                               [&](const var_t x, const var_t y) {
-//                return activity[x] > activity[y];
-//            });
-//            ++n;
-//        }
-//        
-        
+
+            assert(not variables.empty());
+
+
+            //
+            //        auto n{trail.back()};
+            //        while (static_cast<int>(trail.size()) > solver.level()) {
+            //            trail.pop_back();
+            //        }
+            //
+            //        while (n < trail.back()) {
+            //
+            //#ifdef DBG_VSIDS
+            //            std::cout << " - restore var " << var_heap[n] << "\n";
+            ////            assert(variables.has(var_heap[n]));
+            //#endif
+            //
+            //            heap::percolate_up(var_heap.begin(), n, index,
+            //                               [&](const var_t x, const var_t y) {
+            //                return activity[x] > activity[y];
+            //            });
+            //            ++n;
+            //        }
+            //
+
 #ifdef DBG_VSIDS
         if(static_cast<int>(trail.size()) < solver.level())
             std::cout << " - catch up from lvl " << trail.size() << " to lvl " << solver.level() << std::endl;
@@ -145,7 +150,7 @@ public:
         return {x, VariableType::Boolean};
     }
 
-    void undo() {
+    void undo() override {
       auto n{trail.back()};
       trail.pop_back();
 
@@ -165,7 +170,7 @@ public:
   }
 
 protected:
-    template <concepts::scalar T> void updateActivity(const Solver<T> &solver) {
+    void updateActivity(const Solver<T> &solver) {
         
         bool_buffer.clear();
         num_buffer.clear();
@@ -248,7 +253,7 @@ protected:
         assert(checkHeap(0));
     }
     
-    template <concepts::scalar T> bool checkVars(const Solver<T> &solver) {
+    bool checkVars(const Solver<T> &solver) {
         auto last{trail.back()};
         for (auto x : solver.getBranch()) {
             bool notin{true};
@@ -313,32 +318,41 @@ protected:
 #ifdef DBG_VSIDS
         std::cout << " - pick " << x << " (" << _end_ << ")\n";
 #endif
-        
-        return x;
-    }
-    
-    // the successive sizes of the heap -> decreasing at each call to
-    // nextVariable() |trail| should therefore be equal to solver.level(), if not,
-    // there has been a backtrack then the values in trail can be used to
-    // re-integrate the necessary variables
-    std::vector<size_t> trail;
-    
-    // position of each variable in the heap (so that we can percolate)
-    std::vector<index_t> index;
-    
-    std::vector<var_t> var_heap;
-    
-    SubscriberHandle handlerToken;
-    
-    std::vector<var_t> bool_buffer;
-    std::vector<var_t> num_buffer;
-    
-    impl::ActivityMap& activity;
-    impl::ActivityMap& num_activity;
-    
-    bool weight_reasons{true};
-//    std::vector<Literal<T>> lit_buffer;
-};
+
+            return x;
+        }
+
+        // the successive sizes of the heap -> decreasing at each call to
+        // nextVariable() |trail| should therefore be equal to solver.level(), if not,
+        // there has been a backtrack then the values in trail can be used to
+        // re-integrate the necessary variables
+        std::vector<size_t> trail;
+
+        // position of each variable in the heap (so that we can percolate)
+        std::vector<index_t> index;
+
+        std::vector<var_t> var_heap;
+
+        SubscriberHandle handlerToken;
+
+        std::vector<var_t> bool_buffer;
+        std::vector<var_t> num_buffer;
+
+        impl::ActivityMap &activity;
+        impl::ActivityMap &num_activity;
+
+        bool weight_reasons{true};
+        //    std::vector<Literal<T>> lit_buffer;
+    };
+
+    struct VSIDSHeapFactory : MakeVariableHeuristicFactory<VSIDSHeapFactory> {
+        VSIDSHeapFactory();
+
+        template<concepts::scalar T>
+        auto build_impl(Solver<T>& solver) const -> VariableHeuristic<T> {
+            return std::make_unique<VSIDSHeap<T>>(solver);
+        }
+    };
 }
 
 #endif // TEMPO_VSIDSHEAP_HPP

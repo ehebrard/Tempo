@@ -472,6 +472,7 @@ private:
 template <typename T = int> class Solver : public ReversibleObject {
     
 public:
+    using Time = T;
     /**
      * @name constructors
      */

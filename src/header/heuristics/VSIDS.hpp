@@ -5,7 +5,10 @@
 #ifndef TEMPO_VSIDS_HPP
 #define TEMPO_VSIDS_HPP
 
+#include "util/traits.hpp"
 #include "GapOverActivity.hpp"
+#include "heuristic_interface.hpp"
+#include "Solver.hpp"
 
 namespace tempo::heuristics {
     /**
@@ -17,7 +20,8 @@ namespace tempo::heuristics {
      * the the number of activity updates
      * The final score of a literal is inversely proportional to its activity
      */
-    class VSIDS : public GapOverActivity {
+  template<concepts::scalar T>
+    class VSIDS : public GapOverActivity<T> {
     public:
 
 
@@ -26,14 +30,12 @@ namespace tempo::heuristics {
          * @tparam T timing type
          * @param solver target solver
          */
-      template <concepts::scalar T>
       explicit VSIDS(Solver<T> &solver)
-          : GapOverActivity(solver, solver.ConflictExtracted.subscribe_handled(
+          : GapOverActivity<T>(solver, solver.ConflictExtracted.subscribe_handled(
                                         [this](const auto &arg) {
                                           this->updateActivity(arg);
                                         })) {}
 
-      template <concepts::scalar T>
       void updateActivity(const Solver<T> &solver) {
 #ifdef OLDVSIDS
         GapOverActivity::activity.update(solver);
@@ -71,13 +73,22 @@ namespace tempo::heuristics {
           }
         }
 
-        GapOverActivity::numeric_activity.update(num_buffer);
-        GapOverActivity::boolean_activity.update(bool_buffer);
+        GapOverActivity<T>::numeric_activity.update(num_buffer);
+        GapOverActivity<T>::boolean_activity.update(bool_buffer);
 #endif
       }
 
       std::vector<var_t> bool_buffer;
       std::vector<var_t> num_buffer;
+    };
+
+    struct VSIDSFactory : MakeVariableHeuristicFactory<VSIDSFactory> {
+        VSIDSFactory();
+
+        template<concepts::scalar T>
+        auto build_impl(Solver<T>& solver) const -> VariableHeuristic<T> {
+            return std::make_unique<VSIDS<T>>(solver);
+        }
     };
 }
 
