@@ -31,6 +31,7 @@
 #include "util/parsing/path.hpp"
 #include "util/parsing/tsptw.hpp"
 #include "util/parsing/jssdst.hpp"
+#include "util/printing.hpp"
 #include "helpers/cli.hpp"
 #include "util/Profiler.hpp"
 #include "helpers/shell.hpp"
@@ -42,78 +43,6 @@
 #include "heuristics/warmstart.hpp"
 
 using namespace tempo;
-
-template <typename T>
-std::string prettyJob(const Interval<T> &task, const Solver<T> &S,
-                      const bool dur_flag) {
-  std::stringstream ss;
-
-  auto est{S.numeric.solutionLower(task.start)};
-  auto lst{S.numeric.solutionUpper(task.start)};
-  auto ect{S.numeric.solutionLower(task.end)};
-  auto lct{S.numeric.solutionUpper(task.end)};
-
-  ss << "[";
-
-  if (est == lst)
-    ss << est;
-  else
-    ss << est << "-" << lst;
-  ss << "..";
-  if (ect == lct)
-    ss << ect;
-  else
-    ss << ect << "-" << lct;
-  ss << "]";
-
-  if (dur_flag) {
-    auto pmin{S.numeric.solutionLower(task.duration)};
-    auto pmax{S.numeric.solutionUpper(task.duration)};
-    ss << " (" << pmin << "-" << pmax << ")";
-  }
-
-  return ss.str();
-}
-
-template<typename T>
-void printJobs(const Solver<T>& S, const std::vector<Interval<T>>& intervals) {
-  int i{0};
-  for (auto task : intervals) {
-    std::cout << "job" << ++i << " (" << task.id()
-              << "): " << prettyJob(task, S, true) << std::endl;
-  }
-}
-
-template<typename T>
-void printResources(const Solver<T>& S, const std::vector<Interval<T>>& intervals, std::vector<std::vector<size_t>>& resource_tasks) {
-  int i{0};
-
-  for (auto &tasks_idx : resource_tasks) {
-    ++i;
-    if (tasks_idx.size() > 1) {
-
-      std::vector<index_t> order;
-      for (auto j : tasks_idx) {
-        auto job{intervals[j]};
-        if (S.boolean.value(job.exist))
-          order.push_back(j);
-      }
-
-      std::sort(order.begin(), order.end(),
-                [&](const index_t a, const index_t b) {
-                  return S.numeric.solutionLower(intervals[a].start) <
-                         S.numeric.solutionLower(intervals[b].start);
-                });
-
-      std::cout << "resource " << i << ":";
-      for (auto o : order) {
-        std::cout << " job" << (o + 1) << ":"
-                  << prettyJob(intervals[o], S, false);
-      }
-      std::cout << std::endl;
-    }
-  }
-}
 
 
 // implementation of a scheduling solver
