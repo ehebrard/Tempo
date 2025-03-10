@@ -113,7 +113,7 @@ namespace tempo::nn {
                                                                       resourceConstraints, false);
                     break;
                 default:
-                    throw std::runtime_error("unsupported assumption mode " + to_string(assumptionMode));
+                    throw std::runtime_error("unsupported assumption mode " + penum_to_string(assumptionMode));
             }
 
             if (verbosity >= Options::YACKING) {

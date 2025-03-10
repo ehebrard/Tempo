@@ -209,17 +209,18 @@ auto tempo::getBaseParser() -> Parser {
     cmd.add<SwitchArg>(opt.ground_update, "", "no-ground-update",
                        "do not consider new upper bounds as ground fact", true);
 
-    cmd.add<ValueArg<int>>(opt.choice_point_heuristics, "", "cp-heuristic",
-                           "type of heuristic used for choice point selection "
-                           "(0: Tightest, 1: WDEG, 2: VSIDS (default), 3: "
-                           "Random, 4: LRB, 5: HEAP)",
-                           false, 5, "int");
-    cmd.add<ValueArg<int>>(
-            opt.polarity_heuristic, "", "polarity-heuristic",
-            "type "
-            "of heuristic used for choice point polarity selection "
-            "(0: tightest, 1: tightest then solution guided (default), 2: random, 1: random then solution guided)",
-            false, 1, "int");
+    using CPH = Options::ChoicePointHeuristics;
+    using PH = Options::PolarityHeuristic;
+    cmd.add<ValueArg<CPH>>(opt.choice_point_heuristics, "", "cp-heuristic",
+                                                      "type of heuristic used for choice point selection "
+                                                      "(0: Tightest, 1: WDEG, 2: VSIDS (default), 3: "
+                                                      "Random, 4: LRB, 5: HEAP)",
+                                                      false, CPH::VSIDSHeap, "int");
+    cmd.add<ValueArg<PH>>(opt.polarity_heuristic, "", "polarity-heuristic",
+                          "type "
+                          "of heuristic used for choice point polarity selection "
+                          "(0: tightest, 1: tightest then solution guided (default), 2: random, 1: random then solution guided)",
+                          false, PH::TSG, "int");
 
     cmd.add<ValueArg<double>>(
             opt.polarity_epsilon, "", "polarity-epsilon",
