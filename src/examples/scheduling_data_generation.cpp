@@ -13,6 +13,7 @@
 #include "data_generation.hpp"
 #include "helpers/git_sha.hpp"
 #include "heuristics/LNS/relaxation_policy_factories.hpp"
+#include "heuristics/SolutionGuided.hpp"
 
 template<typename T>
 auto optMin(const std::optional<T> &lhs, const std::optional<T> &rhs) -> std::optional<T> {
@@ -62,9 +63,11 @@ int main(int argc, char **argv) {
                                                      "whether to fix all task edges or only those between fixed tasks",
                                                      policyParams.allTaskEdges, false)
     );
+    options.polarity_epsilon = 0;
     auto problemInfo = loadSchedulingProblem(options);
     const auto schedule = problemInfo.instance.schedule();
-    auto heuristic = make_compound_heuristic(make_variable_heuristic(*problemInfo.solver), TightestSolutionGuided(0, 0));
+    auto heuristic = make_compound_heuristic(make_variable_heuristic(*problemInfo.solver),
+                                             SolutionGuided<TightestValue<Time>, Time>(*problemInfo.solver, 0));
     problemInfo.solver->setBranchingHeuristic(std::move(heuristic));
     const auto problemName = fs::path(options.instance_file).filename();
     const auto destinationFolder = fs::path(saveTo) / problemName;
