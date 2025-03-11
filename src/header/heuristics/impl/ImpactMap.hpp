@@ -84,6 +84,12 @@ namespace tempo::heuristics::impl {
         auto get(Literal<T> lit) const -> ImpactMeasure {
             return get(lit.id());
         }
+
+        /**
+         * Get raw impact map
+         * @return reference to impact map
+         */
+        auto getMap() const noexcept -> const std::vector<ImpactMeasure> &;
     };
 }
 

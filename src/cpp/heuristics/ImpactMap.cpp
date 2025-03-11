@@ -16,4 +16,8 @@ namespace tempo::heuristics::impl {
     auto ImpactMap::get(info_t lit) const -> ImpactMeasure {
         return impact.at(lit);
     }
+
+    auto ImpactMap::getMap() const noexcept -> const std::vector<ImpactMeasure> & {
+        return impact;
+    }
 }

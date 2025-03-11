@@ -13,5 +13,10 @@ namespace tempo::heuristics {
         ValueHeuristicFactory::get().registerFactory(Options::PolarityHeuristic::Impact, this);
     }
 
+    TightestImpactFactory::TightestImpactFactory() {
+        ValueHeuristicFactory::get().registerFactory(Options::PolarityHeuristic::TightestImpact, this);
+    }
+
     static ValueImpactFactory _valueImpactFactory;
+    static TightestImpactFactory _tightestImpactFactory;
 }
