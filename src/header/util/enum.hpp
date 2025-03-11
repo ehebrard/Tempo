@@ -82,7 +82,7 @@ inline std::ostream &operator<<(std::ostream &os, NAME e) {                     
     os << __##NAME##_converter__.at(to_underlying(e));                                                          \
     return os;                                                                                                  \
 }                                                                                                               \
-inline auto penum_to_string(NAME e) {                                                                           \
+constexpr auto penum_to_string(NAME e) {                                                                        \
     return std::string(__##NAME##_converter__.at(to_underlying(e)));                                            \
 }                                                                                                               \
 constexpr void str_to_penum(std::string_view str, NAME &out) {                                                  \
