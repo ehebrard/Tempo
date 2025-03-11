@@ -216,11 +216,6 @@ int main(int argc, char *argv[]) {
 
   // search
   if (not optimal) {
-
-//    heuristics::MovableHeuristic<heuristics::LearningRateHeap<int>> h(S);
-//    S.setBranchingHeuristic(make_compound_heuristic(
-//        std::move(h), heuristics::make_value_heuristic(S)));
-
     S.minimize(schedule.duration);
   }
 

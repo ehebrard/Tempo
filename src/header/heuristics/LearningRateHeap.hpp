@@ -10,6 +10,7 @@
 
 //#include <algorithm>
 
+#include "Solver.hpp"
 #include "heuristics/impl/LearningRateMap.hpp"
 #include "heuristics/impl/ActivityMap.hpp"
 #include "util/Heap.hpp"
@@ -34,7 +35,7 @@ namespace tempo::heuristics {
  * @note Right now, only binary variables are selected
  */
 template<typename T>
-class LearningRateHeap : public ReversibleObject {
+class LearningRateHeap : public ReversibleObject, public BaseVariableHeuristic<T> {
     
 public:
 //    template <concepts::scalar T>
@@ -45,14 +46,8 @@ public:
                                                               [this](const auto &arg) { this->incrementActivity(arg); }))
     , propagationCallback(solver.PropagationCompleted.subscribe_handled(
                                                               [this](const auto &arg) { this->resetActivity(arg); }))
-//    , backtrackCallback(solver.BackTrackCompleted.subscribe_handled(
-//                                                              [this](const auto &arg) { this->updateRate(arg); }))
-//    , restartCallback(solver.SearchReastarted.subscribe_handled(
-//                                                              [this](const auto &arg) { this->updateRate(arg); }))
-////    , trailPointer(0, &solver.getEnv())
     , boolean_rate(solver.getBooleanLearningRate())
     , numeric_rate(solver.getNumericLearningRate())
-//    , num_activity(solver.getNumericActivity())
     {
         
         var_heap.resize(solver.boolean.size());
@@ -68,20 +63,15 @@ public:
         
         boolean_rate.resize(solver.boolean.size(), impl::ActivityMap::baseIncrement);
         numeric_rate.resize(solver.numeric.size(), impl::ActivityMap::baseIncrement);
-//        num_activity.resize(solver.numeric.size(), impl::ActivityMap::baseIncrement);
-    
-        assert(checkVars(solver));
-//        std::cout << "ok\n";
-        //        exit(1);
 
-        
+        assert(checkVars(solver));
     }
     
     LearningRateHeap(const LearningRateHeap &) = delete;
     LearningRateHeap(LearningRateHeap &&) = delete;
     LearningRateHeap &operator=(const LearningRateHeap &) = delete;
     LearningRateHeap &operator=(LearningRateHeap &&) = delete;
-    ~LearningRateHeap() = default;
+    ~LearningRateHeap() override = default;
     
     /**
      * Heuristic interface
@@ -89,8 +79,7 @@ public:
      * @param solver solver for which to select the variable
      * @return randomly selected variable
      */
-//    template <concepts::scalar T>
-    auto nextVariable(const Solver<T> &solver) noexcept -> VariableSelection {
+    auto nextVariable(const Solver<T> &solver) noexcept -> VariableSelection override {
         
 //#ifdef DBG_LearningRate
 //        std::cout << "beg next var\n";
@@ -141,7 +130,7 @@ public:
         return {x, VariableType::Boolean};
     }
     
-    void undo() {
+    void undo() override {
         
         
         
@@ -511,6 +500,16 @@ protected:
     
     bool weight_reasons{false};
 };
+
+struct LearningRateHeapFactory : MakeVariableHeuristicFactory<LearningRateHeapFactory> {
+    LearningRateHeapFactory();
+
+    template<concepts::scalar T>
+    auto build_impl(Solver<T>& solver) const -> VariableHeuristic<T> {
+        return std::make_unique<LearningRateHeap<T>>(solver);
+    }
+};
+
 }
 
 #endif // TEMPO_LearningRateHEAP_HPP
