@@ -500,7 +500,7 @@ public:
      * @name subscribable events
      */
     ///@{
-    mutable SubscribableEvent<Literal<T>> ChoicePoint; ///< triggered on choicepoints
+    mutable SubscribableEvent<const Solver &, Literal<T>> ChoicePoint; ///< triggered on choicepoints
     //    mutable SubscribableEvent<const std::vector<Literal<T>> &>
     //    ClauseAdded; ///< triggered when a new clause is learned
     mutable SubscribableEvent<const Solver<T> &>
@@ -4389,7 +4389,7 @@ template <typename T> boolean_state Solver<T>::search() {
                 
                 Literal<T> d = heuristic.branch(*this);
                 decisions.push_back(d);
-                ChoicePoint.trigger(d);
+                ChoicePoint.trigger(*this, d);
                 
 #ifdef DBG_TRACE
                 if (DBG_BOUND) {
