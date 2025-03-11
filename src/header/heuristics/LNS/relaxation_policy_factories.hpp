@@ -94,7 +94,7 @@ namespace tempo::lns {
                                 const RelaxationPolicyParams &params, int verbosity = Options::NORMAL) {
         using R = std::ranges::range_value_t<RR>;
         using Factory = RelaxationPolciyFactory<tempo::detail::timing_type_from_resource_t<R>, R>;
-        return Factory::getInstance().create(to_string(type), std::move(tasks), std::forward<RR>(resources), params,
+        return Factory::getInstance().create(penum_to_string(type), std::move(tasks), std::forward<RR>(resources), params,
                                              verbosity);
     }
 }

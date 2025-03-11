@@ -53,6 +53,8 @@ typedef std::istrstream istringstream;
 #include <tclap/StandardTraits.h>
 #include <tclap/Visitor.h>
 
+#include "util/enum.hpp"
+
 namespace TCLAP {
 
 /**
@@ -458,9 +460,13 @@ void ExtractValue(T &destVal, const std::string &strVal, StringLike sl) {
  */
 template<typename T>
 void ExtractValue(T &destVal, const std::string &strVal, EnumLike) {
-    std::underlying_type_t<T> val;
-    ExtractValue(val, strVal, ValueLike{});
-    destVal = static_cast<T>(val);
+    if constexpr (enum_detail::penum<T>) {
+        str_to_penum(strVal, destVal);
+    } else {
+        std::underlying_type_t<T> val;
+        ExtractValue(val, strVal, ValueLike{});
+        destVal = static_cast<T>(val);
+    }
 }
 
 /**

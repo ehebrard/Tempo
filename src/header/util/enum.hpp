@@ -8,6 +8,7 @@
 #define TEMPO_ENUM_HPP
 
 #include <ostream>
+#include <iterator>
 #include <array>
 #include <ranges>
 #include <type_traits>
@@ -61,6 +62,17 @@ namespace enum_detail {
     public:
         static constexpr auto value = doSplit();
     };
+
+    template<typename T>
+    struct enum_conversion {
+        static constexpr bool enabled = false;
+    };
+
+    template<typename T>
+    concept penum = std::is_enum_v<T> and requires(T val, T &ref, std::string_view sv) {
+        str_to_penum(sv, ref);
+        { penum_to_string(val) } -> std::same_as<std::string>;
+    };
 }
 
 #define PENUM(NAME, ...) enum class NAME { __VA_ARGS__ };                                                       \
@@ -70,8 +82,24 @@ inline std::ostream &operator<<(std::ostream &os, NAME e) {                     
     os << __##NAME##_converter__.at(to_underlying(e));                                                          \
     return os;                                                                                                  \
 }                                                                                                               \
-inline auto to_string(NAME e) {                                                                                 \
+inline auto penum_to_string(NAME e) {                                                                           \
     return std::string(__##NAME##_converter__.at(to_underlying(e)));                                            \
+}                                                                                                               \
+constexpr void str_to_penum(std::string_view str, NAME &out) {                                                  \
+    using namespace std::ranges;                                                                                \
+    using namespace std::literals;                                                                              \
+    auto res = find(__##NAME##_converter__, str);                                                               \
+    if (res != __##NAME##_converter__.end()) {                                                                  \
+        out =  static_cast<NAME>(distance(__##NAME##_converter__.begin(), res));                                \
+        return;                                                                                                 \
+    }                                                                                                           \
+                                                                                                                \
+    throw std::runtime_error("cannot convert '"s + std::string(str) + "' to enum "s + #NAME);                   \
+}                                                                                                               \
+constexpr auto str_to_##NAME(std::string_view str) {                                                            \
+NAME ret;                                                                                                       \
+    str_to_penum(str, ret);                                                                                     \
+    return ret;                                                                                                 \
 }
 
 #endif //TEMPO_ENUM_HPP
