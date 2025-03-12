@@ -9,6 +9,7 @@
 
 #include <filesystem>
 #include <iostream>
+#include <ostream>
 
 #include "util/traits.hpp"
 #include "util/SubscribableEvent.hpp"
@@ -21,6 +22,63 @@
 namespace fs = std::filesystem;
 
 namespace tempo::nn {
+    /**
+     * @brief Config struct for dispatcher.
+     * @note all fields are in percent relative to the respective threshold except heatDecay.
+     */
+    struct DispatcherConfig {
+        double failIncrement; ///< ratio increment on conflict
+        double successDecrement; ///< ratio decrement on successful propagation
+        double restartIncrement; ///< ratio increment on search restart
+        double solutionDecrement; ///< ratio decrement when solution is found
+        double maxFillRate; ///< maximum fill rate
+        double heatIncrement; ///< heat increment on inference
+        double heatDecay; ///< constant heat decay on step (in %)
+        double heatLowerThreshold; ///< threshold under which the heat must fall after overheating
+    };
+
+    std::ostream &operator<<(std::ostream &os, const DispatcherConfig &config);
+
+    class Dispatcher {
+        static constexpr auto MaxTemperature = 1.0;
+        static constexpr auto TriggerThreshold = 10000u;
+        // config
+        int failIncrement; // ratio increment on conflict
+        int successDecrement; // ratio decrement on successful propagation
+        int restartIncrement; // ratio increment on search restart
+        int solutionDecrement; // ratio decrement when solution is found
+        int maxFillRate; // maximum fill rate
+        double heatIncrement; // heat increment on inference
+        double heatDecay; // constant heat decay on step
+        double heatLowerThreshold;
+        // state
+        double temperature = 0;
+        unsigned waterLevel = 0;
+        int fillingRate = 0;
+        double isOverheated = false;
+
+    public:
+        Dispatcher(const DispatcherConfig &config) noexcept;
+
+        void onFail() noexcept;
+
+        void onSuccess() noexcept;
+
+        void onRestart() noexcept;
+
+        void onSolution() noexcept;
+
+        void onInference() noexcept;
+
+        void step() noexcept;
+
+        bool inferenceAllowed() const noexcept;
+
+        bool overheated() const noexcept;
+
+        friend std::ostream &operator<<(std::ostream &os, const Dispatcher &dispatcher);
+    };
+
 
     /**
      * @brief Full guidance GNN based value branching heuristic.
@@ -33,11 +91,11 @@ namespace tempo::nn {
     template<concepts::scalar T, SchedulingResource R>
     class GNNFullGuidance: public heuristics::BaseBooleanHeuristic<GNNFullGuidance<T, R>, T> {
         GNNEdgePolarityPredictor<T, R> polarityPredictor;
+        Dispatcher dispatcher;
         SubscriberHandle failHandler;
         SubscriberHandle successHandler;
-        unsigned numFails = 0;
-        unsigned numVars;
-        double maxFailRatio;
+        SubscriberHandle restartHandler;
+        SubscriberHandle solutionHandler;
         bool decisionFlag = false;
     public:
 
@@ -54,27 +112,32 @@ namespace tempo::nn {
          * @param featureExtractorConfigLocation location of the feature extractor configuration
          * (tempo::nn:GraphBuilderConfig)
          * @param solver target solver
-         * @param maxFailRatio maximum fail ratio (num decision fails divided by num variables) at which the GNN is
-         * reevaluated
+         * @param dispatcherConfig config for dispatching strategy
          * @param problem initial description of the problem
          */
         GNNFullGuidance(double epsilon, const fs::path &modelLocation, const fs::path &featureExtractorConfigLocation,
-                        const Solver<T> &solver, float maxFailRatio, SchedulingProblemHelper<T, R> problem)
+                        const Solver<T> &solver, const DispatcherConfig &dispatcherConfig,
+                        SchedulingProblemHelper<T, R> problem)
             : heuristics::BaseBooleanHeuristic<GNNFullGuidance, T>(epsilon),
               polarityPredictor(modelLocation, featureExtractorConfigLocation, std::move(problem)),
+              dispatcher(dispatcherConfig),
               failHandler(solver.ConflictEncountered.subscribe_handled([this](auto &&) {
-                  ++numFails;
+                  dispatcher.onFail();
                   decisionFlag = false;
               })),
               successHandler(solver.PropagationCompleted.subscribe_handled([this](auto &&) {
-                  if (decisionFlag and numFails > 0) { --numFails; }
+                  if (decisionFlag) { dispatcher.onSuccess(); }
               })),
-              numVars(solver.boolean.size()), maxFailRatio(maxFailRatio) {
+              restartHandler(solver.SearchRestarted.subscribe_handled([this](auto &&) {
+                  dispatcher.onRestart();
+              })),
+              solutionHandler(solver.SolutionFound.subscribe_handled([this](auto &&) {
+                  dispatcher.onSolution();
+              })) {
+            if (solver.getOptions().verbosity >= Options::NORMAL) {
+                std::cout << dispatcherConfig << std::endl;
+            }
             polarityPredictor.preEvaluation(solver);
-        }
-
-        double failRatio() const noexcept {
-            return numFails / static_cast<double>(numVars);
         }
 
         /**
@@ -85,12 +148,19 @@ namespace tempo::nn {
          */
         auto choose(var_t x, const Solver<T> &solver) -> Literal<T> {
             decisionFlag = true;
-            if (failRatio() > maxFailRatio) {
-                if (solver.getOptions().verbosity >= Options::YACKING) {
+            dispatcher.step();
+            const auto verbosity = solver.getOptions().verbosity;;
+            if (verbosity >= Options::SOLVERINFO) {
+                std::cout << dispatcher << std::endl;
+            }
+            if (dispatcher.inferenceAllowed()) {
+                dispatcher.onInference();
+                if (verbosity >= Options::YACKING) {
                     std::cout << "-- rerunning GNN inference" << std::endl;
                 }
                 polarityPredictor.preEvaluation(solver);
-                numFails = 0;
+            } else if (dispatcher.overheated() and verbosity >= Options::YACKING) {
+                std::cout << "-- GNN overheated" << std::endl;
             }
 
             return polarityPredictor.choose(x, solver);
