@@ -213,7 +213,7 @@ protected:
         //      }
         
         //    activity.update(bool_buffer);
-        num_activity.update(num_buffer);
+//        num_activity.update(num_buffer);
         
         //      std::cout << "update bools:";
         //      for(auto x : bool_buffer)
@@ -224,7 +224,7 @@ protected:
         //          std::cout << " " << num_activity[x];
         //      std::cout << std::endl;
         
-        bool normalize = false;
+        bool normalize = num_activity.update(num_buffer);
         for (auto x : bool_buffer) {
             normalize |= activity.incrementActivity(x);
             if (index[x] < trail.back()) {
@@ -236,6 +236,7 @@ protected:
         }
         if (normalize) {
             activity.normalize();
+            num_activity.normalize();
         } else {
             activity.applyDecay();
         }

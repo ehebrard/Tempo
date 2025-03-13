@@ -30,7 +30,7 @@ public:
     }
     
     template<typename Iterable>
-    void update(const Iterable& vars) noexcept {
+    bool update(const Iterable& vars) noexcept {
       bool should_normalize = false;
       for (const auto x : vars) {
         should_normalize |= incrementActivity(x);
@@ -41,6 +41,8 @@ public:
         } else {
           applyDecay();
         }
+        
+        return should_normalize;
     }
     void applyDecay() { increment /= decay; }
 

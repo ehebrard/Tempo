@@ -1916,9 +1916,36 @@ template <typename T> void ClauseBase<T>::forget() {
         //        std::cout << "compute (2) score for " << *base[*idx] <<
         //        std::endl;
 
+          double bool_score{0};
+          double num_score{0};
+          int n_bool{0};
+          int n_num{0};
         for (auto l : *base[*idx]) {
           score[*idx] += inverseActivity(l);
+            if(l.isNumeric()) {
+                ++n_num;
+                num_score += inverseActivity(l);
+            } else {
+                ++n_bool;
+                bool_score += inverseActivity(l);
+            }
         }
+          
+//          if(n_bool > 0 and n_num > 0) {
+//              std::cout << "score factor: " << ((bool_score * static_cast<double>(n_num)) / (static_cast<double>(n_bool) * num_score)) ;
+//              
+//              std::cout << " count ratio: " << static_cast<double>(n_bool) / static_cast<double>(n_num) << std::endl;
+//          }
+          
+//          std::cout << "b: " ;
+//          if(n_bool > 0)
+//              std::cout << bool_score / static_cast<double>(n_bool) << " (" << n_bool << ") || n: " ;
+//          else
+//              std::cout << "0 || n: ";
+//          if(n_num > 0)
+//              std::cout << num_score / static_cast<double>(n_num) << " (" << n_num << ")\n";
+//          else
+//              std::cout << "0\n";
       }
     } else if (solver.getOptions().forget_strategy ==
                Options::LiteralScore::LearningRate) {

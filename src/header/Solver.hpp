@@ -3719,7 +3719,7 @@ template <typename T> bool Solver<T>::validReason(Literal<T> lit) {
     if(lit == Contradiction<T>)
         return true;
     
-    std::cout << lit << std::endl;
+//    std::cout << lit << std::endl;
     
     
 //
