@@ -6,6 +6,8 @@
 
 #include "nn/GNNValueHeuristics.hpp"
 #include "heuristics/heuristic_factories.hpp"
+#include "heuristics/SolutionGuided.hpp"
+#include "heuristics/SingleDecentValueHeuristic.hpp"
 #include "util/parsing/jsp.hpp"
 #include "util/Profiler.hpp"
 #include "../helpers/cli.hpp"
@@ -19,6 +21,7 @@ int main(int argc, char **argv) {
     using namespace heuristics;
     std::string gnnLocation;
     std::string featureExtractorConf;
+    bool useSolutionGuided = false;
     nn::DispatcherConfig dispatcherConfig {
         .failIncrement = 0.0001, .successDecrement = 0.0005, .restartIncrement = 0.05, .solutionDecrement = 0.05,
         .maxFillRate = 0.2, .heatIncrement = 0.5, .heatDecay = 0.95, .heatLowerThreshold = 0.1
@@ -40,17 +43,26 @@ int main(int argc, char **argv) {
                                  cli::ArgSpec("gnn-heat-increment", "dispatcher heat increment on inference in %",
                                               false, dispatcherConfig.heatIncrement),
                                  cli::ArgSpec("gnn-heat-decay", "dispatcher heat decay", false,
-                                              dispatcherConfig.heatDecay));
+                                              dispatcherConfig.heatDecay),
+                                 cli::SwitchSpec("solution-guided", "Whether to use solution guided search",
+                                                 useSolutionGuided, false));
 
     auto [solver, problem, _, _1, _2, _3] = loadSchedulingProblem(opt);
     auto schedule = problem.schedule();
     using PType = decltype(problem);
     using GNNH = util::ProfiledHeuristic<nn::GNNFullGuidance<PType::Time, PType::Resource>>;
     util::Profiler profiler;
-    GNNH valBranching(profiler, opt.polarity_epsilon, gnnLocation, featureExtractorConf, *solver, dispatcherConfig,
-                      std::move(problem));
     auto varBranching = make_variable_heuristic(*solver);
-    solver->setBranchingHeuristic(make_compound_heuristic(std::move(varBranching), std::move(valBranching)));
+    GNNH gnn(profiler, opt.polarity_epsilon, gnnLocation, featureExtractorConf, *solver, dispatcherConfig,
+             std::move(problem));
+    auto valBranching = make_single_decent_heuristic(TightestValue(*solver), std::move(gnn));
+    if (useSolutionGuided) {
+        std::cout << "-- using solution guided search with GNN" << std::endl;
+        auto sg = make_solution_guided_heuristic(*solver, std::move(valBranching));
+        solver->setBranchingHeuristic(make_compound_heuristic(std::move(varBranching), std::move(sg)));
+    } else {
+        solver->setBranchingHeuristic(make_compound_heuristic(std::move(varBranching), std::move(valBranching)));
+    }
     solver->minimize(schedule.duration);
     if (solver->numeric.hasSolution()) {
         std::cout << "-- makespan " << solver->numeric.solutionLower(schedule.duration) << std::endl;
