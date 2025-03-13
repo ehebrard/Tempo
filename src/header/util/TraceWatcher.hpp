@@ -223,13 +223,13 @@ namespace tempo {
         solutionHandler(solver.SolutionFound.subscribe_handled([this](const auto &solver) {
             this->handleSolution(solver);
         })),
-        decisionHandler(solver.ChoicePoint.subscribe_handled([this](auto lit) {
+        decisionHandler(solver.ChoicePoint.subscribe_handled([this](auto &&, auto lit) {
             this->handleDecision(lit);
         })),
         conflictHandler(solver.ConflictEncountered.subscribe_handled([this](const auto &) {
             this->handleConflict();
         })),
-        backtrackHandler(solver.BackTrackCompleted.subscribe_handled([this, &solver]() {
+        backtrackHandler(solver.BackTrackCompleted.subscribe_handled([this](const auto &solver) {
             this->watcher.updateOnTrack(TruthFunction(solver));
         })),
         propCompletedHandler(solver.PropagationCompleted.subscribe_handled([this](const auto &solver) {

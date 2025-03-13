@@ -85,7 +85,7 @@ namespace tempo {
     namespace detail {
         PENUM(CPH, Tightest, WeightedDegree, VSIDS, Random, LRB, VSIDSHeap)
 
-        PENUM(PH, Tightest, TSG, Random, RSG)
+        PENUM(PH, Tightest, TSG, Random, RSG, Impact, TightestImpact)
     }
 
 class Options {
