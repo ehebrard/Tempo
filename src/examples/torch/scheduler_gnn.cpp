@@ -47,6 +47,7 @@ int main(int argc, char **argv) {
                                  cli::SwitchSpec("solution-guided", "Whether to use solution guided search",
                                                  useSolutionGuided, false));
 
+    std::cout << opt << std::endl;
     auto [solver, problem, _, _1, _2, _3] = loadSchedulingProblem(opt);
     auto schedule = problem.schedule();
     using PType = decltype(problem);

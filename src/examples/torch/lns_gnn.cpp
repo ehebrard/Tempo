@@ -123,6 +123,7 @@ int main(int argc, char **argv) {
                                  cli::ArgSpec("region-save-fails",
                                               "minimum number of fails before regions are recorded", false,
                                               statsConfig.nRegionSaverFails));
+    std::cout << opt << std::endl;
     auto problemInfo = loadSchedulingProblem(opt);
     torch::set_num_threads(numThreads);
     bool optimal = false;

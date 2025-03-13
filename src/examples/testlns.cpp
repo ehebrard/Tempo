@@ -108,6 +108,9 @@ int main(int argc, char *argv[]) {
 
   parser.parse(argc, argv);
   Options opt = parser.getOptions();
+  if (opt.print_par) {
+    std::cout << opt << std::endl;
+  }
   Solver<> S(opt);
   seed(opt.seed);
 

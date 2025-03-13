@@ -13,6 +13,8 @@
 
 #include "nn/GNNPrecedencePredictor.hpp"
 #include "heuristics/TightestPrecedencePredictor.hpp"
+#include "heuristics/RandomBinaryValue.hpp"
+#include "heuristics/RandomVariableSelection.hpp"
 #include "util/Profiler.hpp"
 #include "../helpers/scheduling_helpers.hpp"
 #include "../helpers/cli.hpp"
@@ -90,8 +92,8 @@ int main(int argc, char **argv) {
         auto o = opt;
         o.verbosity = Options::SILENT;
         auto [s, p, _, _1, _2, _3] = loadSchedulingProblem(o);
-        s->setBranchingHeuristic(heuristics::make_compound_heuristic(heuristics::RandomVariableSelection{},
-                                                                     heuristics::RandomBinaryValue{}));
+        s->setBranchingHeuristic(heuristics::make_compound_heuristic(heuristics::RandomVariableSelection<Time>{},
+                                                                     heuristics::RandomBinaryValue<Time>{}));
         s->PropagationCompleted.subscribe_unhandled(
                 [i = 0u, numberOfIterations, &predictor, &profiler](auto &state) mutable {
             if (++i > numberOfIterations) {

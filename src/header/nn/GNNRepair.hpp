@@ -41,7 +41,7 @@ namespace tempo::nn {
     class GNNRepair {
         using FixPolicy = lns::VariantFix<lns::BestN<lns::OrderType::Descending>,
             lns::GreedyFix<T, lns::OrderType::Descending>, lns::SampleFix<false>,
-            lns::OptimalFix<T>, lns::TaskFix<T, false>>;
+            /*lns::OptimalFix<T>,*/ lns::TaskFix<T, false>>;
         GNNPrecedencePredictor<T, R> predictor;
         mutable tempo::util::Profiler profiler{};
         std::vector<std::pair<Literal<T>, double>> gnnCache;
@@ -112,8 +112,8 @@ namespace tempo::nn {
                 case GreedyInverse:
                     fixPolicy.template emplace<GF>(true);
                     break;
-                case Optimal:
-                    fixPolicy.template emplace<lns::OptimalFix<T>>(100, 50, false);
+                //case Optimal:
+                    //fixPolicy.template emplace<lns::OptimalFix<T>>(100, 50, false);
                     break;
                 case Sample:
                     fixPolicy.template emplace<lns::SampleFix<false>>(sampleSmoothingFactor);
