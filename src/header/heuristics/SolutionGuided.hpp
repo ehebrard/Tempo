@@ -145,13 +145,33 @@ namespace tempo::heuristics {
             
             
             if(sol.size() <= posLit or discrepancies > max_discrepancies) {
+                if (solver.getOptions().verbosity >= Options::SOLVERINFO) {
+                    std::cout << "-- Solution guided using fallback" << std::endl;
+                }
                 return h.valueDecision({x, VariableType::Boolean}, solver);
             }
-            
+
+            if (solver.getOptions().verbosity >= Options::SOLVERINFO) {
+                std::cout << "-- Solution guided following last solution" << std::endl;
+            }
+
             assert(sol[posLit] != sol[negLit]);
             return sol[posLit] ? posLit : negLit;
         }
     };
+
+    /**
+     * Helper method to create solution guided value heuristics from existing base heuristic
+     * @tparam T timing type
+     * @tparam H base heuristic type
+     * @param solver target solver
+     * @param baseHeuristic base heuristic to use to find new solutions
+     * @return SolutionGuided heuristic created from base heuristic
+     */
+    template<concepts::scalar T, typename H>
+    auto make_solution_guided_heuristic(Solver<T> &solver, H &&baseHeuristic) {
+        return SolutionGuided<H, T>(solver, std::forward<H>(baseHeuristic));
+    }
 
     struct TSGFactory : MakeValueHeuristicFactory<TSGFactory> {
         TSGFactory();
