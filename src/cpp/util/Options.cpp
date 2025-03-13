@@ -254,6 +254,10 @@ auto tempo::getBaseParser() -> Parser {
                               "clause base reduction factor (0.7)", false, 0.7,
                               "double");
     
+    cmd.add<ValueArg<double>>(opt.literal_bias, "", "literal-bias",
+                              "bias toward Boolean literal on clause forgetting (1)", false, 1,
+                              "double");
+    
     cmd.add<ValueArg<int>>(
             opt.cut_type, "", "cut-type",
             "Type of cuts computed during conflict analysis (0: UIP, 1: Boolean variables only, 2: Decisions only, default 0)",

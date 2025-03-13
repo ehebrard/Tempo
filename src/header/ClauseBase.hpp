@@ -277,6 +277,8 @@ public:
     unsigned long num_miss{0};
     // total number of literals in the clauses
     size_t total_size{0};
+    size_t num_boolean{0};
+    size_t num_numeric{0};
     //@}
     
     // indexing helper for the watch lists
@@ -1762,8 +1764,16 @@ template <typename T> void ClauseBase<T>::forget(Clause<T> *cl) {
     free_cl_indices.add(cl->id);
     
     total_size -= cl->size();
+    for(auto l : *cl) {
+        if(l.isNumeric())
+            --num_numeric;
+        else
+            --num_boolean;
+    }
+    
     
     cl->clear();
+    
 
     //
     //    if(cl->id == 3124 and solver.num_choicepoints == 8576) {
@@ -1834,6 +1844,8 @@ template <typename T> void ClauseBase<T>::forget() {
     
     if (size() < 1000)
         return;
+    
+    auto bias{1.0 / solver.getOptions().literal_bias};
     
 #ifdef DBG_WATCHERS
     verifyWatchers("before forget");
@@ -1916,19 +1928,24 @@ template <typename T> void ClauseBase<T>::forget() {
         //        std::cout << "compute (2) score for " << *base[*idx] <<
         //        std::endl;
 
-          double bool_score{0};
-          double num_score{0};
-          int n_bool{0};
-          int n_num{0};
+//          double bool_score{0};
+//          double num_score{0};
+//          int n_bool{0};
+//          int n_num{0};
         for (auto l : *base[*idx]) {
-          score[*idx] += inverseActivity(l);
-            if(l.isNumeric()) {
-                ++n_num;
-                num_score += inverseActivity(l);
-            } else {
-                ++n_bool;
-                bool_score += inverseActivity(l);
-            }
+            auto s{inverseActivity(l)};
+            
+            if(not l.isNumeric())
+                s *= bias;
+            
+            score[*idx] += s;
+//            if(l.isNumeric()) {
+//                ++n_num;
+//                num_score += inverseActivity(l);
+//            } else {
+//                ++n_bool;
+//                bool_score += inverseActivity(l);
+//            }
         }
           
 //          if(n_bool > 0 and n_num > 0) {
@@ -2068,6 +2085,11 @@ Clause<T> *ClauseBase<T>::add(const iter first, const iter last,
         
         for (auto l{first}; l != last; ++l) {
             c->push_back(*l);
+            if(l->isNumeric()) {
+                ++num_numeric;
+            } else {
+                ++num_boolean;
+            }
         }
         
         set_watcher(0, 0, c);

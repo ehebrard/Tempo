@@ -4887,7 +4887,8 @@ template <typename T>
 std::ostream &Solver<T>::displayHeader(std::ostream &os,
                                        const int width) const {
     os << std::right << std::setw(width)
-    << " objective   failures   branches    nds/s    lvl   clauses  size";
+    << " objective   failures   branches    nds/s    lvl   clauses  |n|  |b|";
+//    << " objective   failures   branches    nds/s    lvl   clauses  size";
     os << "   cpu         wall-time\n";
     return os;
 }
@@ -4912,11 +4913,15 @@ std::ostream &Solver<T>::displayProgress(std::ostream &os) const {
     << "  " << std::setw(5) << static_cast<unsigned>(avg_fail_level) << "  "
     << std::setw(8) << clauses.size();
     if (clauses.size() == 0)
-        os << "   n/a";
-    else
-        os << "  " << std::setw(4)
-        << static_cast<unsigned>(static_cast<double>(clauses.volume()) /
+        os << "  n/a  n/a";
+    else {
+        os << " " << std::setw(4)
+        << static_cast<unsigned>(static_cast<double>(clauses.num_numeric) /
                                  static_cast<double>(clauses.size()));
+        os << " " << std::setw(4)
+        << static_cast<unsigned>(static_cast<double>(clauses.num_boolean) /
+                                 static_cast<double>(clauses.size()));
+    }
     
     
     os << "   " << std::left << std::setw(9) << cpu << "   " << wallTime << std::right << std::endl;

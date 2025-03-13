@@ -147,7 +147,6 @@ public:
     double vsids_epsilon{0.05};
     bool vsids_reasons{false};
 
-    double forgetfulness{0.7};
 
       enum class Cut { UIP = 0, Booleans, Decisions };
     Cut cut_type{Cut::UIP};
@@ -172,6 +171,8 @@ public:
     };
 
     LiteralScore forget_strategy{3};
+    double forgetfulness{0.7};
+    double literal_bias{500};
 
     double restart_factor{1.2};
     int restart_base{128};
