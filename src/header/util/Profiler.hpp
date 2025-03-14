@@ -192,6 +192,10 @@ namespace tempo::util {
             constexpr auto NumFields = sizeof(Result<ResT>) / sizeof(T);
             constexpr auto s = detail::timing_symbol<T>::symbol;
             int nameWidth = 0;
+            if (events.empty()) {
+                std::cout << "-- profiler: no events" << std::endl;
+                return;
+            }
             std::array<int, NumFields> valWidths{0};
             std::vector<Result<ResT>> results;
             for (const auto &[name, _] : events) {
