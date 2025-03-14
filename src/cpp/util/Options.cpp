@@ -103,7 +103,10 @@ std::ostream &tempo::Options::display(std::ostream &os) const {
     default: os << "?";
         break;
     }
-    os << " (" << forgetfulness << ")\n"
+    os << " (f=" << forgetfulness ;
+    if(forget_strategy == LiteralScore::Activity)
+        os << ", b=" << literal_bias ;
+    os << ")\n"
     << std::setw(30) << "-- restart policy: " << restart_policy ;
     if(restart_policy != "no") {
         os << " base=" << restart_base ;
@@ -255,7 +258,7 @@ auto tempo::getBaseParser() -> Parser {
                               "double");
     
     cmd.add<ValueArg<double>>(opt.literal_bias, "", "literal-bias",
-                              "bias toward Boolean literal on clause forgetting (1)", false, 1,
+                              "bias toward Boolean literal on clause forgetting (100)", false, 100,
                               "double");
     
     cmd.add<ValueArg<int>>(
