@@ -339,6 +339,14 @@ namespace tempo::util {
         constexpr auto operator->() const noexcept {
             return &h;
         }
+
+        /**
+         * Access to the actual heuristic
+         * @return pointer to the stored heuristic
+         */
+        constexpr auto operator->() noexcept {
+            return &h;
+        }
     };
 
     /**

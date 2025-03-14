@@ -6,6 +6,8 @@
 #ifndef TEMPO_GNNEDGEPOLARITYPREDICTOR_HPP
 #define TEMPO_GNNEDGEPOLARITYPREDICTOR_HPP
 
+#include <stdexcept>
+
 #include "Global.hpp"
 #include "GNN.hpp"
 #include "GraphBuilder.hpp"
@@ -47,6 +49,10 @@ namespace tempo::nn {
          * @return corresponding positive or negative literal according to the GNN
          */
         auto choose(var_t x, const Solver<T> &solver) const -> Literal<T> {
+            if (edgeHeatMap.rawData().empty()) {
+                throw std::runtime_error("Empty heat map. Inference has not been run yet");
+            }
+
             const auto &mapping = graphBuilder.getProblem().getMapping();
             return solver.boolean.getLiteral(pignisticEdgeProbability(x, edgeHeatMap, solver, mapping) > 0.5, x);
         }

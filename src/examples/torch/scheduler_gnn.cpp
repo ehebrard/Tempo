@@ -40,6 +40,7 @@ int main(int argc, char **argv) {
     auto gnn = make_profiled_heuristic(profiler, nn::make_gnn_value_heuristic(
                                            opt.polarity_epsilon, gnnLocation, featureExtractorConf,
                                            nn::make_dispatcher(dispatchType, *solver), std::move(problem)));
+    (*gnn)->runInference(*solver);
     auto valBranching = make_single_decent_heuristic(TightestValue(*solver), std::move(gnn));
     if (useSolutionGuided) {
         std::cout << "-- using solution guided search with GNN" << std::endl;

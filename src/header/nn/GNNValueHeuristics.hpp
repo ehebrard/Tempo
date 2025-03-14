@@ -57,7 +57,16 @@ namespace tempo::nn {
                           DP &&inferenceDispatcher, SchedulingProblemHelper<T, R> problem)
             : heuristics::BaseBooleanHeuristic<GNNValueHeuristic, T>(epsilon),
               polarityPredictor(modelLocation, featureExtractorConfigLocation, std::move(problem)),
-              inferenceDispatcher(std::forward<DP>(inferenceDispatcher)) {}
+              inferenceDispatcher(std::forward<DP>(inferenceDispatcher)) {
+        }
+
+        /**
+         * Runs the GNN inference
+         * @param solver target solver
+         */
+        void runInference(const Solver<T> &solver) {
+            polarityPredictor.preEvaluation(solver);
+        }
 
         /**
          * BaseBooleanHeuristic interface
