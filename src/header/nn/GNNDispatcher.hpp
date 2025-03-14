@@ -2,7 +2,7 @@
 * @author Tim Luchterhand
 * @date 14.03.25
 * @file GNNDispatcher.hpp
-* @brief
+* @brief Dispatcher strategies for GNN heuristics
 */
 
 #ifndef GNNDISPATCHER_HPP
@@ -22,6 +22,9 @@
 namespace tempo::nn {
     PENUM(Dispatch, Full, SingleShot, OnSolution, OnRestart, Never)
 
+    /**
+     * @brief Base dispatching strategy
+     */
     struct BaseDispatcher {
         BaseDispatcher() = default;
         BaseDispatcher(const BaseDispatcher&) = default;
@@ -30,9 +33,16 @@ namespace tempo::nn {
         BaseDispatcher& operator=(BaseDispatcher&&) = default;
         virtual ~BaseDispatcher() = default;
 
+        /**
+         * Interface method
+         * @return true if inference should be run, false otherwise
+         */
         virtual bool runInference() = 0;
     };
 
+    /**
+     * @brief Polymorphic dispatcher pointer wrapper
+     */
     struct Dispatcher : std::unique_ptr<BaseDispatcher> {
         using std::unique_ptr<BaseDispatcher>::unique_ptr;
 
@@ -41,14 +51,23 @@ namespace tempo::nn {
         }
     };
 
+    /**
+     * @brief Runs the GNN inference at every decision
+     */
     struct FullGuidance final : BaseDispatcher {
         bool runInference() override;
     };
 
+    /**
+     * @brief Never reruns the GNN inference
+     */
     struct Never final : BaseDispatcher {
         bool runInference() override;
     };
 
+    /**
+     * @brief Runs the GNN inference the very first time the heuristic is called and then never again
+     */
     struct SingleShotDispatcher : BaseDispatcher {
     protected:
         bool inferenceAllowed = true;
@@ -56,6 +75,10 @@ namespace tempo::nn {
         bool runInference() override;
     };
 
+    /**
+     * @brief Reruns the GNN inference after every solution / restart
+     * @tparam SolutionOnly whether to only rerun after a solution has been found
+     */
     template<bool SolutionOnly>
     class RestartDispatcher final : public SingleShotDispatcher {
         SubscriberHandle restartHandler;
@@ -73,6 +96,13 @@ namespace tempo::nn {
             })) {}
     };
 
+    /**
+     * @brief Dispatcher factory method
+     * @tparam T timing type
+     * @param dispatch dispatch type
+     * @param solver target solver
+     * @return constructed dispatcher
+     */
     template<concepts::scalar T>
     auto make_dispatcher(Dispatch dispatch, const Solver<T> &solver) -> Dispatcher {
         if (solver.getOptions().verbosity >= Options::QUIET) {
