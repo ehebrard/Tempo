@@ -20,7 +20,7 @@
 #include "Solver.hpp"
 
 namespace tempo::nn {
-    PENUM(Dispatch, Full, SingleShot, OnSolution, OnRestart)
+    PENUM(Dispatch, Full, SingleShot, OnSolution, OnRestart, Never)
 
     struct BaseDispatcher {
         BaseDispatcher() = default;
@@ -42,6 +42,10 @@ namespace tempo::nn {
     };
 
     struct FullGuidance final : BaseDispatcher {
+        bool runInference() override;
+    };
+
+    struct Never final : BaseDispatcher {
         bool runInference() override;
     };
 
@@ -84,6 +88,8 @@ namespace tempo::nn {
                 return std::make_unique<RestartDispatcher<true>>(solver);
             case Dispatch::OnRestart:
                 return std::make_unique<RestartDispatcher<false>>(solver);
+            case Dispatch::Never:
+                return std::make_unique<Never>();
             default:
                 throw std::invalid_argument("unsupported dispatch type " + penum_to_string(dispatch));
         }

@@ -12,6 +12,10 @@ namespace tempo::nn {
         return true;
     }
 
+    bool Never::runInference() {
+        return false;
+    }
+
     bool SingleShotDispatcher::runInference() {
         if (inferenceAllowed) {
             inferenceAllowed = false;
