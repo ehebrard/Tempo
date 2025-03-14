@@ -349,6 +349,18 @@ namespace tempo::util {
     template<typename H>
     using ProfiledHeuristic = heuristics::MovableHeuristic<HeuristicProfiler<H>>;
 
+    /**
+     * Helper method for template argument deduction
+     * @tparam H heuristic type
+     * @param profiler profiler to be used
+     * @param heuristic heuristic to profile
+     * @return
+     */
+    template<typename H>
+    auto make_profiled_heuristic(Profiler &profiler, H &&heuristic) {
+        return ProfiledHeuristic<H>(profiler, std::forward<H>(heuristic));
+    }
+
 }
 
 #endif //TEMPO_PROFILER_HPP

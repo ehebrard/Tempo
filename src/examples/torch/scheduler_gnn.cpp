@@ -5,6 +5,7 @@
 */
 
 #include "nn/GNNValueHeuristics.hpp"
+#include "nn/GNNDispatcher.hpp"
 #include "heuristics/heuristic_factories.hpp"
 #include "heuristics/SolutionGuided.hpp"
 #include "heuristics/SingleDecentValueHeuristic.hpp"
@@ -22,40 +23,23 @@ int main(int argc, char **argv) {
     std::string gnnLocation;
     std::string featureExtractorConf;
     bool useSolutionGuided = false;
-    nn::DispatcherConfig dispatcherConfig {
-        .failIncrement = 0.0001, .successDecrement = 0.0005, .restartIncrement = 0.05, .solutionDecrement = 0.05,
-        .maxFillRate = 0.2, .heatIncrement = 0.5, .heatDecay = 0.95, .heatLowerThreshold = 0.1
-    };
+    nn::Dispatch dispatchType = nn::Dispatch::SingleShot;
     auto opt = cli::parseOptions(argc, argv,
                                  cli::ArgSpec("gnn-loc", "Location of the GNN model", true, gnnLocation),
                                  cli::ArgSpec("feat-config", "Location of the feature extractor config", true,
                                               featureExtractorConf),
-                                 cli::ArgSpec("gnn-fail-increment", "dispatcher fail increment in %", false,
-                                              dispatcherConfig.failIncrement),
-                                 cli::ArgSpec("gnn-success-decrement", "dispatcher success decrement in %", false,
-                                              dispatcherConfig.successDecrement),
-                                 cli::ArgSpec("gnn-restart-increment", "dispatcher restart increment in %", false,
-                                              dispatcherConfig.restartIncrement),
-                                 cli::ArgSpec("gnn-solution-decrement", "dispatcher solution decrement in %", false,
-                                              dispatcherConfig.solutionDecrement),
-                                 cli::ArgSpec("gnn-max-fill-rate", "dispatcher max fill rate in %", false,
-                                              dispatcherConfig.maxFillRate),
-                                 cli::ArgSpec("gnn-heat-increment", "dispatcher heat increment on inference in %",
-                                              false, dispatcherConfig.heatIncrement),
-                                 cli::ArgSpec("gnn-heat-decay", "dispatcher heat decay", false,
-                                              dispatcherConfig.heatDecay),
                                  cli::SwitchSpec("solution-guided", "Whether to use solution guided search",
-                                                 useSolutionGuided, false));
+                                                 useSolutionGuided, false),
+                                 cli::ArgSpec("dispatcher", "dispatcher type", false, dispatchType));
 
     std::cout << opt << std::endl;
     auto [solver, problem, _, _1, _2, _3] = loadSchedulingProblem(opt);
     auto schedule = problem.schedule();
-    using PType = decltype(problem);
-    using GNNH = util::ProfiledHeuristic<nn::GNNFullGuidance<PType::Time, PType::Resource>>;
     util::Profiler profiler;
     auto varBranching = make_variable_heuristic(*solver);
-    GNNH gnn(profiler, opt.polarity_epsilon, gnnLocation, featureExtractorConf, *solver, dispatcherConfig,
-             std::move(problem));
+    auto gnn = make_profiled_heuristic(profiler, nn::make_gnn_value_heuristic(
+                                           opt.polarity_epsilon, gnnLocation, featureExtractorConf,
+                                           nn::make_dispatcher(dispatchType, *solver), std::move(problem)));
     auto valBranching = make_single_decent_heuristic(TightestValue(*solver), std::move(gnn));
     if (useSolutionGuided) {
         std::cout << "-- using solution guided search with GNN" << std::endl;

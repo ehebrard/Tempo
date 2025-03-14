@@ -13,6 +13,7 @@
 #include <ranges>
 #include <type_traits>
 #include <string_view>
+#include <stdexcept>
 
 /**
  * Converts enum to underlying type
@@ -79,6 +80,10 @@ namespace enum_detail {
 inline constexpr std::string_view __##NAME##_enum_str_vals__ = #__VA_ARGS__;                                    \
 inline constexpr std::array __##NAME##_converter__{enum_detail::split<__##NAME##_enum_str_vals__, ','>::value };\
 inline std::ostream &operator<<(std::ostream &os, NAME e) {                                                     \
+    auto idx = static_cast<std::size_t>(e);                                                                     \
+    if (idx >= __##NAME##_converter__.size()) {                                                                 \
+        throw std::invalid_argument("enum '"#NAME"' out of bounds");                                            \
+    }                                                                                                           \
     os << __##NAME##_converter__.at(to_underlying(e));                                                          \
     return os;                                                                                                  \
 }                                                                                                               \
