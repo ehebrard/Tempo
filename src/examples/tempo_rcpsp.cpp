@@ -27,6 +27,8 @@
 #include "heuristics/LNS/relaxation_policy_factories.hpp"
 #include "util/parsing/psplib.hpp"
 #include "util/parsing/rcpsp.hpp"
+#include "helpers/shell.hpp"
+#include "helpers/git_sha.hpp"
 
 using namespace tempo;
 
@@ -328,4 +330,7 @@ int main(int argc, char *argv[]) {
       printJobs(S, intervals);
       printResources(S, resource_tasks, resource_demands, resource_capacities);
     }
+
+    std::cout << "-- date: " << shell::getTimeStamp() << std::endl;
+    std::cout << "-- commit: " << GitSha << std::endl;
 }

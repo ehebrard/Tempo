@@ -33,6 +33,7 @@
 #include "helpers/cli.hpp"
 #include "util/Profiler.hpp"
 #include "helpers/shell.hpp"
+#include "helpers/git_sha.hpp"
 #include "util/IntFinity.hpp"
 
 //#define VERBOSE true
@@ -1036,4 +1037,7 @@ int main(int argc, char *argv[]) {
   if (analyse_file != "") {
     crunch_numbers(opt, analyse_file);
   }
+
+  std::cout << "-- date: " << shell::getTimeStamp() << std::endl;
+  std::cout << "-- commit: " << GitSha << std::endl;
 }
