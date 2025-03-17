@@ -48,16 +48,20 @@ outcome check_clause(std::vector<DistanceConstraint<int>>& clause, Solver<int>& 
     for(auto c : clause) {
         try {
             
-//            std::cout << "post " << c << std::endl;
-            S.post(c);
+//            std::cout << "set " << c << std::endl;
+            S.set(c);
         } catch (Failure<int> &f) {
+//            std::cout << "fail at post" << std::endl;
             result = outcome::TRIVIALLY_UNSAT;
         }
     }
     if (result != outcome::TRIVIALLY_UNSAT) {
         try {
+//            std::cout << "propagate" << std::endl;
             S.propagate();
         } catch (Failure<int> &f) {
+            
+//            std::cout << "fail during propag" << std::endl;
             result = outcome::PROPAG_UNSAT;
         }
         if (result != outcome::PROPAG_UNSAT) {
@@ -66,6 +70,8 @@ outcome check_clause(std::vector<DistanceConstraint<int>>& clause, Solver<int>& 
 //            S.displayDomains(std::cout);
 //            S.displayBranches(std::cout);
 ////            std::cout << std::endl;
+            ///
+//            std::cout << "search" << std::endl;
             
             if (not S.satisfiable()) {
                 result = outcome::SEARCH_UNSAT;
@@ -130,6 +136,11 @@ int main(int argc, char *argv[]) {
     }
     
     resource_transitions.resize(resource_tasks.size());
+    
+    
+    if(opt.ub < Constant::Infinity<int>) {
+        S.post(schedule.end <= opt.ub);
+    }
     
     
     index_t i{0};
