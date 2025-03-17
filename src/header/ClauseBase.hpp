@@ -35,6 +35,7 @@
 #include "heuristics/impl/ActivityMap.hpp"
 
 //#define DBG_WATCHERS
+//#define DBGLRBF
 
 #define NEW_WATCHERS
 
@@ -1973,13 +1974,48 @@ template <typename T> void ClauseBase<T>::forget() {
         //        std::cout << "compute (2) score for " << *base[*idx] <<
         //        std::endl;
 
+#ifdef DBGLRBF
+                    double bool_score{0};
+                    double num_score{0};
+                    int n_bool{0};
+                    int n_num{0};
+#endif
+          
         for (auto l : *base[*idx]) {
-          score[*idx] += inverseLearningRate(l);
+            
+            auto s{inverseLearningRate(l)};
+            
+#ifdef DBGLRBF
+            if(l.isNumeric()) {
+                ++n_num;
+                num_score += s;
+            } else {
+                ++n_bool;
+                bool_score += s;
+            }
+#endif
+            
+            if(not l.isNumeric())
+                s *= bias;
+            
+          score[*idx] += s;
+            
+            
         }
+          
+#ifdef DBGLRBF
+                    std::cout << "b: " ;
+                    if(n_bool > 0)
+                        std::cout << bool_score / static_cast<double>(n_bool) << " (" << n_bool << ") || n: " ;
+                    else
+                        std::cout << "0 || n: ";
+                    if(n_num > 0)
+                        std::cout << num_score / static_cast<double>(n_num) << " (" << n_num << ")\n";
+                    else
+                        std::cout << "0\n";
+#endif
       }
-    }
-
-    if (solver.getOptions().forget_strategy == Options::LiteralScore::Size) {
+    } else if (solver.getOptions().forget_strategy == Options::LiteralScore::Size) {
         std::sort(free_cl_indices.bbegin(), free_cl_indices.bend(),
                   [&](const int i, const int j) {
             return (base[i]->size() > base[j]->size());

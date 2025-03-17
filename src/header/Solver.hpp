@@ -2763,15 +2763,10 @@ template <typename T>
 template <typename Iter>
 void Solver<T>::minimizeSlice(Iter beg, Iter stop) {
     
-//    std::cout << std::endl;
-    //    for (bool r{true}; r; r=(not r)) {
     for (int r{0}; r<2; ++r) {
         for (auto lit{beg}; lit != stop; ++lit) {
             
             if(lit->second.isNumeric() != r) {
-                
-                
-//                std::cout << (lit->second.isNumeric() ? "numeric" : "boolean") << std::endl;
                 
 #ifdef DBG_TRACE
                 if (DBG_BOUND and (DBG_TRACE & MINIMIZATION)) {
@@ -2798,7 +2793,7 @@ void Solver<T>::minimizeSlice(Iter beg, Iter stop) {
                 
                 if (rstamp < ground_stamp) {
                     cut.remove(lit);
-                } else if (rstamp < lit->first) {
+                } else if (options.use_weakening and rstamp < lit->first) {
                     assert(lit->second.isNumeric());
                     cut.change(getLiteral(rstamp), rstamp);
                 }

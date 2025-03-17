@@ -121,6 +121,7 @@ public:
     bool tt_edge_finding{true};
     int incomplete_edge_finding{-std::numeric_limits<int>::max()};
   bool transitivity{true};
+    bool use_weakening{true};
 
   bool dichotomy{false};
 

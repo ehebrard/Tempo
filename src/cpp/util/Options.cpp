@@ -40,6 +40,9 @@ std::ostream &tempo::Options::display(std::ostream &os) const {
         if(shrinking) {
             os << "+shrinking";
         }
+        if(not use_weakening) {
+            os << "-weakening";
+        }
         os << ")";
     }
     os << std::endl
@@ -193,6 +196,12 @@ auto tempo::getBaseParser() -> Parser {
                        "use transitivity reasoning", false);
     cmd.add<SwitchArg>(opt.transitivity, "", "no-transitivity",
                        "do not use transitivity reasoning", true);
+    
+    
+    cmd.add<SwitchArg>(opt.use_weakening, "", "use-weakening",
+                       "use numeric literal weakening", false);
+    cmd.add<SwitchArg>(opt.use_weakening, "", "no-weakening",
+                       "do not use numeric literal weakening", true);
 
     cmd.add<SwitchArg>(opt.dichotomy, "", "dichotomy", "use dichotomic search",
                        false);
