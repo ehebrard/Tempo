@@ -30,7 +30,7 @@
 #include "util/parsing/osp.hpp"
 #include "util/parsing/path.hpp"
 #include "util/parsing/tsptw.hpp"
-#include "util/parsing/rcpsp.hpp"
+#include "util/parsing/psplib.hpp"
 #include "helpers/cli.hpp"
 #include "util/Profiler.hpp"
 #include "helpers/shell.hpp"
@@ -52,7 +52,7 @@ void buildModelRcpsp(Solver<> &S, Interval<> &schedule) {
   std::vector<std::vector<int>> graph;
   const auto &opt = S.getOptions();
 
-  rcpsp::parse(opt.instance_file, S, schedule, intervals, tasks_requirements,
+  psplib::parse(opt.instance_file, S, schedule, intervals, tasks_requirements,
                task_demands, resource_capacities, precedences, graph);
 
   for (auto &neighbors: graph) {

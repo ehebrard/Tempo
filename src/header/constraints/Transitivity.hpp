@@ -625,9 +625,9 @@ template <typename T> void Transitivity<T>::propagate() {
 #endif
         auto bc{the_tasks[*yp].end.before(ex - offset[*yp])};
           
-          if(bc.variable() == 95 and bc.value() == 267) {
-              std::cout << m_solver.num_choicepoints << " " << m_solver.num_cons_propagations << std::endl;
-          }
+//          if(bc.variable() == 95 and bc.value() == 267) {
+//              std::cout << m_solver.num_choicepoints << " " << m_solver.num_cons_propagations << std::endl;
+//          }
           
         //m_solver.set(bc, {this, ex});
           Explanation<T> e{this, ex};
