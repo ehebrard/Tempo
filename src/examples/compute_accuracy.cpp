@@ -30,7 +30,7 @@
 #include "util/parsing/osp.hpp"
 #include "util/parsing/path.hpp"
 #include "util/parsing/tsptw.hpp"
-#include "util/parsing/rcpsp.hpp"
+#include "util/parsing/psplib.hpp"
 #include "helpers/cli.hpp"
 #include "util/Profiler.hpp"
 #include "helpers/shell.hpp"
@@ -52,8 +52,8 @@ void buildModelRcpsp(Solver<> &S, Interval<> &schedule) {
   std::vector<std::vector<int>> graph;
   const auto &opt = S.getOptions();
 
-  rcpsp::parse(opt.instance_file, S, schedule, intervals, tasks_requirements,
-               task_demands, resource_capacities, precedences, graph);
+  psplib::parse(opt.instance_file, S, schedule, intervals, tasks_requirements,
+                task_demands, resource_capacities, precedences, graph);
 
   for (auto &neighbors: graph) {
     std::sort(neighbors.begin(), neighbors.end());
@@ -627,7 +627,9 @@ int solve(Options& gopt, std::string& record_file) {
   Options opt{gopt};
   opt.restart_policy = "no";
   opt.primal_boost = false;
-  opt.greedy_runs = 0;
+  if (opt.input_format != "rcpsp") {
+    opt.greedy_runs = 0;
+  }
   // opt.learning = true;
   //    opt.instance_file = ifilename;
 
@@ -1142,6 +1144,7 @@ int main(int argc, char *argv[]) {
   }
 
   if (analyse_file != "") {
+    opt.greedy_runs = 0;
     crunch_numbers(opt, analyse_file);
   }
 
