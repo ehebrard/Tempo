@@ -30,6 +30,7 @@
 #include "util/parsing/osp.hpp"
 #include "util/parsing/path.hpp"
 #include "util/parsing/tsptw.hpp"
+#include "util/parsing/rcpsp.hpp"
 #include "helpers/cli.hpp"
 #include "util/Profiler.hpp"
 #include "helpers/shell.hpp"
@@ -41,7 +42,105 @@
 
 using namespace tempo;
 
-void build_model(Solver<> &S, Interval<> &schedule) {
+void buildModelRcpsp(Solver<> &S, Interval<> &schedule) {
+  std::vector<CumulativeExpression<>> resources;
+  std::vector<std::vector<size_t>> tasks_requirements;
+  std::vector<std::vector<int>> task_demands;
+  std::vector<int> resource_capacities;
+  std::vector<Interval<>> intervals;
+  std::vector<std::pair<int, int>> precedences;
+  std::vector<std::vector<int>> graph;
+  const auto &opt = S.getOptions();
+
+  rcpsp::parse(opt.instance_file, S, schedule, intervals, tasks_requirements,
+               task_demands, resource_capacities, precedences, graph);
+
+  for (auto &neighbors: graph) {
+    std::sort(neighbors.begin(), neighbors.end());
+  }
+
+  //      for(auto i : intervals) {
+  //          std::cout << i.id() << ": " << i << std::endl;
+  //      }
+
+  std::vector<std::vector<Interval<int>>> resource_tasks(
+    resource_capacities.size());
+  std::vector<std::vector<NumericVar<int>>> resource_demands(
+    resource_capacities.size());
+  for (size_t j{0}; j < tasks_requirements.size(); ++j) {
+    for (size_t k{0}; k < tasks_requirements[j].size(); ++k) {
+      auto m{tasks_requirements[j][k]};
+      auto d{task_demands[j][k]};
+      resource_tasks[m].push_back(intervals[j]);
+      resource_demands[m].push_back(S.newConstant(d));
+    }
+  }
+
+  for (size_t k{0}; k < resource_capacities.size(); ++k) {
+    NumericVar<int> capacity{S.newConstant(resource_capacities[k])};
+    resources.push_back(Cumulative<int>(
+      schedule, capacity, resource_tasks[k], resource_demands[k]));
+    S.post(resources.back());
+  }
+
+  if (opt.print_mod) {
+    std::cout << S << std::endl;
+  }
+
+
+  int ub_makespan{0};
+  for (auto &j: intervals) {
+    if (j.maxDuration(S) == Constant::Infinity<int>) {
+      ub_makespan = Constant::Infinity<int>;
+      break;
+    }
+    ub_makespan += j.maxDuration(S);
+  }
+
+  //
+  auto optimal{false};
+  if (opt.greedy_runs > 0) {
+    S.initializeSearch();
+
+    ScheduleGenerationScheme<int> sgs(S, tasks_requirements, task_demands, resource_capacities, intervals, precedences,
+                                      graph);
+
+    for (auto i{0}; i < opt.greedy_runs; ++i) {
+      auto makespan{sgs.run()};
+      sgs.clear();
+
+      if (makespan < ub_makespan) {
+        std::cout << "-- load improving sgs solution " << makespan << std::endl;
+
+        sgs.load();
+        ub_makespan = makespan;
+        S.num_choicepoints += sgs.num_insertions;
+        if (opt.verbosity >= Options::NORMAL) {
+          std::cout << std::setw(10) << ub_makespan;
+          S.displayProgress(std::cout);
+        }
+      }
+    }
+
+
+    try {
+      S.post(schedule.duration < ub_makespan);
+    } catch (Failure<int> &f) {
+      if (opt.verbosity >= Options::QUIET)
+        S.displaySummary(std::cout, "optimal");
+      optimal = true;
+    }
+
+    S.num_choicepoints = 0;
+  }
+
+  if (not optimal) {
+    auto ub{std::min(opt.ub, ub_makespan)};
+    S.post(schedule.end.before(ub));
+  }
+}
+
+void buildModelDisjunctive(Solver<> &S, Interval<> &schedule) {
 
   auto &opt(S.getOptions());
 
@@ -85,6 +184,14 @@ void build_model(Solver<> &S, Interval<> &schedule) {
   }
     
 //    std::cout << "resources ok\n";
+}
+
+void build_model(Solver<> &S, Interval<> &schedule) {
+  if (S.getOptions().input_format == "rcpsp") {
+    buildModelRcpsp(S, schedule);
+  } else {
+    buildModelDisjunctive(S, schedule);
+  }
 }
 
 #ifdef OLD
