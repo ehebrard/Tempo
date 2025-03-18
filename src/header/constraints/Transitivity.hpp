@@ -68,6 +68,8 @@ private:
 
     // @TODO remove that
   std::vector<int> task_map;
+    
+  std::vector<std::pair<Literal<T>, Explanation<T>>> pruning;
 
   bool change_flag{false};
 
@@ -234,14 +236,14 @@ void Transitivity<T>::add_edge(const int x, const int y, const int r) {
 #ifdef DBG_TRANSITIVITY
   if (DBG_TRANSITIVITY)
     std::cout << " ==> add edge t" << the_tasks[x].id() << " -> t"
-              << the_tasks[y].id() << " (" << m_solver.pretty(disjunct[x][y]) << ")" << std::endl;
+              << the_tasks[y].id() << " (" << m_solver.pretty(disjunct.at(x,y)) << ")" << std::endl;
 #endif
 
   if (DAG[x].frontsize() > 0 or DAG[y].backsize() > 0)
     change_flag = true;
 
 #ifdef DBG_LTRANS
-  if (m_solver.boolean.isUndefined(disjunct[x][y].variable())) {
+  if (m_solver.boolean.isUndefined(disjunct.at(x,y).variable())) {
     std::cout << "edge pruning\n";
   }
 #endif
@@ -291,11 +293,11 @@ bool Transitivity<T>::notify(const Literal<T> l, const int r) {
       
       for (size_t i{0}; i < the_tasks.size(); ++i) {
         for (size_t j{0}; j < the_tasks.size(); ++j) if (i != j) {
-                std::cout << " " << m_solver.pretty(disjunct[i][j])  ;
+                std::cout << " " << m_solver.pretty(disjunct.at(i,j))  ;
             std::cout.flush();
-            if(m_solver.boolean.satisfied(disjunct[i][j]))
+            if(m_solver.boolean.satisfied(disjunct.at(i,j)))
                 std::cout << "[true]";
-            if(m_solver.boolean.falsified(disjunct[i][j]))
+            if(m_solver.boolean.falsified(disjunct.at(i,j)))
                 std::cout << "[false]";
         }
         std::cout << std::endl;
@@ -549,10 +551,20 @@ template <typename T> void Transitivity<T>::propagate() {
 #ifdef DBG_TRANSITIVITY
     if (DBG_TRANSITIVITY) {
         std::cout << "\npropagate w.r.t. subsequent tasks\n";
+        T prev{0};
+        for (auto x : sorted_tasks) {
+            auto lct{the_tasks[x].getLatestEnd(m_solver)};
+            std::cout << "t" << the_tasks[x].id() << ": " << lct << std::endl;
+            if(lct < prev) {
+                std::cout << "bug!\n";
+                exit(1);
+            }
+            prev = lct;
+        }
     }
 #endif
     
-    
+    pruning.clear();
 //    if(the_tasks[sorted_tasks[0]].id() == 8 and the_tasks[sorted_tasks[0]].getEarliestStart(m_solver) == 5464)
 //        exit(0);
     
@@ -612,10 +624,23 @@ template <typename T> void Transitivity<T>::propagate() {
         }
 #endif
         auto bc{the_tasks[*yp].end.before(ex - offset[*yp])};
-        m_solver.set(bc, {this, ex});
+          
+          if(bc.variable() == 95 and bc.value() == 267) {
+              std::cout << m_solver.num_choicepoints << " " << m_solver.num_cons_propagations << std::endl;
+          }
+          
+        //m_solver.set(bc, {this, ex});
+          Explanation<T> e{this, ex};
+          pruning.emplace_back(bc, e);
       }
     }
   }
+    
+    while(not pruning.empty()) {
+        auto p{pruning.back()};
+        m_solver.set(p.first, p.second);
+        pruning.pop_back();
+    }
 
     
     /// Update the lower bounds
@@ -637,13 +662,13 @@ template <typename T> void Transitivity<T>::propagate() {
 // starting with the latest task
   for (auto y : sorted_tasks) {
 #ifdef DBG_TRANSITIVITY
-    if (DBG_TRANSITIVITY) {
-      std::cout << prettyTask(y);
-      for (auto xp{DAG[y].fbegin()}; xp != DAG[y].fend(); ++xp) {
-        std::cout << " -> t" << the_tasks[*xp].id();
+      if (DBG_TRANSITIVITY) {
+          std::cout << prettyTask(y);
+          for (auto xp{DAG[y].fbegin()}; xp != DAG[y].fend(); ++xp) {
+              std::cout << " -> t" << the_tasks[*xp].id();
+          }
+          std::cout << std::endl;
       }
-    }
-    std::cout << std::endl;
 #endif
       
       if(the_tasks[y].getEarliestStart(m_solver) == -Constant::Infinity<T>) {
@@ -671,20 +696,31 @@ template <typename T> void Transitivity<T>::propagate() {
         pruning = true;
 #endif
 
+          
+          auto bc{the_tasks[*xp].start.after(sy + offset[*xp])};
+          
 #ifdef DBG_TRANSITIVITY
       if (DBG_TRANSITIVITY)
         std::cout << " new bound (" << the_tasks[*xp] << " must start after "
                   << sy << " + " << offset[*xp] << ") "
-                  << the_tasks[*xp].start.after(sy + offset[*xp]) << "/" << sz
+                  << bc << "/" << sz
                   << std::endl;
 #endif
-
-      m_solver.set(the_tasks[*xp].start.after(sy + offset[*xp]),
-                   {this, sy});
+          Explanation<T> e{this, sy};
+          pruning.emplace_back(bc, e);
+//      m_solver.set(bc,
+//                   {this, sy});
       }
     }
   }
 
+    while(not pruning.empty()) {
+        auto p{pruning.back()};
+        m_solver.set(p.first, p.second);
+        pruning.pop_back();
+    }
+    
+    
 #ifdef DBG_SPANNING
   if (transition_flag) {
       
@@ -842,7 +878,7 @@ void Transitivity<T>::xplain(const Literal<T> l, const hint h,
 #ifdef DBG_EXPL_TRANS
       std::cout << " & " << rc.to << " -> " << lc.to << " (" << the_tasks[x]
                 << " -> " << the_tasks[y] << "/"
-                << m_solver.pretty(disjunct[x][y]) << ")";
+                << m_solver.pretty(disjunct.at(x,y)) << ")";
 #endif
     }
 

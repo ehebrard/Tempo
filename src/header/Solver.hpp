@@ -3411,7 +3411,7 @@ void Solver<T>::analyze(Explanation<T> &e, const bool only_boolean) {
 //                *cl_file << std::endl;
 //            }
             writeExplanation(l);
-            checkClauseLimit();
+//            checkClauseLimit();
 #endif
             
             for (auto p : lit_buffer) {
@@ -3488,6 +3488,20 @@ void Solver<T>::analyze(Explanation<T> &e, const bool only_boolean) {
 #endif
                 }
             }
+            
+#ifdef DBG_CLPLUS
+//            if (cl_file != NULL) {
+//                *cl_file << "1 " << (lit_buffer.size() + (l != Contradiction<T>));
+//                for (auto p : lit_buffer) {
+//                    writeLiteral(p);
+//                }
+//                if (l != Contradiction<T>)
+//                    writeLiteral(~l);
+//                *cl_file << std::endl;
+//            }
+//            writeExplanation(l);
+            checkClauseLimit();
+#endif
         }
         
         if (num_lit >= 1) {
