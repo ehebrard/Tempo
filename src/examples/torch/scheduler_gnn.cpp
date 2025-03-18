@@ -9,12 +9,12 @@
 #include "heuristics/heuristic_factories.hpp"
 #include "heuristics/SolutionGuided.hpp"
 #include "heuristics/SingleDecentValueHeuristic.hpp"
-#include "util/parsing/jsp.hpp"
 #include "util/Profiler.hpp"
 #include "../helpers/cli.hpp"
 #include "../helpers/scheduling_helpers.hpp"
 #include "../helpers/shell.hpp"
 #include "../helpers/git_sha.hpp"
+#include "../helpers/branch_logging.hpp"
 
 
 int main(int argc, char **argv) {
@@ -24,14 +24,20 @@ int main(int argc, char **argv) {
     std::string featureExtractorConf;
     bool useSolutionGuided = false;
     nn::Dispatch dispatchType = nn::Dispatch::SingleShot;
+    std::string recordFile;
     auto opt = cli::parseOptions(argc, argv,
                                  cli::ArgSpec("gnn-loc", "Location of the GNN model", true, gnnLocation),
                                  cli::ArgSpec("feat-config", "Location of the feature extractor config", true,
                                               featureExtractorConf),
                                  cli::SwitchSpec("solution-guided", "Whether to use solution guided search",
                                                  useSolutionGuided, false),
-                                 cli::ArgSpec("dispatcher", "dispatcher type", false, dispatchType));
+                                 cli::ArgSpec("dispatcher", "dispatcher type", false, dispatchType),
+                                 cli::ArgSpec("record", "record file", false, recordFile, ""));
 
+    if (not recordFile.empty()) {
+        opt.restart_policy = "no";
+        opt.primal_boost = false;
+    }
     std::cout << opt << std::endl;
     auto [solver, problem, _, _1, _2, _3] = loadSchedulingProblem(opt);
     auto schedule = problem.schedule();
@@ -49,7 +55,11 @@ int main(int argc, char **argv) {
     } else {
         solver->setBranchingHeuristic(make_compound_heuristic(std::move(varBranching), std::move(valBranching)));
     }
-    solver->minimize(schedule.duration);
+    if (not recordFile.empty()) {
+        solve(*solver, schedule, recordFile);
+    } else {
+        solver->minimize(schedule.duration);
+    }
     if (solver->numeric.hasSolution()) {
         std::cout << "-- makespan " << solver->numeric.solutionLower(schedule.duration) << std::endl;
     }
