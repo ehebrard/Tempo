@@ -76,7 +76,7 @@ using hint = int;
 // #define DBG_MINIMIZATION
 //  #define DBG_EDGECONS true
 //#define DBG_EDGEFINDING (m_solver.num_cons_propagations >= 203954)
-//  #define DBG_EXPLEF true  // (m_solver.num_cons_propagations >= 165622)
+  #define DBG_EXPLEF true  // (m_solver.num_cons_propagations >= 165622)
 //  #define DBG_THETA (m_schedule.num_fails >= 481)
 //  #define DBG_BELLMAN true //(sched.num_choicepoints >= 1045)
 //  #define DBG_BELLMAN_EXPL (sched.num_choicepoints >= 4172)

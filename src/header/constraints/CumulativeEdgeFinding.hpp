@@ -1486,15 +1486,13 @@ template <typename T> void CumulativeEdgeFinding<T>::adjustment() {
                 minEnergy = std::min(minEnergy, minenergy(k));
             }
         }
-        
-        
-        if(minEct == Constant::Infinity<T>) {
-            std::cout << "bug?\n";
-            std::cout << solver.num_cons_propagations << std::endl;
-            exit(1);
-        }
-        
-        
+
+        //        if(minEct == Constant::Infinity<T>) {
+        //            std::cout << "bug?\n";
+        //            std::cout << solver.num_cons_propagations << std::endl;
+        //            exit(1);
+        //        }
+
         // compute the profile without i, but to record the overlap and
         // slackUnder
         setLeftCutToTime(lct(j) + Gap<T>::epsilon());
@@ -1579,40 +1577,40 @@ template <typename T> void CumulativeEdgeFinding<T>::adjustment() {
         
         
         auto t{std::max(adjustment, minEct)};
-        
+
+        assert(t != Constant::Infinity<T>);
+
         auto actual_pruning{false};
         if(sign == bound::lower) {
-            
-            
-            if(t == Constant::Infinity<T>) {
-                std::cout << "bug lower bound?\n";
-                exit(1);
-            }
-            
-            if(t > task[i].getEarliestStart(solver)) {
-                
-                std::cout << task[i].start.after(t) << std::endl;
-                
-                pruning.push_back(task[i].start.after(t));
-                actual_pruning = true;
-            }
-            
+
+          //            if(t == Constant::Infinity<T>) {
+          //                std::cout << "bug lower bound?\n";
+          //                exit(1);
+          //            }
+
+          if (t > task[i].getEarliestStart(solver)) {
+
+            //                std::cout << task[i].start.after(t) << std::endl;
+
+            pruning.push_back(task[i].start.after(t));
+            actual_pruning = true;
+          }
+
         }
         else {
-            
-            
-            if(t == Constant::Infinity<T>) {
-                std::cout << "bug upper bound?\n";
-                exit(1);
-            }
-            
-            if(-t < task[i].getLatestEnd(solver)) {
-                
-                std::cout << task[i].end.before(-t) << std::endl;
-                
-                pruning.push_back(task[i].end.before(-t));
-                actual_pruning = true;
-            }
+
+          //            if(t == Constant::Infinity<T>) {
+          //                std::cout << "bug upper bound?\n";
+          //                exit(1);
+          //            }
+
+          if (-t < task[i].getLatestEnd(solver)) {
+
+            //                std::cout << task[i].end.before(-t) << std::endl;
+
+            pruning.push_back(task[i].end.before(-t));
+            actual_pruning = true;
+          }
         }
         
         if(actual_pruning) {

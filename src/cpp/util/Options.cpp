@@ -174,7 +174,12 @@ auto tempo::getBaseParser() -> Parser {
                        false);
     cmd.add<SwitchArg>(opt.edge_finding, "", "no-edge-finding",
                        "do not use edge-finding", true);
-    
+
+    cmd.add<SwitchArg>(opt.use_ef_explanation, "", "use-ef-explanation",
+                       "use edge-finding dedicated explanation", false);
+    cmd.add<SwitchArg>(opt.use_ef_explanation, "", "trivial-ef-explanation",
+                       "do not use edge-finding dedicated explanation", true);
+
     cmd.add<SwitchArg>(opt.overlap_finding, "", "overlap-finding", "use overlap-finding",
                        false);
     cmd.add<SwitchArg>(opt.overlap_finding, "", "no-overlap-finding",

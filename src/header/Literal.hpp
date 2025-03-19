@@ -232,6 +232,7 @@ struct Literal : public detail::LiteralStorage<T> {
 
   [[nodiscard]] constexpr bool isBoolean() const noexcept;
   [[nodiscard]] constexpr bool hasSemantic() const noexcept;
+  [[nodiscard]] constexpr bool compatible(const Literal<T> &l) const noexcept;
 
   constexpr operator info_t() const noexcept;
 
@@ -330,6 +331,32 @@ constexpr bool Literal<T>::isBoolean() const noexcept {
 template<typename T>
 constexpr bool Literal<T>::hasSemantic() const noexcept {
     return this->isNumeric() or this->semantic_unsafe() != Constant::NoSemantic;
+}
+
+template <typename T>
+constexpr bool Literal<T>::compatible(const Literal<T> &l) const noexcept {
+  //    if(this->isNumeric() != l.isNumeric())
+  //        return true;
+  if (this->isNumeric()) {
+    return not l.isNumeric() or this->variable() != l.variable() or
+           this->sign() == l.sign() or this->value() + l.value() >= 0;
+  }
+
+  return l.isNumeric() or this->variable() != l.variable() or
+         this->sign() == l.sign();
+
+  //    if(this->isNumeric() != l.isNumeric() or this->variable() !=
+  //    l.variable() or this->sign() == l->sign())
+  //        return true;
+  //    return not this->isNumeric() or this->value() + l.value() >= 0;
+  //
+  //    if(this->isNumeric()) {
+  //        return this->variable() != l.variable() or this->sign() == l->sign()
+  //        or this->value() + l.value() >= 0;
+  //    } else {
+  //        return this->variable() != l.variable() or this->sign() ==
+  //        l->sign();
+  //    }
 }
 
 template<typename T>
