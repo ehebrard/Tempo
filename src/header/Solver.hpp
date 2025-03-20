@@ -48,7 +48,6 @@
 #include "constraints/Transitivity.hpp"
 #include "heuristics/LNS/relaxation_interface.hpp"
 #include "heuristics/heuristic_factories.hpp"
-//#include "heuristics/impl/DecayingEventActivityMap.hpp"
 #include "heuristics/impl/ActivityMap.hpp"
 #include "heuristics/impl/LearningRateMap.hpp"
 #include "util/KillHandler.hpp"
@@ -57,9 +56,7 @@
 #include "util/SubscribableEvent.hpp"
 #include "util/traits.hpp"
 
-// #define LEARNING_RATE_STUFF true
-//  #define DBG_SHRINK
-// #define NEW_ANALYZE
+
 #define NTRAIL
 
 namespace tempo {
@@ -501,8 +498,6 @@ public:
      */
     ///@{
     mutable SubscribableEvent<const Solver &, Literal<T>> ChoicePoint; ///< triggered on choicepoints
-    //    mutable SubscribableEvent<const std::vector<Literal<T>> &>
-    //    ClauseAdded; ///< triggered when a new clause is learned
     mutable SubscribableEvent<const Solver<T> &>
         ClauseAdded; ///< triggered when a new clause is learned
     mutable SubscribableEvent<const Solver<T> &>
@@ -981,6 +976,10 @@ private:
 
     heuristics::impl::LearningRateMap numericLearningRateMap{options.lrb_alpha};
     heuristics::impl::LearningRateMap booleanLearningRateMap{options.lrb_alpha};
+    
+    
+    std::vector<Constraint<T> *> to_relax;
+//    SubscriberHandle relaxToken;
 
   public:
 
@@ -2699,6 +2698,14 @@ template <typename T> void Solver<T>::restart(const bool on_solution) {
   }
 
     SearchRestarted.trigger(on_solution);
+    
+//    if(num_fails >= 5000) {
+//        while(not to_relax.empty()) {
+//            relax(to_relax.back());
+//            to_relax.pop_back();
+//        }
+//    }
+    
     
     if (options.verbosity > Options::NORMAL) {
         std::cout << std::setw(8) << "restart(" << (on_solution ? "s" : "l") << ")";
@@ -4789,13 +4796,22 @@ void Solver<T>::postPseudoBoolean(const ItLit beg_lit, const ItLit end_lit,
 template <typename T>
 template <concepts::typed_range<Interval<T>> Tasks>
 void Solver<T>::postEdgeFinding(Interval<T> &schedule, Tasks &&taskRange, Matrix<Literal<T>> lits) {
-    post(new DisjunctiveEdgeFinding<T>(*this, schedule, std::forward<Tasks>(taskRange), std::move(lits)));
+    auto c{new DisjunctiveEdgeFinding<T>(*this, schedule, std::forward<Tasks>(taskRange), std::move(lits))};
+  
+    to_relax.push_back(c);
+    
+//    std::cout << taskRange.size() << std::endl;
+    post(c);
 }
 
 template <typename T>
 template <concepts::typed_range<Interval<T>> Tasks>
 void Solver<T>::postTransitivity(Interval<T> &schedule, Tasks &&taskRange, Matrix<Literal<T>> lits) {
-    post(new Transitivity<T>(*this, schedule, std::forward<Tasks>(taskRange), std::move(lits)));
+    auto c{new Transitivity<T>(*this, schedule, std::forward<Tasks>(taskRange), std::move(lits))};
+    
+    to_relax.push_back(c);
+    
+    post(c);
 }
 
 template <typename T>

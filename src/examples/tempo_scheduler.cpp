@@ -207,8 +207,10 @@ int main(int argc, char *argv[]) {
       auto ub{Constant::Infinity<int>};
 //      heuristics::warmstartDisjunctive(S, schedule, intervals, ub);
         
-//        heuristics::warmstartEstSlack(S, schedule, intervals, ub);
-        heuristics::warmstartSlackEst(S, schedule, intervals, ub);
+//        std::cout << "-- est-then-slack greedy initialisation\n";
+        heuristics::warmstart(S, schedule, intervals, ub);
+//        std::cout << "-- slack-then-est greedy initialisation\n";
+//        heuristics::warmstartSlackEst(S, schedule, intervals, ub);
 //        exit(1);
       //            warmstart(S, schedule, by_resource, ub);
     } catch (Failure<int> &f) {

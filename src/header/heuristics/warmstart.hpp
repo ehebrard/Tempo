@@ -58,84 +58,84 @@ void warmstartDisjunctive(Solver<T> &S, const Interval<T> &schedule, std::vector
 
 
 
-
-template<typename T>
-void warmstartEstSlack(Solver<T> &S, const Interval<T> &schedule, std::vector<Interval<T>> intervals, T &ub) {
-    
-    T trivial_ub{0};
-    
-    SparseSet<> remaining_intervals;
-    remaining_intervals.reserve(intervals.size());
-    remaining_intervals.fill();
-    
-    for(auto& i : intervals) {
-        trivial_ub += i.duration.min(S);
-    }
-    
-    //    for(auto& i : intervals) {
-    //        std::cout << i.id()<< ": " << i.start.min(S) << "..(" << i.duration.min(S) << ").." << i.end.max(S) << std::endl;
-    //    }
-    
-    S.initializeSearch();
-    S.post(schedule.end <= trivial_ub);
-    
-    //    for(auto& i : intervals) {
-    //        std::cout << i.id()<< ": " << i.start.min(S) << ".." << i.start.max(S) << "..(" << i.duration.min(S) << ").." << i.end.min(S) << ".." << i.end.max(S) << std::endl;
-    //    }
-    
-    
-    auto st{S.saveState()};
-    
-    auto sat{true};
-    while(sat and not remaining_intervals.empty()) {
-        int best{-1};
-        T min_est{Constant::Infinity<T>};
-        T min_slack{Constant::Infinity<T>};
-        for(auto i : remaining_intervals) {
-            auto est{intervals[i].start.min(S)};
-            auto slack{intervals[i].start.max(S)};
-            if(est < min_est or (est==min_est and slack < min_slack)) {
-                best = i;
-                min_est = est;
-                min_slack = slack;
-            }
-        }
-        
-        //        std::cout << "Schedule task " << intervals[best].id() << std::endl;
-        
-        try {
-            S.post(intervals[best].start <= min_est);
-        } catch(Failure<T>& f) {
-            //            std::cout << "FAILED :(\n";
-            sat = false;
-        }
-        
-        remaining_intervals.remove_back(best);
-        
-        
-        //        for(auto& i : intervals) {
-        //            std::cout << i.id()<< ": " << i.start.min(S) << ".." << i.start.max(S) << "..(" << i.duration.min(S) << ").." << i.end.min(S) << ".." << i.end.max(S) << std::endl;
-        //        }
-        
-    }
-    
-    //        auto sat{greedy_insertion.runLex()};
-    if (sat) {
-        //        std::cout << "SUCCESS!!\n";
-        if (schedule.getEarliestEnd(S) <= ub) {
-            S.post(schedule.end.before(schedule.getEarliestEnd(S)));
-            S.boolean.saveSolution();
-            S.numeric.saveSolution();
-            ub = schedule.getEarliestEnd(S) - 1;
-            std::cout << std::setw(10) << (ub + 1);
-            S.displayProgress(std::cout);
-        }
-    }
-    //    else {
-    //        std::cout << "Failure" << std::endl;
-    //    }
-    S.restoreState(st);
-}
+//
+//template<typename T>
+//void warmstartEstSlack(Solver<T> &S, const Interval<T> &schedule, std::vector<Interval<T>> intervals, T &ub) {
+//    
+//    T trivial_ub{0};
+//    
+//    SparseSet<> remaining_intervals;
+//    remaining_intervals.reserve(intervals.size());
+//    remaining_intervals.fill();
+//    
+//    for(auto& i : intervals) {
+//        trivial_ub += i.duration.min(S);
+//    }
+//    
+//    //    for(auto& i : intervals) {
+//    //        std::cout << i.id()<< ": " << i.start.min(S) << "..(" << i.duration.min(S) << ").." << i.end.max(S) << std::endl;
+//    //    }
+//    
+//    S.initializeSearch();
+//    S.post(schedule.end <= trivial_ub);
+//    
+//    //    for(auto& i : intervals) {
+//    //        std::cout << i.id()<< ": " << i.start.min(S) << ".." << i.start.max(S) << "..(" << i.duration.min(S) << ").." << i.end.min(S) << ".." << i.end.max(S) << std::endl;
+//    //    }
+//    
+//    
+//    auto st{S.saveState()};
+//    
+//    auto sat{true};
+//    while(sat and not remaining_intervals.empty()) {
+//        int best{-1};
+//        T min_est{Constant::Infinity<T>};
+//        T min_slack{Constant::Infinity<T>};
+//        for(auto i : remaining_intervals) {
+//            auto est{intervals[i].start.min(S)};
+//            auto slack{intervals[i].start.max(S)};
+//            if(est < min_est or (est==min_est and slack < min_slack)) {
+//                best = i;
+//                min_est = est;
+//                min_slack = slack;
+//            }
+//        }
+//        
+//        //        std::cout << "Schedule task " << intervals[best].id() << std::endl;
+//        
+//        try {
+//            S.post(intervals[best].start <= min_est);
+//        } catch(Failure<T>& f) {
+//            //            std::cout << "FAILED :(\n";
+//            sat = false;
+//        }
+//        
+//        remaining_intervals.remove_back(best);
+//        
+//        
+//        //        for(auto& i : intervals) {
+//        //            std::cout << i.id()<< ": " << i.start.min(S) << ".." << i.start.max(S) << "..(" << i.duration.min(S) << ").." << i.end.min(S) << ".." << i.end.max(S) << std::endl;
+//        //        }
+//        
+//    }
+//    
+//    //        auto sat{greedy_insertion.runLex()};
+//    if (sat) {
+//        //        std::cout << "SUCCESS!!\n";
+//        if (schedule.getEarliestEnd(S) <= ub) {
+//            S.post(schedule.end.before(schedule.getEarliestEnd(S)));
+//            S.boolean.saveSolution();
+//            S.numeric.saveSolution();
+//            ub = schedule.getEarliestEnd(S) - 1;
+//            std::cout << std::setw(10) << (ub + 1);
+//            S.displayProgress(std::cout);
+//        }
+//    }
+//    //    else {
+//    //        std::cout << "Failure" << std::endl;
+//    //    }
+//    S.restoreState(st);
+//}
 
 
 
@@ -146,8 +146,6 @@ void warmstartSlackEst(Solver<T> &S, const Interval<T> &schedule, std::vector<In
     
     SparseSet<> remaining_intervals;
     remaining_intervals.reserve(intervals.size());
-    remaining_intervals.fill();
-    
     for(auto& i : intervals) {
         trivial_ub += i.duration.min(S);
     }
@@ -163,58 +161,192 @@ void warmstartSlackEst(Solver<T> &S, const Interval<T> &schedule, std::vector<In
     //        std::cout << i.id()<< ": " << i.start.min(S) << ".." << i.start.max(S) << "..(" << i.duration.min(S) << ").." << i.end.min(S) << ".." << i.end.max(S) << std::endl;
     //    }
     
-    
-    auto st{S.saveState()};
-    
-    auto sat{true};
-    while(sat and not remaining_intervals.empty()) {
-        int best{-1};
-        T min_est{Constant::Infinity<T>};
-        T min_slack{Constant::Infinity<T>};
-        for(auto i : remaining_intervals) {
-            auto est{intervals[i].start.min(S)};
-            auto slack{intervals[i].start.max(S)};
-            if(slack < min_slack or (slack==min_slack and est < min_est)) {
-                best = i;
-                min_est = est;
-                min_slack = slack;
+    std::vector<int> bests;
+    for (auto i{0}; i < S.getOptions().greedy_runs; ++i) {
+        remaining_intervals.fill();
+        auto st{S.saveState()};
+        
+        auto sat{true};
+        while(sat and not remaining_intervals.empty()) {
+            bests.clear();
+            bests.push_back(-1);
+            T min_est{Constant::Infinity<T>};
+            T min_slack{Constant::Infinity<T>};
+            for(auto i : remaining_intervals) {
+                auto est{intervals[i].start.min(S)};
+                auto slack{intervals[i].start.max(S)};
+                if(slack < min_slack or (slack==min_slack and est < min_est)) {
+                    bests.clear();
+                    bests.push_back(i);
+//                    best = i;
+                    min_est = est;
+                    min_slack = slack;
+                } else if(slack==min_slack and est==min_est) {
+                    bests.push_back(i);
+                }
+            }
+            
+            //        std::cout << "Schedule task " << intervals[best].id() << std::endl;
+            
+//            if(bests.size() > 1) {
+//                std::cout << "TIES!! (" << bests.size() <<")\n";
+//            }
+            auto the_best{bests[tempo::random() % bests.size()]};
+            
+            try {
+                
+               
+                
+                S.post(intervals[the_best].start <= min_est);
+            } catch(Failure<T>& f) {
+                //            std::cout << "FAILED :(\n";
+                sat = false;
+            }
+            
+            remaining_intervals.remove_back(the_best);
+            
+            
+            //        for(auto& i : intervals) {
+            //            std::cout << i.id()<< ": " << i.start.min(S) << ".." << i.start.max(S) << "..(" << i.duration.min(S) << ").." << i.end.min(S) << ".." << i.end.max(S) << std::endl;
+            //        }
+            
+        }
+        
+        //        auto sat{greedy_insertion.runLex()};
+        if (sat) {
+            //        std::cout << "SUCCESS!!\n";
+            if (schedule.getEarliestEnd(S) <= ub) {
+                S.post(schedule.end.before(schedule.getEarliestEnd(S)));
+                S.boolean.saveSolution();
+                S.numeric.saveSolution();
+                ub = schedule.getEarliestEnd(S) - 1;
+                std::cout << std::setw(10) << (ub + 1);
+                S.displayProgress(std::cout);
             }
         }
-        
-        //        std::cout << "Schedule task " << intervals[best].id() << std::endl;
-        
-        try {
-            S.post(intervals[best].start <= min_est);
-        } catch(Failure<T>& f) {
-            //            std::cout << "FAILED :(\n";
-            sat = false;
-        }
-        
-        remaining_intervals.remove_back(best);
-        
-        
-        //        for(auto& i : intervals) {
-        //            std::cout << i.id()<< ": " << i.start.min(S) << ".." << i.start.max(S) << "..(" << i.duration.min(S) << ").." << i.end.min(S) << ".." << i.end.max(S) << std::endl;
-        //        }
-        
+        //    else {
+        //        std::cout << "Failure" << std::endl;
+        //    }
+        S.restoreState(st);
+        S.post(schedule.end <= ub);
+    }
+}
+
+
+template<typename T>
+void warmstart(Solver<T> &S, const Interval<T> &schedule, std::vector<Interval<T>> intervals, T &ub) {
+    
+    T trivial_ub{0};
+    
+    SparseSet<> remaining_intervals;
+    remaining_intervals.reserve(intervals.size());
+    for(auto& i : intervals) {
+        trivial_ub += i.duration.min(S);
     }
     
-    //        auto sat{greedy_insertion.runLex()};
-    if (sat) {
-        //        std::cout << "SUCCESS!!\n";
-        if (schedule.getEarliestEnd(S) <= ub) {
-            S.post(schedule.end.before(schedule.getEarliestEnd(S)));
-            S.boolean.saveSolution();
-            S.numeric.saveSolution();
-            ub = schedule.getEarliestEnd(S) - 1;
-            std::cout << std::setw(10) << (ub + 1);
-            S.displayProgress(std::cout);
-        }
-    }
-    //    else {
-    //        std::cout << "Failure" << std::endl;
+    //    for(auto& i : intervals) {
+    //        std::cout << i.id()<< ": " << i.start.min(S) << "..(" << i.duration.min(S) << ").." << i.end.max(S) << std::endl;
     //    }
-    S.restoreState(st);
+    
+    S.initializeSearch();
+    S.post(schedule.end <= trivial_ub);
+    
+    //    for(auto& i : intervals) {
+    //        std::cout << i.id()<< ": " << i.start.min(S) << ".." << i.start.max(S) << "..(" << i.duration.min(S) << ").." << i.end.min(S) << ".." << i.end.max(S) << std::endl;
+    //    }
+    
+    std::vector<int> bests;
+    
+    
+    std::cout << "-- greedy initialisation step\n";
+    
+    for (auto i{0}; i < S.getOptions().greedy_runs; ++i) {
+        auto strategy{tempo::random()%3};
+        remaining_intervals.fill();
+        auto st{S.saveState()};
+        
+        auto sat{true};
+        while(sat and not remaining_intervals.empty()) {
+            bests.clear();
+            bests.push_back(-1);
+            T min_est{Constant::Infinity<T>};
+            T min_slack{Constant::Infinity<T>};
+            for(auto i : remaining_intervals) {
+                auto est{intervals[i].start.min(S)};
+                auto slack{intervals[i].start.max(S)};
+                
+                auto s{strategy};
+                if (s==2) {
+                    s = (tempo::random() % 2);
+                }
+                
+                if(s) {
+                    if(est < min_est or (est==min_est and slack < min_slack)) {
+                        bests.clear();
+                        bests.push_back(i);
+                        //                    best = i;
+                        min_est = est;
+                        min_slack = slack;
+                    } else if(slack==min_slack and est==min_est) {
+                        bests.push_back(i);
+                    }
+                } else {
+                    if(slack < min_slack or (slack==min_slack and est < min_est)) {
+                        bests.clear();
+                        bests.push_back(i);
+    //                    best = i;
+                        min_est = est;
+                        min_slack = slack;
+                    } else if(slack==min_slack and est==min_est) {
+                        bests.push_back(i);
+                    }
+                }
+            }
+            
+            //        std::cout << "Schedule task " << intervals[best].id() << std::endl;
+            
+//            if(bests.size() > 1) {
+//                std::cout << "TIES!! (" << bests.size() <<")\n";
+//            }
+            auto the_best{bests[tempo::random() % bests.size()]};
+            
+            try {
+                
+               
+                
+                S.post(intervals[the_best].start <= min_est);
+            } catch(Failure<T>& f) {
+                //            std::cout << "FAILED :(\n";
+                sat = false;
+            }
+            
+            remaining_intervals.remove_back(the_best);
+            
+            
+            //        for(auto& i : intervals) {
+            //            std::cout << i.id()<< ": " << i.start.min(S) << ".." << i.start.max(S) << "..(" << i.duration.min(S) << ").." << i.end.min(S) << ".." << i.end.max(S) << std::endl;
+            //        }
+            
+        }
+        
+        //        auto sat{greedy_insertion.runLex()};
+        if (sat) {
+            //        std::cout << "SUCCESS!!\n";
+            if (schedule.getEarliestEnd(S) <= ub) {
+                S.post(schedule.end.before(schedule.getEarliestEnd(S)));
+                S.boolean.saveSolution();
+                S.numeric.saveSolution();
+                ub = schedule.getEarliestEnd(S) - 1;
+                std::cout << std::setw(10) << (ub + 1);
+                S.displayProgress(std::cout);
+            }
+        }
+        //    else {
+        //        std::cout << "Failure" << std::endl;
+        //    }
+        S.restoreState(st);
+        S.post(schedule.end <= ub);
+    }
 }
 
 
