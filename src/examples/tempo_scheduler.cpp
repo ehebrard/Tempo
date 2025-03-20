@@ -205,7 +205,11 @@ int main(int argc, char *argv[]) {
 
     try {
       auto ub{Constant::Infinity<int>};
-      heuristics::warmstartDisjunctive(S, schedule, intervals, ub);
+//      heuristics::warmstartDisjunctive(S, schedule, intervals, ub);
+        
+//        heuristics::warmstartEstSlack(S, schedule, intervals, ub);
+        heuristics::warmstartSlackEst(S, schedule, intervals, ub);
+//        exit(1);
       //            warmstart(S, schedule, by_resource, ub);
     } catch (Failure<int> &f) {
       //            std::cout << " optimal solution found in a greedy run\n";
