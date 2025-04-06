@@ -744,6 +744,8 @@ public:
     template <typename S, lns::relaxation_policy P>
     void largeNeighborhoodSearch(S &objective, P &&relaxationPolicy);
     
+    template <typename S> void probing(S &objective);
+    
     boolean_state satisfiable();
     void minimize(const NumericVar<T> x);
     void maximize(const NumericVar<T> x);
@@ -979,9 +981,14 @@ private:
     
     
     std::vector<Constraint<T> *> to_relax;
+    bool relaxed{false};
+    unsigned long relaxed_when{0};
 //    SubscriberHandle relaxToken;
 
   public:
+    
+    void relaxPropagators();
+    void postPropagators();
 
     heuristics::impl::ActivityMap &getNumericActivity() {
       return numericActivityMap;
@@ -2699,11 +2706,18 @@ template <typename T> void Solver<T>::restart(const bool on_solution) {
 
     SearchRestarted.trigger(on_solution);
     
-//    if(num_fails >= 5000) {
-//        while(not to_relax.empty()) {
-//            relax(to_relax.back());
-//            to_relax.pop_back();
-//        }
+    
+//    if((num_fails - relaxed_when) >= static_cast<unsigned long>((1 + relaxed) * options.relax)) {
+////        while(not to_relax.empty()) {
+////            relax(to_relax.back());
+////            to_relax.pop_back();
+////        }
+//        if(not relaxed)
+//            relaxPropagators();
+//        else
+//            postPropagators();
+//        
+//        relaxed_when = num_fails;
 //    }
     
     
@@ -2712,6 +2726,27 @@ template <typename T> void Solver<T>::restart(const bool on_solution) {
         displayProgress(std::cout);
     }
     
+}
+
+template <typename T> void Solver<T>::relaxPropagators() {
+    
+    std::cout << "-- relax costly propagators\n";
+    for(auto c : to_relax) {
+        relax(c);
+    }
+    relaxed = true;
+}
+
+template <typename T> void Solver<T>::postPropagators() {
+    
+    std::cout << "-- post costly propagators\n";
+    for(auto c : to_relax) {
+        post(c);
+    }
+    propag_pointer = 1;
+    propagate();
+    
+    relaxed = false;
 }
 
 template <typename T> void Solver<T>::backtrack(Explanation<T> &e) {
@@ -4206,6 +4241,95 @@ void Solver<T>::optimize(S &objective) {
         
         //        displaySummary(std::cout, (objective.gap() > 0 ? "killed" : "optimal"));
     }
+}
+
+template <typename T>
+template <typename S>
+void Solver<T>::probing(S &objective) {
+    auto best_lb = objective.getDual(*this);
+    
+    std::cout << "start probing lb=" << best_lb << " @lvl " << level() << " (" << boolean_search_vars.size() << " variables)"<< std::endl;
+#ifdef DBG_SAC
+    std::cout << "start probing lb=" << best_lb << " @lvl " << level() << std::endl;
+    displayBranches(std::cout);
+    std::cout << std::endl;
+    displayDomains(std::cout);
+#endif
+    
+    for(auto i{boolean_search_vars.start_idx()}; i<boolean_search_vars.end_idx(); ++i) {
+        var_t b{boolean_search_vars[i]};
+
+        
+        
+        auto st{saveState()};
+        auto i_lb{Constant::Infinity<T>};
+        try {
+            
+#ifdef DBG_SAC
+    std::cout << " probe " << pretty(boolean.getLiteral(true, b)) << " @lvl " << level() << std::endl;
+#endif
+            
+            set(boolean.getLiteral(true, b));
+            propagate();
+            i_lb = objective.getDual(*this);
+            
+#ifdef DBG_SAC
+    std::cout << " ok lb=" << i_lb << " @lvl " << level() << std::endl;
+#endif
+            
+            restoreState(st);
+            st = saveState();
+            try {
+                
+#ifdef DBG_SAC
+    std::cout << " probe " << pretty(boolean.getLiteral(false, b)) << " @lvl " << level() << std::endl;
+#endif
+                
+                set(boolean.getLiteral(false, b));
+                propagate();
+                auto lbfalse{objective.getDual(*this)};
+                if(lbfalse < i_lb)
+                    i_lb = lbfalse;
+                
+#ifdef DBG_SAC
+    std::cout << " ok lb=" << lbfalse << " => " << i_lb << " @lvl " << level() << std::endl;
+#endif
+                
+                restoreState(st);
+            } catch(Failure<T>& f1) {
+                
+#ifdef DBG_SAC
+    std::cout << " fail" << " @lvl " << level() << std::endl;
+#endif
+                
+                restoreState(st);
+                set(boolean.getLiteral(true, b));
+                propagate();
+            }
+        } catch(Failure<T>& f2) {
+            restoreState(st);
+            set(boolean.getLiteral(false, b));
+            propagate();
+            i_lb = objective.getDual(*this);
+            
+#ifdef DBG_SAC
+            std::cout << " fail" << " @lvl " << level() << std::endl;
+#endif
+        }
+        
+        if(best_lb < i_lb) {
+            std::cout << " current lb=" << best_lb << " @lvl " << level() << std::endl;
+        }
+        
+        best_lb = std::max(best_lb, i_lb);
+        post(objective.X >= best_lb);
+        
+#ifdef DBG_SAC
+    std::cout << " current lb=" << best_lb << " @lvl " << level() << std::endl;
+#endif
+    }
+    
+    std::cout << "end probing\n";
 }
 
 template <typename T>

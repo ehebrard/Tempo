@@ -133,6 +133,46 @@ int main(int argc, char *argv[]) {
     S.post(no_overlap);
     scope.clear();
   }
+    
+    
+    if (opt.input_format == "osp") {
+        int longest{0};
+        auto &tightest_res{resources[0]};
+        for(auto &res : resources) {
+            int duration{0};
+            for(auto task : res) {
+                duration += task.duration.min(S);
+            }
+//            std::cout << duration << std::endl;
+            if(duration > longest) {
+                longest = duration;
+                tightest_res = res;
+            }
+        }
+        
+        S.post(schedule.duration >= longest);
+        
+        longest = 0;
+        Literal<int> tightest_disjunct;
+        for(auto t1{tightest_res.begin()}; t1!=tightest_res.end(); ++t1) {
+            for(auto t2{t1+1}; t2!=tightest_res.end(); ++t2) {
+                
+//                std::cout << t1->duration.min(S) << " v " << t2->duration.min(S) << std::endl;
+                
+                auto duration{t1->duration.min(S) + t2->duration.min(S)};
+                if(duration > longest) {
+                    auto i{std::distance(tightest_res.begin(), t1)};
+                    auto j{std::distance(tightest_res.begin(), t2)};
+                    longest = duration;
+                    tightest_disjunct = tightest_res.getDisjunctiveLiterals().at(i,j);
+                    
+//                    std::cout << S.pretty(tightest_disjunct) << std::endl;
+                }
+            }
+        }
+        
+        S.post(tempo::random()%2 ? tightest_disjunct : ~tightest_disjunct);
+    }
 
 //  // set a trivial (and the user-defined) upper bound
 //  int total_duration{0};
@@ -208,6 +248,8 @@ int main(int argc, char *argv[]) {
 //      heuristics::warmstartDisjunctive(S, schedule, intervals, ub);
         
 //        std::cout << "-- est-then-slack greedy initialisation\n";
+        
+//        S.relaxPropagators();
         heuristics::warmstart(S, schedule, intervals, ub);
 //        std::cout << "-- slack-then-est greedy initialisation\n";
 //        heuristics::warmstartSlackEst(S, schedule, intervals, ub);
@@ -222,7 +264,15 @@ int main(int argc, char *argv[]) {
 
   // search
   if (not optimal) {
-    S.minimize(schedule.duration);
+//      S.postPropagators();
+      
+//      MinimizationObjective<int> objective(schedule.duration);
+//      S.probing(objective);
+      
+//      exit(1);
+      
+//      S.optimize(objective);
+      S.minimize(schedule.duration);
   }
 
   if (S.numeric.hasSolution()) {
